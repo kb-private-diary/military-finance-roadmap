@@ -1,9 +1,46 @@
-// 후회 소비 회고 라우트 (수연)
+// regret 라우트 (담당: 수연)
+// 화면 파일 위치: @/pages/regret/
 export default [
   {
+    path: '/regret/link',
+    name: 'RegretLink',   // 오픈뱅킹 연동 유도
+    component: () => import('@/pages/regret/RegretLinkPage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/regret/link/auth',
+    name: 'RegretLinkAuth',   // 오픈뱅킹 인증
+    component: () => import('@/pages/regret/RegretLinkAuthPage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/regret',
-    name: 'regret',
-    component: () => import('@/pages/regret/RegretPage.vue'),
-    // beforeEnter: isAuthenticated, // 로그인 필요 시 guards.js 의 isAuthenticated 연결
+    name: 'RegretDashboard',   // 후회소비 대시보드
+    component: () => import('@/pages/regret/RegretDashboardPage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/regret/spendings/:date',
+    name: 'RegretDailySpending',   // 일자별 지출
+    component: () => import('@/pages/regret/RegretDailySpendingPage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/regret/review',
+    name: 'RegretReview',   // 소비 점호 태깅
+    component: () => import('@/pages/regret/RegretReviewPage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/regret/report',
+    name: 'RegretReport',   // 월별 분석
+    component: () => import('@/pages/regret/RegretReportPage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/regret/challenges',
+    name: 'RegretChallenge',   // 절감 목표 + 적금 추천
+    component: () => import('@/pages/regret/RegretChallengePage.vue'),
+    meta: { requiresAuth: true },
   },
 ];

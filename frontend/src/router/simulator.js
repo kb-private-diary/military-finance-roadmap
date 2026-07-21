@@ -1,9 +1,28 @@
-// 군적금 만기 시뮬레이터 라우트 (석윤)
+// simulator 라우트 (담당: 석윤)
+// 화면 파일 위치: @/pages/simulator/
 export default [
   {
     path: '/simulator',
-    name: 'simulator',
+    name: 'Simulator',   // 군적금 시뮬레이터
     component: () => import('@/pages/simulator/SimulatorPage.vue'),
-    // beforeEnter: isAuthenticated, // 로그인 필요 시 guards.js 의 isAuthenticated 연결
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/simulator/calc',
+    name: 'SimulatorCalc',   // 군적금 계산
+    component: () => import('@/pages/simulator/SimulatorCalcPage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/simulator/products/:productId',
+    name: 'SavingProductDetail',   // 적금 상품 상세
+    component: () => import('@/pages/simulator/SavingProductDetailPage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/simulator/policies/:policyId',
+    name: 'PolicyProductDetail',   // 정책 상품 상세
+    component: () => import('@/pages/simulator/PolicyProductDetailPage.vue'),
+    meta: { requiresAuth: true },
   },
 ];

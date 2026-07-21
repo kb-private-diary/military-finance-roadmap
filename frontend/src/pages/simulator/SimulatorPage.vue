@@ -1,9 +1,12 @@
 <script setup>
-// TODO(석윤): 군적금 만기 시뮬레이터 화면 구현
+// SCR-SIM-01 · 군적금 시뮬레이터  (담당: 석윤)
+// 군적금 만기금 시뮬레이션 메인
 </script>
+
 <template>
-  <div class="py-3">
-    <h3>군적금 만기 시뮬레이터</h3>
-    <p class="text-muted">준비 중입니다. (담당: 석윤)</p>
+  <div class="container py-4">
+    <h2 class="mb-2">군적금 시뮬레이터</h2>
+    <p class="text-muted small">SCR-SIM-01 · <code>/simulator</code></p>
+    <!-- TODO: 석윤 구현 -->
   </div>
 </template>

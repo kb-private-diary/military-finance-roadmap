@@ -1,9 +1,10 @@
-// 소셜 라우트 (태석)
+// social 라우트 (담당: 태석)
+// 화면 파일 위치: @/pages/social/
 export default [
   {
     path: '/social',
-    name: 'social',
+    name: 'Social',   // 소셜
     component: () => import('@/pages/social/SocialPage.vue'),
-    // beforeEnter: isAuthenticated, // 로그인 필요 시 guards.js 의 isAuthenticated 연결
+    meta: { requiresAuth: true },
   },
 ];

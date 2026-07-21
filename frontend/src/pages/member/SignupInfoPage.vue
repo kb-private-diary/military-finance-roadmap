@@ -52,7 +52,7 @@ const join = async () => {
   }
   try {
     await authApi.create(member); // 회원가입
-    router.push({ name: 'home' }); // 회원 가입 성공 시, 첫 페이지로 이동 또는 로그인 페이지로 이동
+    router.push({ name: 'Home' }); // 회원 가입 성공 시, 첫 페이지로 이동 또는 로그인 페이지로 이동
   } catch (e) {
     console.error(e);
   }
