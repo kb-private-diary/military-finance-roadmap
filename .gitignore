@@ -1,0 +1,36 @@
+# ===== 공통 =====
+.DS_Store
+Thumbs.db
+*.log
+
+# ===== IDE =====
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+
+# ===== Java / Gradle (backend) =====
+.gradle/
+build/
+out/
+!gradle/wrapper/gradle-wrapper.jar
+
+# ===== Node (frontend) =====
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# ===== Python (chatbot) =====
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+env/
+*.egg-info/
+
+# ===== 환경변수 / 민감정보 =====
+.env
+.env.local
+!.env.example
