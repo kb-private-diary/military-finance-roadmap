@@ -1,12 +1,13 @@
 package org.scoula.job.domain;
 
 import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.EqualsAndHashCode;
+import org.scoula.common.domain.BaseVO;
 
 
 @Data
-@NoArgsConstructor
-public class JobCodeVO {
+@EqualsAndHashCode(callSuper = true)
+public class JobCodeVO extends BaseVO {
     private Long jobCodeId;
     private String goalType;
     private String codeName;
