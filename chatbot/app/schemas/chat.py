@@ -38,3 +38,8 @@ class MessageItem(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class MessageCreateRequest(BaseModel):
+    session_id: int
+    content: str

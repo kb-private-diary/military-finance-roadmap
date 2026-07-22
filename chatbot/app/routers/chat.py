@@ -8,9 +8,17 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.models.chat import ChatMessage, ChatSession
-from app.schemas.chat import MessageItem, SessionCreateRequest, SessionListItem, SessionResponse
+from app.schemas.chat import (
+    MessageCreateRequest,
+    MessageItem,
+    SessionCreateRequest,
+    SessionListItem,
+    SessionResponse,
+)
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
+
+MESSAGE_MAX_LENGTH = 500
 
 
 # CHAT-002: 대화 세션 관리 API
@@ -85,9 +93,33 @@ def get_history(session_id: int, db: Session = Depends(get_db)):
 
 
 # CHAT-004: 사용자 질문 입력 처리
-@router.post("/message")
-def send_message():
-    raise NotImplementedError
+@router.post("/message", response_model=MessageItem)
+def send_message(payload: MessageCreateRequest, db: Session = Depends(get_db)):
+    content = payload.content.strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="질문을 입력해주세요")
+    if len(content) > MESSAGE_MAX_LENGTH:
+        raise HTTPException(status_code=400, detail=f"질문은 {MESSAGE_MAX_LENGTH}자 이내로 입력해주세요")
+
+    session = (
+        db.query(ChatSession)
+        .filter(ChatSession.session_id == payload.session_id, ChatSession.del_yn == "N")
+        .first()
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    new_message = ChatMessage(
+        session_id=payload.session_id,
+        role="user",
+        content=content,
+        created_date=datetime.now(),
+        created_nm=str(session.user_id),
+    )
+    db.add(new_message)
+    db.commit()
+    db.refresh(new_message)
+    return new_message
 
 
 # CHAT-005: 초기 카테고리 메뉴 및 FAQ/상품/용어
