@@ -176,6 +176,6 @@ def create_feedback():
 
 
 # RAG-009: 답변 관련 콘텐츠 추천
-@router.get("/recommendations/{messageId}")
+@router.get("/messages/{messageId}/recommendations")
 def get_recommendation(message_id: int = Path(..., alias="messageId")):
     raise NotImplementedError
