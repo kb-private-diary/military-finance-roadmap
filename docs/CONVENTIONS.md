@@ -361,6 +361,45 @@ DELETE /api/openbanking/link       연동 해제
 
 ---
 
+## 10. 🔐 API 키 · 비밀값 관리 (전원 필독)
+
+우리 저장소는 **Public(공개)** 입니다. 코드에 API 키를 넣고 커밋하면
+**수집 봇이 몇 분 만에 긁어가서 도용**됩니다. 아래 규칙을 반드시 지켜주세요.
+
+### 규칙
+- ❌ 코드·`application.properties` 에 **실제 키를 직접 적지 않는다**
+- ✅ 키는 **`application-secret.properties`** 에만 넣는다 (`.gitignore` 처리되어 커밋 안 됨)
+- ✅ **키 값은 노션 "환경변수" 페이지에서 팀끼리 공유**한다
+- ✅ 새 키가 생기면 **`application-secret.properties.example` 에 항목명만** 추가하고 커밋 (값은 비워둠)
+
+### 처음 세팅할 때 (각자 1회)
+```
+1. backend/src/main/resources/application-secret.properties.example 복사
+2. 같은 폴더에 application-secret.properties 로 저장
+3. 노션 "환경변수" 페이지의 값을 붙여넣기
+```
+> 파일이 없어도 서버는 정상 실행됩니다 (`ignoreResourceNotFound = true`)
+
+### 코드에서 쓰는 법
+```java
+@Value("${openbanking.client-id}")
+private String clientId;
+```
+
+### 담당별 키 목록
+| 키 | 담당 |
+|---|---|
+| `jwt.secret` | 공용 (Spring · FastAPI 동일 값) |
+| `openbanking.*` · `molit.*` · `mois.*` · `kakao.*` | 수연 |
+| `fss.api-key` | 석윤 |
+| `opinet.api-key` | 호빈 |
+| `serpapi.api-key` | 태석 |
+| Gemini API 키 | 에스더 (챗봇 `.env`) |
+
+> ⚠️ 실수로 키를 커밋했다면 **즉시 알려주세요.** 커밋을 지워도 히스토리에 남기 때문에 **해당 키를 폐기하고 재발급**해야 합니다.
+
+---
+
 ## 9. 🗄 DB 실행
 
 ```bash
