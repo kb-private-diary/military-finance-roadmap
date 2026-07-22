@@ -2,18 +2,6 @@
 // 화면 파일 위치: @/pages/regret/
 export default [
   {
-    path: '/regret/link',
-    name: 'RegretLink',   // 오픈뱅킹 연동 유도
-    component: () => import('@/pages/regret/RegretLinkPage.vue'),
-    meta: { requiresAuth: true },
-  },
-  {
-    path: '/regret/link/auth',
-    name: 'RegretLinkAuth',   // 오픈뱅킹 인증
-    component: () => import('@/pages/regret/RegretLinkAuthPage.vue'),
-    meta: { requiresAuth: true },
-  },
-  {
     path: '/regret',
     name: 'RegretDashboard',   // 후회소비 대시보드
     component: () => import('@/pages/regret/RegretDashboardPage.vue'),

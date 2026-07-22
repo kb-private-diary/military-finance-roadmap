@@ -1,4 +1,4 @@
-// main 라우트 (담당: 지원, 호빈)
+// main 라우트 (담당: 수연, 지원)
 // 화면 파일 위치: @/pages/main/
 export default [
   {

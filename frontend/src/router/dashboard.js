@@ -8,12 +8,6 @@ export default [
     meta: { requiresAuth: true },
   },
   {
-    path: '/dashboard/saving',
-    name: 'SavingRegister',   // 군적금 등록
-    component: () => import('@/pages/dashboard/SavingRegisterPage.vue'),
-    meta: { requiresAuth: true },
-  },
-  {
     path: '/dashboard/vacation',
     name: 'VacationEdit',   // 휴가 추가/수정
     component: () => import('@/pages/dashboard/VacationEditPage.vue'),

@@ -38,18 +38,6 @@ export default [
     meta: { requiresAuth: false },
   },
   {
-    path: '/mypage',
-    name: 'MyPage',   // 회원정보
-    component: () => import('@/pages/member/MyPage.vue'),
-    meta: { requiresAuth: true },
-  },
-  {
-    path: '/mypage/edit',
-    name: 'MyPageEdit',   // 회원정보 수정
-    component: () => import('@/pages/member/MyPageEditPage.vue'),
-    meta: { requiresAuth: true },
-  },
-  {
     path: '/mypage/password',
     name: 'MyPagePassword',   // 비밀번호 변경
     component: () => import('@/pages/member/MyPagePasswordPage.vue'),
@@ -59,6 +47,18 @@ export default [
     path: '/mypage/withdraw',
     name: 'MyPageWithdraw',   // 회원 탈퇴
     component: () => import('@/pages/member/MyPageWithdrawPage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/mypage',
+    name: 'MyPage',   // 회원정보
+    component: () => import('@/pages/member/MyPage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/mypage/edit',
+    name: 'MyPageEdit',   // 회원정보 수정
+    component: () => import('@/pages/member/MyPageEditPage.vue'),
     meta: { requiresAuth: true },
   },
 ];
