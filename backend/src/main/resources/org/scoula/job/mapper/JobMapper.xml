@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="org.scoula.job.mapper.JobMapper">
-
     <select id="findJobCodesByGoalType" parameterType="String" resultType="org.scoula.job.domain.JobCodeVO">
         SELECT
             job_code_id AS jobCodeId,
@@ -12,5 +11,23 @@
         WHERE goal_type = #{goalType}
         ORDER BY job_code_id
     </select>
+
+    <insert id="createJobGoal" parameterType="org.scoula.job.domain.JobGoalVO" useGeneratedKeys="true" keyProperty="goalId">
+        <!--
+            TODO: 테이블정의서 원본에는 status DEFAULT 'DRAFT'로 명시되어 있으나
+            실제 DDL(kb-schema.sql)에는 DEFAULT 값이 누락되어 있음.
+            DB가 자동으로 채워주지 않으므로 status를 명시적으로 'DRAFT'로 INSERT함.
+            추후 DDL 수정 시(kb-schema.sql에 DEFAULT 'DRAFT' 추가) 이 부분은 그대로 유지해도 무방.
+            TODO: created_nm은 원래 사용자 이름을 기록해야 하나, JWT 미연동으로 이름 정보를 알 수 없어
+            임시로 userId를 문자열로 기록함. 추후 JWT 연동 시 실제 사용자명으로 교체 예정.
+        -->
+        INSERT INTO job_goal (
+        user_id, goal_type, job_code_id, expected_date, status,
+        created_date, created_nm, del_yn
+        ) VALUES (
+        #{userId}, #{goalType}, #{jobCodeId}, #{expectedDate}, 'DRAFT',
+        NOW(), #{userId}, 'N'
+        )
+    </insert>
 
 </mapper>
