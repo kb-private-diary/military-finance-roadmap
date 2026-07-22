@@ -12,3 +12,5 @@ DB_NAME = os.getenv("DB_NAME", "kb_chatbot")
 DATABASE_URL = (
     f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?charset=utf8mb4"
 )
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")

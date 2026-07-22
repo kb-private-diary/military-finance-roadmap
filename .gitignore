@@ -30,7 +30,10 @@ venv/
 env/
 *.egg-info/
 
-# ===== 환경변수 / 민감정보 =====
+# ===== 환경변수 / 민감정보 (커밋 금지!) =====
 .env
 .env.local
 !.env.example
+# 외부 API 키 — 값은 노션에서 받아 각자 로컬에 생성
+application-secret.properties
+!application-secret.properties.example
