@@ -96,7 +96,7 @@ DB_NAME=scoula_db        # ※ 메인 서비스와 같은 DB
 | GET | `/sessions` | 내 세션 목록 | ✅ |
 | GET | `/history/{sessionId}` | 대화 히스토리 | ✅ |
 | POST | `/messages` | 질문 전송 + 챗봇 응답 | ✅ |
-| POST | `/feedbacks` | 만족도 피드백 | ⬜ |
+| POST | `/feedback` | 만족도 피드백 | ⬜ |
 | GET | `/messages/{messageId}/recommendations` | 관련 콘텐츠 추천 | ⬜ |
 | GET | `/topics` | 초기 카테고리 메뉴 | ✅ |
 | GET | `/faq-categories` | FAQ 카테고리 | ✅ |

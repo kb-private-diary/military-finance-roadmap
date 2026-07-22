@@ -170,7 +170,7 @@ def get_glossary_term(term: str):
 
 
 # CHAT-006: 답변 만족도 피드백 저장 API
-@router.post("/feedbacks")
+@router.post("/feedback")
 def create_feedback():
     raise NotImplementedError
 
