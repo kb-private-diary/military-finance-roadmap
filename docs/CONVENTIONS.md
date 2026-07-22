@@ -117,14 +117,24 @@ org.scoula.{도메인}.{controller, service, mapper, domain, dto}
 ### 클래스 접미사
 `~Controller` · `~Service` · `~ServiceImpl` · `~Mapper` · `~DTO` · `~VO` · `~Test`
 
-### 메서드 네이밍 (Controller · Service 공통)
-| 기능 | 메서드명 | Service 반환값 |
-|---|---|---|
-| 생성 | `create...` | **생성된 id** |
-| 수정 | `modify...` | `void` |
-| 삭제 | `delete...` | `void` |
-| 단건 조회 | `find...` (예: `findGoal`) | DTO |
-| 목록 조회 | `find...s` (예: `findGoals`) | `List<DTO>` |
+### 메서드 네이밍
+
+MyBatis 관례 + 수업 코드(`member` 도메인)에 맞춰 **`get` 계열**로 통일한다.
+
+| 기능 | Controller · Service | Mapper | Service 반환값 |
+|---|---|---|---|
+| 단건 조회 | `get...` (예: `getGoal`) | `get...` | DTO |
+| 목록 조회 | `get...List` (예: `getGoalList`) | `get...List` | `List<DTO>` |
+| 등록 | `create...` | `insert...` | **생성된 id** |
+| 수정 | `update...` | `update...` | `void` |
+| 삭제 | `delete...` | `delete...` | `void` |
+
+> 📌 **Service 는 `create`, Mapper 는 `insert`** — 서비스는 "무엇을 하는지", 매퍼는 "DB에 무슨 SQL을 날리는지"를 나타낸다.
+> 참고 코드: `member/mapper/MemberMapper.java`, `member/service/MemberService.java`
+
+### 파라미터 네이밍
+- 조건이 붙으면 `By` 사용 — `getSavingAccountListByUserId(Long userId)`
+- 파라미터 2개 이상은 **DTO 로 묶기** (`@Param` 남발 금지)
 
 ### DTO 네이밍
 - 요청/응답 **분리**: `TravelGoalCreateRequestDTO` / `TravelGoalCreateResponseDTO`
