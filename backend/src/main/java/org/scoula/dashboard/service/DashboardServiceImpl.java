@@ -34,7 +34,7 @@ public class DashboardServiceImpl implements DashboardService {
         
         LocalDate dischargeDate = (dischargeDateUtil != null) 
             ? dischargeDateUtil.toInstant().atZone(ZoneId.systemDefault()).toLocalDate() 
-            : LocalDate.now().plusMonths(18); // fallback
+            : LocalDate.now().plusMonths(24); // fallback
         
         Long expectedMaturityTotal = 0L;
         
@@ -51,7 +51,7 @@ public class DashboardServiceImpl implements DashboardService {
                     
                 int totalMaturityMonths = (int) ChronoUnit.MONTHS.between(createdDate.withDayOfMonth(1), dischargeDate.withDayOfMonth(1)) + 1;
                 if (totalMaturityMonths < 0) totalMaturityMonths = 0;
-                if (totalMaturityMonths > 18) totalMaturityMonths = 18; // 최대 18회차로 제한
+                if (totalMaturityMonths > 24) totalMaturityMonths = 24; // 장병내일준비적금 법정 최대 가입기간(24개월) 제한
                 
                 // 1. 해당 계좌의 실제 납입 내역(saving_history) 가져오기
                 List<DashboardSavingHistoryDTO> histories = mapper.getSavingHistoryByAccountId(account.getAccountId());
