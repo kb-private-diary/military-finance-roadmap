@@ -285,11 +285,21 @@ router.push({ name: 'RentGoalDetail', params: { goalId } });
 
 ### 표기 규칙
 1. 리소스는 **복수형** (`/goals`, `/listings`)
+   - ⚠️ **예외 — 불가산 명사는 단수 유지**: `feedback` · `history` · `glossary` 처럼
+     영어에서 개수를 세지 않는 명사는 복수형(`feedbacks`)이 어색하므로 **단수로 쓴다**
+   - 판단 기준: *"이걸 2개, 3개라고 셀 수 있나?"* → 셀 수 있으면 복수형
+     (`session` → `sessions` ⭕ / `feedback` → `feedbacks` ❌)
+   - 같은 리소스는 **메서드가 달라도 경로를 통일**한다
+     (`POST /sessions` + `GET /sessions` ⭕ / `POST /session` + `GET /sessions` ❌)
 2. 경로 변수는 의미 있게 **camelCase** (`{goalId}`, `{goalid}` ❌)
 3. 여러 단어는 **케밥 케이스** (`saving-details`)
 4. URL에 동사 금지, 단 **확정 액션은 `/confirm` 허용**
+   - `GET /recommend/{messageId}` ❌ → `GET /messages/{messageId}/recommendations` ⭕
 5. 하나의 엔드포인트 = 명세서 1행 (내부 로직은 비고에)
 6. **부분 수정은 PATCH, 전체 교체는 PUT** (필드 1~2개는 PUT 허용)
+
+> 📌 **컨벤션과 API 명세서(노션)가 다를 때는 → 컨벤션을 기준으로 맞추고, 노션 명세서도 함께 수정한다.**
+> (컨벤션이 명세서보다 나중에 정해져서 생긴 불일치가 있을 수 있음)
 
 ### 로드맵 4파트 공통 URL 패턴
 도메인 = `travel` / `job` / `car` / `rent`
