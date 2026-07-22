@@ -92,14 +92,14 @@ DB_NAME=scoula_db        # ※ 메인 서비스와 같은 DB
 
 | Method | Path | 기능 | 상태 |
 |---|---|---|---|
-| POST | `/session` | 대화 세션 생성/재사용 | ✅ |
+| POST | `/sessions` | 대화 세션 생성/재사용 | ✅ |
 | GET | `/sessions` | 내 세션 목록 | ✅ |
 | GET | `/history/{sessionId}` | 대화 히스토리 | ✅ |
-| POST | `/message` | 질문 전송 + 챗봇 응답 | ⬜ |
+| POST | `/messages` | 질문 전송 + 챗봇 응답 | ✅ |
 | POST | `/feedback` | 만족도 피드백 | ⬜ |
-| GET | `/recommend/{messageId}` | 관련 콘텐츠 추천 | ⬜ |
-| GET | `/topics` | 초기 카테고리 메뉴 | ⬜ |
-| GET | `/faq-categories` | FAQ 카테고리 | ⬜ |
+| GET | `/messages/{messageId}/recommendations` | 관련 콘텐츠 추천 | ⬜ |
+| GET | `/topics` | 초기 카테고리 메뉴 | ✅ |
+| GET | `/faq-categories` | FAQ 카테고리 | ✅ |
 | GET | `/products` · `/products/{name}` | 상품 목록·상세 | ⬜ |
 | GET | `/glossary` · `/glossary/{term}` | 정책 용어 목록·상세 | ⬜ |
 
@@ -113,7 +113,7 @@ DB_NAME=scoula_db        # ※ 메인 서비스와 같은 DB
 2. **감사 컬럼** — 모든 INSERT 시 `created_date`, `created_nm`, `del_yn='N'` 채우기
    - 삭제는 물리 삭제 금지, `del_yn='Y'` 로 소프트 삭제
 3. **CORS** — 프론트 origin(`http://localhost:5173`) 허용
-4. **응답 JSON 키** — 메인 서비스(Spring)는 camelCase(`sessionId`)를 사용. 프론트 일관성을 위해 맞추는 것을 권장
+4. **응답 JSON 키** — 메인 서비스(Spring)와 동일하게 camelCase(`sessionId`)로 직렬화됨 (Pydantic `alias_generator=to_camel`, 경로 변수도 동일 적용). 내부 파이썬 코드는 snake_case 그대로 사용
 
 ## ✅ TODO
 
