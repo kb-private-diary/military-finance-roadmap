@@ -117,6 +117,29 @@ org.scoula.{도메인}.{controller, service, mapper, domain, dto}
 ### 클래스 접미사
 `~Controller` · `~Service` · `~ServiceImpl` · `~Mapper` · `~DTO` · `~VO` · `~Test`
 
+### 메서드 네이밍 (Controller · Service 공통)
+| 기능 | 메서드명 | Service 반환값 |
+|---|---|---|
+| 생성 | `create...` | **생성된 id** |
+| 수정 | `modify...` | `void` |
+| 삭제 | `delete...` | `void` |
+| 단건 조회 | `find...` (예: `findGoal`) | DTO |
+| 목록 조회 | `find...s` (예: `findGoals`) | `List<DTO>` |
+
+### DTO 네이밍
+- 요청/응답 **분리**: `TravelGoalCreateRequestDTO` / `TravelGoalCreateResponseDTO`
+- 웹 요청과 무관한 DTO: `UserInfoDTO`
+- **VO를 컨트롤러 밖으로 노출하지 않는다** (항상 DTO로 변환)
+
+### 외부 API 연동
+오픈뱅킹·국토부·행안부·카카오·오피넷 등 외부 호출이 많으므로 **도메인 안에서 분리**한다.
+```
+org.scoula.openbanking.client.OpenBankingClient
+org.scoula.rent.client.MolitClient          // 국토교통부 실거래가
+```
+- Service 는 client 를 통해서만 외부 API 를 호출 (Service 안에 RestTemplate 직접 사용 ❌)
+- API 키·URL 은 `application.properties` 로 분리
+
 ### 네이밍
 - **DB**: 테이블·컬럼 `snake_case`
 - **Java**: 클래스 `PascalCase` / 변수·메서드 `camelCase` / 상수 `MAX_LOAN_LIMIT`
@@ -136,6 +159,8 @@ org.scoula.{도메인}.{controller, service, mapper, domain, dto}
 - **import 정렬**: 와일드카드 금지, `java → javax → org → net → com → 프로젝트패키지`
 - 한 줄에 한 문장, 한 선언문에 한 변수
 - 들여쓰기: IDE 기본값 / 한 줄 최대 **100자**
+- `@Builder` 는 생성자 파라미터가 **3개 이상**일 때만 사용
+- `ResponseEntity` 생성 시 **상태코드 명시** — `ResponseEntity.status(HttpStatus.CREATED).body(...)`
 
 ### 공통 규칙
 - **BaseVO 상속**으로 감사컬럼 5개(`created_date`/`created_nm`/`modified_date`/`modified_nm`/`del_yn`) 처리
@@ -151,7 +176,23 @@ org.scoula.{도메인}.{controller, service, mapper, domain, dto}
 ```json
 { "success": false, "data": null, "message": "목표를 찾을 수 없습니다.", "code": "RENT_001" }
 ```
-> ⚠️ `common/response/ApiResponse.java` **미생성 상태** — 먼저 만드는 사람이 공용으로 추가해주세요.
+
+`common/response/ApiResponse.java` **생성 완료** ✅ — 컨트롤러는 이걸로 감싸서 반환한다.
+```java
+// 조회
+return ResponseEntity.ok(ApiResponse.success(travelService.findGoals(userId)));
+
+// 생성 (id 반환)
+return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(goalId));
+
+// 수정·삭제 (본문 없음)
+return ResponseEntity.ok(ApiResponse.success());
+
+// 실패
+return ResponseEntity.status(HttpStatus.NOT_FOUND)
+        .body(ApiResponse.error("목표를 찾을 수 없습니다.", "RENT_001"));
+```
+> 에러 코드는 **도메인_번호** 형식 — `RENT_001`, `TRAVEL_002`
 
 ---
 
@@ -231,7 +272,8 @@ router.push({ name: 'RentGoalDetail', params: { goalId } });
   "singleQuote": true
 }
 ```
-> ⚠️ `.prettierrc` 파일 **미생성 상태** — 먼저 만드는 사람이 `frontend/` 루트에 추가해주세요.
+`frontend/.prettierrc` **생성 완료** ✅ — VSCode의 Prettier 확장을 켜두면 저장 시 자동 정렬된다.
+> 스타일 차이로 인한 불필요한 diff·충돌을 막기 위해 **모두 켜고 작업**해주세요.
 
 ---
 
@@ -333,7 +375,9 @@ mysql -u root -p scoula_db < kb-data.sql
 
 ## ✅ 착수 전 체크리스트
 
-- [ ] `common/response/ApiResponse.java` 생성 (§4 공통 응답 포맷)
-- [ ] `frontend/.prettierrc` 생성 (§5 Prettier 설정)
-- [ ] `frontend/src/composables/` 폴더 생성 (§5 폴더 구조)
-- [ ] GitHub `main`·`dev` 브랜치 보호 설정 (§1)
+- [x] `common/response/ApiResponse.java` 생성 (§4 공통 응답 포맷)
+- [x] `frontend/.prettierrc` 생성 (§5 Prettier 설정)
+- [x] `frontend/src/composables/` 폴더 생성 (§5 폴더 구조)
+- [ ] GitHub `main`·`dev` 브랜치 보호 설정 (§1) — *조수연*
+- [ ] 각자 로컬 MySQL 에 `scoula_db` 생성 + 스키마·데이터 실행 (§9)
+- [ ] VSCode **Prettier 확장** 설치 및 "저장 시 포맷" 켜기
