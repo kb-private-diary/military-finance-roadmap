@@ -9,16 +9,32 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.models.chat import ChatMessage, ChatSession
 from app.schemas.chat import (
+    FaqCategoryItem,
     MessageCreateRequest,
     MessageItem,
     SessionCreateRequest,
     SessionListItem,
     SessionResponse,
+    TopicItem,
 )
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
 MESSAGE_MAX_LENGTH = 500
+
+TOPICS = [
+    TopicItem(topic_id="fund_consult", label="목돈상담"),
+    TopicItem(topic_id="savings_subscription", label="적금청약질문"),
+    TopicItem(topic_id="policy_terms", label="정책용어"),
+    TopicItem(topic_id="free_input", label="자유입력"),
+]
+
+FAQ_CATEGORIES = [
+    FaqCategoryItem(category_id="savings", label="적금"),
+    FaqCategoryItem(category_id="subscription", label="청약"),
+    FaqCategoryItem(category_id="deposit", label="예금"),
+    FaqCategoryItem(category_id="investment", label="투자"),
+]
 
 
 # CHAT-002: 대화 세션 관리 API
@@ -123,14 +139,14 @@ def send_message(payload: MessageCreateRequest, db: Session = Depends(get_db)):
 
 
 # CHAT-005: 초기 카테고리 메뉴 및 FAQ/상품/용어
-@router.get("/topics")
+@router.get("/topics", response_model=List[TopicItem])
 def get_topics():
-    raise NotImplementedError
+    return TOPICS
 
 
-@router.get("/faq-categories")
+@router.get("/faq-categories", response_model=List[FaqCategoryItem])
 def get_faq_categories():
-    raise NotImplementedError
+    return FAQ_CATEGORIES
 
 
 @router.get("/products")

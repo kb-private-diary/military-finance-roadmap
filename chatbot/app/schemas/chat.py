@@ -43,3 +43,13 @@ class MessageItem(BaseModel):
 class MessageCreateRequest(BaseModel):
     session_id: int
     content: str
+
+
+class TopicItem(BaseModel):
+    topic_id: str
+    label: str
+
+
+class FaqCategoryItem(BaseModel):
+    category_id: str
+    label: str
