@@ -59,7 +59,15 @@ import javax.sql.DataSource;
         "org.scoula.social.service",
         "org.scoula.bookmark.service"
 })
-@PropertySource({"classpath:/application.properties"})
+// application-secret.properties 는 API 키 등 비밀값 (gitignore 대상).
+// 파일이 없어도 서버가 뜨도록 ignoreResourceNotFound = true
+@PropertySource(
+        value = {
+                "classpath:/application.properties",
+                "classpath:/application-secret.properties"
+        },
+        ignoreResourceNotFound = true
+)
 @EnableTransactionManagement
 public class RootConfig {
 
