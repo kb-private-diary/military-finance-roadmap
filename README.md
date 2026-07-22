@@ -176,7 +176,8 @@ uvicorn app.main:app --reload --port 8000
 
 ## 📐 컨벤션
 
-개발 규칙은 **[CONVENTIONS.md](CONVENTIONS.md)** 참고 (팀 합의 최종본)
+개발 규칙은 **[docs/CONVENTIONS.md](docs/CONVENTIONS.md)** 참고 (팀 합의 최종본)
+Git 사용법이 어렵다면 **[docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md)** 부터 보세요
 - 브랜치: **개인 브랜치(`dev_이름`) → dev → main** · PR 리뷰 1명 이상
 - 커밋: `❇️[feat]` `🐞[fix]` `💄[style]` `🔨[refactor]` `🔧[chore]` `📝[docs]` `🔍[test]` `🚧[setting]`
 - 라우트는 **name 방식**, 인증 화면은 `meta: { requiresAuth: true }`
