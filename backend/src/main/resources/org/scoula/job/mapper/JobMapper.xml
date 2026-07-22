@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.scoula.job.mapper.JobMapper">
+
+    <select id="findJobCodesByGoalType" parameterType="String" resultType="org.scoula.job.domain.JobCodeVO">
+        SELECT
+            job_code_id AS jobCodeId,
+            goal_type   AS goalType,
+            code_name   AS codeName,
+            info_url    AS infoUrl
+        FROM job_code
+        WHERE goal_type = #{goalType}
+        ORDER BY job_code_id
+    </select>
+
+</mapper>
