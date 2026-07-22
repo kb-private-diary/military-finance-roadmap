@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.scoula.travel.mapper.TravelMapper">
+
+    <sql id="cityCostColumns">
+        city_cost_id, country, city,
+        saving_cost, common_cost, premium_cost,
+        created_date, created_nm, modified_date, modified_nm, del_yn
+    </sql>
+
+    <select id="getCityCostList" resultType="org.scoula.travel.domain.CityCostVO">
+        SELECT
+        <include refid="cityCostColumns"/>
+        FROM city_cost
+        WHERE del_yn = 'N'
+        <if test="country != null and country != ''">
+            AND country = #{country}
+        </if>
+        ORDER BY country, city
+    </select>
+
+    <select id="getCityCost" resultType="org.scoula.travel.domain.CityCostVO">
+        SELECT
+        <include refid="cityCostColumns"/>
+        FROM city_cost
+        WHERE del_yn = 'N'
+        AND city_cost_id = #{cityCostId}
+    </select>
+
+</mapper>
