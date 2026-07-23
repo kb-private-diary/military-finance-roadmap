@@ -117,14 +117,24 @@ org.scoula.{도메인}.{controller, service, mapper, domain, dto}
 ### 클래스 접미사
 `~Controller` · `~Service` · `~ServiceImpl` · `~Mapper` · `~DTO` · `~VO` · `~Test`
 
-### 메서드 네이밍 (Controller · Service 공통)
-| 기능 | 메서드명 | Service 반환값 |
-|---|---|---|
-| 생성 | `create...` | **생성된 id** |
-| 수정 | `modify...` | `void` |
-| 삭제 | `delete...` | `void` |
-| 단건 조회 | `find...` (예: `findGoal`) | DTO |
-| 목록 조회 | `find...s` (예: `findGoals`) | `List<DTO>` |
+### 메서드 네이밍
+
+조회는 **`find` 계열**로 통일한다. (팀 다수 코드가 `find` 를 사용 중)
+
+| 기능 | Controller · Service | Mapper | Service 반환값 |
+|---|---|---|---|
+| 단건 조회 | `find...` (예: `findGoal`) | `find...` | DTO |
+| 목록 조회 | `find...List` (예: `findGoalList`) | `find...List` | `List<DTO>` |
+| 등록 | `create...` | `insert...` | **생성된 id** |
+| 수정 | `update...` | `update...` | `void` |
+| 삭제 | `delete...` | `delete...` | `void` |
+
+> 📌 **Service 는 `create`, Mapper 는 `insert`** — 서비스는 "무엇을 하는지", 매퍼는 "DB에 무슨 SQL을 날리는지"를 나타낸다.
+> 참고 코드: `member/mapper/MemberMapper.java`, `member/service/MemberService.java`
+
+### 파라미터 네이밍
+- 조건이 붙으면 `By` 사용 — `getSavingAccountListByUserId(Long userId)`
+- 파라미터 2개 이상은 **DTO 로 묶기** (`@Param` 남발 금지)
 
 ### DTO 네이밍
 - 요청/응답 **분리**: `TravelGoalCreateRequestDTO` / `TravelGoalCreateResponseDTO`
@@ -285,11 +295,21 @@ router.push({ name: 'RentGoalDetail', params: { goalId } });
 
 ### 표기 규칙
 1. 리소스는 **복수형** (`/goals`, `/listings`)
+   - ⚠️ **예외 — 불가산 명사는 단수 유지**: `feedback` · `history` · `glossary` 처럼
+     영어에서 개수를 세지 않는 명사는 복수형(`feedbacks`)이 어색하므로 **단수로 쓴다**
+   - 판단 기준: *"이걸 2개, 3개라고 셀 수 있나?"* → 셀 수 있으면 복수형
+     (`session` → `sessions` ⭕ / `feedback` → `feedbacks` ❌)
+   - 같은 리소스는 **메서드가 달라도 경로를 통일**한다
+     (`POST /sessions` + `GET /sessions` ⭕ / `POST /session` + `GET /sessions` ❌)
 2. 경로 변수는 의미 있게 **camelCase** (`{goalId}`, `{goalid}` ❌)
 3. 여러 단어는 **케밥 케이스** (`saving-details`)
 4. URL에 동사 금지, 단 **확정 액션은 `/confirm` 허용**
+   - `GET /recommend/{messageId}` ❌ → `GET /messages/{messageId}/recommendations` ⭕
 5. 하나의 엔드포인트 = 명세서 1행 (내부 로직은 비고에)
 6. **부분 수정은 PATCH, 전체 교체는 PUT** (필드 1~2개는 PUT 허용)
+
+> 📌 **컨벤션과 API 명세서(노션)가 다를 때는 → 컨벤션을 기준으로 맞추고, 노션 명세서도 함께 수정한다.**
+> (컨벤션이 명세서보다 나중에 정해져서 생긴 불일치가 있을 수 있음)
 
 ### 로드맵 4파트 공통 URL 패턴
 도메인 = `travel` / `job` / `car` / `rent`
