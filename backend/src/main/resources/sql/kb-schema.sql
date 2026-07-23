@@ -399,7 +399,8 @@ CREATE TABLE `job_interested_type` (
     `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
     `modified_date` DATETIME COMMENT '수정일시',
     `modified_nm` VARCHAR(50) COMMENT '수정자',
-    `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
+    `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부',
+     UNIQUE (`goal_id`, `item_type`)
 );
 
 DROP TABLE IF EXISTS `prep_item_criteria`;
