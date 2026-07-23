@@ -1,7 +1,6 @@
 package org.scoula.security.util;
 
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -46,23 +45,31 @@ public class JwtProcessor {
                 .compact();
     }
 
-    //username(id역할하는 클레임) --> 그대로 사용, db검색해도 됨.
-    public String getUsername(String token){
+    // 토큰을 한 번만 파싱해서 Claims를 돌려준다. 유효하지 않으면(만료/위조/타입불일치 등) 여기서 예외가 던져진다.
+    // 검증 + username추출 + refresh여부 확인을 각각 다시 파싱하지 않도록, 호출한 쪽에서 이 Claims를 재사용한다.
+    public Claims parseClaims(String token){
         return Jwts.parserBuilder()
-                .setSigningKey(this.key) //검증용 키 설정
-                .build()
-                .parseClaimsJws(token) //유효성 검증
-                .getBody()
-                .getSubject(); //id에 해당하는 클레임 추출
-    }
-
-    //refresh token(재발급 전용) 여부. access token으로 재발급을 시도하는 것을 막는다.
-    public boolean isRefreshToken(String token){
-        Claims claims = Jwts.parserBuilder()
                 .setSigningKey(this.key)
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
+    }
+
+    //username(id역할하는 클레임) --> 그대로 사용, db검색해도 됨.
+    public String getUsername(String token){
+        return getUsername(parseClaims(token));
+    }
+
+    public String getUsername(Claims claims){
+        return claims.getSubject(); //id에 해당하는 클레임 추출
+    }
+
+    //refresh token(재발급 전용) 여부. access token으로 재발급을 시도하는 것을 막는다.
+    public boolean isRefreshToken(String token){
+        return isRefreshToken(parseClaims(token));
+    }
+
+    public boolean isRefreshToken(Claims claims){
         return REFRESH_TOKEN_TYPE.equals(claims.get(TOKEN_TYPE_CLAIM));
     }
 
@@ -71,17 +78,13 @@ public class JwtProcessor {
         //유효성 검증할 때 검증용 항목이 많음.
         //유효성 검증할 때 항목별로 예외상황 발생하도록 설정.
         //문제가 생기면 예외가 발생될 예정임.
-        Jws<Claims> claims =
-                Jwts.parserBuilder()
-                .setSigningKey(this.key) //검증용 키 설정
-                .build()
-                .parseClaimsJws(token); //유효성 검증
+        parseClaims(token);
             //- ExpiredJwtException: 유효 시간 만기
             //⁃ UnsupportedJwtException: 지원하지 않은 JWT
             //⁃ MalformedJwtException: 잘못된 JWT 포맷 예외
             //⁃ SignatureException: 서명 불일치 예외
             //⁃ IllegalArgumentException: 잘못된 정보 포함
-            //리턴하기 전에 parseClaimsJws()실행 시 예외상황이 발생하면 중단됨.
+            //리턴하기 전에 parseClaims()실행 시 예외상황이 발생하면 중단됨.
         return true; //위에서 문제가 생기지 않으면 true리턴.
     }
 }

@@ -42,7 +42,7 @@ public class ApiExceptionAdvice {
     public ResponseEntity<ApiResponse<Void>> handleAuthenticationException(AuthenticationException e) {
         log.warn("[AuthenticationException] {}", e.getMessage());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ApiResponse.error(e.getMessage(), "MEM_004"));
+                .body(ApiResponse.error(e.getMessage(), "AUTH_004"));
     }
 
     /** 만료/위조된 JWT — refresh token 검증 실패 */
@@ -50,7 +50,7 @@ public class ApiExceptionAdvice {
     public ResponseEntity<ApiResponse<Void>> handleJwtException(JwtException e) {
         log.warn("[JwtException] {}", e.getMessage());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ApiResponse.error("토큰이 유효하지 않습니다.", "MEM_004"));
+                .body(ApiResponse.error("토큰이 유효하지 않습니다.", "AUTH_004"));
     }
 
     /** 잘못된 요청 — 파라미터 누락·타입 불일치·본문 파싱 실패 등 */
