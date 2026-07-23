@@ -7,6 +7,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.scoula.common.exception.BusinessException;
 import org.scoula.common.util.MilitarySavingsCalculator;
 import org.scoula.common.util.MilitarySavingsCalculator.CalcResult;
 
@@ -34,7 +35,7 @@ public class DashboardServiceImpl implements DashboardService {
         // 1. DB에서 조인된 기본 정보 가져오기
         DashboardBasicResponseDTO dto = this.mapper.findBasicInfoByUserId(userId);
         if (dto == null) {
-            return null; // 프론트엔드나 컨트롤러에서 404 예외 처리
+            throw BusinessException.notFound("유저를 찾을 수 없습니다.", "DASH_001");
         }
         
         LocalDate enlistDate = dto.getEnlistDate();
@@ -85,7 +86,7 @@ public class DashboardServiceImpl implements DashboardService {
         
         // 기획 변경: 군적금 가입자만 이용 가능하므로, 계좌가 없으면 404 예외 처리 유도
         if (accounts == null || accounts.isEmpty()) {
-            return null; 
+            throw BusinessException.notFound("군적금 가입 내역을 찾을 수 없습니다.", "DASH_002");
         }
         
         LocalDate dischargeDate = this.mapper.findDischargeDateByUserId(userId);

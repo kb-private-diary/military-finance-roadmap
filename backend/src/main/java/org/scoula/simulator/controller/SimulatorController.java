@@ -37,11 +37,6 @@ public class SimulatorController {
         
         SimulatorSavingDetailsResponseDTO dto = this.service.findSavingDetails(userId);
         
-        if (dto == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(ApiResponse.error("시뮬레이션을 위한 군적금 가입 내역을 찾을 수 없습니다.", "SIMULATOR_002"));
-        }
-        
         return ResponseEntity.ok(ApiResponse.success(dto));
     }
     
@@ -54,11 +49,6 @@ public class SimulatorController {
         
         SimulatorCalculateResponseDTO dto = this.service.calculateConstant(request);
         
-        if (dto == null) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(ApiResponse.error("잘못된 입력값입니다.", "SIMULATOR_003"));
-        }
-        
         return ResponseEntity.ok(ApiResponse.success(dto));
     }
     
@@ -70,11 +60,6 @@ public class SimulatorController {
         log.info("Calculating hypothetical military savings for VARIABLE");
         
         SimulatorCalculateResponseDTO dto = this.service.calculateVariable(request);
-        
-        if (dto == null) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(ApiResponse.error("잘못된 입력값입니다.", "SIMULATOR_003"));
-        }
         
         return ResponseEntity.ok(ApiResponse.success(dto));
     }
