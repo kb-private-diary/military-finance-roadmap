@@ -24,13 +24,13 @@ public class SimulatorController {
 
     // SIM-API-01: 군적금 예상 만기 수령액 상세 조회
     @GetMapping("/saving-details")
-    public ResponseEntity<ApiResponse<SimulatorSavingDetailsResponseDTO>> getSavingDetails(
+    public ResponseEntity<ApiResponse<SimulatorSavingDetailsResponseDTO>> findSavingDetails(
             // TODO: 추후 Spring Security 도입 시 SecurityContext에서 유저 ID 추출로 변경
             @RequestParam Long userId
     ) {
         log.info("Fetching simulator saving details for userId: {}", userId);
         
-        SimulatorSavingDetailsResponseDTO dto = this.service.getSavingDetails(userId);
+        SimulatorSavingDetailsResponseDTO dto = this.service.findSavingDetails(userId);
         
         if (dto == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)

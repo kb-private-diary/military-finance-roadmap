@@ -5,7 +5,7 @@
 
 <mapper namespace="org.scoula.dashboard.mapper.DashboardMapper">
 
-    <select id="getCurrentTotalSavings" resultType="java.lang.Long">
+    <select id="findCurrentTotalSavings" resultType="java.lang.Long">
         SELECT COALESCE(SUM(sh.pay_amount), 0)
         FROM saving_history sh
         JOIN saving_account sa ON sh.account_id = sa.account_id
@@ -14,7 +14,7 @@
           AND sh.del_yn = 'N'
     </select>
 
-    <select id="getBasicInfoByUserId" resultType="org.scoula.dashboard.dto.DashboardBasicResponseDTO">
+    <select id="findBasicInfoByUserId" resultType="org.scoula.dashboard.dto.DashboardBasicResponseDTO">
         SELECT 
             u.name, 
             mr.rank_name, 
@@ -28,7 +28,7 @@
         WHERE u.id = #{userId} AND u.del_yn = 'N'
     </select>
 
-    <select id="getDischargeDateByUserId" resultType="java.time.LocalDate">
+    <select id="findDischargeDateByUserId" resultType="java.time.LocalDate">
         SELECT discharge_date
         FROM user
         WHERE id = #{userId}
@@ -36,14 +36,14 @@
     </select>
 
     <!-- resultType 변경 필요 : 예) org.scoula.openbanking.domain.SavingAccountVO -->
-    <select id="getSavingAccountsByUserId" resultType="org.scoula.dashboard.dto.DashboardSavingAccountDTO">
+    <select id="findSavingAccountListByUserId" resultType="org.scoula.dashboard.dto.DashboardSavingAccountDTO">
         SELECT *
         FROM saving_account
         WHERE user_id = #{userId}
           AND del_yn = 'N'
     </select>
     <!-- resultType 변경 필요 : 예) org.scoula.openbanking.domain.SavingHistoryVO -->
-    <select id="getSavingHistoryByAccountId" resultType="org.scoula.dashboard.dto.DashboardSavingHistoryDTO">
+    <select id="findSavingHistoryListByAccountId" resultType="org.scoula.dashboard.dto.DashboardSavingHistoryDTO">
         SELECT history_id, account_id, pay_round, pay_amount, created_date
         FROM saving_history
         WHERE account_id = #{accountId}

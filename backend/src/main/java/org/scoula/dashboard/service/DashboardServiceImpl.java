@@ -29,7 +29,7 @@ public class DashboardServiceImpl implements DashboardService {
     @Transactional(readOnly = true)
     public DashboardBasicResponseDTO findBasicInfo(Long userId) {
         // 1. DB에서 조인된 기본 정보 가져오기
-        DashboardBasicResponseDTO dto = this.mapper.getBasicInfoByUserId(userId);
+        DashboardBasicResponseDTO dto = this.mapper.findBasicInfoByUserId(userId);
         if (dto == null) {
             return null; // 프론트엔드나 컨트롤러에서 404 예외 처리
         }
@@ -48,7 +48,9 @@ public class DashboardServiceImpl implements DashboardService {
         
         // 2. 총 복무일 (입대일 ~ 전역일 + 1)
         long totalServiceDays = ChronoUnit.DAYS.between(enlistDate, dischargeDate) + 1;
-        if (totalServiceDays <= 0) totalServiceDays = 1; // 0으로 나누기 방지
+        if (totalServiceDays <= 0) {
+            totalServiceDays = 1; // 0으로 나누기 방지
+        }
         
         // 3. 현재 복무일 (입대일 ~ 오늘 + 1)
         long currentServiceDays;
@@ -75,24 +77,30 @@ public class DashboardServiceImpl implements DashboardService {
     @Override
     @Transactional(readOnly = true)
     public DashboardSavingsResponseDTO findSavingsStatus(Long userId) {
-        Long currentTotalSavings = this.mapper.getCurrentTotalSavings(userId);
-        List<DashboardSavingAccountDTO> accounts = this.mapper.getSavingAccountsByUserId(userId);
+        Long currentTotalSavings = this.mapper.findCurrentTotalSavings(userId);
+        List<DashboardSavingAccountDTO> accounts = this.mapper.findSavingAccountListByUserId(userId);
         
         // 기획 변경: 군적금 가입자만 이용 가능하므로, 계좌가 없으면 404 예외 처리 유도
         if (accounts == null || accounts.isEmpty()) {
             return null; 
         }
         
-        LocalDate dischargeDate = this.mapper.getDischargeDateByUserId(userId);
+        LocalDate dischargeDate = this.mapper.findDischargeDateByUserId(userId);
         if (dischargeDate == null) {
             dischargeDate = LocalDate.now().plusMonths(24); // fallback
         }
         
         // 입대일 가져오기 (복무개월수 한도 계산용)
-        org.scoula.dashboard.dto.DashboardBasicResponseDTO basicInfo = this.mapper.getBasicInfoByUserId(userId);
-        LocalDate enlistDate = (basicInfo != null && basicInfo.getEnlistDate() != null) ? basicInfo.getEnlistDate() : LocalDate.now();
-        int totalServiceMonths = (int) ChronoUnit.MONTHS.between(enlistDate.withDayOfMonth(1), dischargeDate.withDayOfMonth(1));
-        if (totalServiceMonths <= 0) totalServiceMonths = 1;
+        org.scoula.dashboard.dto.DashboardBasicResponseDTO basicInfo = this.mapper.findBasicInfoByUserId(userId);
+        LocalDate enlistDate = (basicInfo != null && basicInfo.getEnlistDate() != null) 
+                ? basicInfo.getEnlistDate() 
+                : LocalDate.now();
+        int totalServiceMonths = (int) ChronoUnit.MONTHS.between(
+                enlistDate.withDayOfMonth(1), 
+                dischargeDate.withDayOfMonth(1));
+        if (totalServiceMonths <= 0) {
+            totalServiceMonths = 1;
+        }
         
         Long expectedMaturityTotal = 0L;
         
@@ -104,13 +112,17 @@ public class DashboardServiceImpl implements DashboardService {
             for(DashboardSavingAccountDTO account : accounts) {
                 // 1. 해당 계좌의 실제 납입 내역(saving_history) 가져오기
                 List<DashboardSavingHistoryDTO> histories = 
-                        this.mapper.getSavingHistoryByAccountId(account.getAccountId());
+                        this.mapper.findSavingHistoryListByAccountId(account.getAccountId());
                 
                 // 계좌별 동적 만기 개월수 계산 (실제 첫 납입일 기준)
-                LocalDate firstPayDate = account.getCreatedDate() != null ? account.getCreatedDate() : LocalDate.now();
+                LocalDate firstPayDate = account.getCreatedDate() != null 
+                        ? account.getCreatedDate() 
+                        : LocalDate.now();
                 if (histories != null && !histories.isEmpty()) {
                     for (DashboardSavingHistoryDTO history : histories) {
-                        if (history.getPayRound() != null && history.getPayRound() == 1 && history.getCreatedDate() != null) {
+                        if (history.getPayRound() != null 
+                                && history.getPayRound() == 1 
+                                && history.getCreatedDate() != null) {
                             firstPayDate = history.getCreatedDate();
                             break;
                         }
@@ -121,9 +133,15 @@ public class DashboardServiceImpl implements DashboardService {
                     }
                 }
                 
-                int totalMaturityMonths = (int) ChronoUnit.MONTHS.between(firstPayDate.withDayOfMonth(1), dischargeDate.withDayOfMonth(1)) + 1;
-                if (totalMaturityMonths < 0) totalMaturityMonths = 0;
-                if (totalMaturityMonths > 24) totalMaturityMonths = 24; // 법정 최대 가입기간(24개월) 제한
+                int totalMaturityMonths = (int) ChronoUnit.MONTHS.between(
+                        firstPayDate.withDayOfMonth(1), 
+                        dischargeDate.withDayOfMonth(1)) + 1;
+                if (totalMaturityMonths < 0) {
+                    totalMaturityMonths = 0;
+                }
+                if (totalMaturityMonths > 24) {
+                    totalMaturityMonths = 24; // 법정 최대 가입기간(24개월) 제한
+                }
                 
                 long pastPrincipal = 0L;
                 double pastInterest = 0.0;
@@ -135,17 +153,25 @@ public class DashboardServiceImpl implements DashboardService {
                         if (history.getPayRound() != null && history.getPayRound() > currentRound) {
                             currentRound = history.getPayRound();
                         }
-                        long amount = history.getPayAmount() != null ? history.getPayAmount() : 0L;
+                        long amount = history.getPayAmount() != null 
+                                ? history.getPayAmount() 
+                                : 0L;
                         pastPrincipal += amount;
                         
                         int investedMonths;
                         if (history.getCreatedDate() != null) {
-                            investedMonths = (int) ChronoUnit.MONTHS.between(history.getCreatedDate().withDayOfMonth(1), dischargeDate.withDayOfMonth(1)) + 1;
+                            investedMonths = (int) ChronoUnit.MONTHS.between(
+                                    history.getCreatedDate().withDayOfMonth(1), 
+                                    dischargeDate.withDayOfMonth(1)) + 1;
                         } else {
-                            investedMonths = totalMaturityMonths - (history.getPayRound() != null ? history.getPayRound() : 1) + 1;
+                            investedMonths = totalMaturityMonths 
+                                    - (history.getPayRound() != null ? history.getPayRound() : 1) 
+                                    + 1;
                         }
                         
-                        if (investedMonths < 0) investedMonths = 0;
+                        if (investedMonths < 0) {
+                            investedMonths = 0;
+                        }
                         pastInterest += amount * annualInterestRate * (investedMonths / 12.0);
                     }
                 }

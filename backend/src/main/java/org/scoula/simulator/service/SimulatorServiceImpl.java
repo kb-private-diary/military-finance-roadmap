@@ -28,15 +28,21 @@ public class SimulatorServiceImpl implements SimulatorService {
 
     @Transactional(readOnly = true)
     @Override
-    public SimulatorSavingDetailsResponseDTO getSavingDetails(Long userId) {
-        SimulatorUserDatesDTO userDates = this.mapper.getUserDates(userId);
-        if (userDates == null) return null;
+    public SimulatorSavingDetailsResponseDTO findSavingDetails(Long userId) {
+        SimulatorUserDatesDTO userDates = this.mapper.findUserDates(userId);
+        if (userDates == null) {
+            return null;
+        }
 
-        List<SimulatorSavingAccountDTO> accounts = this.mapper.getAccountsByUserId(userId);
-        if (accounts == null || accounts.isEmpty()) return null;
+        List<SimulatorSavingAccountDTO> accounts = this.mapper.findAccountListByUserId(userId);
+        if (accounts == null || accounts.isEmpty()) {
+            return null;
+        }
 
         LocalDate enlistDate = userDates.getEnlistDate() != null ? userDates.getEnlistDate() : LocalDate.now();
-        LocalDate dischargeDate = userDates.getDischargeDate() != null ? userDates.getDischargeDate() : LocalDate.now().plusMonths(18);
+        LocalDate dischargeDate = userDates.getDischargeDate() != null 
+                ? userDates.getDischargeDate() 
+                : LocalDate.now().plusMonths(18);
         
         // 1. 복무개월수 계산 (매칭지원금 최대 한도 용도)
         int totalServiceMonths = (int) ChronoUnit.MONTHS.between(enlistDate.withDayOfMonth(1), dischargeDate.withDayOfMonth(1));
@@ -57,15 +63,20 @@ public class SimulatorServiceImpl implements SimulatorService {
             long monthlySave = account.getMonthlySave() != null ? account.getMonthlySave() : 0L;
             monthlySaveTotal += monthlySave;
             
-            List<SimulatorSavingHistoryDTO> histories = this.mapper.getHistoryByAccountId(account.getAccountId());
+            List<SimulatorSavingHistoryDTO> histories = 
+                    this.mapper.findHistoryListByAccountId(account.getAccountId());
             
             // 2. 가입 인정 개월수 (시작 달 포함 + 1)
             // 실제 첫 입금일(납입회차 1회)을 기준으로 계산
-            LocalDate firstPayDate = account.getCreatedDate() != null ? account.getCreatedDate() : LocalDate.now();
+            LocalDate firstPayDate = account.getCreatedDate() != null 
+                    ? account.getCreatedDate() 
+                    : LocalDate.now();
             
             if (histories != null && !histories.isEmpty()) {
                 for (SimulatorSavingHistoryDTO history : histories) {
-                    if (history.getPayRound() != null && history.getPayRound() == 1 && history.getCreatedDate() != null) {
+                    if (history.getPayRound() != null 
+                            && history.getPayRound() == 1 
+                            && history.getCreatedDate() != null) {
                         firstPayDate = history.getCreatedDate();
                         break;
                     }
@@ -78,9 +89,15 @@ public class SimulatorServiceImpl implements SimulatorService {
                 }
             }
             
-            int totalMaturityMonths = (int) ChronoUnit.MONTHS.between(firstPayDate.withDayOfMonth(1), dischargeDate.withDayOfMonth(1)) + 1;
-            if (totalMaturityMonths <= 0) totalMaturityMonths = 0;
-            if (totalMaturityMonths > 24) totalMaturityMonths = 24;
+            int totalMaturityMonths = (int) ChronoUnit.MONTHS.between(
+                    firstPayDate.withDayOfMonth(1), 
+                    dischargeDate.withDayOfMonth(1)) + 1;
+            if (totalMaturityMonths <= 0) {
+                totalMaturityMonths = 0;
+            }
+            if (totalMaturityMonths > 24) {
+                totalMaturityMonths = 24;
+            }
             
             if (totalMaturityMonths > maxJoinableMonths) {
                 maxJoinableMonths = totalMaturityMonths;
@@ -95,17 +112,25 @@ public class SimulatorServiceImpl implements SimulatorService {
                     if (history.getPayRound() != null && history.getPayRound() > currentRound) {
                         currentRound = history.getPayRound();
                     }
-                    long amount = history.getPayAmount() != null ? history.getPayAmount() : 0L;
+                    long amount = history.getPayAmount() != null 
+                            ? history.getPayAmount() 
+                            : 0L;
                     pastPrincipal += amount;
                     
                     int investedMonths;
                     if (history.getCreatedDate() != null) {
-                        investedMonths = (int) ChronoUnit.MONTHS.between(history.getCreatedDate().withDayOfMonth(1), dischargeDate.withDayOfMonth(1)) + 1;
+                        investedMonths = (int) ChronoUnit.MONTHS.between(
+                                history.getCreatedDate().withDayOfMonth(1), 
+                                dischargeDate.withDayOfMonth(1)) + 1;
                     } else {
-                        investedMonths = totalMaturityMonths - (history.getPayRound() != null ? history.getPayRound() : 1) + 1;
+                        investedMonths = totalMaturityMonths 
+                                - (history.getPayRound() != null ? history.getPayRound() : 1) 
+                                + 1;
                     }
                     
-                    if (investedMonths < 0) investedMonths = 0;
+                    if (investedMonths < 0) {
+                        investedMonths = 0;
+                    }
                     pastInterest += amount * annualInterestRate * (investedMonths / 12.0);
                 }
             }
