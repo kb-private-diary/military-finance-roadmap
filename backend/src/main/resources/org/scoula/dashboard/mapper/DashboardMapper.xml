@@ -44,7 +44,7 @@
     </select>
     <!-- resultType 변경 필요 : 예) org.scoula.openbanking.domain.SavingHistoryVO -->
     <select id="getSavingHistoryByAccountId" resultType="org.scoula.dashboard.dto.DashboardSavingHistoryDTO">
-        SELECT *
+        SELECT history_id, account_id, pay_round, pay_amount, created_date
         FROM saving_history
         WHERE account_id = #{accountId}
           AND del_yn = 'N'

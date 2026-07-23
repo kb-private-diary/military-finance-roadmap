@@ -102,20 +102,28 @@ public class DashboardServiceImpl implements DashboardService {
         
         if (accounts != null) {
             for(DashboardSavingAccountDTO account : accounts) {
-                // 계좌별 동적 만기 개월수 계산 (계좌 생성일 ~ 전역일)
-                LocalDate createdDate = account.getCreatedDate() != null 
-                    ? account.getCreatedDate() 
-                    : LocalDate.now();
-                    
-                int totalMaturityMonths = (int) ChronoUnit.MONTHS.between(
-                        createdDate.withDayOfMonth(1), 
-                        dischargeDate.withDayOfMonth(1)) + 1;
-                if (totalMaturityMonths < 0) totalMaturityMonths = 0;
-                if (totalMaturityMonths > 24) totalMaturityMonths = 24; // 법정 최대 가입기간(24개월) 제한
-                
                 // 1. 해당 계좌의 실제 납입 내역(saving_history) 가져오기
                 List<DashboardSavingHistoryDTO> histories = 
                         this.mapper.getSavingHistoryByAccountId(account.getAccountId());
+                
+                // 계좌별 동적 만기 개월수 계산 (실제 첫 납입일 기준)
+                LocalDate firstPayDate = account.getCreatedDate() != null ? account.getCreatedDate() : LocalDate.now();
+                if (histories != null && !histories.isEmpty()) {
+                    for (DashboardSavingHistoryDTO history : histories) {
+                        if (history.getPayRound() != null && history.getPayRound() == 1 && history.getCreatedDate() != null) {
+                            firstPayDate = history.getCreatedDate();
+                            break;
+                        }
+                    }
+                } else {
+                    if (firstPayDate.isBefore(LocalDate.now())) {
+                        firstPayDate = LocalDate.now();
+                    }
+                }
+                
+                int totalMaturityMonths = (int) ChronoUnit.MONTHS.between(firstPayDate.withDayOfMonth(1), dischargeDate.withDayOfMonth(1)) + 1;
+                if (totalMaturityMonths < 0) totalMaturityMonths = 0;
+                if (totalMaturityMonths > 24) totalMaturityMonths = 24; // 법정 최대 가입기간(24개월) 제한
                 
                 long pastPrincipal = 0L;
                 double pastInterest = 0.0;
@@ -124,12 +132,19 @@ public class DashboardServiceImpl implements DashboardService {
                 // 2. 이미 납입한 내역(과거 데이터)에 대한 원금 및 이자 계산
                 if (histories != null) {
                     for (DashboardSavingHistoryDTO history : histories) {
-                        currentRound = history.getPayRound();
-                        long amount = history.getPayAmount();
+                        if (history.getPayRound() != null && history.getPayRound() > currentRound) {
+                            currentRound = history.getPayRound();
+                        }
+                        long amount = history.getPayAmount() != null ? history.getPayAmount() : 0L;
                         pastPrincipal += amount;
                         
-                        // 거치개월수 = (전체만기개월수 - 현재회차 + 1)
-                        int investedMonths = totalMaturityMonths - currentRound + 1;
+                        int investedMonths;
+                        if (history.getCreatedDate() != null) {
+                            investedMonths = (int) ChronoUnit.MONTHS.between(history.getCreatedDate().withDayOfMonth(1), dischargeDate.withDayOfMonth(1)) + 1;
+                        } else {
+                            investedMonths = totalMaturityMonths - (history.getPayRound() != null ? history.getPayRound() : 1) + 1;
+                        }
+                        
                         if (investedMonths < 0) investedMonths = 0;
                         pastInterest += amount * annualInterestRate * (investedMonths / 12.0);
                     }

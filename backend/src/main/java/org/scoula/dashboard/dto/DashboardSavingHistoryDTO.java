@@ -1,5 +1,7 @@
 package org.scoula.dashboard.dto;
 
+import java.time.LocalDate;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
