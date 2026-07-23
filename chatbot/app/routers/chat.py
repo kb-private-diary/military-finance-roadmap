@@ -2,7 +2,7 @@ from datetime import date, datetime
 
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Path
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -38,7 +38,7 @@ FAQ_CATEGORIES = [
 
 
 # CHAT-002: 대화 세션 관리 API
-@router.post("/session", response_model=SessionResponse)
+@router.post("/sessions", response_model=SessionResponse)
 def create_session(payload: SessionCreateRequest, db: Session = Depends(get_db)):
     today_session = (
         db.query(ChatSession)
@@ -89,8 +89,8 @@ def list_sessions(user_id: int, db: Session = Depends(get_db)):  # TODO: JWT 연
     return sessions
 
 
-@router.get("/history/{session_id}", response_model=List[MessageItem])
-def get_history(session_id: int, db: Session = Depends(get_db)):
+@router.get("/history/{sessionId}", response_model=List[MessageItem])
+def get_history(session_id: int = Path(..., alias="sessionId"), db: Session = Depends(get_db)):
     session = (
         db.query(ChatSession)
         .filter(ChatSession.session_id == session_id, ChatSession.del_yn == "N")
@@ -109,7 +109,7 @@ def get_history(session_id: int, db: Session = Depends(get_db)):
 
 
 # CHAT-004: 사용자 질문 입력 처리
-@router.post("/message", response_model=MessageItem)
+@router.post("/messages", response_model=MessageItem)
 def send_message(payload: MessageCreateRequest, db: Session = Depends(get_db)):
     content = payload.content.strip()
     if not content:
@@ -176,6 +176,6 @@ def create_feedback():
 
 
 # RAG-009: 답변 관련 콘텐츠 추천
-@router.get("/recommend/{message_id}")
-def get_recommendation(message_id: int):
+@router.get("/messages/{messageId}/recommendations")
+def get_recommendation(message_id: int = Path(..., alias="messageId")):
     raise NotImplementedError
