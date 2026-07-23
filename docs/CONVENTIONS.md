@@ -101,12 +101,12 @@ org.scoula.{도메인}.{controller, service, mapper, domain, dto}
 | `dashboard` | 석윤 | D-Day·휴가 |
 | `simulator` | 석윤 | 만기 시뮬레이션 |
 | `saving` | 석윤 | 군적금 계좌 |
-| `product` | 석윤·지원·태석 | `/api/products` |
+| `product` | 석윤·지원·태석·수연 | `/api/products` |
 | `roadmap` | 지원 | 카테고리별 목표 조회 |
-| `travel` | 태석 | 로드맵 |
-| `rent` | 수연 | 로드맵 |
-| `car` | 호빈 | 로드맵 |
-| `job` | 지원 | 로드맵 |
+| `travel` | 태석 | 로드맵 / 여행 |
+| `rent` | 수연 | 로드맵 / 자취(월세) |
+| `car` | 호빈 | 로드맵 / 자동차 |
+| `job` | 지원 | 로드맵 / 진로 |
 | `regret` | 수연 | 후회소비 |
 | `openbanking` | 수연 | 계좌 연동(인프라) |
 | `social` | 태석 | 랭킹 |
@@ -141,14 +141,45 @@ org.scoula.{도메인}.{controller, service, mapper, domain, dto}
 - 웹 요청과 무관한 DTO: `UserInfoDTO`
 - **VO를 컨트롤러 밖으로 노출하지 않는다** (항상 DTO로 변환)
 
-### 외부 API 연동
-오픈뱅킹·국토부·행안부·카카오·오피넷 등 외부 호출이 많으므로 **도메인 안에서 분리**한다.
+### VO ↔ DTO 변환
+- **DTO 안에 정적 팩토리 메서드 `of()`** 로 통일한다 (팀 다수 방식)
+- Service/Controller 에 `new XxxDTO(...)` 로 변환 로직을 흩뿌리지 않는다
+```java
+// XxxDTO 안에
+public static XxxDTO of(XxxVO vo) {
+    return XxxDTO.builder()
+            .id(vo.getId())
+            .name(vo.getName())
+            .build();
+}
+// Service 에서
+return XxxDTO.of(vo);
+// 목록은
+return voList.stream().map(XxxDTO::of).toList();
 ```
-org.scoula.openbanking.client.OpenBankingClient
-org.scoula.rent.client.MolitClient          // 국토교통부 실거래가
+
+### 날짜·시간 타입
+- **`java.util.Date` ❌ → `java.time` 사용** (팀 다수가 LocalDate)
+- DB `DATE` → `LocalDate` / DB `DATETIME` → `LocalDateTime`
+- (수업 코드 잔재로 `Date` 쓴 곳은 리팩토링 시 교체)
+
+### 요청 검증 (@Valid)
+- `@RequestBody` 요청 DTO 에는 **`@Valid` 를 붙인다**
+- DTO 필드는 `@NotNull`·`@NotBlank`·`@Positive` 등으로 제약을 명시
+- 검증 실패는 `ApiExceptionAdvice` 가 400 으로 자동 처리 (Service 진입 전 차단)
+```java
+@PostMapping("/goals")
+public ResponseEntity<...> createGoal(@Valid @RequestBody XxxCreateRequestDTO request) { ... }
+```
+
+### 외부 API 연동
+외부 API 호출이 필요한 도메인은 **`{도메인}.client` 패키지로 분리**한다.
+```
+org.scoula.{도메인}.client.XxxClient
 ```
 - Service 는 client 를 통해서만 외부 API 를 호출 (Service 안에 RestTemplate 직접 사용 ❌)
-- API 키·URL 은 `application.properties` 로 분리
+- 인증 승인 대기 등으로 실제 호출이 어려우면 **인터페이스 + Mock/Real 이원화**(`@Profile`)로 개발
+- API 키·URL 은 `application-secret.properties` 로 분리 (§10 참고)
 
 ### 네이밍
 - **DB**: 테이블·컬럼 `snake_case`
@@ -171,12 +202,17 @@ org.scoula.rent.client.MolitClient          // 국토교통부 실거래가
 - 들여쓰기: IDE 기본값 / 한 줄 최대 **100자**
 - `@Builder` 는 생성자 파라미터가 **3개 이상**일 때만 사용
 - `ResponseEntity` 생성 시 **상태코드 명시** — `ResponseEntity.status(HttpStatus.CREATED).body(...)`
+- **매직넘버 금지**: 반복되거나 의미 있는 숫자·문자열은 상수로 뺀다 — `private static final double ANNUAL_INTEREST_RATE = 0.05;`
+- **중복 로직 분리**: 여러 도메인/메서드에 같은 계산·로직이 반복되면 공통 메서드(헬퍼)로 추출한다 (한 곳만 고치도록)
+  - (입력 검증 `@Valid` 규칙은 위 "요청 검증(@Valid)" 참고)
 
 ### 공통 규칙
 - **BaseVO 상속**으로 감사컬럼 5개(`created_date`/`created_nm`/`modified_date`/`modified_nm`/`del_yn`) 처리
 - **소프트 삭제**: 물리 삭제 ❌ → `del_yn='Y'` UPDATE (삭제자·일시는 `modified_nm`·`modified_date`)
 - 새 도메인 추가 시 `RootConfig` 의 `@MapperScan`·`@ComponentScan` 목록에 등록
-- **트랜잭션**: 서비스 메서드에 `@Transactional` (INSERT 여러 개 묶는 곳 필수)
+- **트랜잭션**: 쓰기 서비스 메서드에 `@Transactional` (INSERT 여러 개 묶는 곳 필수) / **조회 전용 메서드는 `@Transactional(readOnly = true)`**
+- **매퍼 SQL `SELECT *` 금지**: 필요한 컬럼을 명시한다 (컬럼 추가 시 매핑 깨짐·불필요 조회 방지)
+- **로그인 유저 식별**: 최종적으로 `SecurityContext`(JWT)에서 추출한다. 인증 연동 전까지는 `@RequestParam Long userId` 로 임시 허용하되 `// TODO: JWT 연동 후 교체` 를 남겨, 이후 일괄 교체가 가능하도록 한다
 
 ### 공통 응답 포맷 (전 파트 통일)
 ```json
@@ -202,7 +238,66 @@ return ResponseEntity.ok(ApiResponse.success());
 return ResponseEntity.status(HttpStatus.NOT_FOUND)
         .body(ApiResponse.error("목표를 찾을 수 없습니다.", "RENT_001"));
 ```
-> 에러 코드는 **도메인_번호** 형식 — `RENT_001`, `TRAVEL_002`
+
+### ⚠️ 예외 처리 규칙 (전 파트 통일 — 중요!)
+
+에러는 **Service 에서 `BusinessException` 을 throw** 한다.
+**Controller 에서 try-catch / if 문으로 직접 에러 응답을 만들지 않는다.**
+→ `ApiExceptionAdvice` 가 자동으로 잡아서 `ApiResponse` 형식으로 변환한다.
+
+```java
+// ✅ 권장 — Service 에서 throw (Controller 는 정상 흐름만)
+public XxxDTO findXxx(Long id) {
+    XxxVO vo = mapper.findXxx(id);
+    if (vo == null) {
+        throw BusinessException.notFound("대상을 찾을 수 없습니다.", "도메인_001");
+    }
+    return XxxDTO.from(vo);
+}
+```
+```java
+// ❌ 지양 — Controller 에서 직접 에러 응답 (반복·지저분)
+if (dto == null) {
+    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(ApiResponse.error("...", "도메인_001"));
+}
+```
+
+**던지는 방법** (`common/exception/BusinessException`)
+| 메서드 | HTTP | 언제 |
+|---|---|---|
+| `BusinessException.badRequest(msg, code)` | 400 | 입력값 오류·규칙 위반 |
+| `BusinessException.notFound(msg, code)` | 404 | 대상 없음 |
+| `BusinessException.forbidden(msg, code)` | 403 | 권한 없음(남의 데이터 등) |
+| `BusinessException.conflict(msg, code)` | 409 | 중복(이미 존재) |
+
+> code 는 선택 — 없으면 `BusinessException.notFound("메시지")` 처럼 생략 가능
+
+### 🚨 에러 코드표
+
+- 형식: **도메인접두어_번호** (`RENT_001`)
+- 번호는 도메인별 **`_001`부터** 순서대로 부여 (건너뛰지 않기)
+- 새 에러 만들 때 → **아래 표(+ 노션)에 추가**하고 다음 번호 사용 (겹침 방지!)
+- **도메인 무관 전역 에러**(인증 실패·토큰 오류 등)는 특정 도메인 코드를 쓰지 말고 `AUTH`/`COMMON` 접두어 사용
+- 도메인 접두어 통일:
+  `MEM`(회원) · `DASH`(대시보드) · `SIM`(시뮬레이터) · `RENT`(자취) · `REGRET`(후회소비)
+  · `OPBANK`(오픈뱅킹) · `CAR`(자동차) · `JOB`(진로) · `TRAVEL`(여행) · `SOCIAL`(소셜)
+  · `PRODUCT`(상품) · `AUTH`(인증) · `COMMON`(공통)
+
+**공통·인증 코드 (모든 도메인 공용 — 미리 정의)**
+| 코드 | HTTP | 메시지 |
+|---|---|---|
+| `COMMON_001` | 500 | 서버 내부 오류입니다 |
+| `COMMON_002` | 400 | 요청 값 검증에 실패했습니다 |
+| `AUTH_001` | 401 | 로그인이 필요합니다 |
+| `AUTH_002` | 401 | 액세스 토큰이 유효하지 않습니다 (재발급 필요) |
+| `AUTH_003` | 401 | 리프레시 토큰이 만료됐습니다 (재로그인) |
+| `AUTH_004` | 403 | 해당 요청에 대한 권한이 없습니다 |
+
+> **도메인별 에러 코드(MEM_·DASH_·RENT_ …)의 전체 목록은 노션 "에러 코드표" 페이지에서 관리한다.**
+> 새 에러를 만들면 → 노션에 한 줄 추가 + 다음 번호 사용 (겹침 방지).
+
+> 📎 **기존 코드 정리**: 이 규칙 이전에 작성된 코드 중 방식이 다른 것(Service 의 `null` 리턴 + Controller 직접 404 처리, JDK 표준 예외 throw 등)은 발견 시 위 방식으로 통일한다. 참고 기준 코드: `member` 도메인.
 
 ---
 
@@ -337,15 +432,8 @@ GET    /api/bookmarks              내 관심항목 목록
 ```
 > **도메인별 북마크 API 만들지 않기** — 홈에서 4개 API 호출하는 낭비 방지
 
-### 오픈뱅킹 (인프라)
-```
-GET    /api/openbanking/auth-url   인증 URL 발급
-POST   /api/openbanking/link       계좌 연동 (온보딩 시)
-DELETE /api/openbanking/link       연동 해제
-```
-> **온보딩 필수** — 로그인 직후 `/onboarding` 화면에서 자연스럽게 유도
-
-### 상태값 (`rent_goal.status` 등)
+### 로드맵 목표 상태값 (travel · rent · car · job 공통)
+목표(`status`)를 가지는 로드맵 도메인은 아래 상태값을 공통으로 사용한다.
 - **DRAFT** — 작성 중 / 임시 저장
 - **CONFIRMED** — 저장 완료 / 게시판에 올라감
 - **ARCHIVED** — 보관됨 / 옛 목표
@@ -376,7 +464,7 @@ DELETE /api/openbanking/link       연동 해제
 
 **공통 원칙**
 - 컨벤션 변경 시 **모든 문서에 동시 반영** (요구사항·엔티티·테이블·ERD·SQL)
-- 남의 파트 테이블 사용 시 **사전 협의 필수** (예: 오픈뱅킹 ↔ 적금)
+- 남의 파트 테이블·API 를 사용해야 하면 **담당자와 사전 협의 필수** (필드·연동 순서 확정)
 - 문서 변경 이력은 슬랙에 간단히 공유
 
 ---
@@ -402,19 +490,14 @@ DELETE /api/openbanking/link       연동 해제
 
 ### 코드에서 쓰는 법
 ```java
-@Value("${openbanking.client-id}")
-private String clientId;
+@Value("${키.이름}")
+private String someKey;
 ```
 
-### 담당별 키 목록
-| 키 | 담당 |
-|---|---|
-| `jwt.secret` | 공용 (Spring · FastAPI 동일 값) |
-| `openbanking.*` · `molit.*` · `mois.*` · `kakao.*` | 수연 |
-| `fss.api-key` | 석윤 |
-| `opinet.api-key` | 호빈 |
-| `serpapi.api-key` | 태석 |
-| Gemini API 키 | 에스더 (챗봇 `.env`) |
+### 키 목록
+- 실제 키 이름·값·담당은 **노션 "환경변수" 페이지**에서 관리한다 (여기에 값을 나열하지 않음)
+- `jwt.secret` 은 **공용** (Spring · FastAPI 동일 값 사용)
+- 새 키가 필요하면 → `application-secret.properties.example` 에 **항목명만** 추가 + 노션에 값 등록
 
 > ⚠️ 실수로 키를 커밋했다면 **즉시 알려주세요.** 커밋을 지워도 히스토리에 남기 때문에 **해당 키를 폐기하고 재발급**해야 합니다.
 
