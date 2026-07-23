@@ -8,7 +8,6 @@
     </settings>
     <typeAliases>
         <typeAlias alias="MemberVO" type="org.scoula.security.account.domain.MemberVO"/>
-        <typeAlias alias="AuthVO" type="org.scoula.security.account.domain.AuthVO"/>
         <!-- 도메인 VO/DTO 추가 시 여기에 typeAlias 등록 (또는 mapper XML에서 전체 경로 사용) -->
     </typeAliases>
 </configuration>
