@@ -7,6 +7,9 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.scoula.common.util.MilitarySavingsCalculator;
+import org.scoula.common.util.MilitarySavingsCalculator.CalcResult;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 
@@ -114,83 +117,19 @@ public class DashboardServiceImpl implements DashboardService {
                 List<DashboardSavingHistoryDTO> histories = 
                         this.mapper.findSavingHistoryListByAccountId(account.getAccountId());
                 
-                // 계좌별 동적 만기 개월수 계산 (실제 첫 납입일 기준)
-                LocalDate firstPayDate = account.getCreatedDate() != null 
-                        ? account.getCreatedDate() 
-                        : LocalDate.now();
-                if (histories != null && !histories.isEmpty()) {
-                    for (DashboardSavingHistoryDTO history : histories) {
-                        if (history.getPayRound() != null 
-                                && history.getPayRound() == 1 
-                                && history.getCreatedDate() != null) {
-                            firstPayDate = history.getCreatedDate();
-                            break;
-                        }
-                    }
-                } else {
-                    if (firstPayDate.isBefore(LocalDate.now())) {
-                        firstPayDate = LocalDate.now();
-                    }
-                }
-                
-                int totalMaturityMonths = (int) ChronoUnit.MONTHS.between(
-                        firstPayDate.withDayOfMonth(1), 
-                        dischargeDate.withDayOfMonth(1)) + 1;
-                if (totalMaturityMonths < 0) {
-                    totalMaturityMonths = 0;
-                }
-                if (totalMaturityMonths > 24) {
-                    totalMaturityMonths = 24; // 법정 최대 가입기간(24개월) 제한
-                }
-                
-                long pastPrincipal = 0L;
-                double pastInterest = 0.0;
-                int currentRound = 0;
-                
-                // 2. 이미 납입한 내역(과거 데이터)에 대한 원금 및 이자 계산
-                if (histories != null) {
-                    for (DashboardSavingHistoryDTO history : histories) {
-                        if (history.getPayRound() != null && history.getPayRound() > currentRound) {
-                            currentRound = history.getPayRound();
-                        }
-                        long amount = history.getPayAmount() != null 
-                                ? history.getPayAmount() 
-                                : 0L;
-                        pastPrincipal += amount;
-                        
-                        int investedMonths;
-                        if (history.getCreatedDate() != null) {
-                            investedMonths = (int) ChronoUnit.MONTHS.between(
-                                    history.getCreatedDate().withDayOfMonth(1), 
-                                    dischargeDate.withDayOfMonth(1)) + 1;
-                        } else {
-                            investedMonths = totalMaturityMonths 
-                                    - (history.getPayRound() != null ? history.getPayRound() : 1) 
-                                    + 1;
-                        }
-                        
-                        if (investedMonths < 0) {
-                            investedMonths = 0;
-                        }
-                        pastInterest += amount * annualInterestRate * (investedMonths / 12.0);
-                    }
-                }
-                
-                // 3. 앞으로 납입할 내역(미래 데이터)에 대한 원금 및 이자 계산
-                long futurePrincipal = 0L;
-                double futureInterest = 0.0;
                 Long monthlySave = account.getMonthlySave() != null ? account.getMonthlySave() : 0L;
                 
-                for (int round = currentRound + 1; round <= totalMaturityMonths; round++) {
-                    futurePrincipal += monthlySave;
-                    
-                    int investedMonths = totalMaturityMonths - round + 1;
-                    futureInterest += monthlySave * annualInterestRate * (investedMonths / 12.0);
-                }
+                CalcResult calc = MilitarySavingsCalculator.calculateAccount(
+                        account.getCreatedDate(),
+                        monthlySave,
+                        dischargeDate,
+                        histories,
+                        annualInterestRate
+                );
                 
                 // 4. 총 원금 및 총 이자 합산
-                long totalPrincipal = pastPrincipal + futurePrincipal;
-                double totalInterest = pastInterest + futureInterest;
+                long totalPrincipal = calc.getTotalPrincipal();
+                double totalInterest = calc.getTotalInterest();
                 
                 // 5. 정부 매칭지원금 계산 (납입 원금의 100%)
                 double matchingFund = totalPrincipal * governmentMatchingRate;

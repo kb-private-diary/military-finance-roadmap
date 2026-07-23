@@ -6,6 +6,9 @@ import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+import org.scoula.common.util.MilitarySavingsCalculator;
+import org.scoula.common.util.MilitarySavingsCalculator.CalcResult;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 
@@ -71,94 +74,27 @@ public class SimulatorServiceImpl implements SimulatorService {
             List<SimulatorSavingHistoryDTO> histories = 
                     this.mapper.findHistoryListByAccountId(account.getAccountId());
             
-            // 2. 가입 인정 개월수 (시작 달 포함 + 1)
-            // 실제 첫 입금일(납입회차 1회)을 기준으로 계산
-            LocalDate firstPayDate = account.getCreatedDate() != null 
-                    ? account.getCreatedDate() 
-                    : LocalDate.now();
+            CalcResult calc = MilitarySavingsCalculator.calculateAccount(
+                    account.getCreatedDate(),
+                    monthlySave,
+                    dischargeDate,
+                    histories,
+                    annualInterestRate
+            );
             
-            if (histories != null && !histories.isEmpty()) {
-                for (SimulatorSavingHistoryDTO history : histories) {
-                    if (history.getPayRound() != null 
-                            && history.getPayRound() == 1 
-                            && history.getCreatedDate() != null) {
-                        firstPayDate = history.getCreatedDate();
-                        break;
-                    }
-                }
-            } else {
-                // 납입 이력이 전혀 없는 경우 (스킵된 과거를 보상받을 수 없으므로)
-                // 계좌 개설일이 과거라도 가장 빠른 첫 납입 가능일은 '오늘(이번 달)'이 됩니다.
-                if (firstPayDate.isBefore(LocalDate.now())) {
-                    firstPayDate = LocalDate.now();
-                }
+            if (calc.totalMaturityMonths > maxJoinableMonths) {
+                maxJoinableMonths = calc.totalMaturityMonths;
+            }
+            if (calc.maxCurrentPaidMonths > maxCurrentPaidMonths) {
+                maxCurrentPaidMonths = calc.maxCurrentPaidMonths;
             }
             
-            int totalMaturityMonths = (int) ChronoUnit.MONTHS.between(
-                    firstPayDate.withDayOfMonth(1), 
-                    dischargeDate.withDayOfMonth(1)) + 1;
-            if (totalMaturityMonths <= 0) {
-                totalMaturityMonths = 0;
-            }
-            if (totalMaturityMonths > 24) {
-                totalMaturityMonths = 24;
-            }
-            
-            if (totalMaturityMonths > maxJoinableMonths) {
-                maxJoinableMonths = totalMaturityMonths;
-            }
-            
-            int currentRound = 0;
-            long pastPrincipal = 0L;
-            double pastInterest = 0.0;
-            
-            if (histories != null) {
-                for (SimulatorSavingHistoryDTO history : histories) {
-                    if (history.getPayRound() != null && history.getPayRound() > currentRound) {
-                        currentRound = history.getPayRound();
-                    }
-                    long amount = history.getPayAmount() != null 
-                            ? history.getPayAmount() 
-                            : 0L;
-                    pastPrincipal += amount;
-                    
-                    int investedMonths;
-                    if (history.getCreatedDate() != null) {
-                        investedMonths = (int) ChronoUnit.MONTHS.between(
-                                history.getCreatedDate().withDayOfMonth(1), 
-                                dischargeDate.withDayOfMonth(1)) + 1;
-                    } else {
-                        investedMonths = totalMaturityMonths 
-                                - (history.getPayRound() != null ? history.getPayRound() : 1) 
-                                + 1;
-                    }
-                    
-                    if (investedMonths < 0) {
-                        investedMonths = 0;
-                    }
-                    pastInterest += amount * annualInterestRate * (investedMonths / 12.0);
-                }
-            }
-            
-            currentPaidAmountTotal += pastPrincipal;
-            if (currentRound > maxCurrentPaidMonths) {
-                maxCurrentPaidMonths = currentRound;
-            }
-            
-            long futurePrincipal = 0L;
-            double futureInterest = 0.0;
-            for (int round = currentRound + 1; round <= totalMaturityMonths; round++) {
-                futurePrincipal += monthlySave;
-                int investedMonths = totalMaturityMonths - round + 1;
-                futureInterest += monthlySave * annualInterestRate * (investedMonths / 12.0);
-            }
-            
-            long accountTotalPrincipal = pastPrincipal + futurePrincipal;
-            expectedPrincipalTotal += accountTotalPrincipal;
-            expectedInterestTotal += (pastInterest + futureInterest);
+            currentPaidAmountTotal += calc.pastPrincipal;
+            expectedPrincipalTotal += calc.getTotalPrincipal();
+            expectedInterestTotal += calc.getTotalInterest();
             
             // 3. 계좌별 매칭지원금 및 최대 한도(복무개월수 * 월납입액) 제한 적용
-            long accountMatchingFund = (long) (accountTotalPrincipal * 1.0);
+            long accountMatchingFund = (long) (calc.getTotalPrincipal() * 1.0);
             long maxAccountMatchingFund = (long) totalServiceMonths * monthlySave;
             if (accountMatchingFund > maxAccountMatchingFund) {
                 accountMatchingFund = maxAccountMatchingFund;
@@ -208,18 +144,10 @@ public class SimulatorServiceImpl implements SimulatorService {
         for (int i = 1; i <= totalMonths; i++) {
             totalPrincipal += amount;
             int investedMonths = totalMonths - i + 1;
-            totalInterest += amount * annualInterestRate * (investedMonths / 12.0);
+            totalInterest += this.calculateSimpleInterest(amount, annualInterestRate, investedMonths);
         }
         
-        double matchingFund = totalPrincipal * governmentMatchingRate;
-        long receiptAmount = totalPrincipal + (long) totalInterest + (long) matchingFund;
-        
-        return SimulatorCalculateResponseDTO.builder()
-                .totalPrincipal(totalPrincipal)
-                .totalInterest((long) totalInterest)
-                .totalMatchingFund((long) matchingFund)
-                .totalReceiptAmount(receiptAmount)
-                .build();
+        return this.buildSimulationResponse(totalPrincipal, totalInterest);
     }
     
     @Override
@@ -285,7 +213,7 @@ public class SimulatorServiceImpl implements SimulatorService {
                 while (!current.isAfter(end)) {
                     totalPrincipal += amount;
                     int investedMonths = (int) ChronoUnit.MONTHS.between(current, maxEnd) + 1;
-                    totalInterest += amount * annualInterestRate * (investedMonths / 12.0);
+                    totalInterest += this.calculateSimpleInterest(amount, annualInterestRate, investedMonths);
                     current = current.plusMonths(1);
                 }
             }
@@ -294,10 +222,16 @@ public class SimulatorServiceImpl implements SimulatorService {
             return null;
         }
         
-        // 매칭지원금 계산 (기본 100% 매칭, 1회성 계산기이므로 한도는 입력된 원금 자체를 상한선으로 봄)
+        return this.buildSimulationResponse(totalPrincipal, totalInterest);
+    }
+    
+    private double calculateSimpleInterest(long amount, double annualRate, int investedMonths) {
+        return amount * annualRate * (investedMonths / 12.0);
+    }
+    
+    private SimulatorCalculateResponseDTO buildSimulationResponse(long totalPrincipal, double totalInterest) {
+        double governmentMatchingRate = 1.0;
         double matchingFund = totalPrincipal * governmentMatchingRate;
-        
-        // 최종 비과세 적용 후 반환
         long receiptAmount = totalPrincipal + (long) totalInterest + (long) matchingFund;
         
         return SimulatorCalculateResponseDTO.builder()
