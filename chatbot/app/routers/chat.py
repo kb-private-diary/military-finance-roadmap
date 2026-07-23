@@ -147,13 +147,13 @@ def send_message(payload: MessageCreateRequest, db: Session = Depends(get_db)):
     db.add(user_message)
     db.commit()
 
-    reply = gemini.generate_reply(content)
+    reply, source = gemini.generate_reply(content)
 
     bot_message = ChatMessage(
         session_id=payload.session_id,
         role="bot",
         content=reply,
-        source="Gemini AI (정책 문서 기반 생성)",
+        source=source,
         created_date=datetime.now(),
         created_nm=str(session.user_id),
     )
