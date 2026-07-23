@@ -5,40 +5,39 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.scoula.security.account.domain.MemberVO;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Date;
-import java.util.List;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class MemberDTO {
-    private String username;
-    private String email;
-    private Date regDate;
-    private Date updateDate;
-    private MultipartFile avatar;
-    private List<String> authList;
+    private Long id;
+    private String userId;
+    private String name;
+    private String phone;
+    private Integer typeId;
+    private Integer rankId;
+    private String unitName;
+    private String unitCode;
+    private Date enlistDate;
+    private Date dischargeDate;
+    private String status;
 
-    //controller, service(dto) <---- mybatis(VO)
-    public static MemberDTO of(MemberVO m){
+    public static MemberDTO of(MemberVO m) {
         return MemberDTO.builder()
-                .username(m.getUsername())
-                .email(m.getEmail())
-                .regDate(m.getRegDate())
-                .updateDate(m.getUpdateDate())
-                .authList(m.getAuthList().stream().map(a->a.getAuth()).toList())
-                .build();
-    }
-
-    public MemberVO toVO() {
-        return MemberVO.builder()
-                .username(username)
-                .email(email)
-                .regDate(regDate)
-                .updateDate(updateDate)
+                .id(m.getId())
+                .userId(m.getUserId())
+                .name(m.getName())
+                .phone(m.getPhone())
+                .typeId(m.getTypeId())
+                .rankId(m.getRankId())
+                .unitName(m.getUnitName())
+                .unitCode(m.getUnitCode())
+                .enlistDate(m.getEnlistDate())
+                .dischargeDate(m.getDischargeDate())
+                .status(m.getStatus())
                 .build();
     }
 }
