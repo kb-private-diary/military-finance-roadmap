@@ -5,7 +5,7 @@
 <mapper namespace="org.scoula.rent.mapper.RentMapper">
 
     <!-- 시/도 목록 (중복 제거) -->
-    <select id="getSidoList" resultType="org.scoula.rent.domain.RegionCodeVO">
+    <select id="findSidoList" resultType="org.scoula.rent.domain.RegionCodeVO">
         SELECT DISTINCT sido_name
         FROM region_code
         WHERE del_yn = 'N' AND is_abolished = 'N'
@@ -13,7 +13,7 @@
     </select>
 
     <!-- 특정 시/도의 시/군/구 목록 -->
-    <select id="getSigunguListBySido" resultType="org.scoula.rent.domain.RegionCodeVO">
+    <select id="findSigunguListBySido" resultType="org.scoula.rent.domain.RegionCodeVO">
         SELECT DISTINCT sigungu_name, sigungu_code
         FROM region_code
         WHERE sido_name = #{sidoName}
@@ -22,7 +22,7 @@
     </select>
 
     <!-- 특정 시/군/구의 읍/면/동 목록 -->
-    <select id="getUmdListBySigunguCode" resultType="org.scoula.rent.domain.RegionCodeVO">
+    <select id="findUmdListBySigunguCode" resultType="org.scoula.rent.domain.RegionCodeVO">
         SELECT region_code, umd_name
         FROM region_code
         WHERE sigungu_code = #{sigunguCode}
