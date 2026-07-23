@@ -119,12 +119,12 @@ org.scoula.{도메인}.{controller, service, mapper, domain, dto}
 
 ### 메서드 네이밍
 
-MyBatis 관례 + 수업 코드(`member` 도메인)에 맞춰 **`get` 계열**로 통일한다.
+조회는 **`find` 계열**로 통일한다. (팀 다수 코드가 `find` 를 사용 중)
 
 | 기능 | Controller · Service | Mapper | Service 반환값 |
 |---|---|---|---|
-| 단건 조회 | `get...` (예: `getGoal`) | `get...` | DTO |
-| 목록 조회 | `get...List` (예: `getGoalList`) | `get...List` | `List<DTO>` |
+| 단건 조회 | `find...` (예: `findGoal`) | `find...` | DTO |
+| 목록 조회 | `find...List` (예: `findGoalList`) | `find...List` | `List<DTO>` |
 | 등록 | `create...` | `insert...` | **생성된 id** |
 | 수정 | `update...` | `update...` | `void` |
 | 삭제 | `delete...` | `delete...` | `void` |
