@@ -3,11 +3,17 @@ from google.genai import types
 
 from app.core.config import GEMINI_API_KEY
 from app.services import vectorstore
+from app.services.intent import classify_intent
 
 _client = genai.Client(api_key=GEMINI_API_KEY)
 
 _MODEL = "gemini-flash-latest"
 _TOP_K = 3
+
+IRRELEVANT_REPLY = (
+    "죄송합니다, 본 챗봇은 군 재무·금융 상품 관련 질문만 답변 가능합니다. "
+    "다른 질문으로 다시 문의해 주시기 바랍니다."
+)
 
 SYSTEM_INSTRUCTION = (
     "너는 군장병을 위한 재무 상담 챗봇이다. 아래 [참고 정책 문서]에 있는 내용만 근거로 답변한다. "
@@ -18,6 +24,10 @@ SYSTEM_INSTRUCTION = (
 
 
 def generate_reply(question: str) -> str:
+    intent = classify_intent(question)
+    if intent == "irrelevant":
+        return IRRELEVANT_REPLY
+
     context_chunks = vectorstore.search(question, top_k=_TOP_K)
     context = "\n\n".join(context_chunks)
     prompt = f"[참고 정책 문서]\n{context}\n\n[질문]\n{question}"
