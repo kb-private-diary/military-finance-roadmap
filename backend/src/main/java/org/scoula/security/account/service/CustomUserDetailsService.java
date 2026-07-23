@@ -19,9 +19,12 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        MemberVO vo = mapper.get(username);
+        MemberVO vo = this.mapper.get(username);
         if(vo == null) {
             throw new UsernameNotFoundException(username + "은 없는 id입니다.");
+        }
+        if("WITHDRAWN".equals(vo.getStatus())) {
+            throw new UsernameNotFoundException(username + "은 탈퇴한 계정입니다.");
         }
         return new CustomUser(vo);
     }
