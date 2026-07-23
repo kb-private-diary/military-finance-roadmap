@@ -44,3 +44,12 @@ class TopicItem(CamelModel):
 class FaqCategoryItem(CamelModel):
     category_id: str
     label: str
+
+
+class GlossaryItem(CamelModel):
+    term: str
+
+
+class GlossaryDetail(CamelModel):
+    term: str
+    definition: str

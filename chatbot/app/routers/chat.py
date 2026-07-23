@@ -10,6 +10,8 @@ from app.core.db import get_db
 from app.models.chat import ChatMessage, ChatSession
 from app.schemas.chat import (
     FaqCategoryItem,
+    GlossaryDetail,
+    GlossaryItem,
     MessageCreateRequest,
     MessageItem,
     SessionCreateRequest,
@@ -25,7 +27,7 @@ from app.schemas.product import (
     SubscriptionDetail,
     SubscriptionItem,
 )
-from app.services import cheongyakhome, fss, gemini
+from app.services import cheongyakhome, fss, gemini, policy_docs
 from app.services import fund as fund_service
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
@@ -290,14 +292,17 @@ def get_product(name: str, category: Optional[str] = Query(default=None)):
     raise HTTPException(status_code=404, detail="Product not found")
 
 
-@router.get("/glossary")
+@router.get("/glossary", response_model=List[GlossaryItem])
 def list_glossary():
-    raise NotImplementedError
+    return [GlossaryItem(term=entry["section"]) for entry in policy_docs.list_glossary_terms()]
 
 
-@router.get("/glossary/{term}")
+@router.get("/glossary/{term}", response_model=GlossaryDetail)
 def get_glossary_term(term: str):
-    raise NotImplementedError
+    entry = policy_docs.find_glossary_term(term)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Term not found")
+    return GlossaryDetail(term=entry["section"], definition=entry["text"].split("\n", 1)[1])
 
 
 # CHAT-006: 답변 만족도 피드백 저장 API
