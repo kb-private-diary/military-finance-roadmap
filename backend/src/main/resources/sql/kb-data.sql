@@ -873,6 +873,19 @@ VALUES
 
 
 -- --------------------------------------------------------------------
+--  [지원] 진로/희망 준비항목(job_interested_type)
+--  테이블: job_interested_type
+-- --------------------------------------------------------------------
+-- ===== job_interested_type =====
+INSERT INTO job_interested_type (interested_id, goal_id, item_type, created_date, created_nm, modified_date, modified_nm, del_yn) VALUES
+(1, 1, 'P01', NOW(), 'jiwon', NULL, NULL, 'N'),
+(2, 1, 'P03', NOW(), 'jiwon', NULL, NULL, 'N'),
+(3, 2, 'P02', NOW(), 'jiwon', NULL, NULL, 'N'),
+(4, 3, 'P01', NOW(), 'jiwon', NULL, NULL, 'N'),
+(5, 4, 'P01', NOW(), 'jiwon', NULL, NULL, 'N');
+
+
+-- --------------------------------------------------------------------
 --  [지원] 진로/ 진로준비항목저장(job_plan)
 --  테이블: job_plan
 -- --------------------------------------------------------------------
