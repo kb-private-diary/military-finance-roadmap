@@ -24,7 +24,7 @@ public class JobServiceImpl implements JobService{
     @Override
     public List<JobCodeDTO> findJobCodes(String goalType) {
         return jobMapper.findJobCodesByGoalType(goalType).stream()
-                .map(this::toDTO)
+                .map(JobCodeDTO::of)
                 .collect(Collectors.toList());
     }
 
@@ -40,14 +40,5 @@ public class JobServiceImpl implements JobService{
         jobMapper.createJobGoal(jobGoalVO);
 
         return new JobGoalCreateResponseDTO(jobGoalVO.getGoalId());
-    }
-
-    private JobCodeDTO toDTO(JobCodeVO vo) {
-        return JobCodeDTO.builder()
-                .jobCodeId(vo.getJobCodeId())
-                .goalType(vo.getGoalType())
-                .codeName(vo.getCodeName())
-                .infoUrl(vo.getInfoUrl())
-                .build();
     }
 }
