@@ -20,11 +20,11 @@ public class RentController {
     // GET /api/rent/regions?sido=서울   → 시군구 목록
     // GET /api/rent/regions?sido=서울&sigunguCode=11680 → 읍면동 목록
     @GetMapping("/regions")
-    public ResponseEntity<ApiResponse<List<RegionResponseDTO>>> getRegions(
+    public ResponseEntity<ApiResponse<List<RegionResponseDTO>>> findRegions(
             @RequestParam(required = false) String sido,
             @RequestParam(required = false) String sigunguCode) {
 
-        List<RegionResponseDTO> result = service.getRegions(sido, sigunguCode);
+        List<RegionResponseDTO> result = service.findRegions(sido, sigunguCode);
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 }
