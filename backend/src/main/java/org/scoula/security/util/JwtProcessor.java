@@ -4,25 +4,26 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
 
-@Component //프로젝트 시작할 때 싱글톤으로 만들고 시작.
+@Component
 public class JwtProcessor {
     static private final long TOKEN_VALID_MILISECOND = 1000L * 60 * 30; // 30 분
     static private final long REFRESH_TOKEN_VALID_MILISECOND = 1000L * 60 * 60 * 24 * 14; // 14 일
     static private final String TOKEN_TYPE_CLAIM = "type";
     static private final String REFRESH_TOKEN_TYPE = "refresh";
 
-    private String secretKey
-            = "충분히긴임의의(랜덤한) 비밀키문자열배정";
-    private Key key = Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
+    private final Key key;
 
-    //private Key key = Keys.secretKeyFor(SignatureAlgorithm.HS256);  -- 운영시 사용
 
+    public JwtProcessor(@Value("${jwt.secret:충분히긴임의의(랜덤한) 비밀키문자열배정}") String secretKey) {
+        this.key = Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
+    }
 
     //JWT생성 (access token)
     public String generateToken(String subject){
