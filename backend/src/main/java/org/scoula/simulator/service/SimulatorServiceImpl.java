@@ -2,6 +2,8 @@ package org.scoula.simulator.service;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import lombok.RequiredArgsConstructor;
@@ -11,6 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 // TODO: 향후 openbanking 패키지 완성 시 아래 2개 DTO는 삭제하고 공식 VO로 교체
+import org.scoula.simulator.dto.SimulatorCalculateResponseDTO;
+import org.scoula.simulator.dto.SimulatorConstantCalcRequestDTO;
 import org.scoula.simulator.dto.SimulatorSavingAccountDTO;
 import org.scoula.simulator.dto.SimulatorSavingDetailsResponseDTO;
 import org.scoula.simulator.dto.SimulatorSavingHistoryDTO;
@@ -172,6 +176,48 @@ public class SimulatorServiceImpl implements SimulatorService {
                 .expectedInterest((long) expectedInterestTotal)
                 .expectedMatchingFund(expectedMatchingFundTotal)
                 .totalReceiptAmount(totalReceiptAmount)
+                .build();
+    }
+    
+    @Override
+    public SimulatorCalculateResponseDTO calculateConstant(SimulatorConstantCalcRequestDTO request) {
+        if (request == null || request.getMonthlySave() == null || request.getSaveMonths() == null) {
+            return null;
+        }
+        
+        long amount = request.getMonthlySave();
+        
+        // 법정 최대 납입 한도(55만원) 검증
+        if (amount > 550000) {
+            return null;
+        }
+        
+        int totalMonths = request.getSaveMonths();
+        
+        // 법정 최대 가입기간(24개월) 검증
+        if (totalMonths > 24) {
+            return null;
+        }
+        
+        long totalPrincipal = 0L;
+        double totalInterest = 0.0;
+        double annualInterestRate = 0.05;
+        double governmentMatchingRate = 1.0;
+        
+        for (int i = 1; i <= totalMonths; i++) {
+            totalPrincipal += amount;
+            int investedMonths = totalMonths - i + 1;
+            totalInterest += amount * annualInterestRate * (investedMonths / 12.0);
+        }
+        
+        double matchingFund = totalPrincipal * governmentMatchingRate;
+        long receiptAmount = totalPrincipal + (long) totalInterest + (long) matchingFund;
+        
+        return SimulatorCalculateResponseDTO.builder()
+                .totalPrincipal(totalPrincipal)
+                .totalInterest((long) totalInterest)
+                .totalMatchingFund((long) matchingFund)
+                .totalReceiptAmount(receiptAmount)
                 .build();
     }
 }
