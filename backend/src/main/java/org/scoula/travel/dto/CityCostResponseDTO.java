@@ -4,11 +4,10 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
 import org.scoula.travel.domain.CityCostVO;
 
-/**
- * 도시 물가 응답 DTO.
- */
+// 도시 물가 응답 DTO
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

@@ -22,12 +22,39 @@
         ORDER BY country, city
     </select>
 
-    <select id="getCityCost" resultType="org.scoula.travel.domain.CityCostVO">
+    <select id="getCityCostByCity" resultType="org.scoula.travel.domain.CityCostVO">
         SELECT
         <include refid="cityCostColumns"/>
         FROM city_cost
         WHERE del_yn = 'N'
-        AND city_cost_id = #{cityCostId}
+        AND city = #{city}
+        LIMIT 1
     </select>
 
+    <!-- 여행 목표 (travel_goal) -->
+
+    <!--
+      useGeneratedKeys 로 AUTO_INCREMENT 된 goal_id 를 VO에 반환
+      step1 시점에는 places / benefits / package_id 가 없으므로 컬럼에서 제외
+    -->
+    <insert id="insertGoal"
+            parameterType="org.scoula.travel.domain.TravelGoalVO"
+            useGeneratedKeys="true" keyProperty="goalId" keyColumn="goal_id">
+        INSERT INTO travel_goal
+        (user_id, title, departure, destination, is_domestic, style,
+         start_date, end_date, total_budget, status,
+         created_date, created_nm, del_yn)
+        VALUES
+            (#{userId}, #{title}, #{departure}, #{destination}, #{isDomestic}, #{style},
+             #{startDate}, #{endDate}, #{totalBudget}, #{status},
+             NOW(), #{createdNm}, 'N')
+    </insert>
+
+    <select id="countGoalByStatus" resultType="int">
+        SELECT COUNT(*)
+        FROM travel_goal
+        WHERE del_yn = 'N'
+          AND user_id = #{userId}
+          AND status = #{status}
+    </select>
 </mapper>
