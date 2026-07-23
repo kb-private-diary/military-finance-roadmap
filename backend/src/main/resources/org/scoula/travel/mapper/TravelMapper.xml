@@ -57,4 +57,60 @@
           AND user_id = #{userId}
           AND status = #{status}
     </select>
+
+    <sql id="travelGoalColumns">
+        goal_id, user_id, title, departure, destination, is_domestic, style,
+        start_date, end_date, total_budget, places, benefits, package_id, status,
+        created_date, created_nm, modified_date, modified_nm, del_yn
+    </sql>
+
+    <select id="getGoal" resultType="org.scoula.travel.domain.TravelGoalVO">
+        SELECT
+        <include refid="travelGoalColumns"/>
+        FROM travel_goal
+        WHERE del_yn = 'N'
+        AND goal_id = #{goalId}
+    </select>
+
+    <!-- 예상 경비 (travel_cost) -->
+
+    <sql id="travelCostColumns">
+        cost_id, goal_id, flight_cost, hotel_cost, living_cost,
+        total_cost, remaining_budget,
+        created_date, created_nm, modified_date, modified_nm, del_yn
+    </sql>
+
+    <insert id="insertCost"
+            parameterType="org.scoula.travel.domain.TravelCostVO"
+            useGeneratedKeys="true" keyProperty="costId" keyColumn="cost_id">
+        INSERT INTO travel_cost
+        (goal_id, flight_cost, hotel_cost, living_cost,
+         total_cost, remaining_budget,
+         created_date, created_nm, del_yn)
+        VALUES
+            (#{goalId}, #{flightCost}, #{hotelCost}, #{livingCost},
+             #{totalCost}, #{remainingBudget},
+             NOW(), #{createdNm}, 'N')
+    </insert>
+
+    <select id="getCostByGoalId" resultType="org.scoula.travel.domain.TravelCostVO">
+        SELECT
+        <include refid="travelCostColumns"/>
+        FROM travel_cost
+        WHERE del_yn = 'N'
+        AND goal_id = #{goalId}
+        ORDER BY cost_id DESC
+        LIMIT 1
+    </select>
+
+    <!-- 재계산 시 기존 행을 소프트 삭제. 삭제자·일시는 수정 컬럼에 기록 -->
+    <update id="deleteCostByGoalId">
+        UPDATE travel_cost
+        SET del_yn = 'Y',
+            modified_date = NOW(),
+            modified_nm = #{modifiedNm}
+        WHERE del_yn = 'N'
+          AND goal_id = #{goalId}
+    </update>
+
 </mapper>
