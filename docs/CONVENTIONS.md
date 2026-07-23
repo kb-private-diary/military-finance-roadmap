@@ -189,6 +189,7 @@ org.scoula.{도메인}.client.XxxClient
 ### 코드 스타일
 - 재정의 메서드는 `@Override` 표기
 - 자기 필드 접근 시 `this.` 명시
+- 주입 필드는 `private final` 로 선언 (`@RequiredArgsConstructor` 생성자 주입 + 불변) — 예: `private final MemberService service;`
 - 중괄호는 **K&R 스타일**
   ```java
   if (조건) {
