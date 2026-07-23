@@ -98,7 +98,7 @@ public class DashboardServiceImpl implements DashboardService {
             for(DashboardSavingAccountDTO account : accounts) {
                 // 계좌별 동적 만기 개월수 계산 (계좌 생성일 ~ 전역일)
                 LocalDate createdDate = account.getCreatedDate() != null 
-                    ? account.getCreatedDate().toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate() 
+                    ? account.getCreatedDate() 
                     : LocalDate.now();
                     
                 int totalMaturityMonths = (int) ChronoUnit.MONTHS.between(
