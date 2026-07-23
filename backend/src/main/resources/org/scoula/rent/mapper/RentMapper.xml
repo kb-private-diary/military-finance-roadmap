@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.scoula.rent.mapper.RentMapper">
+
+    <!-- 시/도 목록 (중복 제거) -->
+    <select id="getSidoList" resultType="org.scoula.rent.domain.RegionCodeVO">
+        SELECT DISTINCT sido_name
+        FROM region_code
+        WHERE del_yn = 'N' AND is_abolished = 'N'
+        ORDER BY sido_name
+    </select>
+
+    <!-- 특정 시/도의 시/군/구 목록 -->
+    <select id="getSigunguListBySido" resultType="org.scoula.rent.domain.RegionCodeVO">
+        SELECT DISTINCT sigungu_name, sigungu_code
+        FROM region_code
+        WHERE sido_name = #{sidoName}
+          AND del_yn = 'N' AND is_abolished = 'N'
+        ORDER BY sigungu_name
+    </select>
+
+    <!-- 특정 시/군/구의 읍/면/동 목록 -->
+    <select id="getUmdListBySigunguCode" resultType="org.scoula.rent.domain.RegionCodeVO">
+        SELECT region_code, umd_name
+        FROM region_code
+        WHERE sigungu_code = #{sigunguCode}
+          AND del_yn = 'N' AND is_abolished = 'N'
+        ORDER BY umd_name
+    </select>
+
+</mapper>
