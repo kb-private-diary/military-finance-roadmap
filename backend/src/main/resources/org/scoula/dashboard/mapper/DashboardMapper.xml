@@ -14,7 +14,21 @@
           AND sh.del_yn = 'N'
     </select>
 
-    <select id="getDischargeDateByUserId" resultType="java.util.Date">
+    <select id="getBasicInfoByUserId" resultType="org.scoula.dashboard.dto.DashboardBasicResponseDTO">
+        SELECT 
+            u.name, 
+            mr.rank_name, 
+            mt.type_name, 
+            u.unit_name, 
+            u.enlist_date, 
+            u.discharge_date
+        FROM `user` u
+        LEFT JOIN military_rank mr ON u.rank_id = mr.rank_id
+        LEFT JOIN military_types mt ON u.type_id = mt.type_id
+        WHERE u.id = #{userId} AND u.del_yn = 'N'
+    </select>
+
+    <select id="getDischargeDateByUserId" resultType="java.time.LocalDate">
         SELECT discharge_date
         FROM user
         WHERE id = #{userId}

@@ -21,23 +21,19 @@ class JwtProcessorTest {
 
     @Test
     void generateToken() {
-        String username = "user0"; //id,pw인증이 성공하면 token을 생성함.
-        String token = jwtProcessor.generateToken(username);
-        System.out.println(token);
-    }
-
-    //jwt : eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJ1c2VyMCIsImlhdCI6MTc4MjcwMDY3MSwiZXhwIjoxNzgyNzAwOTcxfQ.KnQEqgqoOTwwd7dHvH0QOQ4AUQp0bCNc3Ng1uyDh03fWmH9LX9EMpvdNQsuAUfe1
-    @Test
-    void getUsername() {
-        String token = "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJ1c2VyMCIsImlhdCI6MTc4MjcwMTE1OCwiZXhwIjoxNzgyNzAxNDU4fQ.rpOUHf6vYasLbVERljupIM1fgKuKB4gTclTswm9roUalHusyXgLh_5DMrXOSX9z1";
-        String username = jwtProcessor.getUsername(token);
-        System.out.println(username);
+        String token = jwtProcessor.generateToken("user0");
+        assertNotNull(token);
     }
 
     @Test
-    void validateToken() {
-        String token = "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJ1c2VyMCIsImlhdCI6MTc4MjcwMDY3MSwiZXhwIjoxNzgyNzAwOTcxfQ.KnQEqgqoOTwwd7dHvH0QOQ4AUQp0bCNc3Ng1uyDh03fWmH9LX9EMpvdNQsuAUfe1";
-        boolean result = jwtProcessor.validateToken(token);
-        System.out.println(result);
+    void getUsername_roundTrip() {
+        String token = jwtProcessor.generateToken("user0");
+        assertEquals("user0", jwtProcessor.getUsername(token));
+    }
+
+    @Test
+    void validateToken_freshlyIssuedToken_isValid() {
+        String token = jwtProcessor.generateToken("user0");
+        assertTrue(jwtProcessor.validateToken(token));
     }
 }
