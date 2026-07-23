@@ -1,21 +1,21 @@
 package org.scoula.dashboard.service;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.log4j.Log4j2;
-// openbanking 패키지에서 VO 객체 import
-import org.scoula.dashboard.dto.DashboardSavingAccountDTO;
-import org.scoula.dashboard.dto.DashboardSavingHistoryDTO;
-//
-import org.scoula.dashboard.dto.DashboardSavingsResponseDTO;
-import org.scoula.dashboard.mapper.DashboardMapper;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.time.ZoneId;
-import java.time.temporal.ChronoUnit;
-import java.util.Date;
-import java.util.List;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
+
+import org.scoula.dashboard.dto.DashboardBasicResponseDTO;
+// openbanking 패키지에서 VO 객체 import (향후 교체)
+import org.scoula.dashboard.dto.DashboardSavingAccountDTO;
+import org.scoula.dashboard.dto.DashboardSavingHistoryDTO;
+import org.scoula.dashboard.dto.DashboardSavingsResponseDTO;
+import org.scoula.dashboard.mapper.DashboardMapper;
 
 @Service
 @RequiredArgsConstructor
@@ -27,14 +27,66 @@ public class DashboardServiceImpl implements DashboardService {
 
     @Override
     @Transactional(readOnly = true)
-    public DashboardSavingsResponseDTO findSavingsStatus(Long userId) {
-        Long currentTotalSavings = mapper.getCurrentTotalSavings(userId);
-        List<DashboardSavingAccountDTO> accounts = mapper.getSavingAccountsByUserId(userId);
-        Date dischargeDateUtil = mapper.getDischargeDateByUserId(userId);
+    public DashboardBasicResponseDTO findBasicInfo(Long userId) {
+        // 1. DB에서 조인된 기본 정보 가져오기
+        DashboardBasicResponseDTO dto = this.mapper.getBasicInfoByUserId(userId);
+        if (dto == null) {
+            return null; // 프론트엔드나 컨트롤러에서 404 예외 처리
+        }
         
-        LocalDate dischargeDate = (dischargeDateUtil != null) 
-            ? dischargeDateUtil.toInstant().atZone(ZoneId.systemDefault()).toLocalDate() 
-            : LocalDate.now().plusMonths(24); // fallback
+        LocalDate enlistDate = dto.getEnlistDate();
+        LocalDate dischargeDate = dto.getDischargeDate();
+        LocalDate today = LocalDate.now();
+        
+        // 날짜가 없으면 기본값(0) 반환 (방어 로직)
+        if (enlistDate == null || dischargeDate == null) {
+            dto.setTotalServiceDays(0L);
+            dto.setCurrentServiceDays(0L);
+            dto.setServiceRate(0.0);
+            return dto;
+        }
+        
+        // 2. 총 복무일 (입대일 ~ 전역일 + 1)
+        long totalServiceDays = ChronoUnit.DAYS.between(enlistDate, dischargeDate) + 1;
+        if (totalServiceDays <= 0) totalServiceDays = 1; // 0으로 나누기 방지
+        
+        // 3. 현재 복무일 (입대일 ~ 오늘 + 1)
+        long currentServiceDays;
+        if (today.isBefore(enlistDate)) {
+            currentServiceDays = 0L; // 입대 전
+        } else if (today.isAfter(dischargeDate)) {
+            currentServiceDays = totalServiceDays; // 전역 후
+        } else {
+            currentServiceDays = ChronoUnit.DAYS.between(enlistDate, today) + 1; // 복무 중
+        }
+        
+        // 4. 복무율 (백분율 계산 후 소수점 첫째 자리까지만 포맷팅)
+        double serviceRate = ((double) currentServiceDays / totalServiceDays) * 100.0;
+        serviceRate = Math.round(serviceRate * 10.0) / 10.0;
+        
+        // 5. 계산된 필드 셋팅
+        dto.setTotalServiceDays(totalServiceDays);
+        dto.setCurrentServiceDays(currentServiceDays);
+        dto.setServiceRate(serviceRate);
+        
+        return dto;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public DashboardSavingsResponseDTO findSavingsStatus(Long userId) {
+        Long currentTotalSavings = this.mapper.getCurrentTotalSavings(userId);
+        List<DashboardSavingAccountDTO> accounts = this.mapper.getSavingAccountsByUserId(userId);
+        
+        // 기획 변경: 군적금 가입자만 이용 가능하므로, 계좌가 없으면 404 예외 처리 유도
+        if (accounts == null || accounts.isEmpty()) {
+            return null; 
+        }
+        
+        LocalDate dischargeDate = this.mapper.getDischargeDateByUserId(userId);
+        if (dischargeDate == null) {
+            dischargeDate = LocalDate.now().plusMonths(24); // fallback
+        }
         
         Long expectedMaturityTotal = 0L;
         
@@ -45,16 +97,19 @@ public class DashboardServiceImpl implements DashboardService {
         if (accounts != null) {
             for(DashboardSavingAccountDTO account : accounts) {
                 // 계좌별 동적 만기 개월수 계산 (계좌 생성일 ~ 전역일)
-                LocalDate createdDate = (account.getCreatedDate() != null) 
-                    ? account.getCreatedDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate() 
+                LocalDate createdDate = account.getCreatedDate() != null 
+                    ? account.getCreatedDate() 
                     : LocalDate.now();
                     
-                int totalMaturityMonths = (int) ChronoUnit.MONTHS.between(createdDate.withDayOfMonth(1), dischargeDate.withDayOfMonth(1)) + 1;
+                int totalMaturityMonths = (int) ChronoUnit.MONTHS.between(
+                        createdDate.withDayOfMonth(1), 
+                        dischargeDate.withDayOfMonth(1)) + 1;
                 if (totalMaturityMonths < 0) totalMaturityMonths = 0;
-                if (totalMaturityMonths > 24) totalMaturityMonths = 24; // 장병내일준비적금 법정 최대 가입기간(24개월) 제한
+                if (totalMaturityMonths > 24) totalMaturityMonths = 24; // 법정 최대 가입기간(24개월) 제한
                 
                 // 1. 해당 계좌의 실제 납입 내역(saving_history) 가져오기
-                List<DashboardSavingHistoryDTO> histories = mapper.getSavingHistoryByAccountId(account.getAccountId());
+                List<DashboardSavingHistoryDTO> histories = 
+                        this.mapper.getSavingHistoryByAccountId(account.getAccountId());
                 
                 long pastPrincipal = 0L;
                 double pastInterest = 0.0;
