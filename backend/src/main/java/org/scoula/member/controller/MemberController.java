@@ -5,6 +5,8 @@ import lombok.extern.log4j.Log4j2;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,6 +17,12 @@ import org.springframework.web.bind.annotation.RestController;
 import org.scoula.common.response.ApiResponse;
 import org.scoula.member.dto.MemberJoinRequestDTO;
 import org.scoula.member.service.MemberService;
+import org.scoula.security.account.domain.MemberVO;
+import org.scoula.security.account.dto.AuthResultDTO;
+import org.scoula.security.account.dto.RefreshRequestDTO;
+import org.scoula.security.account.dto.UserInfoDTO;
+import org.scoula.security.account.mapper.UserDetailsMapper;
+import org.scoula.security.util.JwtProcessor;
 
 @Log4j2
 @RestController
@@ -22,6 +30,8 @@ import org.scoula.member.service.MemberService;
 @RequestMapping("/api/users")
 public class MemberController {
     final MemberService service;
+    final JwtProcessor jwtProcessor;
+    final UserDetailsMapper userDetailsMapper;
 
     @GetMapping("/check-id/{userId}")
     public ResponseEntity<ApiResponse<Boolean>> checkUserId(@PathVariable String userId) {
@@ -32,5 +42,31 @@ public class MemberController {
     public ResponseEntity<ApiResponse<Long>> createMember(@RequestBody MemberJoinRequestDTO member) {
         Long id = this.service.createMember(member);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(id));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponse<AuthResultDTO>> refresh(@RequestBody RefreshRequestDTO request) {
+        String refreshToken = request.getRefreshToken();
+        this.jwtProcessor.validateToken(refreshToken);
+        if (!this.jwtProcessor.isRefreshToken(refreshToken)) {
+            throw new BadCredentialsException("refresh token이 아닙니다.");
+        }
+
+        String userId = this.jwtProcessor.getUsername(refreshToken);
+        MemberVO member = this.userDetailsMapper.get(userId);
+        if (member == null) {
+            throw new UsernameNotFoundException(userId + "은 없는 id입니다.");
+        }
+
+        String newAccessToken = this.jwtProcessor.generateToken(userId);
+        String newRefreshToken = this.jwtProcessor.generateRefreshToken(userId);
+        AuthResultDTO result = new AuthResultDTO(newAccessToken, newRefreshToken, UserInfoDTO.of(member));
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    // 세션 없는 stateless JWT라 서버측에 무효화할 상태가 없음 - 클라이언트가 토큰을 폐기하면 로그아웃 완료.
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout() {
+        return ResponseEntity.ok(ApiResponse.success());
     }
 }

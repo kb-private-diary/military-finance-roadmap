@@ -1,5 +1,6 @@
 package org.scoula.exception;
 
+import io.jsonwebtoken.JwtException;
 import lombok.extern.log4j.Log4j2;
 import org.scoula.common.exception.BusinessException;
 import org.scoula.common.response.ApiResponse;
@@ -7,6 +8,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -33,6 +35,22 @@ public class ApiExceptionAdvice {
         log.warn("[BusinessException] {} (code={})", e.getMessage(), e.getCode());
         return ResponseEntity.status(e.getStatus())
                 .body(ApiResponse.error(e.getMessage(), e.getCode()));
+    }
+
+    /** 인증 실패 — 잘못된/만료된 refresh token, 존재하지 않는 회원 등 */
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAuthenticationException(AuthenticationException e) {
+        log.warn("[AuthenticationException] {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.error(e.getMessage(), "MEM_004"));
+    }
+
+    /** 만료/위조된 JWT — refresh token 검증 실패 */
+    @ExceptionHandler(JwtException.class)
+    public ResponseEntity<ApiResponse<Void>> handleJwtException(JwtException e) {
+        log.warn("[JwtException] {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.error("토큰이 유효하지 않습니다.", "MEM_004"));
     }
 
     /** 잘못된 요청 — 파라미터 누락·타입 불일치·본문 파싱 실패 등 */
