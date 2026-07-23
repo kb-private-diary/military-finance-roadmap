@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 // TODO: 향후 openbanking 패키지 완성 시 아래 2개 DTO는 삭제하고 공식 VO로 교체
 import org.scoula.simulator.dto.SimulatorCalculateResponseDTO;
 import org.scoula.simulator.dto.SimulatorConstantCalcRequestDTO;
+import org.scoula.simulator.dto.SimulatorVariableCalcRequestDTO;
 import org.scoula.simulator.dto.SimulatorSavingAccountDTO;
 import org.scoula.simulator.dto.SimulatorSavingDetailsResponseDTO;
 import org.scoula.simulator.dto.SimulatorSavingHistoryDTO;
@@ -211,6 +212,92 @@ public class SimulatorServiceImpl implements SimulatorService {
         }
         
         double matchingFund = totalPrincipal * governmentMatchingRate;
+        long receiptAmount = totalPrincipal + (long) totalInterest + (long) matchingFund;
+        
+        return SimulatorCalculateResponseDTO.builder()
+                .totalPrincipal(totalPrincipal)
+                .totalInterest((long) totalInterest)
+                .totalMatchingFund((long) matchingFund)
+                .totalReceiptAmount(receiptAmount)
+                .build();
+    }
+    
+    @Override
+    public SimulatorCalculateResponseDTO calculateVariable(SimulatorVariableCalcRequestDTO request) {
+        if (request == null || request.getPeriods() == null || request.getPeriods().isEmpty()) {
+            return null;
+        }
+        
+        long totalPrincipal = 0L;
+        double totalInterest = 0.0;
+        double annualInterestRate = 0.05;
+        double governmentMatchingRate = 1.0;
+        
+        YearMonth minStart = null;
+        YearMonth maxEnd = null;
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM");
+        
+        try {
+            // 1. 모든 구간 유효성 검사 및 최소 시작일/최대 종료일 계산
+            for (SimulatorVariableCalcRequestDTO.Period period : request.getPeriods()) {
+                if (period.getStartMonth() == null || period.getEndMonth() == null || period.getAmount() == null) {
+                    return null;
+                }
+                
+                // 법정 최대 납입 한도(55만원) 검증
+                if (period.getAmount() > 550000) {
+                    return null;
+                }
+                
+                YearMonth start = YearMonth.parse(period.getStartMonth(), formatter);
+                YearMonth end = YearMonth.parse(period.getEndMonth(), formatter);
+                
+                // 시작일이 종료일보다 늦은 역전 구간 방어
+                if (start.isAfter(end)) {
+                    return null;
+                }
+                
+                if (minStart == null || start.isBefore(minStart)) {
+                    minStart = start;
+                }
+                if (maxEnd == null || end.isAfter(maxEnd)) {
+                    maxEnd = end;
+                }
+            }
+            
+            if (minStart == null || maxEnd == null || minStart.isAfter(maxEnd)) {
+                return null;
+            }
+            
+            // 법정 최대 가입기간(24개월) 검증
+            long totalDurationMonths = ChronoUnit.MONTHS.between(minStart, maxEnd) + 1;
+            if (totalDurationMonths > 24) {
+                return null;
+            }
+            
+            // 2. 각 구간별 이자 계산
+            for (SimulatorVariableCalcRequestDTO.Period period : request.getPeriods()) {
+                YearMonth start = YearMonth.parse(period.getStartMonth(), formatter);
+                YearMonth end = YearMonth.parse(period.getEndMonth(), formatter);
+                long amount = period.getAmount();
+                
+                YearMonth current = start;
+                while (!current.isAfter(end)) {
+                    totalPrincipal += amount;
+                    int investedMonths = (int) ChronoUnit.MONTHS.between(current, maxEnd) + 1;
+                    totalInterest += amount * annualInterestRate * (investedMonths / 12.0);
+                    current = current.plusMonths(1);
+                }
+            }
+        } catch (java.time.format.DateTimeParseException e) {
+            // 날짜 포맷 에러 (예: "2025-1", "가나다라") 발생 시 400 Bad Request 유도
+            return null;
+        }
+        
+        // 매칭지원금 계산 (기본 100% 매칭, 1회성 계산기이므로 한도는 입력된 원금 자체를 상한선으로 봄)
+        double matchingFund = totalPrincipal * governmentMatchingRate;
+        
+        // 최종 비과세 적용 후 반환
         long receiptAmount = totalPrincipal + (long) totalInterest + (long) matchingFund;
         
         return SimulatorCalculateResponseDTO.builder()

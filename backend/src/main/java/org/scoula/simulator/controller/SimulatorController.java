@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.scoula.common.response.ApiResponse;
 import org.scoula.simulator.dto.SimulatorCalculateResponseDTO;
 import org.scoula.simulator.dto.SimulatorConstantCalcRequestDTO;
+import org.scoula.simulator.dto.SimulatorVariableCalcRequestDTO;
 import org.scoula.simulator.dto.SimulatorSavingDetailsResponseDTO;
 import org.scoula.simulator.service.SimulatorService;
 
@@ -52,6 +53,23 @@ public class SimulatorController {
         log.info("Calculating hypothetical military savings for CONSTANT");
         
         SimulatorCalculateResponseDTO dto = this.service.calculateConstant(request);
+        
+        if (dto == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error("잘못된 입력값입니다.", "SIMULATOR_003"));
+        }
+        
+        return ResponseEntity.ok(ApiResponse.success(dto));
+    }
+    
+    // SIM-API-02: 만기수령액 1회성 시뮬레이션 (구간별 금액)
+    @PostMapping("/calculate/variable")
+    public ResponseEntity<ApiResponse<SimulatorCalculateResponseDTO>> calculateVariable(
+            @RequestBody SimulatorVariableCalcRequestDTO request
+    ) {
+        log.info("Calculating hypothetical military savings for VARIABLE");
+        
+        SimulatorCalculateResponseDTO dto = this.service.calculateVariable(request);
         
         if (dto == null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
