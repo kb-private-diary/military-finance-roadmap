@@ -5,23 +5,23 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.scoula.security.account.domain.MemberVO;
 
-import java.util.List;
-
 @NoArgsConstructor
 @AllArgsConstructor
 @Data
 public class UserInfoDTO {
-    String username;
-    String email;
-    List<String> roles;
+    Long id;
+    String userId;
+    String name;
+    String phone;
+    String status;
 
-    public static UserInfoDTO of(MemberVO member){
-
+    public static UserInfoDTO of(MemberVO member) {
         return new UserInfoDTO(
-                member.getUsername(),
-                member.getEmail(),
-                member.getAuthList().stream().map(a -> a.getAuth()).toList() // {"role_admin", "role_member"}
-                );
+                member.getId(),
+                member.getUserId(),
+                member.getName(),
+                member.getPhone(),
+                member.getStatus()
+        );
     }
-
 }
