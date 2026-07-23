@@ -3,26 +3,14 @@
 
 <mapper namespace="org.scoula.security.account.mapper.UserDetailsMapper">
 
-    <resultMap id="authMap" type="AuthVO">
-        <result property="username" column="username" />
-        <result property="auth" column="auth" />
-    </resultMap>
-
-    <resultMap id="memberMap"  type="org.scoula.security.account.domain.MemberVO">
-        <id property="username"  column="username" />
-        <result property="username"  column="username" />
-        <result property="password" column="password" />
-        <result property="email" column="email" />
-        <result property="regDate" column="reg_date" />
-        <result property="updateDate" column="update_date" />
-        <collection property="authList" resultMap="authMap" />
-    </resultMap>
-
-    <select id="get" resultMap="memberMap">
-        select m.username, password, email, reg_date, update_date, auth
-        from tbl_member m left
-            outer join tbl_member_auth a
-            on m.username = a.username
-        where m.username = #{username}
+    <select id="get" resultType="MemberVO">
+        SELECT id, user_id, password, name, phone, type_id, rank_id,
+               unit_name, unit_code, enlist_date, discharge_date,
+               login_provider, status, withdrawn_at,
+               created_date, created_nm, modified_date, modified_nm, del_yn
+        FROM `user`
+        WHERE user_id = #{userId}
+          AND del_yn = 'N'
     </select>
+
 </mapper>
