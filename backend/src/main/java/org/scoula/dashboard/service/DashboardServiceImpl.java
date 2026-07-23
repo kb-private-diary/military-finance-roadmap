@@ -88,6 +88,12 @@ public class DashboardServiceImpl implements DashboardService {
             dischargeDate = LocalDate.now().plusMonths(24); // fallback
         }
         
+        // 입대일 가져오기 (복무개월수 한도 계산용)
+        org.scoula.dashboard.dto.DashboardBasicResponseDTO basicInfo = this.mapper.getBasicInfoByUserId(userId);
+        LocalDate enlistDate = (basicInfo != null && basicInfo.getEnlistDate() != null) ? basicInfo.getEnlistDate() : LocalDate.now();
+        int totalServiceMonths = (int) ChronoUnit.MONTHS.between(enlistDate.withDayOfMonth(1), dischargeDate.withDayOfMonth(1));
+        if (totalServiceMonths <= 0) totalServiceMonths = 1;
+        
         Long expectedMaturityTotal = 0L;
         
         // 군적금 기본 금리 및 지원금 조건 (현재 스펙 기준 가정)
@@ -147,6 +153,12 @@ public class DashboardServiceImpl implements DashboardService {
                 
                 // 5. 정부 매칭지원금 계산 (납입 원금의 100%)
                 double matchingFund = totalPrincipal * governmentMatchingRate;
+                
+                // 매칭지원금 최대 한도 제한 (복무개월수 * 해당 계좌 월 납입액)
+                double maxMatchingFundLimit = (double) totalServiceMonths * monthlySave;
+                if (matchingFund > maxMatchingFundLimit) {
+                    matchingFund = maxMatchingFundLimit;
+                }
                 
                 // 6. 비과세 처리 적용(세금 0) 및 최종 예상 만기 수령액 합산
                 expectedMaturityTotal += (long) (totalPrincipal + totalInterest + matchingFund);
