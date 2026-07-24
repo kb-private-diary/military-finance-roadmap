@@ -36,4 +36,14 @@ class JwtProcessorTest {
         String token = jwtProcessor.generateToken("user0");
         assertTrue(jwtProcessor.validateToken(token));
     }
+
+    @Test
+    void generateRefreshToken_isMarkedAsRefreshToken() {
+        String accessToken = jwtProcessor.generateToken("user0");
+        String refreshToken = jwtProcessor.generateRefreshToken("user0");
+
+        assertFalse(jwtProcessor.isRefreshToken(accessToken));
+        assertTrue(jwtProcessor.isRefreshToken(refreshToken));
+        assertEquals("user0", jwtProcessor.getUsername(refreshToken));
+    }
 }
