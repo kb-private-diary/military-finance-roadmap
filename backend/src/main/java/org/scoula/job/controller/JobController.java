@@ -3,10 +3,7 @@ package org.scoula.job.controller;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.scoula.common.response.ApiResponse;
-import org.scoula.job.dto.JobCodeDTO;
-import org.scoula.job.dto.JobGoalCreateRequestDTO;
-import org.scoula.job.dto.JobGoalCreateResponseDTO;
-import org.scoula.job.dto.PrepItemRecommendResponseDTO;
+import org.scoula.job.dto.*;
 import org.scoula.job.service.JobService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -45,5 +42,15 @@ public class JobController {
     public ResponseEntity<ApiResponse<PrepItemRecommendResponseDTO>> findPrepItemRecommend(@PathVariable Long goalId) {
         log.info("Fetching job recommend for goalId: {}", goalId);
         return ResponseEntity.ok(ApiResponse.success(jobService.findPrepItemRecommend(goalId)));
+    }
+
+    //JOB-API-05: 준비항목 선택 저장
+    @PostMapping("/goals/{goalId}/plans")
+    public ResponseEntity<ApiResponse<Void>> createJobPlans(
+            @PathVariable Long goalId,
+            @RequestBody JobPlanCreateRequestDTO requestDTO) {
+        log.info("Creating job plans for goalId: {}", goalId);
+        jobService.createJobPlans(goalId, requestDTO);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success());
     }
 }

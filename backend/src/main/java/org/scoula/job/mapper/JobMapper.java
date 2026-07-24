@@ -1,10 +1,7 @@
 package org.scoula.job.mapper;
 
 import org.apache.ibatis.annotations.Param;
-import org.scoula.job.domain.JobCodeVO;
-import org.scoula.job.domain.JobGoalVO;
-import org.scoula.job.domain.JobInterestedTypeVO;
-import org.scoula.job.domain.PrepItemCriteriaVO;
+import org.scoula.job.domain.*;
 
 import java.util.List;
 
@@ -30,4 +27,10 @@ public interface JobMapper {
             @Param("jobCodeId") Long jobCodeId,
             @Param("itemTypes") List<String> itemTypes
     );
+
+    // 선택한 prepCritId 목록으로 준비항목 기준 데이터 재조회 (스냅샷 값 복사용)
+    List<PrepItemCriteriaVO> findPrepItemCriteriaByIds(@Param("prepCritIds") List<Long> prepCritIds);
+
+    // 선택한 준비항목들을 job_plan에 일괄 저장
+    void createJobPlans(@Param("plans") List<JobPlanVO> plans, @Param("createdNm") String createdNm);
 }

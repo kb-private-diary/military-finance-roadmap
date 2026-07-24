@@ -3,10 +3,7 @@ package org.scoula.job.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.scoula.common.exception.BusinessException;
-import org.scoula.job.domain.JobCodeVO;
-import org.scoula.job.domain.JobGoalVO;
-import org.scoula.job.domain.JobInterestedTypeVO;
-import org.scoula.job.domain.PrepItemCriteriaVO;
+import org.scoula.job.domain.*;
 import org.scoula.job.dto.*;
 import org.scoula.job.mapper.JobMapper;
 import org.springframework.stereotype.Service;
@@ -90,5 +87,40 @@ public class JobServiceImpl implements JobService{
                 ));
 
         return new PrepItemRecommendResponseDTO(goalId, groupedItems);
+    }
+
+    @Override
+    @Transactional
+    public void createJobPlans(Long goalId, JobPlanCreateRequestDTO requestDTO) {
+
+        JobGoalVO jobGoal = jobMapper.findJobGoal(goalId);
+        if (jobGoal == null) {
+            throw BusinessException.notFound("진로 목표를 찾을 수 없습니다", "JOB_001");
+        }
+
+        List<Long> prepCritIds = requestDTO.getPrepCritIds();
+        if (prepCritIds == null || prepCritIds.isEmpty()) {
+            throw BusinessException.badRequest("준비항목을 1개 이상 선택해주세요", "JOB_003");
+        }
+
+        List<PrepItemCriteriaVO> criteriaList = jobMapper.findPrepItemCriteriaByIds(prepCritIds);
+        if (criteriaList.size() != prepCritIds.size()) {
+            throw BusinessException.notFound("존재하지 않는 준비항목이 포함되어 있습니다", "JOB_004");
+        }
+
+        List<JobPlanVO> jobPlans = criteriaList.stream()
+                .map(criteria -> {
+                    JobPlanVO plan = new JobPlanVO();
+                    plan.setGoalId(goalId);
+                    plan.setItemType(criteria.getItemType());
+                    plan.setItemName(criteria.getItemName());
+                    plan.setInfoUrl(criteria.getInfoUrl());
+                    plan.setApplyUrl(criteria.getApplyUrl());
+                    plan.setAmount(criteria.getAmount());
+                    return plan;
+                })
+                .collect(Collectors.toList());
+
+        jobMapper.createJobPlans(jobPlans, String.valueOf(jobGoal.getUserId()));
     }
 }
