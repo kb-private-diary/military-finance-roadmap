@@ -4,7 +4,6 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -47,7 +46,7 @@ public class TravelServiceImpl implements TravelService {
     @Override
     public List<CityCostResponseDTO> findCityCosts(String country) {
         log.info("findCityCosts: country = " + country);
-        return this.mapper.getCityCostList(country).stream()
+        return this.mapper.findCityCostList(country).stream()
                 .map(CityCostResponseDTO::of)
                 .collect(Collectors.toList());
     }
@@ -88,7 +87,7 @@ public class TravelServiceImpl implements TravelService {
             throw BusinessException.badRequest("출발일은 필수입니다.", "TRAVEL_001");
         }
         if (endDate == null) {
-            throw BusinessException.badRequest("도착일은 필수입니다.", "TRAVEL_001");
+            throw BusinessException.badRequest("도착일은 필수입니다.", "TRAVEL_004");
         }
         if (endDate.isBefore(startDate)) {
             throw BusinessException.badRequest("도착일이 출발일보다 빠를 수 없습니다.", "TRAVEL_002");
@@ -118,10 +117,10 @@ public class TravelServiceImpl implements TravelService {
 
     // 도착지의 물가 정보를 조회한다. 없으면 예외. 국내외 구분 도출에도 사용.
     private CityCostVO findCityCostOrThrow(String destination) {
-        CityCostVO cityCost = this.mapper.getCityCostByCity(destination);
+        CityCostVO cityCost = this.mapper.findCityCostByCity(destination);
         if (cityCost == null) {
             throw BusinessException.badRequest(
-                    "선택할 수 없는 도착지입니다: " + destination, "TRAVEL_004");
+                    "선택할 수 없는 도착지입니다: " + destination, "TRAVEL_009");
         }
         return cityCost;
     }
@@ -164,7 +163,7 @@ public class TravelServiceImpl implements TravelService {
     }
 
     private TravelGoalVO getGoalOrThrow(Long goalId) {
-        TravelGoalVO goal = this.mapper.getGoal(goalId);
+        TravelGoalVO goal = this.mapper.findGoal(goalId);
         if (goal == null) {
             throw BusinessException.notFound(
                     "여행 목표를 찾을 수 없습니다.", "TRAVEL_005");
@@ -178,11 +177,11 @@ public class TravelServiceImpl implements TravelService {
     }
 
     private long findDailyCost(String destination, String style) {
-        CityCostVO cityCost = this.mapper.getCityCostByCity(destination);
+        CityCostVO cityCost = this.mapper.findCityCostByCity(destination);
         Long dailyCost = cityCost == null ? null : cityCost.costByStyle(style);
         if (dailyCost == null) {
             throw BusinessException.badRequest(
-                    "물가 정보를 찾을 수 없습니다: " + destination, "TRAVEL_004");
+                    "물가 정보를 찾을 수 없습니다: " + destination, "TRAVEL_010");
         }
         return dailyCost;
     }
@@ -197,7 +196,7 @@ public class TravelServiceImpl implements TravelService {
     @Override
     public TravelCostResponseDTO findCost(Long goalId) {
         this.getGoalOrThrow(goalId);
-        TravelCostVO cost = this.mapper.getCostByGoalId(goalId);
+        TravelCostVO cost = this.mapper.findCostByGoalId(goalId);
         if (cost == null) {
             throw BusinessException.notFound(
                     "산출된 예상 경비가 없습니다.", "TRAVEL_006");
