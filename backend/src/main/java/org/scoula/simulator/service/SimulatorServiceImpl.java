@@ -119,23 +119,10 @@ public class SimulatorServiceImpl implements SimulatorService {
     
     @Override
     public SimulatorCalculateResponseDTO calculateConstant(SimulatorConstantCalcRequestDTO request) {
-        if (request == null || request.getMonthlySave() == null || request.getSaveMonths() == null) {
-            throw BusinessException.badRequest("잘못된 입력값입니다.", "SIMUL_003");
-        }
+        this.validateConstantRequest(request);
         
         long amount = request.getMonthlySave();
-        
-        // 법정 최대 납입 한도(55만원) 검증
-        if (amount > 550000) {
-            throw BusinessException.badRequest("납입 한도 55만 원을 초과했습니다.", "SIMUL_003");
-        }
-        
         int totalMonths = request.getSaveMonths();
-        
-        // 법정 최대 가입기간(24개월) 검증
-        if (totalMonths > 24) {
-            throw BusinessException.badRequest("최대 가입기간 24개월을 초과했습니다.", "SIMUL_003");
-        }
         
         long totalPrincipal = 0L;
         double totalInterest = 0.0;
@@ -153,14 +140,11 @@ public class SimulatorServiceImpl implements SimulatorService {
     
     @Override
     public SimulatorCalculateResponseDTO calculateVariable(SimulatorVariableCalcRequestDTO request) {
-        if (request == null || request.getPeriods() == null || request.getPeriods().isEmpty()) {
-            throw BusinessException.badRequest("잘못된 입력값입니다.", "SIMUL_003");
-        }
+        this.validateVariableRequest(request);
         
         long totalPrincipal = 0L;
         double totalInterest = 0.0;
         double annualInterestRate = 0.05;
-        double governmentMatchingRate = 1.0;
         
         YearMonth minStart = null;
         YearMonth maxEnd = null;
@@ -169,22 +153,10 @@ public class SimulatorServiceImpl implements SimulatorService {
         try {
             // 1. 모든 구간 유효성 검사 및 최소 시작일/최대 종료일 계산
             for (SimulatorVariableCalcRequestDTO.Period period : request.getPeriods()) {
-                if (period.getStartMonth() == null || period.getEndMonth() == null || period.getAmount() == null) {
-                    throw BusinessException.badRequest("잘못된 입력값입니다.", "SIMUL_003");
-                }
-                
-                // 법정 최대 납입 한도(55만원) 검증
-                if (period.getAmount() > 550000) {
-                    throw BusinessException.badRequest("납입 한도 55만 원을 초과했습니다.", "SIMUL_003");
-                }
-                
                 YearMonth start = YearMonth.parse(period.getStartMonth(), formatter);
                 YearMonth end = YearMonth.parse(period.getEndMonth(), formatter);
                 
-                // 시작일이 종료일보다 늦은 역전 구간 방어
-                if (start.isAfter(end)) {
-                    throw BusinessException.badRequest("시작일이 종료일보다 늦을 수 없습니다.", "SIMUL_003");
-                }
+                this.validatePeriodOrder(start, end);
                 
                 if (minStart == null || start.isBefore(minStart)) {
                     minStart = start;
@@ -198,11 +170,8 @@ public class SimulatorServiceImpl implements SimulatorService {
                 throw BusinessException.badRequest("잘못된 입력값입니다.", "SIMUL_003");
             }
             
-            // 법정 최대 가입기간(24개월) 검증
             long totalDurationMonths = ChronoUnit.MONTHS.between(minStart, maxEnd) + 1;
-            if (totalDurationMonths > 24) {
-                throw BusinessException.badRequest("최대 가입기간 24개월을 초과했습니다.", "SIMUL_003");
-            }
+            this.validateTotalMonths(totalDurationMonths);
             
             // 2. 각 구간별 이자 계산
             for (SimulatorVariableCalcRequestDTO.Period period : request.getPeriods()) {
@@ -220,12 +189,54 @@ public class SimulatorServiceImpl implements SimulatorService {
             }
         } catch (java.time.format.DateTimeParseException e) {
             // 날짜 포맷 에러 (예: "2025-1", "가나다라") 발생 시 400 Bad Request 유도
-            throw BusinessException.badRequest("날짜 포맷이 올바르지 않습니다.", "SIMUL_003");
+            throw BusinessException.badRequest("날짜 포맷이 올바르지 않습니다.", "SIMUL_007");
         }
         
         return this.buildSimulationResponse(totalPrincipal, totalInterest);
     }
     
+    // ------------------------- 유효성 검증 헬퍼 -------------------------
+
+    private void validateConstantRequest(SimulatorConstantCalcRequestDTO request) {
+        if (request == null || request.getMonthlySave() == null || request.getSaveMonths() == null) {
+            throw BusinessException.badRequest("잘못된 입력값입니다.", "SIMUL_003");
+        }
+        this.validateSaveAmount(request.getMonthlySave());
+        this.validateTotalMonths(request.getSaveMonths());
+    }
+    
+    private void validateVariableRequest(SimulatorVariableCalcRequestDTO request) {
+        if (request == null || request.getPeriods() == null || request.getPeriods().isEmpty()) {
+            throw BusinessException.badRequest("잘못된 입력값입니다.", "SIMUL_003");
+        }
+        for (SimulatorVariableCalcRequestDTO.Period period : request.getPeriods()) {
+            if (period.getStartMonth() == null || period.getEndMonth() == null || period.getAmount() == null) {
+                throw BusinessException.badRequest("잘못된 입력값입니다.", "SIMUL_003");
+            }
+            this.validateSaveAmount(period.getAmount());
+        }
+    }
+    
+    private void validateSaveAmount(long amount) {
+        if (amount > 550000) {
+            throw BusinessException.badRequest("납입 한도 55만 원을 초과했습니다.", "SIMUL_004");
+        }
+    }
+    
+    private void validateTotalMonths(long totalMonths) {
+        if (totalMonths > 24) {
+            throw BusinessException.badRequest("최대 가입기간 24개월을 초과했습니다.", "SIMUL_005");
+        }
+    }
+    
+    private void validatePeriodOrder(YearMonth start, YearMonth end) {
+        if (start.isAfter(end)) {
+            throw BusinessException.badRequest("시작일이 종료일보다 늦을 수 없습니다.", "SIMUL_006");
+        }
+    }
+    
+    // ------------------------- 계산 헬퍼 -------------------------
+
     private double calculateSimpleInterest(long amount, double annualRate, int investedMonths) {
         return amount * annualRate * (investedMonths / 12.0);
     }
