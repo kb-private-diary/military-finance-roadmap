@@ -1,0 +1,56 @@
+@font-face {
+  font-family: 'Escoredream';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_six@1.2/S-CoreDream-4Regular.woff')
+    format('woff');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Escoredream';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_six@1.2/S-CoreDream-5Medium.woff')
+    format('woff');
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Escoredream';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_six@1.2/S-CoreDream-7ExtraBold.woff')
+    format('woff');
+  font-weight: 700;
+  font-display: swap;
+}
+
+/* 상단 제목 */
+.text-overline {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-body);
+  font-family: 'Escoredream', sans-serif;
+}
+
+/* 화면 주제목 */
+.text-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-strong);
+  font-family: 'Escoredream', sans-serif;
+}
+
+/* 소제목 */
+.text-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-strong);
+  font-family: 'Escoredream', sans-serif;
+}
+
+/* 주석·안내 */
+.text-caption {
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--text-hint);
+  font-family: 'Escoredream', sans-serif;
+}
