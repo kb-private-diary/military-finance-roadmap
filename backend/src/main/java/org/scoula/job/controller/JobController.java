@@ -6,6 +6,7 @@ import org.scoula.common.response.ApiResponse;
 import org.scoula.job.dto.JobCodeDTO;
 import org.scoula.job.dto.JobGoalCreateRequestDTO;
 import org.scoula.job.dto.JobGoalCreateResponseDTO;
+import org.scoula.job.dto.PrepItemRecommendResponseDTO;
 import org.scoula.job.service.JobService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -37,5 +38,12 @@ public class JobController {
         log.info("Creating job goal for userId: {}", requestDTO.getUserId());
         JobGoalCreateResponseDTO responseDTO = jobService.createJobGoal(requestDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(responseDTO));
+    }
+
+    //JOB-API-04: 준비항목 추천 조회
+    @GetMapping("/goals/{goalId}/prep-items")
+    public ResponseEntity<ApiResponse<PrepItemRecommendResponseDTO>> findPrepItemRecommend(@PathVariable Long goalId) {
+        log.info("Fetching job recommend for goalId: {}", goalId);
+        return ResponseEntity.ok(ApiResponse.success(jobService.findPrepItemRecommend(goalId)));
     }
 }

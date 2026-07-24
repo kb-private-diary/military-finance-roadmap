@@ -44,4 +44,51 @@
         )
     </insert>
 
+    <select id="findJobGoal" parameterType="Long" resultType="org.scoula.job.domain.JobGoalVO">
+        SELECT
+            goal_id        AS goalId,
+            user_id        AS userId,
+            goal_type      AS goalType,
+            job_code_id    AS jobCodeId,
+            expected_date  AS expectedDate,
+            status         AS status
+        FROM job_goal
+        WHERE goal_id = #{goalId}
+          AND del_yn = 'N'
+    </select>
+
+    <select id="findInterestedItemTypes" parameterType="Long" resultType="String">
+        SELECT item_type
+        FROM job_interested_type
+        WHERE goal_id = #{goalId}
+          AND del_yn = 'N'
+        ORDER BY item_type
+    </select>
+
+    <select id="findPrepItemCriteriaList" resultType="org.scoula.job.domain.PrepItemCriteriaVO">
+        SELECT
+        prep_crit_id   AS prepCritId,
+        goal_type      AS goalType,
+        item_type      AS itemType,
+        job_code_id    AS jobCodeId,
+        item_name      AS itemName,
+        info_url       AS infoUrl,
+        apply_url      AS applyUrl,
+        amount         AS amount,
+        amount_source  AS amountSource,
+        fee_detail     AS feeDetail,
+        external_code  AS externalCode
+        FROM prep_item_criteria
+        WHERE goal_type = #{goalType}
+        AND job_code_id = #{jobCodeId}
+        AND del_yn = 'N'
+        <if test="itemTypes != null and itemTypes.size() > 0">
+            AND item_type IN
+            <foreach collection="itemTypes" item="itemType" open="(" separator="," close=")">
+                #{itemType}
+            </foreach>
+        </if>
+        ORDER BY item_type, prep_crit_id
+    </select>
+
 </mapper>

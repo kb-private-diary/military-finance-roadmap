@@ -2,16 +2,18 @@ package org.scoula.job.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.scoula.common.exception.BusinessException;
 import org.scoula.job.domain.JobCodeVO;
 import org.scoula.job.domain.JobGoalVO;
 import org.scoula.job.domain.JobInterestedTypeVO;
-import org.scoula.job.dto.JobCodeDTO;
-import org.scoula.job.dto.JobGoalCreateRequestDTO;
-import org.scoula.job.dto.JobGoalCreateResponseDTO;
+import org.scoula.job.domain.PrepItemCriteriaVO;
+import org.scoula.job.dto.*;
 import org.scoula.job.mapper.JobMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -55,5 +57,38 @@ public class JobServiceImpl implements JobService{
         }
 
         return new JobGoalCreateResponseDTO(jobGoalVO.getGoalId());
+    }
+
+    @Override
+    public PrepItemRecommendResponseDTO findPrepItemRecommend(Long goalId) {
+        JobGoalVO jobGoalVO = jobMapper.findJobGoal(goalId);
+        if (jobGoalVO == null) {
+            // 에러코드 등록: JOB_001 / 404 / "진로 목표를 찾을 수 없습니다" / JOB / 지원
+            throw BusinessException.notFound("진로 목표를 찾을 수 없습니다", "JOB_001");
+        }
+
+        List<String> itemTypes = jobMapper.findInterestedItemTypes(goalId);
+
+        // 선택된 준비 항목이 없으면 조회 자체를 생략하고 빈 결과 반환 (item_type IN () SQL 오류 방지)
+        if (itemTypes.isEmpty()) {
+            return new PrepItemRecommendResponseDTO(goalId, Collections.emptyMap());
+        }
+
+        List<PrepItemCriteriaVO> prepItemCriteriaVOList = jobMapper.findPrepItemCriteriaList(
+                jobGoalVO.getGoalType(),
+                jobGoalVO.getJobCodeId(),
+                itemTypes
+        );
+
+        // item_type(P01/P02/P03) 별로 그룹핑
+        LinkedHashMap<String, List<PrepItemDTO>> groupedItems = prepItemCriteriaVOList.stream()
+                .map(PrepItemDTO::of)
+                .collect(Collectors.groupingBy(
+                        PrepItemDTO::getItemType,
+                        LinkedHashMap::new,
+                        Collectors.toList()
+                ));
+
+        return new PrepItemRecommendResponseDTO(goalId, groupedItems);
     }
 }
