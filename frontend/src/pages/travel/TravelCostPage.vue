@@ -31,6 +31,7 @@ const costItems = computed(() => [
   },
   {
     label: '식비',
+    label: '관광비',
     value: toAmount(cost.value?.livingCost),
     color: '#d8bd76',
   },
