@@ -5,7 +5,7 @@ from google import genai
 from app.core.config import GEMINI_API_KEY
 
 _client = genai.Client(api_key=GEMINI_API_KEY)
-_MODEL = "gemini-flash-latest"
+_MODEL = "gemini-flash-lite-latest"
 
 VALID_INTENTS = ("info", "counsel", "irrelevant")
 

@@ -10,7 +10,7 @@ from app.services.intent import classify_intent, classify_product_category
 
 _client = genai.Client(api_key=GEMINI_API_KEY)
 
-_MODEL = "gemini-flash-latest"
+_MODEL = "gemini-flash-lite-latest"
 _TOP_K = 3
 _LIVE_DATA_LIMIT = 5
 
