@@ -16,7 +16,7 @@ let scrollContainer = null;
 
 const readErrorMessage = (error, fallback) =>
   (error.code === 'ECONNABORTED'
-    ? '항공권 가격 조회가 지연되고 있습니다. 잠시 후 다시 시도해주세요.'
+    ? '여행 비용 조회가 지연되고 있습니다. 잠시 후 다시 시도해주세요.'
     : null) ||
   error.response?.data?.message ||
   error.response?.data?.error?.message ||

@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 
 import org.scoula.common.exception.BusinessException;
+import org.scoula.travel.client.BookingApiClient;
 import org.scoula.travel.client.FlightApiClient;
 import org.scoula.travel.client.OdsayClient;
 import org.scoula.travel.domain.CityCostVO;
@@ -32,6 +33,7 @@ public class TravelServiceImpl implements TravelService {
     private final TravelMapper mapper;
     private final OdsayClient odsayClient;
     private final FlightApiClient flightApiClient;
+    private final BookingApiClient bookingApiClient;
 
     // 로그인 사용자 임시 고정값
     // 인증 모듈 완성 후 컨트롤러에서 CustomUser를 받아 넘기도록 교체.
@@ -129,25 +131,28 @@ public class TravelServiceImpl implements TravelService {
         return cityCost;
     }
 
-    // 저장된 목표를 기준으로 예상 경비를 산출해 저장한다.
-    // flightCost와 hotelCost는 아직 외부 API 미연동 구간
+    // 저장된 목표와 외부 교통·항공·숙박 API 결과로 예상 경비를 산출해 저장한다.
     @Transactional
     @Override
     public Long createCost(Long goalId, TravelCostCreateRequestDTO request) {
         TravelGoalVO goal = this.getGoalOrThrow(goalId);
+        CityCostVO cityCost = this.findCityCostOrThrow(goal.getDestination());
 
         long flightCost = Boolean.TRUE.equals(goal.getIsDomestic())
                 ? this.odsayClient.estimateRoundTripCost(
                         goal.getDeparture(), goal.getDestination())
                 : this.flightApiClient.estimateRoundTripCost(
-                        this.findCityCostOrThrow(
-                                goal.getDestination()).getCountry(),
+                        cityCost.getCountry(),
                         goal.getStartDate(),
                         goal.getEndDate());
-        long hotelCost = this.nvl(request == null ? null : request.getHotelCost());
+        long hotelCost = this.bookingApiClient.estimateHotelCost(
+                cityCost.getCountry(),
+                goal.getDestination(),
+                goal.getStartDate(),
+                goal.getEndDate());
 
         int days = this.calculateDays(goal.getStartDate(), goal.getEndDate());
-        long dailyCost = this.findDailyCost(goal.getDestination(), goal.getStyle());
+        long dailyCost = this.findDailyCost(cityCost, goal.getStyle());
         long livingCost = dailyCost * days;
         long totalCost = flightCost + hotelCost + livingCost;
         long remainingBudget = this.nvl(goal.getTotalBudget()) - totalCost;
@@ -187,12 +192,12 @@ public class TravelServiceImpl implements TravelService {
         return (int) ChronoUnit.DAYS.between(startDate, endDate) + 1;
     }
 
-    private long findDailyCost(String destination, String style) {
-        CityCostVO cityCost = this.mapper.findCityCostByCity(destination);
-        Long dailyCost = cityCost == null ? null : cityCost.costByStyle(style);
+    private long findDailyCost(CityCostVO cityCost, String style) {
+        Long dailyCost = cityCost.costByStyle(style);
         if (dailyCost == null) {
             throw BusinessException.badRequest(
-                    "물가 정보를 찾을 수 없습니다: " + destination, "TRAVEL_010");
+                    "물가 정보를 찾을 수 없습니다: " + cityCost.getCity(),
+                    "TRAVEL_010");
         }
         return dailyCost;
     }

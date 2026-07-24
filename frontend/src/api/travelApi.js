@@ -2,7 +2,7 @@ import api from '@/api';
 
 const BASE_URL = '/api/travel';
 const DEFAULT_TIMEOUT = 10000;
-const COST_CALCULATION_TIMEOUT = 35000;
+const COST_CALCULATION_TIMEOUT = 65000;
 
 export default {
   findCities(country) {
