@@ -30,4 +30,18 @@
         )
     </insert>
 
+    <insert id="createJobInterestedType" parameterType="org.scoula.job.domain.JobInterestedTypeVO">
+        <!--
+            TODO: created_nm은 job_goal insert와 동일하게 JWT 미연동으로 인해
+            임시로 userId를 문자열로 기록함. 추후 JWT 연동 시 실제 사용자명으로 교체 예정.
+        -->
+        INSERT INTO job_interested_type (
+        goal_id, item_type,
+        created_date, created_nm, del_yn
+        ) VALUES (
+        #{goalId}, #{itemType},
+        NOW(), #{createdNm}, 'N'
+        )
+    </insert>
+
 </mapper>
