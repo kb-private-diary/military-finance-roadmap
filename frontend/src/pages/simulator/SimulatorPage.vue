@@ -1,31 +1,67 @@
 <script setup>
 // SCR-SIM-01 · 군적금 시뮬레이터  (담당: 석윤)
-// 군적금 만기금 시뮬레이션 메인
-import { onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+// 군적금 만기금 시뮬레이션 메인 + 모의 계산(바텀시트)
+import { computed, onMounted, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import simulatorApi from '@/api/simulatorApi';
+import BaseBottomSheet from '@/components/common/BaseBottomSheet.vue';
 import BaseCard from '@/components/common/BaseCard.vue';
+import BaseInput from '@/components/common/BaseInput.vue';
+import BaseTag from '@/components/common/BaseTag.vue';
 import CategoryButton from '@/components/common/CategoryButton.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
+import SavingsBreakdown from '@/components/common/SavingsBreakdown.vue';
 
 // TODO: JWT 연동 후 SecurityContext(authStore)에서 userId 추출
 // 백엔드가 아직 @RequestParam Long userId 임시 방식이라 프론트도 임시 고정값 사용
 const TEMP_USER_ID = 1;
 
-const router = useRouter();
+const route = useRoute();
 
 const details = ref(null);
 const isLoading = ref(true);
 const hasNoAccount = ref(false);
 
+// 'real' = 실제 계좌 기준 상세내역 / 'simulated' = 모의 계산 결과로 대체된 상세내역
+const viewMode = ref('real');
+const simulatedResult = ref(null);
+const simulateError = ref('');
+
+const isCalcSheetOpen = ref(false);
+// 'constant' = 동일 금액 매달 납입 / 'variable' = 구간별로 다른 금액 납입
+const calcMode = ref('constant');
+const monthlySave = ref('');
+const saveMonths = ref('');
+const periods = ref([{ range: ['', ''], amount: '' }]);
+
+const isCalcFormValid = computed(() => {
+  if (calcMode.value === 'constant') {
+    return monthlySave.value !== '' && saveMonths.value !== '';
+  }
+  return periods.value.every(
+    (period) => period.range[0] && period.range[1] && period.amount !== '',
+  );
+});
+
+// 상세내역 카드에 실제로 보여줄 값 (실제 계좌 vs 모의 계산 결과)
+const activeDetails = computed(() =>
+  viewMode.value === 'simulated' ? simulatedResult.value : details.value,
+);
+
 const formatManwon = (amount) =>
   `${Math.round((amount ?? 0) / 10000).toLocaleString('ko-KR')}만원`;
 
-const formatWon = (amount) => `${(amount ?? 0).toLocaleString('ko-KR')}원`;
+// "yyyy-MM" ~ "yyyy-MM" 구간의 개월 수 (양 끝 포함)
+const monthDiff = (startMonth, endMonth) => {
+  const [startYear, startM] = startMonth.split('-').map(Number);
+  const [endYear, endM] = endMonth.split('-').map(Number);
+  return (endYear - startYear) * 12 + (endM - startM) + 1;
+};
 
 const fetchSavingDetails = async () => {
   isLoading.value = true;
   hasNoAccount.value = false;
+  viewMode.value = 'real';
   try {
     details.value = await simulatorApi.findSavingDetails(TEMP_USER_ID);
   } catch (error) {
@@ -37,9 +73,82 @@ const fetchSavingDetails = async () => {
   }
 };
 
-const goToCalc = () => {
-  router.push({ name: 'SimulatorCalc' });
+const openCalcSheet = () => {
+  simulateError.value = '';
+  isCalcSheetOpen.value = true;
 };
+
+const addPeriod = () => {
+  periods.value.push({ range: ['', ''], amount: '' });
+};
+
+const removePeriod = (index) => {
+  periods.value.splice(index, 1);
+};
+
+const runCalculation = async () => {
+  if (!isCalcFormValid.value) {
+    simulateError.value = '입력값을 모두 채워주세요.';
+    return;
+  }
+
+  try {
+    if (calcMode.value === 'constant') {
+      const apiResult = await simulatorApi.calculateConstant({
+        monthlySave: Number(monthlySave.value),
+        saveMonths: Number(saveMonths.value),
+      });
+      simulatedResult.value = {
+        monthlySaveTotal: Number(monthlySave.value),
+        joinableMonths: Number(saveMonths.value),
+        expectedPrincipal: apiResult.totalPrincipal,
+        expectedInterest: apiResult.totalInterest,
+        expectedMatchingFund: apiResult.totalMatchingFund,
+        totalReceiptAmount: apiResult.totalReceiptAmount,
+      };
+    } else {
+      const payload = periods.value.map((period) => ({
+        startMonth: period.range[0],
+        endMonth: period.range[1],
+        amount: Number(period.amount),
+      }));
+      const apiResult = await simulatorApi.calculateVariable(payload);
+      const totalMonths = periods.value.reduce(
+        (sum, period) => sum + monthDiff(period.range[0], period.range[1]),
+        0,
+      );
+      simulatedResult.value = {
+        monthlySaveTotal:
+          totalMonths > 0
+            ? Math.round(apiResult.totalPrincipal / totalMonths)
+            : 0,
+        joinableMonths: totalMonths,
+        expectedPrincipal: apiResult.totalPrincipal,
+        expectedInterest: apiResult.totalInterest,
+        expectedMatchingFund: apiResult.totalMatchingFund,
+        totalReceiptAmount: apiResult.totalReceiptAmount,
+      };
+    }
+    viewMode.value = 'simulated';
+    simulateError.value = '';
+  } catch (error) {
+    simulateError.value =
+      error.response?.data?.message ?? '계산에 실패했습니다.';
+  }
+};
+
+// '/simulator/calc'로 들어온 경우 모의 계산 바텀시트를 자동으로 연다.
+// '/simulator'와 '/simulator/calc'는 같은 컴포넌트를 쓰므로(Vue Router가 인스턴스를
+// 재사용) SPA 내부에서 두 경로를 오갈 때도 열리도록 watch로 감지한다.
+watch(
+  () => route.meta.openCalc,
+  (openCalc) => {
+    if (openCalc) {
+      openCalcSheet();
+    }
+  },
+  { immediate: true },
+);
 
 onMounted(fetchSavingDetails);
 </script>
@@ -54,96 +163,150 @@ onMounted(fetchSavingDetails);
         </p>
         <p class="simulator-page__summary-sub">
           {{ details ? details.currentPaidMonths : 0 }}개월 납입 중
-          <button
-            type="button"
-            class="simulator-page__refresh"
-            aria-label="새로고침"
-            @click="fetchSavingDetails"
-          >
-            ↻
-          </button>
         </p>
       </div>
       <CategoryButton
+        class="simulator-page__calc-btn"
         variant="oval-yellow"
         active
-        label="직접 계산"
-        @click="goToCalc"
+        label="모의 계산"
+        @click="openCalcSheet"
       />
     </div>
+
+    <p v-if="simulateError" class="simulator-page__error">
+      {{ simulateError }}
+    </p>
 
     <p v-if="isLoading" class="text-caption">불러오는 중...</p>
 
     <EmptyState
-      v-else-if="hasNoAccount"
+      v-else-if="hasNoAccount && viewMode === 'real'"
       title="아직 군적금 가입 내역이 없어요"
       description="군적금에 가입하면 예상 만기 수령액을 시뮬레이션할 수 있어요"
     />
 
-    <BaseCard v-else-if="details" class="report-card">
-      <p class="report-card__title">충성, 군장병적금 보고합니다.</p>
+    <BaseCard v-else-if="activeDetails" class="report-card">
+      <div class="report-card__title-row">
+        <p class="report-card__title">충성, 군장병적금 보고합니다.</p>
+        <div v-if="viewMode === 'simulated'" class="report-card__title-actions">
+          <BaseTag label="모의 결과" variant="yellow" />
+          <button
+            type="button"
+            class="report-card__reset"
+            aria-label="리셋"
+            @click="fetchSavingDetails"
+          >
+            ↻
+          </button>
+        </div>
+      </div>
 
       <div class="report-card__stats">
         <div class="report-card__stat-row">
           <span class="report-card__stat-label">월 납입액</span>
           <span class="report-card__stat-value">{{
-            formatManwon(details.monthlySaveTotal)
+            formatManwon(activeDetails.monthlySaveTotal)
           }}</span>
         </div>
         <div class="report-card__stat-row">
           <span class="report-card__stat-label">총 납입 개월 수</span>
           <span class="report-card__stat-value"
-            >{{ details.joinableMonths }}개월</span
+            >{{ activeDetails.joinableMonths }}개월</span
           >
         </div>
       </div>
 
-      <div class="receipt-bar">
-        <div
-          class="receipt-bar__segment receipt-bar__segment--principal"
-          :style="{ flexGrow: details.expectedPrincipal }"
-        />
-        <div
-          class="receipt-bar__segment receipt-bar__segment--interest"
-          :style="{ flexGrow: details.expectedInterest }"
-        />
-        <div
-          class="receipt-bar__segment receipt-bar__segment--matching"
-          :style="{ flexGrow: details.expectedMatchingFund }"
-        />
-      </div>
-
-      <ul class="receipt-legend">
-        <li class="receipt-legend__row">
-          <span class="receipt-legend__dot receipt-legend__dot--principal" />
-          <span class="receipt-legend__label">납입 원금</span>
-          <span class="receipt-legend__value">{{
-            formatWon(details.expectedPrincipal)
-          }}</span>
-        </li>
-        <li class="receipt-legend__row">
-          <span class="receipt-legend__dot receipt-legend__dot--interest" />
-          <span class="receipt-legend__label">이자 (연 5.0%)</span>
-          <span class="receipt-legend__value">{{
-            formatWon(details.expectedInterest)
-          }}</span>
-        </li>
-        <li class="receipt-legend__row">
-          <span class="receipt-legend__dot receipt-legend__dot--matching" />
-          <span class="receipt-legend__label">정부 매칭지원금</span>
-          <span class="receipt-legend__value">{{
-            formatWon(details.expectedMatchingFund)
-          }}</span>
-        </li>
-      </ul>
-
-      <div class="report-card__total">
-        <span class="report-card__total-label">총 수령액</span>
-        <span class="report-card__total-value">{{
-          formatWon(details.totalReceiptAmount)
-        }}</span>
-      </div>
+      <SavingsBreakdown
+        :principal="activeDetails.expectedPrincipal"
+        :interest="activeDetails.expectedInterest"
+        :matching-fund="activeDetails.expectedMatchingFund"
+        :total="activeDetails.totalReceiptAmount"
+      />
     </BaseCard>
+
+    <BaseBottomSheet
+      v-model="isCalcSheetOpen"
+      title="군적금 모의 계산"
+      confirm-text="실행"
+      cancel-text="취소"
+      @confirm="runCalculation"
+    >
+      <div class="calc-sheet__mode-tabs">
+        <CategoryButton
+          variant="square-yellow"
+          :active="calcMode === 'constant'"
+          label="고정 금액"
+          @click="calcMode = 'constant'"
+        />
+        <CategoryButton
+          variant="square-yellow"
+          :active="calcMode === 'variable'"
+          label="구간별 금액"
+          @click="calcMode = 'variable'"
+        />
+      </div>
+
+      <div v-if="calcMode === 'constant'" class="calc-sheet__form">
+        <BaseInput
+          v-model="monthlySave"
+          type="number"
+          label="월 납입액"
+          suffix="원"
+          placeholder="최대 550,000"
+        />
+        <BaseInput
+          v-model="saveMonths"
+          type="number"
+          label="납입 개월 수"
+          suffix="개월"
+          placeholder="최대 24"
+        />
+      </div>
+
+      <div v-else class="calc-sheet__form">
+        <p class="calc-sheet__hint">
+          구간마다 다른 금액을 납입한다고 가정하고 계산해요.
+        </p>
+
+        <div
+          v-for="(period, index) in periods"
+          :key="index"
+          class="calc-sheet__period"
+        >
+          <div class="calc-sheet__period-header">
+            <span class="calc-sheet__period-label">구간 {{ index + 1 }}</span>
+            <button
+              v-if="periods.length > 1"
+              type="button"
+              class="calc-sheet__period-remove"
+              aria-label="구간 삭제"
+              @click="removePeriod(index)"
+            >
+              ×
+            </button>
+          </div>
+          <BaseInput
+            type="month-range"
+            label="납입 기간"
+            :model-value="period.range"
+            @update:model-value="period.range = $event"
+          />
+          <BaseInput
+            type="number"
+            label="월 납입액"
+            suffix="원"
+            placeholder="최대 550,000"
+            :model-value="period.amount"
+            @update:model-value="period.amount = $event"
+          />
+        </div>
+
+        <button type="button" class="calc-sheet__add-period" @click="addPeriod">
+          + 구간 추가
+        </button>
+      </div>
+    </BaseBottomSheet>
   </div>
 </template>
 
@@ -159,6 +322,11 @@ onMounted(fetchSavingDetails);
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+}
+
+:deep(.simulator-page__calc-btn) {
+  flex: none;
+  width: auto;
 }
 
 .simulator-page__summary-title {
@@ -178,18 +346,10 @@ onMounted(fetchSavingDetails);
   color: var(--text-strong, #000000);
 }
 
-.simulator-page__refresh {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: none;
-  background: none;
-  font-size: 16px;
-  color: var(--text-hint, #999999);
-  cursor: pointer;
+.simulator-page__error {
+  margin: 0;
+  font-size: 13px;
+  color: var(--danger, #fa6e6e);
 }
 
 /* ── 군적금 리포트 카드 ── */
@@ -199,11 +359,38 @@ onMounted(fetchSavingDetails);
   gap: 16px;
 }
 
+.report-card__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .report-card__title {
   margin: 0;
   font-size: 15px;
   font-weight: 700;
   color: var(--text-strong, #000000);
+}
+
+.report-card__title-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.report-card__reset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 15px;
+  color: var(--text-hint, #999999);
+  cursor: pointer;
 }
 
 .report-card__stats {
@@ -236,95 +423,68 @@ onMounted(fetchSavingDetails);
   color: var(--text-strong, #000000);
 }
 
-/* ── 수령액 구성비 바 ── */
-.receipt-bar {
+/* ── 모의 계산 바텀시트 ── */
+.calc-sheet__mode-tabs {
   display: flex;
-  height: 12px;
-  border-radius: 8px;
-  overflow: hidden;
-  background-color: var(--kb-gray-pale, #e8e8e8);
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
-.receipt-bar__segment {
-  flex-shrink: 0;
-  flex-basis: 0;
+.calc-sheet__form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.receipt-bar__segment--principal {
-  background-color: #f2a56d;
+.calc-sheet__hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-hint, #999999);
 }
 
-.receipt-bar__segment--interest {
-  background-color: #bfe3a0;
-}
-
-.receipt-bar__segment--matching {
-  background-color: #aedff5;
-}
-
-.receipt-legend {
+.calc-sheet__period {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line, #e0e0e0);
 }
 
-.receipt-legend__row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.calc-sheet__period:last-of-type {
+  padding-bottom: 0;
+  border-bottom: none;
 }
 
-.receipt-legend__dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.receipt-legend__dot--principal {
-  background-color: #f2a56d;
-}
-
-.receipt-legend__dot--interest {
-  background-color: #bfe3a0;
-}
-
-.receipt-legend__dot--matching {
-  background-color: #aedff5;
-}
-
-.receipt-legend__label {
-  flex: 1;
-  font-size: 13px;
-  color: var(--text-body, #545045);
-}
-
-.receipt-legend__value {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text-strong, #000000);
-}
-
-.report-card__total {
+.calc-sheet__period-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: 14px;
-  border-top: 1px solid var(--line, #e0e0e0);
 }
 
-.report-card__total-label {
-  font-size: 14px;
+.calc-sheet__period-label {
+  font-size: 13px;
   font-weight: 700;
-  color: var(--text-strong, #000000);
+  color: var(--text-body, #545045);
 }
 
-.report-card__total-value {
-  font-size: 18px;
-  font-weight: 800;
-  color: #a9895a;
+.calc-sheet__period-remove {
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: none;
+  color: var(--text-hint, #999999);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.calc-sheet__add-period {
+  padding: 10px;
+  border: 1px dashed var(--line-strong, #d0d0d0);
+  border-radius: 12px;
+  background: none;
+  color: var(--text-body, #545045);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
 }
 </style>
