@@ -9,7 +9,7 @@ import {
   watch,
 } from 'vue';
 import { useRouter } from 'vue-router';
-import api from '@/api';
+import travelApi from '@/api/travelApi';
 import CategoryButton from '@/components/common/CategoryButton.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 
@@ -104,7 +104,7 @@ onMounted(async () => {
   if (form.endDate && form.endDate < today) form.endDate = '';
 
   try {
-    const response = await api.get('/api/travel/cities', { timeout: 10000 });
+    const response = await travelApi.findCities();
     cities.value = unwrap(response) || [];
 
     departureOptions.value = toOptions(
@@ -155,7 +155,7 @@ const submitGoal = async () => {
   submitError.value = '';
 
   try {
-    const response = await api.post('/api/travel/goals', {
+    const response = await travelApi.createGoal({
       title: form.title.trim(),
       departure: form.departure,
       destination: form.destination,

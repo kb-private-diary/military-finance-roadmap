@@ -2,7 +2,7 @@
 // SCR-TRV-02 · step2) 여행 비용 계산
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import api from '@/api';
+import travelApi from '@/api/travelApi';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 
 const route = useRoute();
@@ -15,6 +15,9 @@ const cost = ref(null);
 let scrollContainer = null;
 
 const readErrorMessage = (error, fallback) =>
+  (error.code === 'ECONNABORTED'
+    ? '항공권 가격 조회가 지연되고 있습니다. 잠시 후 다시 시도해주세요.'
+    : null) ||
   error.response?.data?.message ||
   error.response?.data?.error?.message ||
   error.error ||
@@ -30,7 +33,6 @@ const costItems = computed(() => [
     color: '#6e5f52',
   },
   {
-    label: '식비',
     label: '관광비',
     value: toAmount(cost.value?.livingCost),
     color: '#d8bd76',
@@ -77,8 +79,8 @@ onMounted(async () => {
   scrollContainer?.classList.add('travel-scrollbar-hidden');
 
   try {
-    await api.post(`/api/travel/goals/${goalId}/costs`, {});
-    const response = await api.get(`/api/travel/goals/${goalId}/costs`);
+    await travelApi.createCost(goalId);
+    const response = await travelApi.findCost(goalId);
     cost.value = unwrap(response);
   } catch (error) {
     loadError.value = readErrorMessage(

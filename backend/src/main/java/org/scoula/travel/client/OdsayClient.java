@@ -1,4 +1,4 @@
-package org.scoula.travel.service;
+package org.scoula.travel.client;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -18,42 +18,38 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.log4j.Log4j2;
 
 import org.scoula.common.exception.BusinessException;
-import org.scoula.travel.service.DomesticCityCoordinates.Coordinate;
+import org.scoula.travel.client.DomesticCityCoordinates.Coordinate;
 
 /**
  * ODsay 대중교통 길찾기 v1.8 클라이언트.
- *
- * <p>서버 플랫폼 키를 백엔드에서만 사용하며 추천 경로의 편도 총 요금을 반환한다.</p>
+ * 서버 플랫폼 키를 백엔드에서만 사용하며 추천 경로의 편도 총 요금을 반환
  */
 @Log4j2
 @Component
 public class OdsayClient {
 
-    private static final String API_URL =
-            "https://api.odsay.com/v1/api/searchPubTransPathT";
     private static final int CONNECT_TIMEOUT_MILLIS = 5_000;
     private static final int READ_TIMEOUT_MILLIS = 10_000;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // 신규 표기는 소문자를 권장하지만 기존 ODsay.api-key 설정도 함께 지원한다.
-    @Value("${odsay.api-key:${ODsay.api-key:}}")
+    @Value("${ODsay.api-key}")
     private String apiKey;
+
+    @Value("${ODsay.api-url}")
+    private String apiUrl;
 
     public long estimateRoundTripCost(String departure, String destination) {
         if (departure == null || destination == null) {
             throw BusinessException.badRequest(
-                    "출발지와 도착지가 필요합니다.", "TRAVEL_012");
+                    "출발지와 도착지를 입력해주세요.", "TRAVEL_012");
         }
         if (departure.equals(destination)) {
             throw BusinessException.badRequest(
                     "출발지와 도착지는 달라야 합니다.", "TRAVEL_013");
         }
         if (this.apiKey == null || this.apiKey.trim().isEmpty()) {
-            throw new BusinessException(
-                    "ODsay API 키가 설정되지 않았습니다.",
-                    org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
-                    "TRAVEL_014");
+            throw this.odsayUnavailable();
         }
 
         Coordinate start = DomesticCityCoordinates.get(departure);
@@ -63,10 +59,7 @@ public class OdsayClient {
         try {
             return Math.multiplyExact(oneWayCost, 2L);
         } catch (ArithmeticException e) {
-            throw new BusinessException(
-                    "ODsay 교통비 계산 범위를 초과했습니다.",
-                    org.springframework.http.HttpStatus.BAD_GATEWAY,
-                    "TRAVEL_018");
+            throw this.odsayUnavailable();
         }
     }
 
@@ -88,14 +81,14 @@ public class OdsayClient {
 
             if (status < 200 || status >= 300) {
                 log.warn("ODsay 호출 실패: status={}, body={}", status, body);
-                throw this.externalApiException("ODsay API 호출에 실패했습니다.");
+                throw this.odsayUnavailable();
             }
             return this.extractRecommendedPayment(body);
         } catch (BusinessException e) {
             throw e;
         } catch (IOException e) {
             log.warn("ODsay 통신 오류", e);
-            throw this.externalApiException("ODsay API에 연결할 수 없습니다.");
+            throw this.odsayUnavailable();
         } finally {
             if (connection != null) {
                 connection.disconnect();
@@ -104,7 +97,7 @@ public class OdsayClient {
     }
 
     private String buildUrl(Coordinate start, Coordinate end) {
-        return API_URL
+        return this.apiUrl
                 + "?SX=" + start.getLongitude()
                 + "&SY=" + start.getLatitude()
                 + "&EX=" + end.getLongitude()
@@ -120,12 +113,12 @@ public class OdsayClient {
         if (!error.isMissingNode() && !error.isNull()) {
             String message = error.path("msg").asText("경로를 검색할 수 없습니다.");
             log.warn("ODsay 응답 오류: {}", message);
-            throw this.externalApiException("ODsay 경로 검색에 실패했습니다: " + message);
+            throw this.odsayUnavailable();
         }
 
         JsonNode paths = root.path("result").path("path");
         if (!paths.isArray() || paths.size() == 0) {
-            throw this.externalApiException("이동 가능한 대중교통 경로가 없습니다.");
+            throw this.routeNotFound();
         }
 
         // OPT=0은 추천순이므로 첫 번째 유효 경로의 총 요금을 사용한다.
@@ -140,7 +133,7 @@ public class OdsayClient {
             }
         }
 
-        throw this.externalApiException("ODsay 경로 응답에서 교통비를 찾을 수 없습니다.");
+        throw this.routeNotFound();
     }
 
     private String readBody(InputStream stream) throws IOException {
@@ -158,10 +151,16 @@ public class OdsayClient {
         }
     }
 
-    private BusinessException externalApiException(String message) {
+    private BusinessException odsayUnavailable() {
         return new BusinessException(
-                message,
-                org.springframework.http.HttpStatus.BAD_GATEWAY,
+                "국내 교통비 서비스를 이용할 수 없습니다.",
+                org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
+                "TRAVEL_014");
+    }
+
+    private BusinessException routeNotFound() {
+        return BusinessException.notFound(
+                "조회 가능한 국내 교통편이 없습니다.",
                 "TRAVEL_015");
     }
 }

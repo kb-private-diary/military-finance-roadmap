@@ -13,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 
 import org.scoula.common.exception.BusinessException;
+import org.scoula.travel.client.FlightApiClient;
+import org.scoula.travel.client.OdsayClient;
 import org.scoula.travel.domain.CityCostVO;
 import org.scoula.travel.domain.TravelCostVO;
 import org.scoula.travel.domain.TravelGoalVO;
@@ -29,6 +31,7 @@ public class TravelServiceImpl implements TravelService {
 
     private final TravelMapper mapper;
     private final OdsayClient odsayClient;
+    private final FlightApiClient flightApiClient;
 
     // 로그인 사용자 임시 고정값
     // 인증 모듈 완성 후 컨트롤러에서 CustomUser를 받아 넘기도록 교체.
@@ -136,7 +139,11 @@ public class TravelServiceImpl implements TravelService {
         long flightCost = Boolean.TRUE.equals(goal.getIsDomestic())
                 ? this.odsayClient.estimateRoundTripCost(
                         goal.getDeparture(), goal.getDestination())
-                : this.nvl(request == null ? null : request.getFlightCost());
+                : this.flightApiClient.estimateRoundTripCost(
+                        this.findCityCostOrThrow(
+                                goal.getDestination()).getCountry(),
+                        goal.getStartDate(),
+                        goal.getEndDate());
         long hotelCost = this.nvl(request == null ? null : request.getHotelCost());
 
         int days = this.calculateDays(goal.getStartDate(), goal.getEndDate());

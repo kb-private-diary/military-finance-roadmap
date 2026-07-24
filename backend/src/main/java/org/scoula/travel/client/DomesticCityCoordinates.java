@@ -1,4 +1,4 @@
-package org.scoula.travel.service;
+package org.scoula.travel.client;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -42,7 +42,7 @@ final class DomesticCityCoordinates {
         Coordinate coordinate = COORDINATES.get(city);
         if (coordinate == null) {
             throw BusinessException.badRequest(
-                    "ODsay 경로 검색을 위한 도시 좌표가 없습니다: " + city,
+                    "지원하지 않는 국내 출발지 또는 도착지입니다: " + city,
                     "TRAVEL_011");
         }
         return coordinate;
