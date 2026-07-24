@@ -62,21 +62,6 @@ const emit = defineEmits(['click']);
   font-weight: 600;
 }
 
-/* 3. oval-green */
-.category-btn--oval-green {
-  padding: clamp(6px, 2vw, 8px) clamp(4px, 2.5vw, 10px);
-  border-radius: 999px;
-  font-size: clamp(11px, 3.5vw, 14px);
-  letter-spacing: -0.5px;
-  background-color: #e0e6dc;
-  color: #536349; /* 국방색 */
-}
-.category-btn--oval-green.is-active {
-  background-color: #536349; /* 국방색 */
-  color: #ffffff;
-  font-weight: 600;
-}
-
 /* 4. oval-brown */
 .category-btn--oval-brown {
   padding: clamp(8px, 2.5vw, 10px) clamp(12px, 4vw, 20px);
