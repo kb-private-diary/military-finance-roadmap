@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,6 +20,8 @@ import lombok.extern.log4j.Log4j2;
 
 import org.scoula.common.response.ApiResponse;
 import org.scoula.travel.dto.CityCostResponseDTO;
+import org.scoula.travel.dto.TravelCostCreateRequestDTO;
+import org.scoula.travel.dto.TravelCostResponseDTO;
 import org.scoula.travel.dto.TravelGoalCreateRequestDTO;
 import org.scoula.travel.service.TravelService;
 
@@ -50,4 +53,24 @@ public class TravelController {
         Long goalId = this.service.createGoal(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(goalId));
     }
+
+    @PostMapping("/goals/{goalId}/costs")
+    @ApiOperation(value = "예상 경비 산출",
+            notes = "저장된 목표 기준으로 계산해 travel_cost 에 적재하고 costId 를 반환한다. "
+                    + "재호출 시 기존 결과를 소프트 삭제하고 새로 적재한다.")
+    public ResponseEntity<ApiResponse<Long>> createCost(
+            @PathVariable Long goalId,
+            @RequestBody(required = false) TravelCostCreateRequestDTO request) {
+        Long costId = this.service.createCost(goalId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(costId));
+    }
+
+    @GetMapping("/goals/{goalId}/costs")
+    @ApiOperation(value = "산출된 예상 경비 조회",
+            notes = "항목별 경비(교통·숙박·현지 물가)와 총액·잔여 예산을 반환한다.")
+    public ResponseEntity<ApiResponse<TravelCostResponseDTO>> findCost(
+            @PathVariable Long goalId) {
+        return ResponseEntity.ok(ApiResponse.success(this.service.findCost(goalId)));
+    }
+
 }
