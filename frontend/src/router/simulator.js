@@ -3,13 +3,13 @@
 export default [
   {
     path: '/simulator',
-    name: 'Simulator',   // 군적금 시뮬레이터
+    name: 'Simulator', // 군적금 시뮬레이터
     component: () => import('@/pages/simulator/SimulatorPage.vue'),
     meta: { requiresAuth: true },
   },
   {
     path: '/simulator/calc',
-    name: 'SimulatorCalc',   // 군적금 계산
+    name: 'SimulatorCalc', // 군적금 계산
     component: () => import('@/pages/simulator/SimulatorCalcPage.vue'),
     meta: { requiresAuth: true },
   },
