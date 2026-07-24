@@ -1,6 +1,6 @@
 package org.scoula.member.dto;
 
-import java.util.Date;
+import java.time.LocalDate;
 import java.util.List;
 
 import lombok.AllArgsConstructor;
@@ -24,8 +24,8 @@ public class MemberJoinDetailRequestDTO {
     private Integer rankId;
     private String unitName;
     private String unitCode;
-    private Date enlistDate;
-    private Date dischargeDate;
+    private LocalDate enlistDate;
+    private LocalDate dischargeDate;
     private List<Long> agreedTermsIds;
 
     public MemberVO toVO() {

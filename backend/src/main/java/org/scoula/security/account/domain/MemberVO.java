@@ -6,7 +6,8 @@ import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import org.scoula.common.domain.BaseVO;
 
-import java.util.Date;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -22,9 +23,9 @@ public class MemberVO extends BaseVO {
     private Integer rankId;
     private String unitName;
     private String unitCode;
-    private Date enlistDate;
-    private Date dischargeDate;
+    private LocalDate enlistDate;
+    private LocalDate dischargeDate;
     private String loginProvider;
     private String status;
-    private Date withdrawnAt;
+    private LocalDateTime withdrawnAt;
 }

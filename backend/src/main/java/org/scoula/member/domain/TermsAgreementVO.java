@@ -1,6 +1,6 @@
 package org.scoula.member.domain;
 
-import java.util.Date;
+import java.time.LocalDateTime;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -18,6 +18,6 @@ public class TermsAgreementVO extends BaseVO {
     private Long userId;
     private Long termsId;
     private Boolean agreed;
-    private Date agreedDate;
+    private LocalDateTime agreedDate;
     private String termsVersion;
 }
