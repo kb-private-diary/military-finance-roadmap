@@ -11,7 +11,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Date;
+import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -32,8 +32,8 @@ class MemberMapperTest {
         vo.setPhone("010-0000-0000");
         vo.setTypeId(1);
         vo.setRankId(1);
-        vo.setEnlistDate(new Date());
-        vo.setDischargeDate(new Date());
+        vo.setEnlistDate(LocalDate.now());
+        vo.setDischargeDate(LocalDate.now());
         vo.setLoginProvider("local");
         vo.setStatus("ACTIVE");
         return vo;
