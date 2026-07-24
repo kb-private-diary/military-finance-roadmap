@@ -8,8 +8,11 @@ import org.scoula.common.exception.BusinessException;
 import org.scoula.config.RootConfig;
 import org.scoula.member.dto.MemberDTO;
 import org.scoula.member.dto.MemberJoinRequestDTO;
+import org.scoula.security.account.dto.AuthResultDTO;
 import org.scoula.security.config.SecurityConfig;
+import org.scoula.security.util.JwtProcessor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +29,9 @@ class MemberServiceImplTest {
 
     @Autowired
     private MemberService service;
+
+    @Autowired
+    private JwtProcessor jwtProcessor;
 
     private MemberJoinRequestDTO joinDto() {
         return MemberJoinRequestDTO.builder()
@@ -52,5 +58,25 @@ class MemberServiceImplTest {
         this.service.createMember(joinDto());
 
         assertThrows(BusinessException.class, () -> this.service.createMember(joinDto()));
+    }
+
+    @Test
+    void refresh_withValidRefreshToken_returnsNewTokenPair() {
+        this.service.createMember(joinDto());
+        String refreshToken = this.jwtProcessor.generateRefreshToken("junit.service@kbthink.com");
+
+        AuthResultDTO result = this.service.refresh(refreshToken);
+
+        assertNotNull(result.getToken());
+        assertNotNull(result.getRefreshToken());
+        assertEquals("junit.service@kbthink.com", result.getUser().getUserId());
+    }
+
+    @Test
+    void refresh_withAccessTokenInsteadOfRefreshToken_throws() {
+        this.service.createMember(joinDto());
+        String accessToken = this.jwtProcessor.generateToken("junit.service@kbthink.com");
+
+        assertThrows(BadCredentialsException.class, () -> this.service.refresh(accessToken));
     }
 }
