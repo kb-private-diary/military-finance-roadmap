@@ -28,6 +28,7 @@ import org.scoula.travel.mapper.TravelMapper;
 public class TravelServiceImpl implements TravelService {
 
     private final TravelMapper mapper;
+    private final OdsayClient odsayClient;
 
     // 로그인 사용자 임시 고정값
     // 인증 모듈 완성 후 컨트롤러에서 CustomUser를 받아 넘기도록 교체.
@@ -132,7 +133,10 @@ public class TravelServiceImpl implements TravelService {
     public Long createCost(Long goalId, TravelCostCreateRequestDTO request) {
         TravelGoalVO goal = this.getGoalOrThrow(goalId);
 
-        long flightCost = this.nvl(request == null ? null : request.getFlightCost());
+        long flightCost = Boolean.TRUE.equals(goal.getIsDomestic())
+                ? this.odsayClient.estimateRoundTripCost(
+                        goal.getDeparture(), goal.getDestination())
+                : this.nvl(request == null ? null : request.getFlightCost());
         long hotelCost = this.nvl(request == null ? null : request.getHotelCost());
 
         int days = this.calculateDays(goal.getStartDate(), goal.getEndDate());
