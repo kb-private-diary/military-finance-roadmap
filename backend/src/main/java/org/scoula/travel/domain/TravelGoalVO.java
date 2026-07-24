@@ -1,6 +1,6 @@
 package org.scoula.travel.domain;
 
-import java.util.Date;
+import java.time.LocalDate;
 
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -23,8 +23,8 @@ public class TravelGoalVO extends BaseVO {
     private String destination;
     private Boolean isDomestic;
     private String style;
-    private Date startDate;
-    private Date endDate;
+    private LocalDate startDate;
+    private LocalDate endDate;
     private Long totalBudget;
     private String places;
     private String benefits;

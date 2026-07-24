@@ -5,6 +5,7 @@ import java.util.List;
 import org.apache.ibatis.annotations.Param;
 
 import org.scoula.travel.domain.CityCostVO;
+import org.scoula.travel.domain.TravelCostVO;
 import org.scoula.travel.domain.TravelGoalVO;
 
 public interface TravelMapper {
@@ -20,4 +21,16 @@ public interface TravelMapper {
     // 회원의 플랜 작성 상태를 확인한다. 플랜 중복 생성 방지용.
     int countGoalByStatus(@Param("userId") Long userId,
                           @Param("status") String status);
+
+    // 여행 목표 단건 조회. 경비 산출의 입력값을 읽는다.
+    TravelGoalVO getGoal(@Param("goalId") Long goalId);
+
+    int insertCost(TravelCostVO vo);
+
+    TravelCostVO getCostByGoalId(@Param("goalId") Long goalId);
+
+    // 기존 경비 산출 결과를 소프트 삭제한다. 중복 호출 시 사용.
+    int deleteCostByGoalId(@Param("goalId") Long goalId,
+                           @Param("modifiedNm") String modifiedNm);
+
 }
