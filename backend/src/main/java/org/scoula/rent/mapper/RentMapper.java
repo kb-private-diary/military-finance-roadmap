@@ -1,15 +1,26 @@
 package org.scoula.rent.mapper;
 
-import org.scoula.rent.domain.RegionCodeVO;
 import java.util.List;
 
+import org.scoula.rent.domain.RegionCodeVO;
+import org.scoula.rent.domain.RentGoalRegionVO;
+import org.scoula.rent.domain.RentGoalVO;
+
 public interface RentMapper {
-    // 시/도 목록 (중복 제거)
+
+    // ---------- 지역 조회 ----------
     List<RegionCodeVO> findSidoList();
-
-    // 특정 시/도의 시/군/구 목록
     List<RegionCodeVO> findSigunguListBySido(String sidoName);
-
-    // 특정 시/군/구의 읍/면/동 목록
     List<RegionCodeVO> findUmdListBySigunguCode(String sigunguCode);
+
+    // ---------- 월세 목표 CRUD ----------
+    void insertRentGoal(RentGoalVO rentGoalVO);
+    RentGoalVO findRentGoalById(Long goalId);
+    RentGoalVO findCurrentRentGoalByUserId(Long userId);
+    RentGoalVO findDraftRentGoalByUserId(Long userId);
+    void softDeleteRentGoal(RentGoalVO rentGoalVO);
+
+    // ---------- 희망 지역 ----------
+    void insertGoalRegion(RentGoalRegionVO regionVO);
+    void softDeleteRegionsByGoalId(RentGoalRegionVO regionVO);
 }

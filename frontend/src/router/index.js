@@ -36,10 +36,10 @@ const router = createRouter({
 
 // 인증이 필요한 화면(meta.requiresAuth) 접근 시 로그인 페이지로 이동
 router.beforeEach((to) => {
-  const auth = useAuthStore();
-  if (to.meta.requiresAuth && !auth.isLogin) {
-    return { name: 'Login', query: { redirect: to.fullPath } };
-  }
+  // const auth = useAuthStore();
+  // if (to.meta.requiresAuth && !auth.isLogin) {
+  //   return { name: 'Login', query: { redirect: to.fullPath } };
+  // }
 });
 
 export default router;

@@ -42,6 +42,7 @@ import javax.sql.DataSource;
         "org.scoula.car.mapper",
         "org.scoula.job.mapper",
         "org.scoula.regret.mapper",
+        "org.scoula.openbanking.mapper",
         "org.scoula.social.mapper",
         "org.scoula.bookmark.mapper"
 })
@@ -57,6 +58,8 @@ import javax.sql.DataSource;
         "org.scoula.car.service",
         "org.scoula.job.service",
         "org.scoula.regret.service",
+        "org.scoula.openbanking.service",
+        "org.scoula.openbanking.client",
         "org.scoula.social.service",
         "org.scoula.bookmark.service"
 })

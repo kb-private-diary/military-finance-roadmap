@@ -4,7 +4,7 @@
 
 <mapper namespace="org.scoula.rent.mapper.RentMapper">
 
-    <!-- 시/도 목록 (중복 제거) -->
+    <!-- ===================== 지역 조회 ===================== -->
     <select id="findSidoList" resultType="org.scoula.rent.domain.RegionCodeVO">
         SELECT DISTINCT sido_name
         FROM region_code
@@ -12,7 +12,6 @@
         ORDER BY sido_name
     </select>
 
-    <!-- 특정 시/도의 시/군/구 목록 -->
     <select id="findSigunguListBySido" resultType="org.scoula.rent.domain.RegionCodeVO">
         SELECT DISTINCT sigungu_name, sigungu_code
         FROM region_code
@@ -21,7 +20,6 @@
         ORDER BY sigungu_name
     </select>
 
-    <!-- 특정 시/군/구의 읍/면/동 목록 -->
     <select id="findUmdListBySigunguCode" resultType="org.scoula.rent.domain.RegionCodeVO">
         SELECT region_code, umd_name
         FROM region_code
@@ -29,5 +27,74 @@
           AND del_yn = 'N' AND is_abolished = 'N'
         ORDER BY umd_name
     </select>
+
+    <!-- ===================== 월세 목표 (rent_goal) ===================== -->
+    <sql id="rentGoalColumns">
+        goal_id, user_id, title, trade_type, estate_type,
+        max_deposit, max_monthly, room_count, expected_fee, residence_term,
+        current_asset, target_date, status,
+        created_date, created_nm, modified_date, modified_nm, del_yn
+    </sql>
+
+    <insert id="insertRentGoal"
+            parameterType="org.scoula.rent.domain.RentGoalVO"
+            useGeneratedKeys="true" keyProperty="goalId" keyColumn="goal_id">
+        INSERT INTO rent_goal (
+            user_id, title, trade_type, estate_type,
+            max_deposit, max_monthly, room_count, expected_fee, residence_term,
+            current_asset, target_date, status,
+            created_date, created_nm, del_yn
+        ) VALUES (
+            #{userId}, #{title}, #{tradeType}, #{estateType},
+            #{maxDeposit}, #{maxMonthly}, #{roomCount}, #{expectedFee}, #{residenceTerm},
+            #{currentAsset}, #{targetDate}, 'DRAFT',
+            NOW(), #{createdNm}, 'N'
+        )
+    </insert>
+
+    <select id="findRentGoalById" resultType="org.scoula.rent.domain.RentGoalVO">
+        SELECT <include refid="rentGoalColumns"/>
+        FROM rent_goal
+        WHERE goal_id = #{goalId} AND del_yn = 'N'
+    </select>
+
+    <select id="findCurrentRentGoalByUserId" resultType="org.scoula.rent.domain.RentGoalVO">
+        SELECT <include refid="rentGoalColumns"/>
+        FROM rent_goal
+        WHERE user_id = #{userId} AND del_yn = 'N'
+          AND status IN ('DRAFT', 'CONFIRMED')
+        ORDER BY FIELD(status, 'DRAFT', 'CONFIRMED'), goal_id DESC
+        LIMIT 1
+    </select>
+
+    <select id="findDraftRentGoalByUserId" resultType="org.scoula.rent.domain.RentGoalVO">
+        SELECT <include refid="rentGoalColumns"/>
+        FROM rent_goal
+        WHERE user_id = #{userId} AND del_yn = 'N' AND status = 'DRAFT'
+        LIMIT 1
+    </select>
+
+    <update id="softDeleteRentGoal" parameterType="org.scoula.rent.domain.RentGoalVO">
+        UPDATE rent_goal
+        SET del_yn = 'Y', modified_date = NOW(), modified_nm = #{modifiedNm}
+        WHERE goal_id = #{goalId} AND del_yn = 'N'
+    </update>
+
+    <!-- ===================== 희망 지역 (rent_goal_region) ===================== -->
+    <insert id="insertGoalRegion"
+            parameterType="org.scoula.rent.domain.RentGoalRegionVO"
+            useGeneratedKeys="true" keyProperty="regionId" keyColumn="region_id">
+        INSERT INTO rent_goal_region (
+            goal_id, region_code, created_date, created_nm, del_yn
+        ) VALUES (
+            #{goalId}, #{regionCode}, NOW(), #{createdNm}, 'N'
+        )
+    </insert>
+
+    <update id="softDeleteRegionsByGoalId" parameterType="org.scoula.rent.domain.RentGoalRegionVO">
+        UPDATE rent_goal_region
+        SET del_yn = 'Y', modified_date = NOW(), modified_nm = #{modifiedNm}
+        WHERE goal_id = #{goalId} AND del_yn = 'N'
+    </update>
 
 </mapper>
