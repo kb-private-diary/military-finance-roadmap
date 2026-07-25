@@ -1,3 +1,5 @@
+import './assets/colors.css';
+import './assets/typography.css';
 import './assets/main.css';
 import 'bootstrap/dist/css/bootstrap.css';
 
