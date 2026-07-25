@@ -32,9 +32,6 @@ public class DashboardController {
         log.info("Fetching basic info for userId: {}", userId);
         DashboardBasicResponseDTO dto = this.service.findBasicInfo(userId);
         
-        if (dto == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("유저를 찾을 수 없습니다.", "DASH_001"));
-        }
         return ResponseEntity.ok(ApiResponse.success(dto));
     }
 
@@ -47,10 +44,6 @@ public class DashboardController {
     ) {
         log.info("Fetching savings status for userId: {}", userId);
         DashboardSavingsResponseDTO dto = this.service.findSavingsStatus(userId);
-        
-        if (dto == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("군적금 가입 내역을 찾을 수 없습니다.", "DASH_002"));
-        }
         
         return ResponseEntity.ok(ApiResponse.success(dto));
     }
