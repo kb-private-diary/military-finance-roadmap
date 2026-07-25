@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.scoula.openbanking.mapper.OpenbankingMapper">
+
+    <insert id="insertLink"
+            parameterType="org.scoula.openbanking.domain.OpenbankingLinkVO"
+            useGeneratedKeys="true" keyProperty="linkId" keyColumn="link_id">
+        INSERT INTO openbanking_link (
+            user_id, access_token, refresh_token, fintech_use_num,
+            bank_code, account_id, account_num_masked, expires_at,
+            created_date, created_nm, del_yn
+        ) VALUES (
+            #{userId}, #{accessToken}, #{refreshToken}, #{fintechUseNum},
+            #{bankCode}, #{accountId}, #{accountNumMasked}, #{expiresAt},
+            NOW(), #{createdNm}, 'N'
+        )
+    </insert>
+
+    <select id="findLinkByFintechUseNum" resultType="org.scoula.openbanking.domain.OpenbankingLinkVO">
+        SELECT link_id, user_id, access_token, refresh_token, fintech_use_num,
+               bank_code, account_id, account_num_masked, expires_at,
+               created_date, created_nm, modified_date, modified_nm, del_yn
+        FROM openbanking_link
+        WHERE fintech_use_num = #{fintechUseNum} AND del_yn = 'N'
+        LIMIT 1
+    </select>
+
+</mapper>

@@ -3,9 +3,9 @@
 export default [
   {
     path: '/',
-    name: 'Welcome',   // 미니앱 진입
+    name: 'Welcome',   // 미니앱 진입 (KB 슈퍼앱 허브 — 앱 프레임 밖)
     component: () => import('@/pages/main/WelcomePage.vue'),
-    meta: { requiresAuth: false },
+    meta: { requiresAuth: false, noAppFrame: true },
   },
   {
     path: '/home',
