@@ -40,8 +40,8 @@ class MemberServiceImplTest {
     private MemberJoinDetailRequestDTO joinDetailDto(List<Long> agreedTermsIds) {
         return MemberJoinDetailRequestDTO.builder()
                 .userId("junit.service@kbthink.com")
-                .password("pw1234")
-                .passwordConfirm("pw1234")
+                .password("pw1234!@")
+                .passwordConfirm("pw1234!@")
                 .name("서비스테스트")
                 .phone("010-2222-2222")
                 .typeId(1)
@@ -77,10 +77,26 @@ class MemberServiceImplTest {
     void createMember_passwordMismatch_throws() {
         MemberJoinDetailRequestDTO dto = MemberJoinDetailRequestDTO.builder()
                 .userId("junit.mismatch2@kbthink.com")
-                .password("pw1234")
-                .passwordConfirm("pw9999")
+                .password("pw1234!@")
+                .passwordConfirm("pw9999!@")
                 .name("불일치")
                 .phone("010-6666-6666")
+                .typeId(1)
+                .rankId(1)
+                .agreedTermsIds(List.of(1L, 2L, 3L))
+                .build();
+
+        assertThrows(BusinessException.class, () -> this.service.createMember(dto));
+    }
+
+    @Test
+    void createMember_weakPassword_throws() {
+        MemberJoinDetailRequestDTO dto = MemberJoinDetailRequestDTO.builder()
+                .userId("junit.weakpw@kbthink.com")
+                .password("weak")
+                .passwordConfirm("weak")
+                .name("약한비번")
+                .phone("010-7777-7777")
                 .typeId(1)
                 .rankId(1)
                 .agreedTermsIds(List.of(1L, 2L, 3L))
@@ -102,7 +118,7 @@ class MemberServiceImplTest {
     @Test
     void checkJoinBasic_newUserId_doesNotThrow() {
         MemberJoinRequestDTO basic = new MemberJoinRequestDTO(
-                "junit.newbie@kbthink.com", "pw", "pw", "신규", "010-4444-4444");
+                "junit.newbie@kbthink.com", "pw1234!@", "pw1234!@", "신규", "010-4444-4444");
 
         this.service.checkJoinBasic(basic); // 예외 없이 통과해야 함
     }
@@ -110,7 +126,24 @@ class MemberServiceImplTest {
     @Test
     void checkJoinBasic_passwordMismatch_throws() {
         MemberJoinRequestDTO basic = new MemberJoinRequestDTO(
-                "junit.mismatch@kbthink.com", "pw1234", "pw5678", "불일치", "010-5555-5555");
+                "junit.mismatch@kbthink.com", "pw1234!@", "pw5678!@", "불일치", "010-5555-5555");
+
+        assertThrows(BusinessException.class, () -> this.service.checkJoinBasic(basic));
+    }
+
+    @Test
+    void checkJoinBasic_invalidEmailFormat_throws() {
+        MemberJoinRequestDTO basic = new MemberJoinRequestDTO(
+                "not-an-email", "pw1234!@", "pw1234!@", "형식오류", "010-8888-8888");
+
+        assertThrows(BusinessException.class, () -> this.service.checkJoinBasic(basic));
+    }
+
+    @Test
+    void checkJoinBasic_weakPassword_throws() {
+        // 8자 미만 + 특수문자 없음
+        MemberJoinRequestDTO basic = new MemberJoinRequestDTO(
+                "junit.weakpw2@kbthink.com", "weak12", "weak12", "약한비번", "010-9999-0000");
 
         assertThrows(BusinessException.class, () -> this.service.checkJoinBasic(basic));
     }
