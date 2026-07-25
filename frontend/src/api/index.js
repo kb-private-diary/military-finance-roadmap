@@ -16,7 +16,6 @@ instance.interceptors.request.use((config) => {
   const token = getToken();
   if (token) {
     config.headers['Authorization'] = `Bearer ${token}`;
-    console.log(config.headers.Authrization);
   }
   return config;
 });
@@ -34,7 +33,7 @@ instance.interceptors.response.use(
     if (error.response?.status === 401) {
       const { logout } = useAuthStore();
       logout();
-      router.push('/auth/login?error=login_required');
+      router.push({ name: 'Login', query: { redirect: router.currentRoute.value.fullPath } });
       return Promise.reject({ error: '로그인이 필요한 서비스입니다.' });
     }
     return Promise.reject(error);

@@ -11,7 +11,7 @@
         created_date, created_nm, modified_date, modified_nm, del_yn
     </sql>
 
-    <select id="getCityCostList" resultType="org.scoula.travel.domain.CityCostVO">
+    <select id="findCityCostList" resultType="org.scoula.travel.domain.CityCostVO">
         SELECT
         <include refid="cityCostColumns"/>
         FROM city_cost
@@ -22,7 +22,7 @@
         ORDER BY country, city
     </select>
 
-    <select id="getCityCostByCity" resultType="org.scoula.travel.domain.CityCostVO">
+    <select id="findCityCostByCity" resultType="org.scoula.travel.domain.CityCostVO">
         SELECT
         <include refid="cityCostColumns"/>
         FROM city_cost
@@ -64,7 +64,7 @@
         created_date, created_nm, modified_date, modified_nm, del_yn
     </sql>
 
-    <select id="getGoal" resultType="org.scoula.travel.domain.TravelGoalVO">
+    <select id="findGoal" resultType="org.scoula.travel.domain.TravelGoalVO">
         SELECT
         <include refid="travelGoalColumns"/>
         FROM travel_goal
@@ -93,7 +93,7 @@
              NOW(), #{createdNm}, 'N')
     </insert>
 
-    <select id="getCostByGoalId" resultType="org.scoula.travel.domain.TravelCostVO">
+    <select id="findCostByGoalId" resultType="org.scoula.travel.domain.TravelCostVO">
         SELECT
         <include refid="travelCostColumns"/>
         FROM travel_cost

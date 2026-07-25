@@ -1,5 +1,7 @@
 package org.scoula.member.controller;
 
+import java.util.List;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 
@@ -13,7 +15,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import org.scoula.common.response.ApiResponse;
+import org.scoula.member.dto.MemberJoinDetailRequestDTO;
 import org.scoula.member.dto.MemberJoinRequestDTO;
+import org.scoula.member.dto.TermsDTO;
 import org.scoula.member.service.MemberService;
 import org.scoula.security.account.dto.AuthResultDTO;
 import org.scoula.security.account.dto.RefreshRequestDTO;
@@ -30,10 +34,23 @@ public class MemberController {
         return ResponseEntity.ok(ApiResponse.success(this.service.checkDuplicate(userId)));
     }
 
+    //기본정보 검증만 하고 계정 생성x
     @PostMapping("/join")
-    public ResponseEntity<ApiResponse<Long>> createMember(@RequestBody MemberJoinRequestDTO member) {
+    public ResponseEntity<ApiResponse<Void>> checkJoinBasic(@RequestBody MemberJoinRequestDTO basic) {
+        this.service.checkJoinBasic(basic);
+        return ResponseEntity.ok(ApiResponse.success());
+    }
+
+    //1단계 정보와 상세정보를 합쳐 계정을 생성
+    @PostMapping("/join/detail")
+    public ResponseEntity<ApiResponse<Long>> createMember(@RequestBody MemberJoinDetailRequestDTO member) {
         Long id = this.service.createMember(member);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(id));
+    }
+
+    @GetMapping("/terms")
+    public ResponseEntity<ApiResponse<List<TermsDTO>>> findTerms() {
+        return ResponseEntity.ok(ApiResponse.success(this.service.findTerms()));
     }
 
     @PostMapping("/refresh")
@@ -42,7 +59,6 @@ public class MemberController {
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
-    // 세션 없는 stateless JWT라 서버측에 무효화할 상태가 없음 - 클라이언트가 토큰을 폐기하면 로그아웃 완료.
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout() {
         return ResponseEntity.ok(ApiResponse.success());

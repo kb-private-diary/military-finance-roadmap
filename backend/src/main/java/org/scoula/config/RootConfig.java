@@ -52,6 +52,7 @@ import javax.sql.DataSource;
         "org.scoula.dashboard.service",
         "org.scoula.simulator.service",
         "org.scoula.product.service",
+        "org.scoula.travel.client",
         "org.scoula.travel.service",
         "org.scoula.rent.service",
         "org.scoula.car.service",
