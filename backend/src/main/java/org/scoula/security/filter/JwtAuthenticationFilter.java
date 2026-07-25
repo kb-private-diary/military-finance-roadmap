@@ -1,5 +1,6 @@
 package org.scoula.security.filter;
 
+import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.scoula.security.util.JwtProcessor;
@@ -37,19 +38,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        //authrization이라고 붙어있는 header가 있는지 보고 값을 추출.
-        //값에서 Bearer공백 뒤에 있는 jwt를 추출.
         String bearerToken = request.getHeader(AUTHORIZATION_HEADER);
         if (bearerToken != null && bearerToken.startsWith(BEARER_PREFIX)){
             String token = bearerToken.substring(BEARER_PREFIX.length()); //7인덱스이후의 문자열 추출
 
-            Authentication authentication = getAuthentication(token);
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            try {
+                Authentication authentication = getAuthentication(token);
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            } catch (JwtException e) {
+                log.debug("유효하지 않은 토큰이라 인증 없이 진행합니다: {}", e.getMessage());
+            }
         }
-        //jwt유효성검증 --> username추출.
-        //username으로 db에서 가장 최신의 정보를 꺼내온다.
-        //securtycontext에 db에 꺼내온 정보는 넣어둔다.
-        //Authentication인터페이스를 따르는 객체형태로 SpringSecurity의 securtycontext에 저장해둠.
         super.doFilter(request, response, filterChain);//다음 필터 연결
     }
 }
