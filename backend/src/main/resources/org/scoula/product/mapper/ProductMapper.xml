@@ -37,4 +37,21 @@
         WHERE rn = 1
         ORDER BY max_rate DESC, product_name
     </select>
+
+    <select id="findPolicyProductList" resultType="org.scoula.product.domain.PolicyProductVO">
+        SELECT
+            policy_id           AS policyId,
+            policy_name         AS policyName,
+            min_limit           AS minLimit,
+            max_limit           AS maxLimit,
+            save_trm_note       AS saveTrmNote,
+            has_calculator      AS hasCalculator,
+            max_rate            AS maxRate,
+            normal_match_rate   AS normalMatchRate,
+            prefer_match_rate   AS preferMatchRate
+        FROM policy_product
+        WHERE policy_status = TRUE
+          AND del_yn = 'N'
+        ORDER BY max_rate DESC, policy_name
+    </select>
 </mapper>

@@ -2,6 +2,7 @@ package org.scoula.product.service;
 
 import lombok.RequiredArgsConstructor;
 import org.scoula.common.exception.BusinessException;
+import org.scoula.product.dto.PolicyProductListResponseDTO;
 import org.scoula.product.dto.SavingProductListResponseDTO;
 import org.scoula.product.mapper.ProductMapper;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,14 @@ public class ProductServiceImpl implements ProductService {
         String productType = toProductType(category);
         return mapper.findSavingProductListByType(productType).stream()
                 .map(SavingProductListResponseDTO::of)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PolicyProductListResponseDTO> findPolicyProductList() {
+        return mapper.findPolicyProductList().stream()
+                .map(PolicyProductListResponseDTO::of)
                 .toList();
     }
 

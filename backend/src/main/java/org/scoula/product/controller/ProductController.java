@@ -2,6 +2,7 @@ package org.scoula.product.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.scoula.common.response.ApiResponse;
+import org.scoula.product.dto.PolicyProductListResponseDTO;
 import org.scoula.product.dto.SavingProductListResponseDTO;
 import org.scoula.product.service.ProductService;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +26,13 @@ public class ProductController {
             @PathVariable String category) {
 
         List<SavingProductListResponseDTO> result = service.findSavingProductListByCategory(category);
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    // GET /api/products/policies → 정책 상품 목록 조회
+    @GetMapping("/policies")
+    public ResponseEntity<ApiResponse<List<PolicyProductListResponseDTO>>> findPolicyProductList() {
+        List<PolicyProductListResponseDTO> result = service.findPolicyProductList();
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 }
