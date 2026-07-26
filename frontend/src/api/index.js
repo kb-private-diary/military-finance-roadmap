@@ -3,7 +3,7 @@ import { useAuthStore } from '@/stores/auth';
 import router from '@/router';
 
 const instance = axios.create({
-  timeout: 1000,
+  timeout: 15000,
 });
 
 //axios요청 보낼 때 http header에 jwt token넣어서 보내야함.

@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.scoula.common.exception.BusinessException;
 import org.scoula.config.RootConfig;
+import org.scoula.member.dto.FindIdRequestDTO;
+import org.scoula.member.dto.FindIdResponseDTO;
 import org.scoula.member.dto.MemberDTO;
 import org.scoula.member.dto.MemberJoinDetailRequestDTO;
 import org.scoula.member.dto.MemberJoinRequestDTO;
@@ -149,6 +151,35 @@ class MemberServiceImplTest {
     }
 
     @Test
+    void checkJoinBasic_duplicatePhone_throws() {
+        this.service.createMember(joinDetailDto(List.of(1L, 2L, 3L))); // phone: 010-2222-2222
+
+        // 이메일은 다르지만 전화번호가 이미 가입된 계정과 같음
+        MemberJoinRequestDTO basic = new MemberJoinRequestDTO(
+                "junit.otherid@kbthink.com", "pw1234!@", "pw1234!@", "다른사람", "010-2222-2222");
+
+        assertThrows(BusinessException.class, () -> this.service.checkJoinBasic(basic));
+    }
+
+    @Test
+    void createMember_duplicatePhone_throws() {
+        this.service.createMember(joinDetailDto(List.of(1L, 2L, 3L))); // phone: 010-2222-2222
+
+        MemberJoinDetailRequestDTO dto = MemberJoinDetailRequestDTO.builder()
+                .userId("junit.otherid2@kbthink.com")
+                .password("pw1234!@")
+                .passwordConfirm("pw1234!@")
+                .name("다른사람2")
+                .phone("010-2222-2222")
+                .typeId(1)
+                .rankId(1)
+                .agreedTermsIds(List.of(1L, 2L, 3L))
+                .build();
+
+        assertThrows(BusinessException.class, () -> this.service.createMember(dto));
+    }
+
+    @Test
     void findTerms_returnsSeedTerms() {
         List<TermsDTO> terms = this.service.findTerms();
 
@@ -173,5 +204,21 @@ class MemberServiceImplTest {
         String accessToken = this.jwtProcessor.generateToken("junit.service@kbthink.com");
 
         assertThrows(BadCredentialsException.class, () -> this.service.refresh(accessToken));
+    }
+
+    @Test
+    void findUserId_withMatchingNameAndPhone_returnsMaskedId() {
+        this.service.createMember(joinDetailDto(List.of(1L, 2L, 3L)));
+
+        FindIdResponseDTO result = this.service.findUserId(
+                new FindIdRequestDTO("서비스테스트", "010-2222-2222"));
+
+        assertEquals("ju***********@kbthink.com", result.getMaskedUserId());
+    }
+
+    @Test
+    void findUserId_withNoMatch_throws() {
+        assertThrows(BusinessException.class,
+                () -> this.service.findUserId(new FindIdRequestDTO("없는사람", "010-0000-0000")));
     }
 }

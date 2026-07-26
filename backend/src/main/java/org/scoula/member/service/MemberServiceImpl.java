@@ -19,6 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.scoula.common.exception.BusinessException;
 import org.scoula.member.domain.TermsAgreementVO;
 import org.scoula.member.domain.TermsVO;
+import org.scoula.member.dto.FindIdRequestDTO;
+import org.scoula.member.dto.FindIdResponseDTO;
 import org.scoula.member.dto.MemberDTO;
 import org.scoula.member.dto.MemberJoinDetailRequestDTO;
 import org.scoula.member.dto.MemberJoinRequestDTO;
@@ -66,6 +68,13 @@ public class MemberServiceImpl implements MemberService {
         }
     }
 
+    // 전화번호는 한 사람당 하나여야 하므로(아이디찾기 등에서 사람을 특정하는 기준이 됨) 계정 간 중복을 막는다.
+    private void validatePhoneNotDuplicated(String phone) {
+        if (this.mapper.countByPhone(phone) > 0) {
+            throw BusinessException.conflict("이미 사용중인 전화번호입니다.", "MEM_008");
+        }
+    }
+
     @Override
     public boolean checkDuplicate(String userId) {
         return this.mapper.findByUserId(userId) != null;
@@ -85,6 +94,7 @@ public class MemberServiceImpl implements MemberService {
         if (this.checkDuplicate(basic.getUserId())) {
             throw BusinessException.conflict("이미 사용중인 아이디입니다.", "MEM_002");
         }
+        this.validatePhoneNotDuplicated(basic.getPhone());
         this.validatePasswordPolicy(basic.getPassword());
         if (!basic.getPassword().equals(basic.getPasswordConfirm())) {
             throw BusinessException.badRequest("비밀번호가 일치하지 않습니다.", "MEM_004");
@@ -99,6 +109,7 @@ public class MemberServiceImpl implements MemberService {
         if (this.checkDuplicate(dto.getUserId())) {
             throw BusinessException.conflict("이미 사용중인 아이디입니다.", "MEM_002");
         }
+        this.validatePhoneNotDuplicated(dto.getPhone());
         this.validatePasswordPolicy(dto.getPassword());
         if (!dto.getPassword().equals(dto.getPasswordConfirm())) {
             throw BusinessException.badRequest("비밀번호가 일치하지 않습니다.", "MEM_004");
@@ -153,5 +164,29 @@ public class MemberServiceImpl implements MemberService {
         String newAccessToken = this.jwtProcessor.generateToken(userId);
         String newRefreshToken = this.jwtProcessor.generateRefreshToken(userId);
         return new AuthResultDTO(newAccessToken, newRefreshToken, UserInfoDTO.of(member));
+    }
+
+    @Override
+    public FindIdResponseDTO findUserId(FindIdRequestDTO request) {
+        List<MemberVO> matches = this.mapper.findByNameAndPhone(request.getName(), request.getPhone());
+        // 동명이인 등으로 여러 건이 매칭되면 특정 계정을 안전하게 골라낼 수 없으므로,
+        // 개인정보 보호 차원에서 매칭 없음과 동일하게 처리한다.
+        if (matches.size() != 1) {
+            throw BusinessException.notFound("일치하는 회원 정보가 없습니다.", "MEM_007");
+        }
+        return new FindIdResponseDTO(maskUserId(matches.get(0).getUserId()));
+    }
+
+    // 개인정보 보호를 위해 아이디의 일부만 보여준다. 이메일 형식이면 @ 앞부분만, 아니면 절반만 마스킹.
+    private String maskUserId(String userId) {
+        int atIndex = userId.indexOf('@');
+        if (atIndex <= 0) {
+            int visible = Math.max(1, userId.length() / 2);
+            return userId.substring(0, visible) + "*".repeat(userId.length() - visible);
+        }
+        String local = userId.substring(0, atIndex);
+        String domain = userId.substring(atIndex);
+        int visible = Math.min(2, local.length());
+        return local.substring(0, visible) + "*".repeat(local.length() - visible) + domain;
     }
 }

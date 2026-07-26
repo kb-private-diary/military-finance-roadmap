@@ -7,7 +7,6 @@ import { useRouter } from 'vue-router';
 import memberApi from '@/api/memberApi';
 import { useSignupStore } from '@/stores/signup';
 import BaseInput from '@/components/common/BaseInput.vue';
-import CategoryButton from '@/components/common/CategoryButton.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 
 const router = useRouter();
@@ -29,6 +28,9 @@ const MILITARY_RANKS = [
   { rankId: 3, name: '상병' },
   { rankId: 4, name: '병장' },
 ];
+
+const typeOptions = MILITARY_TYPES.map((t) => ({ label: t.name, value: t.typeId }));
+const rankOptions = MILITARY_RANKS.map((r) => ({ label: r.name, value: r.rankId }));
 
 const form = reactive({
   typeId: null,
@@ -53,6 +55,7 @@ const canSubmit = computed(
 );
 
 // 군종 + 입대일이 정해지면 복무기간만큼 더한 전역예정일을 자동으로 채워준다 (수동으로 다시 고칠 수도 있음)
+// 입대일 당일도 복무 1일차로 치므로, 개월수를 더한 날짜에서 하루를 뺀다 (예: 3/1 입대 + 18개월 → 8/31 전역)
 watch(
   () => [form.typeId, form.enlistDate],
   ([typeId, enlistDate]) => {
@@ -61,6 +64,7 @@ watch(
     if (!months) return;
     const discharge = new Date(enlistDate);
     discharge.setMonth(discharge.getMonth() + months);
+    discharge.setDate(discharge.getDate() - 1);
     form.dischargeDate = discharge.toISOString().slice(0, 10);
   },
 );
@@ -100,33 +104,21 @@ onMounted(() => {
     <h1 class="text-title mb-4">군 정보 입력</h1>
 
     <div class="signup-form">
-      <div class="signup-form__field">
-        <div class="text-label mb-2">군종</div>
-        <div class="signup-form__pill-row">
-          <CategoryButton
-            v-for="type in MILITARY_TYPES"
-            :key="type.typeId"
-            variant="oval-green"
-            :label="type.name"
-            :active="form.typeId === type.typeId"
-            @click="form.typeId = type.typeId"
-          />
-        </div>
-      </div>
+      <BaseInput
+        type="select"
+        v-model="form.typeId"
+        label="군종"
+        placeholder="군종을 선택하세요"
+        :options="typeOptions"
+      />
 
-      <div class="signup-form__field">
-        <div class="text-label mb-2">계급</div>
-        <div class="signup-form__pill-row">
-          <CategoryButton
-            v-for="rank in MILITARY_RANKS"
-            :key="rank.rankId"
-            variant="oval-brown"
-            :label="rank.name"
-            :active="form.rankId === rank.rankId"
-            @click="form.rankId = rank.rankId"
-          />
-        </div>
-      </div>
+      <BaseInput
+        type="select"
+        v-model="form.rankId"
+        label="계급"
+        placeholder="계급을 선택하세요"
+        :options="rankOptions"
+      />
 
       <BaseInput v-model="form.unitName" label="부대명" placeholder="예: 수도방위사령부" />
       <BaseInput
@@ -160,16 +152,6 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 20px;
-}
-
-.signup-form__pill-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.signup-form__pill-row .category-btn {
-  flex: 0 1 auto;
 }
 
 .signup-form__field {

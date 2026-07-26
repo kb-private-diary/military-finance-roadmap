@@ -19,4 +19,10 @@ export default {
     const { data } = await instance.post(`${BASE_URL}/join/detail`, detail);
     return data.data; // 생성된 회원 id
   },
+
+  // 이름+전화번호로 아이디 찾기, 마스킹된 아이디 반환 (MEM-API: POST /api/users/find-id)
+  async findUserId(request) {
+    const { data } = await instance.post(`${BASE_URL}/find-id`, request);
+    return data.data; // { maskedUserId }
+  },
 };
