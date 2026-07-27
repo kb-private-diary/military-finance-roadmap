@@ -1,7 +1,11 @@
 package org.scoula.job.mapper;
 
 import org.apache.ibatis.annotations.Param;
-import org.scoula.job.domain.*;
+import org.scoula.job.domain.JobGoalVO;
+import org.scoula.job.domain.JobCodeVO;
+import org.scoula.job.domain.JobInterestedTypeVO;
+import org.scoula.job.domain.JobPlanVO;
+import org.scoula.job.domain.PrepItemCriteriaVO;
 
 import java.util.List;
 
