@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import org.scoula.common.response.ApiResponse;
+import org.scoula.member.dto.FindIdRequestDTO;
+import org.scoula.member.dto.FindIdResponseDTO;
 import org.scoula.member.dto.MemberJoinDetailRequestDTO;
 import org.scoula.member.dto.MemberJoinRequestDTO;
 import org.scoula.member.dto.TermsDTO;
@@ -51,6 +53,12 @@ public class MemberController {
     @GetMapping("/terms")
     public ResponseEntity<ApiResponse<List<TermsDTO>>> findTerms() {
         return ResponseEntity.ok(ApiResponse.success(this.service.findTerms()));
+    }
+
+    //이름+전화번호로 아이디 찾기 (마스킹된 아이디 반환)
+    @PostMapping("/find-id")
+    public ResponseEntity<ApiResponse<FindIdResponseDTO>> findUserId(@RequestBody FindIdRequestDTO request) {
+        return ResponseEntity.ok(ApiResponse.success(this.service.findUserId(request)));
     }
 
     @PostMapping("/refresh")

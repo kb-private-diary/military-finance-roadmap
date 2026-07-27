@@ -21,6 +21,21 @@
           AND del_yn = 'N'
     </select>
 
+    <select id="countByPhone" resultType="int">
+        SELECT COUNT(*)
+        FROM `user`
+        WHERE phone = #{phone}
+          AND del_yn = 'N'
+    </select>
+
+    <select id="findByNameAndPhone" resultType="MemberVO">
+        SELECT id, user_id
+        FROM `user`
+        WHERE name = #{name}
+          AND phone = #{phone}
+          AND del_yn = 'N'
+    </select>
+
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO `user`
             (user_id, password, name, phone, type_id, rank_id,
