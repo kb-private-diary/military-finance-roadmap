@@ -1,16 +1,11 @@
 from typing import Tuple
 
-from google import genai
 from google.genai import types
 
-from app.core.config import GEMINI_API_KEY
-from app.services import cheongyakhome, fss, vectorstore
+from app.services import cheongyakhome, fss, gemini_client, vectorstore
 from app.services import fund as fund_service
 from app.services.intent import classify_intent, classify_product_category
 
-_client = genai.Client(api_key=GEMINI_API_KEY)
-
-_MODEL = "gemini-flash-lite-latest"
 _TOP_K = 3
 _LIVE_DATA_LIMIT = 5
 
@@ -79,9 +74,8 @@ def generate_reply(question: str) -> Tuple[str, str]:
         prompt = f"[참고 정책 문서]\n{context}\n\n[질문]\n{question}"
         source = RAG_SOURCE_LABEL
 
-    response = _client.models.generate_content(
-        model=_MODEL,
-        contents=prompt,
+    response = gemini_client.generate_content(
+        prompt,
         config=types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION),
     )
     return response.text, source

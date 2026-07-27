@@ -1,11 +1,6 @@
 from typing import Optional
 
-from google import genai
-
-from app.core.config import GEMINI_API_KEY
-
-_client = genai.Client(api_key=GEMINI_API_KEY)
-_MODEL = "gemini-flash-lite-latest"
+from app.services import gemini_client
 
 VALID_INTENTS = ("info", "counsel", "irrelevant")
 
@@ -20,10 +15,7 @@ _PROMPT_TEMPLATE = (
 
 
 def classify_intent(question: str) -> str:
-    response = _client.models.generate_content(
-        model=_MODEL,
-        contents=_PROMPT_TEMPLATE.format(question=question),
-    )
+    response = gemini_client.generate_content(_PROMPT_TEMPLATE.format(question=question))
     label = response.text.strip().lower()
     return label if label in VALID_INTENTS else "info"
 
@@ -45,9 +37,6 @@ _CATEGORY_PROMPT_TEMPLATE = (
 
 
 def classify_product_category(question: str) -> Optional[str]:
-    response = _client.models.generate_content(
-        model=_MODEL,
-        contents=_CATEGORY_PROMPT_TEMPLATE.format(question=question),
-    )
+    response = gemini_client.generate_content(_CATEGORY_PROMPT_TEMPLATE.format(question=question))
     label = response.text.strip().lower()
     return label if label in PRODUCT_CATEGORIES else None
