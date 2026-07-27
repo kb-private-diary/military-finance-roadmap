@@ -33,4 +33,7 @@ public interface JobMapper {
 
     // 선택한 준비항목들을 job_plan에 일괄 저장
     void createJobPlans(@Param("plans") List<JobPlanVO> plans, @Param("createdNm") String createdNm);
+
+    // 재선택 시 기존 스냅샷 소프트 삭제 (del_yn='Y' 후 재저장)
+    void deleteJobPlansByGoalId(@Param("goalId") Long goalId, @Param("modifiedNm") String modifiedNm);
 }

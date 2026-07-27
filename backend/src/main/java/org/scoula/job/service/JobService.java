@@ -14,6 +14,6 @@ public interface JobService {
     // goalId 기준 준비 항목 추천 조회 (item_type별 그룹핑)
     PrepItemRecommendResponseDTO findPrepItemRecommend(Long goalId);
 
-    // goalId 목표에 선택한 준비항목들을 job_plan에 스냅샷 저장
-    void createJobPlans(Long goalId, JobPlanCreateRequestDTO requestDTO);
+    // goalId 목표에 선택한 준비항목들을 job_plan에 스냅샷 저장 후 항목별 내역과 총액 반환
+    JobPlanCreateResponseDTO createJobPlans(Long goalId, JobPlanCreateRequestDTO requestDTO);
 }
