@@ -17,7 +17,6 @@ import org.scoula.job.mapper.JobMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -74,9 +73,9 @@ public class JobServiceImpl implements JobService{
 
         List<String> itemTypes = jobMapper.findInterestedItemTypes(goalId);
 
-        // 선택된 준비 항목이 없으면 조회 자체를 생략하고 빈 결과 반환 (item_type IN () SQL 오류 방지)
+        // 목표 등록 시 희망준비항목을 필수로 받으므로 정상 흐름에서는 비어 있을 수 없음
         if (itemTypes.isEmpty()) {
-            return new PrepItemRecommendResponseDTO(goalId, Collections.emptyMap());
+            throw BusinessException.notFound("준비항목을 먼저 선택해주세요", "JOB_002");
         }
 
         List<PrepItemCriteriaVO> prepItemCriteriaVOList = jobMapper.findPrepItemCriteriaList(
