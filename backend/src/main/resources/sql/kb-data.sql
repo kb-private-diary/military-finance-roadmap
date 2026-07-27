@@ -507,7 +507,7 @@ insert into car_model (model_id, manufacturer, model_name, car_type_code, fuel_t
 --  테이블: user
 -- --------------------------------------------------------------------
 INSERT INTO `user` (`id`, `user_id`, `password`, `name`, `phone`, `type_id`, `rank_id`, `unit_name`, `unit_code`, `enlist_date`, `discharge_date`, `login_provider`, `status`, `withdrawn_at`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`) VALUES
-(1, 'hobin@kbthink.com', '$2a$10$testHashedPassword01', '김호빈', '010-1234-5678', 1, 3, '수도방위사령부 제1경비단', 'A01-102', '2026-01-05', '2027-07-04', 'local', 'ACTIVE', NULL, NOW(), 'hobin', NULL, NULL, 'N'),
+(1, 'hobin@kbthink.com', '$2a$10$HbpaEJl9AV82dWtFjtftUOBEkwHjoXScs2bDTbpP7QgKitPYHyKM.', '김호빈', '010-1234-0001', 1, 3, '수도방위사령부 제1경비단', 'A01-102', '2026-01-05', '2027-07-04', 'local', 'ACTIVE', NULL, NOW(), 'hobin', NULL, NULL, 'N'),
 (2, 'sukyun@kbthink.com', '$2a$10$testHashedPassword02', '김호빈', '010-2345-6789', 1, 4, '제5보병사단', 'A01-205', '2025-11-10', '2027-05-09', 'local', 'ACTIVE', NULL, NOW(), 'hobin', NULL, NULL, 'N'),
 (3, 'test.marine@kbthink.com', '$2a$10$testHashedPassword03', '테스트해병', '010-3456-7890', 4, 2, NULL, NULL, '2026-02-01', '2027-07-31', 'local', 'ACTIVE', NULL, NOW(), 'hobin', NULL, NULL, 'N');
 
