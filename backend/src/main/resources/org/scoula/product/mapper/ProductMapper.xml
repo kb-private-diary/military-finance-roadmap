@@ -70,7 +70,7 @@
         ) VALUES (
             #{productType}, #{isActive}, #{finPrdtCd}, #{korCoNm}, #{productName}, #{joinMember},
             #{etcNote}, #{intrRateType}, #{rsrvType}, #{saveTrm}, #{spclCnd}, #{basicRate}, #{maxRate}, #{maxLimit},
-            FALSE, 0.0, NOW(), 'seokyun', 'N'
+            FALSE, 0.0, NOW(), 'fss-sync', 'N'
         )
         ON DUPLICATE KEY UPDATE
             is_active      = VALUES(is_active),
@@ -85,7 +85,7 @@
             max_rate       = VALUES(max_rate),
             max_limit      = VALUES(max_limit),
             modified_date  = NOW(),
-            modified_nm    = 'seokyun'
+            modified_nm    = 'fss-sync'
     </insert>
 
     <select id="findAllFinPrdtCds" resultType="String">
