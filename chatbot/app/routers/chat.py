@@ -1,3 +1,5 @@
+import logging
+
 from datetime import date, datetime
 
 from typing import List, Optional
@@ -31,8 +33,10 @@ from app.services import cheongyakhome, fss, gemini, policy_docs
 from app.services import fund as fund_service
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
+logger = logging.getLogger(__name__)
 
 MESSAGE_MAX_LENGTH = 500
+GEMINI_FAILURE_MESSAGE = "서버에 문제가 발생했습니다. 잠시 후에 다시 시도해 주세요."
 
 TOPICS = [
     TopicItem(topic_id="fund_consult", label="목돈상담"),
@@ -147,7 +151,11 @@ def send_message(payload: MessageCreateRequest, db: Session = Depends(get_db)):
     db.add(user_message)
     db.commit()
 
-    reply, source = gemini.generate_reply(content)
+    try:
+        reply, source = gemini.generate_reply(content)
+    except Exception:
+        logger.exception("Gemini 응답 생성 실패 (session_id=%s)", payload.session_id)
+        reply, source = GEMINI_FAILURE_MESSAGE, "오류 안내"
 
     bot_message = ChatMessage(
         session_id=payload.session_id,
