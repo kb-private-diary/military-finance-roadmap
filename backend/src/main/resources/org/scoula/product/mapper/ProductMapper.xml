@@ -54,4 +54,41 @@
           AND del_yn = 'N'
         ORDER BY max_rate DESC, policy_name
     </select>
+
+    <!--
+        FSS API 동기화 UPSERT. (fin_prdt_cd, save_trm) UNIQUE 제약 기준으로 충돌 시 UPDATE 한다.
+        is_tax_exempt/gov_match_rate/product_link/min_limit 은 FSS API에 없는 값이라
+        UPDATE 절에서 제외해 기존에 수동으로 채워둔 값을 그대로 보존한다.
+        (신규 상품은 이 값들이 아직 없으므로 FALSE/0.0/NULL 로 채워 넣는다.
+        is_active 도 신규 삽입 시엔 서비스단에서 강제로 FALSE 로 넘겨받아, 사람이 검수하기 전엔 목록에 노출되지 않는다.)
+    -->
+    <insert id="upsertSavingProduct" parameterType="org.scoula.product.domain.SavingProductVO">
+        INSERT INTO saving_product (
+            product_type, is_active, fin_prdt_cd, kor_co_nm, product_name, join_member,
+            etc_note, intr_rate_type, rsrv_type, save_trm, spcl_cnd, basic_rate, max_rate, max_limit,
+            is_tax_exempt, gov_match_rate, created_date, created_nm, del_yn
+        ) VALUES (
+            #{productType}, #{isActive}, #{finPrdtCd}, #{korCoNm}, #{productName}, #{joinMember},
+            #{etcNote}, #{intrRateType}, #{rsrvType}, #{saveTrm}, #{spclCnd}, #{basicRate}, #{maxRate}, #{maxLimit},
+            FALSE, 0.0, NOW(), 'seokyun', 'N'
+        )
+        ON DUPLICATE KEY UPDATE
+            is_active      = VALUES(is_active),
+            kor_co_nm      = VALUES(kor_co_nm),
+            product_name   = VALUES(product_name),
+            join_member    = VALUES(join_member),
+            etc_note       = VALUES(etc_note),
+            intr_rate_type = VALUES(intr_rate_type),
+            rsrv_type      = VALUES(rsrv_type),
+            spcl_cnd       = VALUES(spcl_cnd),
+            basic_rate     = VALUES(basic_rate),
+            max_rate       = VALUES(max_rate),
+            max_limit      = VALUES(max_limit),
+            modified_date  = NOW(),
+            modified_nm    = 'seokyun'
+    </insert>
+
+    <select id="findAllFinPrdtCds" resultType="String">
+        SELECT DISTINCT fin_prdt_cd FROM saving_product
+    </select>
 </mapper>
