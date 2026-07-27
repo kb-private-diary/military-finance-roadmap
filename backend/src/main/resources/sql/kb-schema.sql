@@ -110,7 +110,8 @@ CREATE TABLE `saving_product` (
   `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
   `modified_date` DATETIME COMMENT '수정일시',
   `modified_nm` VARCHAR(50) COMMENT '수정자',
-  `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
+  `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부',
+  UNIQUE KEY `uq_saving_product_code_term` (`fin_prdt_cd`, `save_trm`)
 );
 
 DROP TABLE IF EXISTS `card_product`;
