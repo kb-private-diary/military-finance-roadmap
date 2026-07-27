@@ -21,6 +21,7 @@ import org.scoula.member.domain.TermsAgreementVO;
 import org.scoula.member.domain.TermsVO;
 import org.scoula.member.dto.FindIdRequestDTO;
 import org.scoula.member.dto.FindIdResponseDTO;
+import org.scoula.member.dto.FindPasswordRequestDTO;
 import org.scoula.member.dto.MemberDTO;
 import org.scoula.member.dto.MemberJoinDetailRequestDTO;
 import org.scoula.member.dto.MemberJoinRequestDTO;
@@ -175,6 +176,27 @@ public class MemberServiceImpl implements MemberService {
             throw BusinessException.notFound("일치하는 회원 정보가 없습니다.", "MEM_007");
         }
         return new FindIdResponseDTO(maskUserId(matches.get(0).getUserId()));
+    }
+
+    @Transactional
+    @Override
+    public void resetPassword(FindPasswordRequestDTO request) {
+        // 본인확인: 아이디+이름+전화번호가 전부 일치해야 한다.
+        MemberVO member = this.mapper.get(request.getUserId());
+        boolean identityMatches = member != null
+                && member.getName().equals(request.getName())
+                && member.getPhone().equals(request.getPhone());
+        if (!identityMatches) {
+            throw BusinessException.notFound("일치하는 회원 정보가 없습니다.", "MEM_009");
+        }
+
+        this.validatePasswordPolicy(request.getNewPassword());
+        if (!request.getNewPassword().equals(request.getNewPasswordConfirm())) {
+            throw BusinessException.badRequest("비밀번호가 일치하지 않습니다.", "MEM_004");
+        }
+
+        String encoded = this.passwordEncoder.encode(request.getNewPassword());
+        this.mapper.updatePassword(member.getId(), encoded, member.getUserId());
     }
 
     // 개인정보 보호를 위해 아이디의 일부만 보여준다. 이메일 형식이면 @ 앞부분만, 아니면 절반만 마스킹.

@@ -25,4 +25,9 @@ export default {
     const { data } = await instance.post(`${BASE_URL}/find-id`, request);
     return data.data; // { maskedUserId }
   },
+
+  // 본인확인(아이디+이름+전화번호) 후 비밀번호 재설정 (MEM-API: POST /api/users/find-pw)
+  async resetPassword(request) {
+    await instance.post(`${BASE_URL}/find-pw`, request);
+  },
 };

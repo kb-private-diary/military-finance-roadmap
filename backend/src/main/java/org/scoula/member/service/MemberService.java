@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.scoula.member.dto.FindIdRequestDTO;
 import org.scoula.member.dto.FindIdResponseDTO;
+import org.scoula.member.dto.FindPasswordRequestDTO;
 import org.scoula.member.dto.MemberDTO;
 import org.scoula.member.dto.MemberJoinDetailRequestDTO;
 import org.scoula.member.dto.MemberJoinRequestDTO;
@@ -18,4 +19,5 @@ public interface MemberService {
     List<TermsDTO> findTerms();
     AuthResultDTO refresh(String refreshToken);
     FindIdResponseDTO findUserId(FindIdRequestDTO request);
+    void resetPassword(FindPasswordRequestDTO request);
 }
