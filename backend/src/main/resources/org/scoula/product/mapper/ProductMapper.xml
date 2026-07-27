@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.scoula.product.mapper.ProductMapper">
+    <!--
+        상품(fin_prdt_cd) 단위로 1건만 반환한다.
+        같은 상품이 가입기간(save_trm)마다 여러 행으로 저장돼 있으므로,
+        그중 max_rate가 가장 높은 행 하나를 대표로 뽑는다(개월수·금리는 같은 행 값으로 짝을 맞춤).
+    -->
+    <select id="findSavingProductListByType" parameterType="String" resultType="org.scoula.product.domain.SavingProductVO">
+        SELECT
+            saving_id       AS savingId,
+            product_type    AS productType,
+            is_active       AS isActive,
+            fin_prdt_cd     AS finPrdtCd,
+            kor_co_nm       AS korCoNm,
+            product_name    AS productName,
+            min_limit       AS minLimit,
+            max_limit       AS maxLimit,
+            save_trm        AS saveTrm,
+            basic_rate      AS basicRate,
+            max_rate        AS maxRate,
+            is_tax_exempt   AS isTaxExempt,
+            gov_match_rate  AS govMatchRate
+        FROM (
+            SELECT
+                saving_id, product_type, is_active, fin_prdt_cd, kor_co_nm, product_name,
+                min_limit, max_limit, save_trm, basic_rate, max_rate, is_tax_exempt, gov_match_rate,
+                ROW_NUMBER() OVER (
+                    PARTITION BY fin_prdt_cd
+                    ORDER BY max_rate DESC, save_trm DESC
+                ) AS rn
+            FROM saving_product
+            WHERE product_type = #{productType}
+              AND is_active = TRUE
+              AND del_yn = 'N'
+        ) ranked
+        WHERE rn = 1
+        ORDER BY max_rate DESC, product_name
+    </select>
+
+    <select id="findPolicyProductList" resultType="org.scoula.product.domain.PolicyProductVO">
+        SELECT
+            policy_id           AS policyId,
+            policy_name         AS policyName,
+            min_limit           AS minLimit,
+            max_limit           AS maxLimit,
+            save_trm_note       AS saveTrmNote,
+            has_calculator      AS hasCalculator,
+            max_rate            AS maxRate,
+            normal_match_rate   AS normalMatchRate,
+            prefer_match_rate   AS preferMatchRate
+        FROM policy_product
+        WHERE policy_status = TRUE
+          AND del_yn = 'N'
+        ORDER BY max_rate DESC, policy_name
+    </select>
+</mapper>

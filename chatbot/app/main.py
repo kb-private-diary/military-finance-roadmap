@@ -1,9 +1,21 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.core.exceptions import BusinessException, business_exception_handler
 from app.routers import chat
+from app.services import vectorstore
 
-app = FastAPI(title="KB 챗봇 API")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 이미 인덱싱돼 있으면 건너뛴다 (vectorstore.build_index 내부에서 처리).
+    vectorstore.build_index()
+    yield
+
+
+app = FastAPI(title="KB 챗봇 API", lifespan=lifespan)
 
 # CORS: credentials=True 일 때는 origin 을 "*" 로 둘 수 없어 프론트 주소를 명시한다.
 # 배포 시 실제 프론트 도메인을 ALLOWED_ORIGINS 에 추가할 것.
@@ -18,6 +30,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_exception_handler(BusinessException, business_exception_handler)
 
 app.include_router(chat.router)
 

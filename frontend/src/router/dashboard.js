@@ -3,19 +3,19 @@
 export default [
   {
     path: '/dashboard',
-    name: 'Dashboard',   // 대시보드
+    name: 'Dashboard', // 대시보드
     component: () => import('@/pages/dashboard/DashboardPage.vue'),
     meta: { requiresAuth: true },
   },
   {
     path: '/dashboard/vacation',
-    name: 'VacationEdit',   // 휴가 추가/수정
+    name: 'VacationEdit', // 휴가 추가/수정
     component: () => import('@/pages/dashboard/VacationEditPage.vue'),
     meta: { requiresAuth: true },
   },
   {
     path: '/dashboard/vacation/regular',
-    name: 'VacationRegular',   // 정기 휴가 수정
+    name: 'VacationRegular', // 정기 휴가 수정
     component: () => import('@/pages/dashboard/VacationRegularPage.vue'),
     meta: { requiresAuth: true },
   },
