@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.core.exceptions import BusinessException, business_exception_handler
 from app.routers import chat
 from app.services import vectorstore
 
@@ -29,6 +30,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_exception_handler(BusinessException, business_exception_handler)
 
 app.include_router(chat.router)
 

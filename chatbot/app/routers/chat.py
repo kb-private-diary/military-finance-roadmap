@@ -4,11 +4,12 @@ from datetime import date, datetime
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, Path, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
+from app.core.exceptions import BusinessException
 from app.models.chat import ChatMessage, ChatSession
 from app.schemas.chat import (
     FaqCategoryItem,
@@ -113,7 +114,7 @@ def get_history(session_id: int = Path(..., alias="sessionId"), db: Session = De
         .first()
     )
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise BusinessException("세션을 찾을 수 없습니다", 404, "CHAT_001")
 
     messages = (
         db.query(ChatMessage)
@@ -129,9 +130,9 @@ def get_history(session_id: int = Path(..., alias="sessionId"), db: Session = De
 def send_message(payload: MessageCreateRequest, db: Session = Depends(get_db)):
     content = payload.content.strip()
     if not content:
-        raise HTTPException(status_code=400, detail="질문을 입력해주세요")
+        raise BusinessException("질문을 입력해주세요", 400, "CHAT_002")
     if len(content) > MESSAGE_MAX_LENGTH:
-        raise HTTPException(status_code=400, detail=f"질문은 {MESSAGE_MAX_LENGTH}자 이내로 입력해주세요")
+        raise BusinessException(f"질문은 {MESSAGE_MAX_LENGTH}자 이내로 입력해주세요", 400, "CHAT_003")
 
     session = (
         db.query(ChatSession)
@@ -139,7 +140,7 @@ def send_message(payload: MessageCreateRequest, db: Session = Depends(get_db)):
         .first()
     )
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise BusinessException("세션을 찾을 수 없습니다", 404, "CHAT_001")
 
     user_message = ChatMessage(
         session_id=payload.session_id,
@@ -226,7 +227,7 @@ def list_products(category: Optional[str] = Query(default=None)):
     categories = [category] if category else ALL_CATEGORIES
     for c in categories:
         if c not in ALL_CATEGORIES:
-            raise NotImplementedError
+            raise BusinessException("지원하지 않는 카테고리입니다", 400, "CHAT_004")
 
     items: List[dict] = []
     for c in categories:
@@ -261,7 +262,7 @@ def _find_fss_detail(name: str, categories: List[str]):
 def get_product(name: str, category: Optional[str] = Query(default=None)):
     """category를 알고 있으면 반드시 넘길 것 — 생략하면 전체 카테고리를 순차 조회해서 훨씬 느려짐."""
     if category is not None and category not in ALL_CATEGORIES:
-        raise NotImplementedError
+        raise BusinessException("지원하지 않는 카테고리입니다", 400, "CHAT_004")
 
     fss_categories = [category] if category in fss.PRODUCT_ENDPOINTS else (
         list(fss.PRODUCT_ENDPOINTS) if category is None else []
@@ -297,7 +298,7 @@ def get_product(name: str, category: Optional[str] = Query(default=None)):
             source=fund_service.SOURCE_LABEL,
         ).model_dump(by_alias=True)
 
-    raise HTTPException(status_code=404, detail="Product not found")
+    raise BusinessException("상품을 찾을 수 없습니다", 404, "CHAT_005")
 
 
 @router.get("/glossary", response_model=List[GlossaryItem])
@@ -309,7 +310,7 @@ def list_glossary():
 def get_glossary_term(term: str):
     entry = policy_docs.find_glossary_term(term)
     if not entry:
-        raise HTTPException(status_code=404, detail="Term not found")
+        raise BusinessException("용어를 찾을 수 없습니다", 404, "CHAT_006")
     return GlossaryDetail(term=entry["section"], definition=entry["text"].split("\n", 1)[1])
 
 
