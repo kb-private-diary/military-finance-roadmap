@@ -3,7 +3,7 @@
 30반 4팀 · KB IT's Your Life 7기 · Vue 3 + Vite
 
 > 이 문서 = **프론트엔드 컨벤션**. 백엔드는 [`CONVENTIONS_BACKEND.md`](CONVENTIONS_BACKEND.md) 참고.
-> §0~3(공통 규칙·Git·커밋·PR)은 양쪽 문서에 동일하게 실려 있습니다. §번호는 기존 참조 유지를 위해 그대로 둡니다.
+> §0~3(공통 규칙·Git·커밋·PR)의 **표·규칙은 양쪽 문서 공통**이며, 예시만 파트별로 다릅니다. §번호는 기존 참조 유지를 위해 그대로 둡니다.
 > 변경 시 이 문서를 먼저 고치고 슬랙에 공유해주세요.
 
 ---
@@ -117,11 +117,13 @@ src/
 
 ### Props
 
-- JS는 camelCase / 템플릿은 kebab-case / **타입·필수여부·기본값 명시**
+- JS는 camelCase / 템플릿은 kebab-case / **타입·필수여부·(선택 prop이면) 기본값 명시**
+- **`required: true` 와 `default` 는 같이 쓰지 않는다**: 필수면 항상 넘어오니 `default` 는 절대 안 쓰임(모순). → 필수 prop = `required: true`(default 생략) / 선택 prop = `default` 지정(required 생략)
 
 ```js
 defineProps({
-  goalId: { type: Number, required: true, default: 0 },
+  goalId: { type: Number, required: true }, // 필수 → default 없음
+  editable: { type: Boolean, default: false }, // 선택 → default 지정
 });
 ```
 
@@ -155,7 +157,11 @@ router.push({ name: 'RentGoalDetail', params: { goalId } });
   | `--kb-gray` / `--kb-dark-gray`| `#60584c` / `#545045` | 브라운 계열: 본문 텍스트·보조 포인트                          |
   | 국방색                        | `#536349`           | 군인 컨셉 포인트: D-Day 카드 배경·`BaseTag`(활성)             |
 
-  > ⚠️ 국방색 `#536349` 은 현재 `DashboardPage.vue`·`BaseTag.vue` 에 **하드코딩** 상태 → `colors.css` 로 토큰화해 통일 예정(별도 커밋).
+  **색 사용 규칙 (중요)**
+
+  - **폴백 문법 금지**: `var(--kb-yellow, #ffcc00)` 처럼 `var(토큰, #폴백)` 쓰지 않기 → `var(--kb-yellow)` 만. `colors.css` 는 `main.js` 최상단에서 항상 로드되므로 폴백은 절대 안 쓰이고, 오히려 색 바꿀 때 두 군데를 고치게 됨(단일 소스 원칙 위배).
+  - **토큰에 없는 색은 하드코딩 말고 토큰부터 추가**: 상태색(성공 `#2e9e5b`·골드 `#a9895a` 등)이 화면에 직접 박혀 있음 → `--success`·`--gold` 처럼 `colors.css` 에 올린 뒤 참조.
+  - ⚠️ 국방색 `#536349`·위 폴백/상태색은 현재 `DashboardPage.vue`·`BaseTag.vue` 등에 **하드코딩** 상태 → `colors.css` 로 토큰화해 통일 예정([정리 대상] 표 참고).
 - **프레임**: 미니앱 특성상 393px 모바일 프레임(`AppLayout`): 헤더·탭바 공통
 - **재사용 공통 컴포넌트**: `BaseCard` · `BaseModal` · `BaseBottomSheet` · `BaseInput` · `CategoryButton` · `DonutChart` · `ProgressBar` · `RoadmapCharacterSlider` · `EmptyState` · `LikeButton` · `BottomButtonBar` 등 → **새로 만들기 전에 있는 것 먼저 확인**
 - 탭바 노출은 라우트 `meta.showTabNav`/`requiresAuth` 로 제어 (`AppLayout` 주석 참고)
@@ -173,7 +179,7 @@ router.push({ name: 'RentGoalDetail', params: { goalId } });
 
 - 공통 axios 인스턴스 `api/index.js` 사용 (`/api` → Spring :8080 프록시)
 - 도메인별 호출은 `api/{도메인}Api.js` 로 분리
-- 백엔드 응답은 항상 `{ success, data, message, code }` 형식 (data만 꺼내 쓰기)
+- 백엔드 응답은 항상 **5필드** `{ success, data, message, code, timestamp }` (`common/response/ApiResponse.java`). 성공 시 `message`·`code` 는 `null`, 실패 시 `data` 는 `null`·`code` 에 에러코드. 화면은 보통 `data` 만 꺼내 쓰고, 실패 분기는 `success`/`code` 로 판단
 - 컴포넌트에서 `axios` 를 직접 import·호출 ❌: 반드시 도메인 api 파일(→ 공통 인스턴스) 경유 (JWT 자동 첨부·에러 공통 처리가 걸린다)
 
 ### 🍍 Pinia 스토어 패턴
@@ -182,7 +188,7 @@ router.push({ name: 'RentGoalDetail', params: { goalId } });
 - 안에서 `ref`(상태)·`computed`(파생)·함수(액션) 선언 후 **필요한 것만 `return`**
 - 서버 왕복이 필요한 액션은 스토어 안에서 `api/{도메인}Api.js` 호출
 - **여러 화면에 걸친 상태**(위저드 입력·세션 등)는 스토어, **한 화면 안에서만** 쓰는 값은 컴포넌트 `ref`
-- 초기화가 필요하면 `reset()` 제공 (참고: `stores/auth.js`·`stores/rent.js`)
+- 초기화가 필요하면 `reset()` 제공 (참고: `stores/auth.js`·`stores/rent.js`·`stores/signup.js`)
 
 ### 🔌 환경설정 (API 주소·env)
 
@@ -280,6 +286,20 @@ const load = async () => {
 - **로딩 중 / 에러 / 빈 상태**를 구분해 표시 (로딩과 빈 상태를 헷갈리게 하지 않기)
 
 > 🛠 `EmptyState` 는 `title`·`description`·`#icon` + **`#action` 슬롯**(CTA) 지원 ✅. CTA 버튼은 이 슬롯에 넣는다.
+
+### 🧹 현재 코드에 남은 정리 대상 (착수 시 함께 교체)
+
+컨벤션 확정 전에 짠 코드라 아래가 남아있다. **일괄 강제 아님** — 해당 화면·컴포넌트를 손댈 때 같이 정리한다. **새 화면은 처음부터 규칙대로** (정리 대상 늘리지 않기).
+
+| 항목                      | 위치(예)                                                                            | 바꿀 방향                                       |
+| ------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `alert()`                 | `MyPage.vue` · `MyPagePasswordPage.vue` · `TermsPage.vue`                            | 공통 토스트 `useToast().show()`                 |
+| 금액 포맷 자체 정의       | `DashboardPage.vue` · `SimulatorPage.vue` · `TravelCostPage.vue` · `SavingsBreakdown.vue` | `util/format.js` 의 `formatWon` / `formatManwon` |
+| 날짜 수동 조립            | `TravelGoalCreatePage.vue` · `SignupMilitaryPage.vue`                                | `util/format.js` 의 `formatDate` / ISO 헬퍼      |
+| 색 폴백 · 오프팔레트 색   | `DashboardPage.vue` 등 다수                                                          | `var(토큰)` 로, 없는 색은 `colors.css` 에 토큰 먼저 추가 |
+| `console.log` 잔재        | 5곳                                                                                 | 제거 (디버그 로그 커밋 금지)                    |
+
+---
 
 ### Prettier 설정
 
