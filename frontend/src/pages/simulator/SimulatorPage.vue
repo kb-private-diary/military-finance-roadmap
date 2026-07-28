@@ -211,6 +211,23 @@ const selectProductTab = (tab) => {
   productTab.value = tab;
 };
 
+// ── 예금 추천 목록 (KB 예금 상품만 존재 — 구분 탭 불필요) ──
+const depositProducts = ref([]);
+const isDepositLoading = ref(true);
+const depositError = ref('');
+
+const fetchDepositProducts = async () => {
+  isDepositLoading.value = true;
+  depositError.value = '';
+  try {
+    depositProducts.value = await productApi.findSavingProductList('deposits');
+  } catch (error) {
+    depositError.value = '예금 상품을 불러오지 못했습니다.';
+  } finally {
+    isDepositLoading.value = false;
+  }
+};
+
 const goToSavingProductDetail = (productId) => {
   router.push({ name: 'SavingProductDetail', params: { productId } });
 };
@@ -230,11 +247,12 @@ const goToProductDetail = (item) => {
 onMounted(() => {
   fetchSavingDetails();
   fetchProducts();
+  fetchDepositProducts();
 });
 </script>
 
 <template>
-  <div class="simulator-page container py-2">
+  <div class="simulator-page container py-4">
     <div class="simulator-page__header">
       <div class="simulator-page__summary">
         <p class="simulator-page__summary-title">
@@ -455,6 +473,43 @@ onMounted(() => {
         </BaseCard>
       </div>
     </div>
+
+    <div class="product-section">
+      <h2 class="product-section__title">예금 시뮬레이션</h2>
+
+      <p v-if="depositError" class="simulator-page__error">
+        {{ depositError }}
+      </p>
+      <p v-else-if="isDepositLoading" class="text-caption">불러오는 중...</p>
+
+      <EmptyState
+        v-else-if="depositProducts.length === 0"
+        title="추천 예금 상품이 없어요"
+        description="조건에 맞는 예금 상품을 찾을 수 없어요"
+      />
+
+      <div v-else class="product-section__list">
+        <BaseCard
+          v-for="item in depositProducts"
+          :key="item.productId"
+          class="product-card"
+          padding="14px 16px"
+          @click="goToSavingProductDetail(item.productId)"
+        >
+          <p class="product-card__title">
+            {{ item.korCoNm }} {{ item.productName }}
+          </p>
+          <BaseTag
+            v-if="item.isTaxExempt"
+            label="비과세"
+            variant="green-light"
+          />
+          <p class="product-card__desc">
+            {{ item.saveTrm }}개월 기준 최대 연 {{ item.maxRate }}% 금리
+          </p>
+        </BaseCard>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -641,6 +696,8 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line, #e0e0e0);
 }
 
 .product-section__eyebrow {
