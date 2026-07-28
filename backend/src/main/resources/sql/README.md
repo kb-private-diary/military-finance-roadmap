@@ -1,9 +1,9 @@
 # DB 스크립트
 
-| 파일 | 설명 |
-|---|---|
-| `kb-schema.sql` | 테이블 생성 DDL (52개 테이블) |
-| `kb-data.sql` | 테스트/초기 데이터 (INSERT 53건) |
+| 파일 | 설명                      |
+|---|-------------------------|
+| `kb-schema.sql` | 테이블 생성 DDL (55개 테이블)    |
+| `kb-data.sql` | 테스트/초기 데이터 (INSERT 55건) |
 
 > DB 이름은 **`scoula_db`** 로 통일합니다. (`backend/src/main/resources/application.properties` 기준)
 
