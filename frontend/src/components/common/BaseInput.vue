@@ -235,7 +235,7 @@ const currentSelectLabel = computed(() => {
   flex: 1;
   min-width: 0;
   padding: 8px 4px;
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: -0.5px;
 }
 .base-input__range-sep {
@@ -314,7 +314,7 @@ input[type='month']::-webkit-calendar-picker-indicator:hover {
 /* underline 모드일 때 month-range 내부 field의 폰트/패딩 유지 */
 .base-input--underline .base-input__range .base-input__field {
   padding: 8px 4px;
-  font-size: 11px;
+  font-size: 12px;
 }
 .base-input--underline .base-input__field:focus {
   border-bottom-color: #ffbc00; /* KB Yellow Positive */
@@ -333,7 +333,7 @@ input[type='month']::-webkit-calendar-picker-indicator:hover {
   align-items: center;
   justify-content: center;
   width: 100%;
-  padding: 12px 28px 12px 12px;
+  padding: 10px 28px 10px 12px;
   background-color: transparent;
   border: none;
   border-bottom: 2px solid #85714d; /* KB Gold */

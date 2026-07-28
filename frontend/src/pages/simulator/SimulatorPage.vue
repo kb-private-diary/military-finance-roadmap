@@ -234,7 +234,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="simulator-page container py-4">
+  <div class="simulator-page container py-2">
     <div class="simulator-page__header">
       <div class="simulator-page__summary">
         <p class="simulator-page__summary-title">
@@ -266,7 +266,7 @@ onMounted(() => {
       description="군적금에 가입하면 예상 만기 수령액을 시뮬레이션할 수 있어요"
     />
 
-    <BaseCard v-else-if="activeDetails" class="report-card">
+    <BaseCard v-else-if="activeDetails" class="report-card" padding="16px">
       <div class="report-card__title-row">
         <p class="report-card__title">충성, 군장병적금 보고합니다.</p>
         <div v-if="viewMode === 'simulated'" class="report-card__title-actions">
@@ -462,7 +462,7 @@ onMounted(() => {
 .simulator-page {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
 
 .simulator-page__header {
@@ -504,7 +504,7 @@ onMounted(() => {
 .report-card {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
 
 .report-card__title-row {
@@ -553,7 +553,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 0;
+  padding: 7px 0;
 }
 
 .report-card__stat-row + .report-card__stat-row {
