@@ -211,11 +211,14 @@ public ResponseEntity<...> createGoal(@Valid @RequestBody XxxCreateRequestDTO re
 
 ### 공통 응답 포맷 (전 파트 통일)
 
-```json
-{ "success": true, "data": {}, "message": null, "timestamp": "2026-07-21T14:30:00" }
-```
+**항상 5필드** (`common/response/ApiResponse.java`): `success`·`data`·`message`·`code`·`timestamp`. 안 쓰는 필드는 `null` 로 채워 내려간다.
 
-에러 시 `{ "success": false, "data": null, "message": "...", "code": "RENT_001" }`
+```json
+// 성공 (message·code = null)
+{ "success": true, "data": {}, "message": null, "code": null, "timestamp": "2026-07-21T14:30:00" }
+// 실패 (data = null, code 에 에러코드)
+{ "success": false, "data": null, "message": "대상을 찾을 수 없습니다.", "code": "RENT_001", "timestamp": "2026-07-21T14:30:00" }
+```
 
 `common/response/ApiResponse.java` ✅: 컨트롤러는 이걸로 감싸서 반환
 
