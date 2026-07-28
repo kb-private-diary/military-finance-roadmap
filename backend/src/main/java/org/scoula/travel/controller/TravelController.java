@@ -23,6 +23,7 @@ import org.scoula.travel.dto.CityCostResponseDTO;
 import org.scoula.travel.dto.TravelCostCreateRequestDTO;
 import org.scoula.travel.dto.TravelCostResponseDTO;
 import org.scoula.travel.dto.TravelGoalCreateRequestDTO;
+import org.scoula.travel.dto.TravelPlaceResponseDTO;
 import org.scoula.travel.service.TravelService;
 
 // 여행 로드맵 REST 컨트롤러
@@ -71,6 +72,18 @@ public class TravelController {
     public ResponseEntity<ApiResponse<TravelCostResponseDTO>> findCost(
             @PathVariable Long goalId) {
         return ResponseEntity.ok(ApiResponse.success(this.service.findCost(goalId)));
+    }
+
+    @GetMapping("/goals/{goalId}/places")
+    @ApiOperation(
+            value = "관광지·맛집 추천 조회",
+            notes = "저장된 목표의 도착지를 기준으로 관광지 또는 맛집을 검색한다.")
+    public ResponseEntity<ApiResponse<List<TravelPlaceResponseDTO>>> searchPlaces(
+            @PathVariable final Long goalId,
+            @ApiParam(value = "검색 유형: attraction 또는 restaurant", required = true)
+            @RequestParam final String category) {
+        return ResponseEntity.ok(ApiResponse.success(
+                this.service.searchPlaces(goalId, category)));
     }
 
 }
