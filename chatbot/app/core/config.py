@@ -14,3 +14,8 @@ DATABASE_URL = (
 )
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+
+FSS_API_KEY = os.getenv("FSS_API_KEY", "")
+CHEONGYAKHOME_API_KEY = os.getenv("CHEONGYAKHOME_API_KEY", "")
+FUND_API_KEY = os.getenv("FUND_API_KEY", "")
+ONTONG_YOUTH_API_KEY = os.getenv("ONTONG_YOUTH_API_KEY", "")

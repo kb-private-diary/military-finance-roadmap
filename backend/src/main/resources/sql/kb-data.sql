@@ -242,7 +242,23 @@ VALUES
     (37, '베트남', '동허이',     17987, 36232,  58155, NOW(), 'jotaeseok', 'N'),
     (38, '베트남', '동쏘아이',   17086, 25673,  36496, NOW(), 'jotaeseok', 'N'),
     (39, '베트남', '하동',       20923, 39112,  59384, NOW(), 'jotaeseok', 'N'),
-    (40, '대한민국', '부산',     54499,  84499, 124499, NOW(), 'jotaeseok', 'N');
+    (40, '대한민국', '부산',     54499,  84499, 124499, NOW(), 'jotaeseok', 'N'),
+    (41, '대한민국', '서울',   60367, 105792, 153492, NOW(), 'jotaeseok', 'N'),
+    (42, '대한민국', '대구',   57227,  79974, 104371, NOW(), 'jotaeseok', 'N'),
+    (43, '대한민국', '대전',   49476,  80026, 113126, NOW(), 'jotaeseok', 'N'),
+    (44, '대한민국', '강릉',   43103,  62349,  84012, NOW(), 'jotaeseok', 'N'),
+    (45, '대한민국', '춘천',   46144,  71005,  98032, NOW(), 'jotaeseok', 'N'),
+    (46, '대한민국', '거제',   52098,  83198, 118798, NOW(), 'jotaeseok', 'N'),
+    (47, '대한민국', '안동',   48928,  74336, 101560, NOW(), 'jotaeseok', 'N'),
+    (48, '대한민국', '보령',   60067, 105592, 153392, NOW(), 'jotaeseok', 'N'),
+    (49, '대한민국', '창원',   49782,  68382,  89982, NOW(), 'jotaeseok', 'N'),
+    (50, '대한민국', '천안',   45300,  60050,  78800, NOW(), 'jotaeseok', 'N'),
+    (51, '대한민국', '청주',   51748,  83598, 117048, NOW(), 'jotaeseok', 'N'),
+    (52, '대한민국', '충주',   54198,  87248, 123098, NOW(), 'jotaeseok', 'N'),
+    (53, '대한민국', '안산',   52596,  77536, 105092, NOW(), 'jotaeseok', 'N'),
+    (54, '대한민국', '안양',   48269,  72694, 100095, NOW(), 'jotaeseok', 'N'),
+    (55, '대한민국', '부천',   60067, 105592, 153392, NOW(), 'jotaeseok', 'N'),
+    (56, '대한민국', '김천',   48595,  74090, 101402, NOW(), 'jotaeseok', 'N');
 
 
 -- --------------------------------------------------------------------
@@ -491,7 +507,7 @@ insert into car_model (model_id, manufacturer, model_name, car_type_code, fuel_t
 --  테이블: user
 -- --------------------------------------------------------------------
 INSERT INTO `user` (`id`, `user_id`, `password`, `name`, `phone`, `type_id`, `rank_id`, `unit_name`, `unit_code`, `enlist_date`, `discharge_date`, `login_provider`, `status`, `withdrawn_at`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`) VALUES
-(1, 'hobin@kbthink.com', '$2a$10$testHashedPassword01', '김호빈', '010-1234-5678', 1, 3, '수도방위사령부 제1경비단', 'A01-102', '2026-01-05', '2027-07-04', 'local', 'ACTIVE', NULL, NOW(), 'hobin', NULL, NULL, 'N'),
+(1, 'hobin@kbthink.com', '$2a$10$HbpaEJl9AV82dWtFjtftUOBEkwHjoXScs2bDTbpP7QgKitPYHyKM.', '김호빈', '010-1234-0001', 1, 3, '수도방위사령부 제1경비단', 'A01-102', '2026-01-05', '2027-07-04', 'local', 'ACTIVE', NULL, NOW(), 'hobin', NULL, NULL, 'N'),
 (2, 'sukyun@kbthink.com', '$2a$10$testHashedPassword02', '김호빈', '010-2345-6789', 1, 4, '제5보병사단', 'A01-205', '2025-11-10', '2027-05-09', 'local', 'ACTIVE', NULL, NOW(), 'hobin', NULL, NULL, 'N'),
 (3, 'test.marine@kbthink.com', '$2a$10$testHashedPassword03', '테스트해병', '010-3456-7890', 4, 2, NULL, NULL, '2026-02-01', '2027-07-31', 'local', 'ACTIVE', NULL, NOW(), 'hobin', NULL, NULL, 'N');
 

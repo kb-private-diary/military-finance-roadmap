@@ -1,9 +1,15 @@
 <script setup>
 // SCR-COM-02 · 약관 안내  (담당: 호빈)
-// 이용약관·개인정보 처리방침 동의 화면
+// 회원가입 플로우의 첫 단계: 약관 동의 → 회원가입 1단계(기본정보)로 이동
 import { ref, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import termsApi from '@/api/termsApi';
+import { useSignupStore } from '@/stores/signup';
 import TermsAccordion from '@/components/common/TermsAccordion.vue';
+import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
+
+const router = useRouter();
+const signupStore = useSignupStore();
 
 const terms = ref([]);
 const agreedIds = ref([]);
@@ -35,9 +41,8 @@ const confirm = () => {
     alert('필수 약관에 모두 동의해주세요.');
     return;
   }
-  // 회원가입 흐름에서 이어서 쓸 수 있도록 동의 결과를 세션에 보관해둔다.
-  sessionStorage.setItem('agreedTermsIds', JSON.stringify(agreedIds.value));
-  alert('약관에 동의하셨습니다.');
+  signupStore.setAgreedTermsIds(agreedIds.value);
+  router.push({ name: 'SignupInfo' });
 };
 
 onMounted(fetchTerms);
@@ -45,22 +50,19 @@ onMounted(fetchTerms);
 
 <template>
   <div class="container py-4" style="max-width: 640px">
+    <p class="text-overline mt-2">회원가입 1/3</p>
     <h2 class="mb-2">약관 안내</h2>
-    <p class="text-muted small">SCR-COM-02 · <code>/terms</code></p>
 
     <div v-if="loading" class="text-center text-muted py-5">불러오는 중...</div>
     <div v-else-if="errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
     <template v-else>
       <TermsAccordion v-model="agreedIds" :terms="terms" />
 
-      <button
-        type="button"
-        class="btn btn-warning w-100 mt-4 fw-semibold"
-        :disabled="!allRequiredAgreed"
-        @click="confirm"
-      >
-        확인
-      </button>
+      <BottomButtonBar
+        primary-label="다음"
+        :primary-disabled="!allRequiredAgreed"
+        @primary-click="confirm"
+      />
     </template>
   </div>
 </template>

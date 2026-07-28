@@ -100,8 +100,8 @@ DB_NAME=scoula_db        # ※ 메인 서비스와 같은 DB
 | GET | `/messages/{messageId}/recommendations` | 관련 콘텐츠 추천 | ⬜ |
 | GET | `/topics` | 초기 카테고리 메뉴 | ✅ |
 | GET | `/faq-categories` | FAQ 카테고리 | ✅ |
-| GET | `/products` · `/products/{name}` | 상품 목록·상세 | ⬜ |
-| GET | `/glossary` · `/glossary/{term}` | 정책 용어 목록·상세 | ⬜ |
+| GET | `/products` · `/products/{name}` | 상품 목록·상세 | ✅ |
+| GET | `/glossary` · `/glossary/{term}` | 정책 용어 목록·상세 | ✅ |
 
 ## 🔐 메인 서비스와의 연동 규칙
 
@@ -118,8 +118,9 @@ DB_NAME=scoula_db        # ※ 메인 서비스와 같은 DB
 ## ✅ TODO
 
 - [ ] JWT 검증 미들웨어 구현 (secret 공유 필요)
-- [ ] LLM API 연동 · 프롬프트 설계
-- [ ] 정책 문서 수집 · 청킹 · 임베딩 (Chroma)
-- [ ] RAG 파이프라인 (질의 임베딩 → 유사문서 검색 → 답변)
-- [ ] 질문 의도 분류(정보성/상담성)
+- [x] LLM API 연동 · 프롬프트 설계 (Gemini, 다나까 말투)
+- [x] 정책 문서 수집 · 청킹 · 임베딩 (Chroma) — 문서 4종(장병내일준비적금·청년미래적금·청년주택드림청약통장·정책용어사전)
+- [x] RAG 파이프라인 (질의 임베딩 → 유사문서 검색 → 답변)
+- [x] 질문 의도 분류(정보성/상담성/무관련) — counsel(상담성) 전용 상담 흐름(자금·기간 되묻기)은 WBS-6에서 별도 진행 예정
 - [ ] 피드백 저장 · 관련 콘텐츠 추천
+- [ ] 외부 API: 온통청년(청년미래적금·청년주택드림청약통장) — 서버 자체 장애로 보류 중, 재시도 필요

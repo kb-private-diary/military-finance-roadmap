@@ -6,7 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.scoula.security.account.domain.MemberVO;
 
-import java.util.Date;
+import java.time.LocalDate;
 
 @Data
 @NoArgsConstructor
@@ -21,8 +21,8 @@ public class MemberDTO {
     private Integer rankId;
     private String unitName;
     private String unitCode;
-    private Date enlistDate;
-    private Date dischargeDate;
+    private LocalDate enlistDate;
+    private LocalDate dischargeDate;
     private String status;
 
     public static MemberDTO of(MemberVO m) {
