@@ -13,6 +13,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import javax.sql.DataSource;
@@ -51,6 +52,8 @@ import javax.sql.DataSource;
         "org.scoula.dashboard.service",
         "org.scoula.simulator.service",
         "org.scoula.product.service",
+        "org.scoula.product.client",
+        "org.scoula.product.scheduler",
         "org.scoula.travel.client",
         "org.scoula.travel.service",
         "org.scoula.rent.service",
@@ -70,6 +73,7 @@ import javax.sql.DataSource;
         ignoreResourceNotFound = true
 )
 @EnableTransactionManagement
+@EnableScheduling
 public class RootConfig {
 
     @Autowired

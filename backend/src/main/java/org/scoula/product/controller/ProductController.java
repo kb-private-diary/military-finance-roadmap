@@ -1,17 +1,21 @@
 package org.scoula.product.controller;
 
-import lombok.RequiredArgsConstructor;
-import org.scoula.common.response.ApiResponse;
-import org.scoula.product.dto.PolicyProductListResponseDTO;
-import org.scoula.product.dto.SavingProductListResponseDTO;
-import org.scoula.product.service.ProductService;
+import java.util.List;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
+import lombok.RequiredArgsConstructor;
+
+import org.scoula.common.response.ApiResponse;
+import org.scoula.product.dto.PolicyProductListResponseDTO;
+import org.scoula.product.dto.ProductSyncResponseDTO;
+import org.scoula.product.dto.SavingProductListResponseDTO;
+import org.scoula.product.service.ProductService;
 
 @RestController
 @RequestMapping("/api/products")
@@ -33,6 +37,13 @@ public class ProductController {
     @GetMapping("/policies")
     public ResponseEntity<ApiResponse<List<PolicyProductListResponseDTO>>> findPolicyProductList() {
         List<PolicyProductListResponseDTO> result = service.findPolicyProductList();
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    // POST /api/products/sync → FSS API에서 KB 예·적금 상품을 가져와 DB에 반영 (운영/디버깅용 수동 트리거, 스케줄러와 동일 로직)
+    @PostMapping("/sync")
+    public ResponseEntity<ApiResponse<ProductSyncResponseDTO>> syncSavingProducts() {
+        ProductSyncResponseDTO result = service.syncSavingProducts();
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 }
