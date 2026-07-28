@@ -41,6 +41,7 @@ logger = logging.getLogger(__name__)
 MESSAGE_MAX_LENGTH = 500
 GEMINI_FAILURE_MESSAGE = "서버에 문제가 발생했습니다. 잠시 후에 다시 시도해 주세요."
 FEEDBACK_VALUES = ("like", "dislike")
+HISTORY_LIMIT = 6  # 최근 메시지 몇 개까지 멀티턴 문맥으로 넘길지 (3턴치)
 
 TOPICS = [
     TopicItem(topic_id="fund_consult", label="목돈상담"),
@@ -145,6 +146,15 @@ def send_message(payload: MessageCreateRequest, db: Session = Depends(get_db)):
     if not session:
         raise BusinessException("세션을 찾을 수 없습니다", 404, "CHAT_001")
 
+    recent_messages = (
+        db.query(ChatMessage)
+        .filter(ChatMessage.session_id == payload.session_id, ChatMessage.del_yn == "N")
+        .order_by(ChatMessage.created_date.desc())
+        .limit(HISTORY_LIMIT)
+        .all()
+    )
+    history = [(m.role, m.content) for m in reversed(recent_messages)]
+
     user_message = ChatMessage(
         session_id=payload.session_id,
         role="user",
@@ -156,7 +166,7 @@ def send_message(payload: MessageCreateRequest, db: Session = Depends(get_db)):
     db.commit()
 
     try:
-        reply, source = gemini.generate_reply(content)
+        reply, source = gemini.generate_reply(content, history=history)
     except Exception:
         logger.exception("Gemini 응답 생성 실패 (session_id=%s)", payload.session_id)
         reply, source = GEMINI_FAILURE_MESSAGE, "오류 안내"
