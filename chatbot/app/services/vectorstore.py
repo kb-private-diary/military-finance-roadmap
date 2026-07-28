@@ -4,6 +4,8 @@ from typing import List
 import chromadb
 from google import genai
 from google.genai import types
+from langchain_chroma import Chroma
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 from app.core.config import GEMINI_API_KEY
 from app.services.policy_docs import chunk_policy_docs
@@ -17,6 +19,16 @@ _CHROMA_DIR = Path(__file__).resolve().parent.parent.parent / "chroma_db"
 _client = genai.Client(api_key=GEMINI_API_KEY)
 _db = chromadb.PersistentClient(path=str(_CHROMA_DIR))
 _collection = _db.get_or_create_collection(COLLECTION_NAME)
+
+# 검색(쿼리)은 LangChain 표준 Embeddings 인터페이스로 감싸서 Chroma를 LangChain
+# Retriever로 사용한다. 인덱싱(build_index)은 배치성 작업이라 기존 방식(_embed) 그대로 유지한다.
+_query_embeddings = GoogleGenerativeAIEmbeddings(
+    model=EMBED_MODEL,
+    google_api_key=GEMINI_API_KEY,
+    task_type="RETRIEVAL_QUERY",
+    output_dimensionality=EMBED_DIM,
+)
+_vectorstore = Chroma(client=_db, collection_name=COLLECTION_NAME, embedding_function=_query_embeddings)
 
 
 def _embed(text: str, task_type: str) -> List[float]:
@@ -49,6 +61,6 @@ def build_index(force: bool = False) -> int:
 
 
 def search(query: str, top_k: int = 3) -> List[str]:
-    query_embedding = _embed(query, "RETRIEVAL_QUERY")
-    results = _collection.query(query_embeddings=[query_embedding], n_results=top_k)
-    return results["documents"][0]
+    """LangChain Retriever(Chroma)를 통해 의미 기반 검색을 수행한다."""
+    docs = _vectorstore.similarity_search(query, k=top_k)
+    return [doc.page_content for doc in docs]

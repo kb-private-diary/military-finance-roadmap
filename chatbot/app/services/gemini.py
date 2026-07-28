@@ -1,6 +1,6 @@
-from typing import Tuple
+from typing import Optional, Tuple, TypedDict
 
-from google.genai import types
+from langgraph.graph import END, START, StateGraph
 
 from app.services import cheongyakhome, fss, gemini_client, vectorstore
 from app.services import fund as fund_service
@@ -56,26 +56,79 @@ def _build_product_context(category: str) -> str:
     return ""
 
 
-def generate_reply(question: str) -> Tuple[str, str]:
-    """반환값: (답변, source 라벨)"""
-    intent = classify_intent(question)
-    if intent == "irrelevant":
-        return IRRELEVANT_REPLY, "무관련 질문 안내"
+class ChatState(TypedDict, total=False):
+    question: str
+    intent: str
+    product_category: Optional[str]
+    context: str
+    source: str
+    answer: str
 
-    product_category = classify_product_category(question) if intent == "info" else None
 
-    if product_category:
-        context = _build_product_context(product_category)
-        prompt = f"[실시간 상품 데이터 - {product_category}]\n{context}\n\n[질문]\n{question}"
-        source = _LIVE_SOURCE_LABELS[product_category]
+def _classify_intent_node(state: ChatState) -> ChatState:
+    return {"intent": classify_intent(state["question"])}
+
+
+def _classify_category_node(state: ChatState) -> ChatState:
+    return {"product_category": classify_product_category(state["question"])}
+
+
+def _build_context_node(state: ChatState) -> ChatState:
+    category = state.get("product_category")
+    if category:
+        context = _build_product_context(category)
+        source = _LIVE_SOURCE_LABELS[category]
     else:
-        context_chunks = vectorstore.search(question, top_k=_TOP_K)
+        context_chunks = vectorstore.search(state["question"], top_k=_TOP_K)
         context = "\n\n".join(context_chunks)
-        prompt = f"[참고 정책 문서]\n{context}\n\n[질문]\n{question}"
         source = RAG_SOURCE_LABEL
+    return {"context": context, "source": source}
 
-    response = gemini_client.generate_content(
-        prompt,
-        config=types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION),
-    )
-    return response.text, source
+
+def _generate_node(state: ChatState) -> ChatState:
+    category = state.get("product_category")
+    if category:
+        prompt = f"[실시간 상품 데이터 - {category}]\n{state['context']}\n\n[질문]\n{state['question']}"
+    else:
+        prompt = f"[참고 정책 문서]\n{state['context']}\n\n[질문]\n{state['question']}"
+    answer = gemini_client.generate_content(prompt, system_instruction=SYSTEM_INSTRUCTION)
+    return {"answer": answer}
+
+
+def _irrelevant_node(state: ChatState) -> ChatState:
+    return {"answer": IRRELEVANT_REPLY, "source": "무관련 질문 안내"}
+
+
+def _route_after_intent(state: ChatState) -> str:
+    if state["intent"] == "irrelevant":
+        return "irrelevant"
+    if state["intent"] == "info":
+        return "classify_category"
+    return "build_context"  # counsel
+
+
+_graph = StateGraph(ChatState)
+_graph.add_node("classify_intent", _classify_intent_node)
+_graph.add_node("classify_category", _classify_category_node)
+_graph.add_node("build_context", _build_context_node)
+_graph.add_node("generate", _generate_node)
+_graph.add_node("irrelevant", _irrelevant_node)
+
+_graph.add_edge(START, "classify_intent")
+_graph.add_conditional_edges(
+    "classify_intent",
+    _route_after_intent,
+    {"irrelevant": "irrelevant", "classify_category": "classify_category", "build_context": "build_context"},
+)
+_graph.add_edge("classify_category", "build_context")
+_graph.add_edge("build_context", "generate")
+_graph.add_edge("generate", END)
+_graph.add_edge("irrelevant", END)
+
+_compiled_graph = _graph.compile()
+
+
+def generate_reply(question: str) -> Tuple[str, str]:
+    """반환값: (답변, source 라벨). LangGraph로 의도분류 → (분기) → 컨텍스트 구성 → 답변 생성을 수행한다."""
+    result = _compiled_graph.invoke({"question": question})
+    return result["answer"], result["source"]
