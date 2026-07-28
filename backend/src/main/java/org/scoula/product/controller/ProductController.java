@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import lombok.RequiredArgsConstructor;
 
 import org.scoula.common.response.ApiResponse;
+import org.scoula.product.dto.PolicyProductDetailResponseDTO;
 import org.scoula.product.dto.PolicyProductListResponseDTO;
 import org.scoula.product.dto.ProductSyncResponseDTO;
 import org.scoula.product.dto.SavingProductDetailResponseDTO;
@@ -47,6 +48,15 @@ public class ProductController {
     @GetMapping("/policies")
     public ResponseEntity<ApiResponse<List<PolicyProductListResponseDTO>>> findPolicyProductList() {
         List<PolicyProductListResponseDTO> result = service.findPolicyProductList();
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    // GET /api/products/policy-details/{policyId} → 정책 상품 상세 조회
+    @GetMapping("/policy-details/{policyId}")
+    public ResponseEntity<ApiResponse<PolicyProductDetailResponseDTO>> findPolicyProductDetail(
+            @PathVariable Long policyId) {
+
+        PolicyProductDetailResponseDTO result = service.findPolicyProductDetail(policyId);
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 

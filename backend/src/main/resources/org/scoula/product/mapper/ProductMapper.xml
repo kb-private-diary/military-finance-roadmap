@@ -83,6 +83,24 @@
         ORDER BY max_rate DESC, policy_name
     </select>
 
+    <select id="findPolicyProductDetail"
+            parameterType="Long" resultType="org.scoula.product.domain.PolicyProductVO">
+        SELECT
+            policy_id       AS policyId,
+            policy_name     AS policyName,
+            benefits        AS benefits,
+            join_member     AS joinMember,
+            min_limit       AS minLimit,
+            max_limit       AS maxLimit,
+            save_trm_note   AS saveTrmNote,
+            policy_link     AS policyLink,
+            has_calculator  AS hasCalculator
+        FROM policy_product
+        WHERE policy_id = #{policyId}
+          AND policy_status = TRUE
+          AND del_yn = 'N'
+    </select>
+
     <!--
         FSS API 동기화 UPSERT. (fin_prdt_cd, save_trm) UNIQUE 제약 기준으로 충돌 시 UPDATE 한다.
         is_tax_exempt/gov_match_rate/product_link/min_limit 은 FSS API에 없는 값이라

@@ -15,6 +15,9 @@ public interface ProductMapper {
     // 판매중인 정책 상품 목록 조회
     List<PolicyProductVO> findPolicyProductList();
 
+    // policy_id 기준 정책 상품 상세 조회
+    PolicyProductVO findPolicyProductDetail(Long policyId);
+
     // FSS API 동기화 결과 UPSERT (fin_prdt_cd + save_trm 기준).
     // is_tax_exempt/gov_match_rate/product_link/min_limit 은 UPDATE 대상에서 제외해 기존 수동 입력값을 보존한다.
     int upsertSavingProduct(SavingProductVO vo);
