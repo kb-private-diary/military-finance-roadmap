@@ -2,7 +2,8 @@
 // SCR-SIM-01 · 군적금 시뮬레이터  (담당: 석윤)
 // 군적금 만기금 시뮬레이션 메인 + 모의 계산(바텀시트)
 import { computed, onMounted, ref, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
+import productApi from '@/api/productApi';
 import simulatorApi from '@/api/simulatorApi';
 import BaseBottomSheet from '@/components/common/BaseBottomSheet.vue';
 import BaseCard from '@/components/common/BaseCard.vue';
@@ -17,6 +18,7 @@ import SavingsBreakdown from '@/components/common/SavingsBreakdown.vue';
 const TEMP_USER_ID = 1;
 
 const route = useRoute();
+const router = useRouter();
 
 const details = ref(null);
 const isLoading = ref(true);
@@ -150,7 +152,85 @@ watch(
   { immediate: true },
 );
 
-onMounted(fetchSavingDetails);
+// ── 적금/정책 추천 목록 (전체 | KB | 정책 탭) ──
+// 'all' = 적금+정책 상품 전체 / 'kb' = 적금 상품 중 KB / 'policy' = 정책 상품
+const productTab = ref('all');
+const savingProducts = ref([]);
+const policyProducts = ref([]);
+const isProductLoading = ref(true);
+const productError = ref('');
+
+const kbSavingProducts = computed(() =>
+  // FSS API는 은행명을 "국민은행"처럼 한글로 내려주므로 "KB" 문자열로는 매칭되지 않는다.
+  savingProducts.value.filter((product) =>
+    product.korCoNm?.includes('국민은행'),
+  ),
+);
+
+// 탭에 맞춰 적금/정책 상품을 하나의 목록으로 합쳐서 렌더링한다.
+const displayedItems = computed(() => {
+  const savingItems = (
+    productTab.value === 'kb' ? kbSavingProducts.value : savingProducts.value
+  ).map((item) => ({ type: 'saving', id: item.productId, data: item }));
+
+  if (productTab.value === 'kb') {
+    return savingItems;
+  }
+
+  const policyItems = policyProducts.value.map((item) => ({
+    type: 'policy',
+    id: item.policyId,
+    data: item,
+  }));
+
+  if (productTab.value === 'policy') {
+    return policyItems;
+  }
+
+  return [...savingItems, ...policyItems];
+});
+
+const fetchProducts = async () => {
+  isProductLoading.value = true;
+  productError.value = '';
+  try {
+    const [savings, policies] = await Promise.all([
+      productApi.findSavingProductList('savings'),
+      productApi.findPolicyProductList(),
+    ]);
+    savingProducts.value = savings;
+    policyProducts.value = policies;
+  } catch (error) {
+    productError.value = '상품 정보를 불러오지 못했습니다.';
+  } finally {
+    isProductLoading.value = false;
+  }
+};
+
+const selectProductTab = (tab) => {
+  productTab.value = tab;
+};
+
+const goToSavingProductDetail = (productId) => {
+  router.push({ name: 'SavingProductDetail', params: { productId } });
+};
+
+const goToPolicyProductDetail = (policyId) => {
+  router.push({ name: 'PolicyProductDetail', params: { policyId } });
+};
+
+const goToProductDetail = (item) => {
+  if (item.type === 'policy') {
+    goToPolicyProductDetail(item.id);
+  } else {
+    goToSavingProductDetail(item.id);
+  }
+};
+
+onMounted(() => {
+  fetchSavingDetails();
+  fetchProducts();
+});
 </script>
 
 <template>
@@ -307,6 +387,74 @@ onMounted(fetchSavingDetails);
         </button>
       </div>
     </BaseBottomSheet>
+
+    <div class="product-section">
+      <p class="product-section__eyebrow">모으고 또 모으자</p>
+      <h2 class="product-section__title">적금 시뮬레이션</h2>
+
+      <div class="product-section__tabs">
+        <CategoryButton
+          variant="square-yellow"
+          :active="productTab === 'all'"
+          label="전체"
+          @click="selectProductTab('all')"
+        />
+        <CategoryButton
+          variant="square-yellow"
+          :active="productTab === 'kb'"
+          label="KB"
+          @click="selectProductTab('kb')"
+        />
+        <CategoryButton
+          variant="square-yellow"
+          :active="productTab === 'policy'"
+          label="정책"
+          @click="selectProductTab('policy')"
+        />
+      </div>
+
+      <p v-if="productError" class="simulator-page__error">
+        {{ productError }}
+      </p>
+      <p v-else-if="isProductLoading" class="text-caption">불러오는 중...</p>
+
+      <EmptyState
+        v-else-if="displayedItems.length === 0"
+        title="추천 상품이 없어요"
+        description="조건에 맞는 상품을 찾을 수 없어요"
+      />
+
+      <div v-else class="product-section__list">
+        <BaseCard
+          v-for="item in displayedItems"
+          :key="`${item.type}-${item.id}`"
+          class="product-card"
+          padding="14px 16px"
+          @click="goToProductDetail(item)"
+        >
+          <template v-if="item.type === 'policy'">
+            <p class="product-card__title">{{ item.data.policyName }}</p>
+            <p class="product-card__desc">
+              최대 연 {{ item.data.maxRate }}% 금리
+            </p>
+          </template>
+          <template v-else>
+            <p class="product-card__title">
+              {{ item.data.korCoNm }} {{ item.data.productName }}
+            </p>
+            <BaseTag
+              v-if="item.data.isTaxExempt"
+              label="비과세"
+              variant="green-light"
+            />
+            <p class="product-card__desc">
+              {{ item.data.saveTrm }}개월 기준 최대 연 {{ item.data.maxRate }}%
+              금리
+            </p>
+          </template>
+        </BaseCard>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -486,5 +634,57 @@ onMounted(fetchSavingDetails);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+}
+
+/* ── 적금/정책 추천 목록 ── */
+.product-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.product-section__eyebrow {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-hint, #999999);
+}
+
+.product-section__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-strong, #000000);
+}
+
+.product-section__tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.product-section__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.product-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.product-card__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-strong, #000000);
+}
+
+.product-card__desc {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-hint, #999999);
 }
 </style>
