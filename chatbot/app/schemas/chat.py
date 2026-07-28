@@ -53,3 +53,19 @@ class GlossaryItem(CamelModel):
 class GlossaryDetail(CamelModel):
     term: str
     definition: str
+
+
+class FeedbackCreateRequest(CamelModel):
+    session_id: int
+    message_id: Optional[int] = None  # 특정 메시지에 대한 피드백이면 지정, 세션 단위면 생략
+    feedback: str  # "like" 또는 "dislike"
+    reason: Optional[str] = None  # dislike 사유 등 (선택)
+
+
+class FeedbackItem(CamelModel):
+    feedback_id: int
+    session_id: int
+    message_id: Optional[int]
+    feedback: str
+    reason: Optional[str]
+    created_date: datetime
