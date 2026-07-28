@@ -21,6 +21,7 @@ import org.scoula.product.domain.SavingProductVO;
 public class SavingProductDetailResponseDTO {
 
     private String productId;
+    private String productType; // DEPOSIT(예금) | SAVING(적금)
     private String productName;
     private String joinMember;
     private BigDecimal minRate;
@@ -53,6 +54,7 @@ public class SavingProductDetailResponseDTO {
 
         return SavingProductDetailResponseDTO.builder()
                 .productId(representative.getFinPrdtCd())
+                .productType(representative.getProductType())
                 .productName(representative.getProductName())
                 .joinMember(representative.getJoinMember())
                 .minRate(minRate)
