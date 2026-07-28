@@ -1,6 +1,11 @@
 package org.scoula.job.service;
 
-import org.scoula.job.dto.*;
+import org.scoula.job.dto.JobCodeDTO;
+import org.scoula.job.dto.JobGoalCreateRequestDTO;
+import org.scoula.job.dto.JobGoalCreateResponseDTO;
+import org.scoula.job.dto.JobPlanCreateRequestDTO;
+import org.scoula.job.dto.JobPlanCreateResponseDTO;
+import org.scoula.job.dto.PrepItemRecommendResponseDTO;
 
 import java.util.List;
 
