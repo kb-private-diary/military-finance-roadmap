@@ -38,7 +38,9 @@
 
 ## 🛠 기술 스택
 
-FastAPI · SQLAlchemy · PyMySQL · Chroma(벡터DB) · `gemini-embedding-001`(768차원) · RAG
+FastAPI · SQLAlchemy · PyMySQL · Chroma(벡터DB) · `gemini-embedding-001`(768차원) · RAG · LangChain · LangGraph
+
+> 컨벤션은 [`CONVENTIONS.md`](./CONVENTIONS.md) 참고
 
 ## 📁 폴더 구조
 
@@ -96,7 +98,7 @@ DB_NAME=scoula_db        # ※ 메인 서비스와 같은 DB
 | GET | `/sessions` | 내 세션 목록 | ✅ |
 | GET | `/history/{sessionId}` | 대화 히스토리 | ✅ |
 | POST | `/messages` | 질문 전송 + 챗봇 응답 | ✅ |
-| POST | `/feedback` | 만족도 피드백 | ⬜ |
+| POST | `/feedback` | 만족도 피드백 | ✅ |
 | GET | `/messages/{messageId}/recommendations` | 관련 콘텐츠 추천 | ⬜ |
 | GET | `/topics` | 초기 카테고리 메뉴 | ✅ |
 | GET | `/faq-categories` | FAQ 카테고리 | ✅ |
@@ -122,5 +124,8 @@ DB_NAME=scoula_db        # ※ 메인 서비스와 같은 DB
 - [x] 정책 문서 수집 · 청킹 · 임베딩 (Chroma) — 문서 4종(장병내일준비적금·청년미래적금·청년주택드림청약통장·정책용어사전)
 - [x] RAG 파이프라인 (질의 임베딩 → 유사문서 검색 → 답변)
 - [x] 질문 의도 분류(정보성/상담성/무관련) — counsel(상담성) 전용 상담 흐름(자금·기간 되묻기)은 WBS-6에서 별도 진행 예정
-- [ ] 피드백 저장 · 관련 콘텐츠 추천
+- [x] 피드백 저장 (CHAT-API-09)
+- [ ] 관련 콘텐츠 추천 (CHAT-API-10)
 - [ ] 외부 API: 온통청년(청년미래적금·청년주택드림청약통장) — 서버 자체 장애로 보류 중, 재시도 필요
+- [x] RAG 파이프라인을 LangChain/LangGraph 기반으로 마이그레이션 (모델 폴백, 벡터 검색 Retriever, 응답 생성 흐름 StateGraph)
+- [x] 벡터DB 재인덱싱을 build-then-swap 방식으로 안전하게 개선
