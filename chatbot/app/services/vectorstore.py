@@ -40,24 +40,54 @@ def _embed(text: str, task_type: str) -> List[float]:
     return response.embeddings[0].values
 
 
-def build_index(force: bool = False) -> int:
-    """정책문서를 청킹해서 임베딩 생성 후 Chroma에 저장한다. 이미 인덱싱돼 있으면 force=True일 때만 재생성."""
-    global _collection
-    if _collection.count() > 0 and not force:
-        return _collection.count()
-
-    if force:
-        _db.delete_collection(COLLECTION_NAME)
-        _collection = _db.get_or_create_collection(COLLECTION_NAME)
-
+def _populate(collection) -> int:
+    """청크를 임베딩해서 주어진 컬렉션에 채워 넣는다. 실패하면 예외를 그대로 던진다."""
     chunks = chunk_policy_docs()
     ids = [f"{c['doc_name']}-{i}" for i, c in enumerate(chunks)]
     embeddings = [_embed(c["text"], "RETRIEVAL_DOCUMENT") for c in chunks]
     documents = [c["text"] for c in chunks]
     metadatas = [{"doc_name": c["doc_name"], "section": c["section"]} for c in chunks]
 
-    _collection.add(ids=ids, embeddings=embeddings, documents=documents, metadatas=metadatas)
+    collection.add(ids=ids, embeddings=embeddings, documents=documents, metadatas=metadatas)
     return len(chunks)
+
+
+def build_index(force: bool = False) -> int:
+    """정책문서를 청킹해서 임베딩 생성 후 Chroma에 저장한다. 이미 인덱싱돼 있으면 force=True일 때만 재생성.
+
+    force=True일 때는 기존 컬렉션을 바로 지우지 않는다 — 청킹·임베딩 도중 오류가 나면
+    검색 결과가 비거나 일부만 남는 상태가 될 수 있기 때문이다. 대신 임시 컬렉션에 먼저
+    새로 채우고, 성공적으로 검증된 뒤에만 기존 것을 지우고 이름을 바꿔치기한다.
+    """
+    global _collection, _vectorstore
+    if _collection.count() > 0 and not force:
+        return _collection.count()
+
+    if not force:
+        return _populate(_collection)
+
+    tmp_name = f"{COLLECTION_NAME}_rebuild"
+    try:
+        _db.delete_collection(tmp_name)
+    except Exception:
+        pass  # 이전에 실패한 재시도 잔여물이 있으면 정리, 없으면 무시
+
+    tmp_collection = _db.get_or_create_collection(tmp_name)
+    try:
+        count = _populate(tmp_collection)
+    except Exception:
+        _db.delete_collection(tmp_name)
+        raise
+
+    if count == 0:
+        _db.delete_collection(tmp_name)
+        raise RuntimeError("재인덱싱 결과가 비어 있어 기존 인덱스를 유지합니다")
+
+    _db.delete_collection(COLLECTION_NAME)
+    tmp_collection.modify(name=COLLECTION_NAME)
+    _collection = tmp_collection
+    _vectorstore = Chroma(client=_db, collection_name=COLLECTION_NAME, embedding_function=_query_embeddings)
+    return count
 
 
 def search(query: str, top_k: int = 3) -> List[str]:
