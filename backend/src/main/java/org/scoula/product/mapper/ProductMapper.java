@@ -9,6 +9,9 @@ public interface ProductMapper {
     // productType(DEPOSIT/SAVING) 기준 판매중인 예적금 상품 목록 조회
     List<SavingProductVO> findSavingProductListByType(String productType);
 
+    // fin_prdt_cd 기준 상세 조회 — save_trm(가입기간)별로 여러 행이 나온다 (상세페이지에서 기간 상관없이 최소~최대로 집계)
+    List<SavingProductVO> findSavingProductDetailByFinPrdtCd(String finPrdtCd);
+
     // 판매중인 정책 상품 목록 조회
     List<PolicyProductVO> findPolicyProductList();
 

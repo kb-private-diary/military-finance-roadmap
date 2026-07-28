@@ -18,6 +18,7 @@ import org.scoula.product.domain.SavingProductVO;
 import org.scoula.product.dto.PolicyProductListResponseDTO;
 import org.scoula.product.dto.ProductSyncItemDTO;
 import org.scoula.product.dto.ProductSyncResponseDTO;
+import org.scoula.product.dto.SavingProductDetailResponseDTO;
 import org.scoula.product.dto.SavingProductListResponseDTO;
 import org.scoula.product.mapper.ProductMapper;
 
@@ -41,6 +42,16 @@ public class ProductServiceImpl implements ProductService {
         return this.mapper.findSavingProductListByType(productType).stream()
                 .map(SavingProductListResponseDTO::of)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SavingProductDetailResponseDTO findSavingProductDetail(String productId) {
+        List<SavingProductVO> rows = this.mapper.findSavingProductDetailByFinPrdtCd(productId);
+        if (rows.isEmpty()) {
+            throw BusinessException.notFound("상품을 찾을 수 없습니다.", "PRODU_003");
+        }
+        return SavingProductDetailResponseDTO.of(rows);
     }
 
     @Override
