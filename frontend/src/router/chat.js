@@ -5,6 +5,6 @@ export default [
     path: '/chat',
     name: 'Chat',   // 챗봇
     component: () => import('@/pages/chat/ChatPage.vue'),
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, showTabNav: false, hideHeader: true },
   },
 ];

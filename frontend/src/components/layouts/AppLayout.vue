@@ -5,9 +5,13 @@
   AppLayout을 직접 import할 필요는 없습니다.
   탭바 노출은 해당 라우트 파일의 meta로 제어합니다.
 
-  헤더(AppHeader)는 모든 화면(챗봇 포함)에서 항상 동일한 고정 내용입니다.
+  헤더(AppHeader)는 원칙적으로 모든 화면에서 항상 동일한 고정 내용입니다.
   (< 미니앱 나가기 + "텅장일병일기" + 챗봇/마이페이지/홈 3아이콘)
   showTabNav는 그 아래 탭 네비게이션(AppTabNav)의 노출 여부만 결정합니다.
+
+  예외: 챗봇 화면(SCR-CHAT-01)은 다른 은행 챗봇 UX를 참고해 자체 헤더
+  (뒤로가기/이전 기록/닫기)를 쓰기로 팀 협의됨 → hideHeader로 공통 헤더를 끔.
+  다른 화면은 절대 hideHeader를 쓰지 않습니다 (팀 협의 없이 추가 금지).
 
   탭바(showTabNav) 결정 로직 (App.vue 기준):
     route.meta.showTabNav ?? route.meta.requiresAuth ?? false
@@ -42,12 +46,13 @@ import AppTabNav from './AppTabNav.vue';
 // 헤더는 모든 화면 공통 고정이라 별도 prop 없이 항상 렌더링함
 const props = defineProps({
   showTabNav: { type: Boolean, required: false, default: true },
+  hideHeader: { type: Boolean, required: false, default: false },
 });
 </script>
 
 <template>
   <div class="app-layout">
-    <AppHeader />
+    <AppHeader v-if="!hideHeader" />
     <AppTabNav v-if="showTabNav" />
     <main class="app-content">
       <slot />

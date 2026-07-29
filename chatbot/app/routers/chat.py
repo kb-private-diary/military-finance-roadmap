@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 
 MESSAGE_MAX_LENGTH = 500
 GEMINI_FAILURE_MESSAGE = "서버에 문제가 발생했습니다. 잠시 후에 다시 시도해 주세요."
-FEEDBACK_VALUES = ("like", "dislike")
+FEEDBACK_VALUES = ("like", "neutral", "dislike")
 HISTORY_LIMIT = 6  # 최근 메시지 몇 개까지 멀티턴 문맥으로 넘길지 (3턴치)
 
 TOPICS = [
@@ -344,7 +344,7 @@ def create_feedback(payload: FeedbackCreateRequest, db: Session = Depends(get_db
         raise BusinessException("세션을 찾을 수 없습니다", 404, "CHAT_001")
 
     if payload.feedback not in FEEDBACK_VALUES:
-        raise BusinessException("feedback 값은 like 또는 dislike여야 합니다", 400, "CHAT_007")
+        raise BusinessException("feedback 값은 like, neutral, dislike 중 하나여야 합니다", 400, "CHAT_007")
 
     if payload.message_id is not None:
         message = (
