@@ -45,6 +45,29 @@
           AND del_yn = 'N'
     </update>
 
+    <update id="updateProfile">
+        UPDATE `user`
+        SET name = #{name},
+            phone = #{phone},
+            unit_name = #{unitName},
+            unit_code = #{unitCode},
+            modified_date = NOW(),
+            modified_nm = #{modifiedNm}
+        WHERE id = #{id}
+          AND del_yn = 'N'
+    </update>
+
+    <update id="withdraw">
+        UPDATE `user`
+        SET status = 'WITHDRAWN',
+            withdrawn_at = NOW(),
+            del_yn = 'Y',
+            modified_date = NOW(),
+            modified_nm = #{modifiedNm}
+        WHERE id = #{id}
+          AND del_yn = 'N'
+    </update>
+
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO `user`
             (user_id, password, name, phone, type_id, rank_id,
