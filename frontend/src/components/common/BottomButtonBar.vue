@@ -35,6 +35,7 @@ defineEmits(['primary-click', 'secondary-click']);
 /* 화면 하단 고정. 프레임 폭(아이폰 16 기준 393px)에 맞춰 가운데 정렬한다. */
 .bottom-button-bar {
   position: fixed;
+  z-index: 100;
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
@@ -46,9 +47,9 @@ defineEmits(['primary-click', 'secondary-click']);
 }
 
 .bar-button {
-  height: 56px;
+  height: 48px;
   border: 0;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
 }
