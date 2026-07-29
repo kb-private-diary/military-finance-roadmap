@@ -569,11 +569,11 @@ INSERT INTO prep_item_criteria (prep_crit_id, goal_type, item_type, job_code_id,
 (1, 'J01', 'P01', 1, '정보처리기사 필기', 'https://q-net.or.kr', 19400, 'E01', NOW(), 'jiwon', 'N'),
 (2, 'J01', 'P01', 1, '정보처리기사 실기', 'https://q-net.or.kr', 22600, 'E01', NOW(), 'jiwon', 'N'),
 (3, 'J01', 'P01', 1, 'SQLD', 'https://www.dataq.or.kr', 50000, 'E02', NOW(), 'jiwon', 'N'),
-(4, 'J01', 'P01', 1, '토익', 'https://www.ybmnet.co.kr', 26250, 'E02', NOW(), 'jiwon', 'N'),
+(4, 'J01', 'P01', NULL, '토익', 'https://www.ybmnet.co.kr', 26250, 'E02', NOW(), 'jiwon', 'N'),
 (5, 'J01', 'P02', 1, '백엔드 개발 입문 인강', 'https://www.inflearn.com', 218000, 'E02', NOW(), 'jiwon', 'N'),
 (6, 'J01', 'P03', 1, '백엔드 개발자 양성 과정', 'https://www.work24.go.kr', 540000, 'E02', NOW(), 'jiwon', 'N'),
 -- 일반행정직 (job_code_id=9)
-(7, 'J02', 'P01', 9, '한국사능력검정시험', 'https://www.historyexam.go.kr', 22000, 'E02', NOW(), 'jiwon', 'N'),
+(7, 'J02', 'P01', NULL, '한국사능력검정시험', 'https://www.historyexam.go.kr', 22000, 'E02', NOW(), 'jiwon', 'N'),
 (8, 'J02', 'P02', 9, '9급 공무원 국어 종합반 인강', 'https://www.pmg2000.co.kr', 300000, 'E02', NOW(), 'jiwon', 'N'),
 -- 경영학과 (job_code_id=15)
 (9, 'J03', 'P01', 15, '토익', 'https://www.ybmnet.co.kr', 26250, 'E02', NOW(), 'jiwon', 'N'),
@@ -586,8 +586,8 @@ INSERT INTO prep_item_criteria (prep_crit_id, goal_type, item_type, job_code_id,
 -- --------------------------------------------------------------------
 -- ===== 5. service_criteria (정부 정책 + KB 서비스, 카드 제외) =====
 INSERT INTO service_criteria (svc_crit_id, goal_type, service_type, service_name, service_desc, use_time, info_url, created_date, created_nm, del_yn) VALUES
-(1, 'J01', 'G01', 'KB Pay', '복무 중 이용', 'S01', NULL, NOW(), 'jiwon', 'N'),
-(2, 'J01', 'G01', '국민내일배움카드', '전역 후 신청', 'S02', NULL, NOW(), 'jiwon', 'N'),
+(1, 'J01', 'G02', 'KB Pay', '복무 중에도 간편결제로 이용 가능', 'S01', NULL, NOW(), 'jiwon', 'N'),
+(2, 'J01', 'G01', '국민내일배움카드', '직업훈련비 지원', 'S02', NULL, NOW(), 'jiwon', 'N'),
 (3, 'J02', 'G01', '공무원연금 대출제도', '재직 공무원 대상 저리 생활안정자금 대출', 'U02', NULL, NOW(), 'jiwon', 'N'),
 (4, 'J02', 'G02', 'KB Pay', '복무 중에도 간편결제로 이용 가능', 'U01', NULL, NOW(), 'jiwon', 'N'),
 (5, 'J03', 'G01', '국가장학금(편입생 대상)', '소득분위별 등록금 지원', 'U03', NULL, NOW(), 'jiwon', 'N'),

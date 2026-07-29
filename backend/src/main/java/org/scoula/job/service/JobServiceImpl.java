@@ -11,6 +11,8 @@ import org.scoula.job.dto.JobCodeDTO;
 import org.scoula.job.dto.JobGoalCreateRequestDTO;
 import org.scoula.job.dto.JobGoalCreateResponseDTO;
 import org.scoula.job.dto.JobPlanCreateRequestDTO;
+import org.scoula.job.dto.JobPlanCreateResponseDTO;
+import org.scoula.job.dto.JobPlanItemDTO;
 import org.scoula.job.dto.PrepItemDTO;
 import org.scoula.job.dto.PrepItemRecommendResponseDTO;
 import org.scoula.job.mapper.JobMapper;
@@ -24,13 +26,13 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Log4j2
-public class JobServiceImpl implements JobService{
+public class JobServiceImpl implements JobService {
 
     private final JobMapper jobMapper;
 
     @Override
     public List<JobCodeDTO> findJobCodes(String goalType) {
-        return jobMapper.findJobCodesByGoalType(goalType).stream()
+        return this.jobMapper.findJobCodesByGoalType(goalType).stream()
                 .map(JobCodeDTO::of)
                 .collect(Collectors.toList());
     }
@@ -38,26 +40,29 @@ public class JobServiceImpl implements JobService{
     @Override
     @Transactional
     public JobGoalCreateResponseDTO createJobGoal(JobGoalCreateRequestDTO requestDTO) {
+        // 준비 항목 유형은 필수값이므로 목표 저장 전에 먼저 검증
+        List<String> itemTypes = requestDTO.getItemTypes();
+        if (itemTypes == null || itemTypes.isEmpty()) {
+            throw BusinessException.badRequest("준비항목 유형을 1개 이상 선택해주세요", "JOB_005");
+        }
+
         JobGoalVO jobGoalVO = new JobGoalVO();
         jobGoalVO.setUserId(requestDTO.getUserId());
         jobGoalVO.setGoalType(requestDTO.getGoalType());
         jobGoalVO.setJobCodeId(requestDTO.getJobCodeId());
         jobGoalVO.setExpectedDate(requestDTO.getExpectedDate());
 
-        jobMapper.createJobGoal(jobGoalVO);
+        this.jobMapper.createJobGoal(jobGoalVO);
 
         // 선택된 준비 항목(P01/P02/P03)을 goal_id 기준으로 각 한 줄씩 저장
         // job_goal insert와 같은 @Transactional 범위 안이라, 중간에 실패하면 전체 롤백됨
-        List<String> itemTypes = requestDTO.getItemTypes();
-        if (itemTypes != null) {
-            for (String itemType : itemTypes) {
-                JobInterestedTypeVO jobInterestedTypeVO = new JobInterestedTypeVO();
-                jobInterestedTypeVO.setGoalId(jobGoalVO.getGoalId());
-                jobInterestedTypeVO.setItemType(itemType);
-                // TODO: JWT 미연동으로 인해 job_goal insert와 동일하게 임시로 userId를 문자열로 기록
-                jobInterestedTypeVO.setCreatedNm(String.valueOf(requestDTO.getUserId()));
-                jobMapper.createJobInterestedType(jobInterestedTypeVO);
-            }
+        for (String itemType : itemTypes) {
+            JobInterestedTypeVO jobInterestedTypeVO = new JobInterestedTypeVO();
+            jobInterestedTypeVO.setGoalId(jobGoalVO.getGoalId());
+            jobInterestedTypeVO.setItemType(itemType);
+            // TODO: JWT 미연동으로 인해 job_goal insert와 동일하게 임시로 userId를 문자열로 기록
+            jobInterestedTypeVO.setCreatedNm(String.valueOf(requestDTO.getUserId()));
+            this.jobMapper.createJobInterestedType(jobInterestedTypeVO);
         }
 
         return new JobGoalCreateResponseDTO(jobGoalVO.getGoalId());
@@ -65,20 +70,19 @@ public class JobServiceImpl implements JobService{
 
     @Override
     public PrepItemRecommendResponseDTO findPrepItemRecommend(Long goalId) {
-        JobGoalVO jobGoalVO = jobMapper.findJobGoal(goalId);
+        JobGoalVO jobGoalVO = this.jobMapper.findJobGoal(goalId);
         if (jobGoalVO == null) {
-            // 에러코드 등록: JOB_001 / 404 / "진로 목표를 찾을 수 없습니다" / JOB / 지원
             throw BusinessException.notFound("진로 목표를 찾을 수 없습니다", "JOB_001");
         }
 
-        List<String> itemTypes = jobMapper.findInterestedItemTypes(goalId);
+        List<String> itemTypes = this.jobMapper.findInterestedItemTypes(goalId);
 
-        // 목표 등록 시 희망준비항목을 필수로 받으므로 정상 흐름에서는 비어 있을 수 없음
+        // 목표 등록 시 준비 항목 유형을 필수로 받으므로 정상 흐름에서는 비어 있을 수 없음
         if (itemTypes.isEmpty()) {
-            throw BusinessException.notFound("준비항목을 먼저 선택해주세요", "JOB_002");
+            throw BusinessException.notFound("준비항목 유형이 선택되지 않았습니다", "JOB_002");
         }
 
-        List<PrepItemCriteriaVO> prepItemCriteriaVOList = jobMapper.findPrepItemCriteriaList(
+        List<PrepItemCriteriaVO> prepItemCriteriaVOList = this.jobMapper.findPrepItemCriteriaList(
                 jobGoalVO.getGoalType(),
                 jobGoalVO.getJobCodeId(),
                 itemTypes
@@ -98,10 +102,10 @@ public class JobServiceImpl implements JobService{
 
     @Override
     @Transactional
-    public void createJobPlans(Long goalId, JobPlanCreateRequestDTO requestDTO) {
+    public JobPlanCreateResponseDTO createJobPlans(Long goalId, JobPlanCreateRequestDTO requestDTO) {
 
-        JobGoalVO jobGoal = jobMapper.findJobGoal(goalId);
-        if (jobGoal == null) {
+        JobGoalVO jobGoalVO = this.jobMapper.findJobGoal(goalId);
+        if (jobGoalVO == null) {
             throw BusinessException.notFound("진로 목표를 찾을 수 없습니다", "JOB_001");
         }
 
@@ -110,7 +114,7 @@ public class JobServiceImpl implements JobService{
             throw BusinessException.badRequest("준비항목을 1개 이상 선택해주세요", "JOB_003");
         }
 
-        List<PrepItemCriteriaVO> criteriaList = jobMapper.findPrepItemCriteriaByIds(prepCritIds);
+        List<PrepItemCriteriaVO> criteriaList = this.jobMapper.findPrepItemCriteriaByIds(prepCritIds);
         if (criteriaList.size() != prepCritIds.size()) {
             throw BusinessException.notFound("존재하지 않는 준비항목이 포함되어 있습니다", "JOB_004");
         }
@@ -128,6 +132,26 @@ public class JobServiceImpl implements JobService{
                 })
                 .collect(Collectors.toList());
 
-        jobMapper.createJobPlans(jobPlans, String.valueOf(jobGoal.getUserId()));
+        // TODO: JWT 미연동으로 인해 임시로 userId를 문자열로 기록
+        String userName = String.valueOf(jobGoalVO.getUserId());
+
+        // 스냅샷 방식이므로 재선택 시 기존 항목을 소프트 삭제하고 다시 저장
+        this.jobMapper.deleteJobPlansByGoalId(goalId, userName);
+        this.jobMapper.createJobPlans(jobPlans, userName);
+
+        // amount는 nullable이므로 값이 없는 항목은 0으로 계산
+        long totalAmount = jobPlans.stream()
+                .mapToLong(plan -> plan.getAmount() == null ? 0L : plan.getAmount())
+                .sum();
+
+        List<JobPlanItemDTO> items = jobPlans.stream()
+                .map(JobPlanItemDTO::of)
+                .collect(Collectors.toList());
+
+        return JobPlanCreateResponseDTO.builder()
+                .goalId(goalId)
+                .totalAmount(totalAmount)
+                .items(items)
+                .build();
     }
 }
