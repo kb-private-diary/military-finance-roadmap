@@ -12,8 +12,10 @@ import org.springframework.web.bind.annotation.RestController;
 import lombok.RequiredArgsConstructor;
 
 import org.scoula.common.response.ApiResponse;
+import org.scoula.product.dto.PolicyProductDetailResponseDTO;
 import org.scoula.product.dto.PolicyProductListResponseDTO;
 import org.scoula.product.dto.ProductSyncResponseDTO;
+import org.scoula.product.dto.SavingProductDetailResponseDTO;
 import org.scoula.product.dto.SavingProductListResponseDTO;
 import org.scoula.product.service.ProductService;
 
@@ -33,10 +35,28 @@ public class ProductController {
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
+    // GET /api/products/saving-details/{productId} → 예적금 상품 상세 조회 (productId = fin_prdt_cd)
+    @GetMapping("/saving-details/{productId}")
+    public ResponseEntity<ApiResponse<SavingProductDetailResponseDTO>> findSavingProductDetail(
+            @PathVariable String productId) {
+
+        SavingProductDetailResponseDTO result = service.findSavingProductDetail(productId);
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
     // GET /api/products/policies → 정책 상품 목록 조회
     @GetMapping("/policies")
     public ResponseEntity<ApiResponse<List<PolicyProductListResponseDTO>>> findPolicyProductList() {
         List<PolicyProductListResponseDTO> result = service.findPolicyProductList();
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    // GET /api/products/policy-details/{policyId} → 정책 상품 상세 조회
+    @GetMapping("/policy-details/{policyId}")
+    public ResponseEntity<ApiResponse<PolicyProductDetailResponseDTO>> findPolicyProductDetail(
+            @PathVariable Long policyId) {
+
+        PolicyProductDetailResponseDTO result = service.findPolicyProductDetail(policyId);
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 

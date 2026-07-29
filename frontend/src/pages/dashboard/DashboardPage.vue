@@ -64,6 +64,7 @@ onMounted(async () => {
   try {
     await Promise.all([fetchBasicInfo(), fetchSavingsStatus()]);
   } catch (error) {
+    console.error(error)
     hasError.value = true;
   } finally {
     isLoading.value = false;
