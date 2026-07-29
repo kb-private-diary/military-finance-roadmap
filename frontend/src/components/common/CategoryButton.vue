@@ -76,6 +76,21 @@ const emit = defineEmits(['click']);
   font-weight: 600;
 }
 
+/* 여행 스타일 선택 */
+.category-btn--oval-green {
+  padding: clamp(8px, 2.5vw, 10px) clamp(12px, 4vw, 20px);
+  border-radius: 999px;
+  font-size: clamp(13px, 3.8vw, 15px);
+  background-color: #e2e8df;
+  color: #536548;
+}
+
+.category-btn--oval-green.is-active {
+  background-color: #536548;
+  color: #ffffff;
+  font-weight: 700;
+}
+
 /* 2. square-yellow */
 .category-btn--square-yellow {
   padding: clamp(10px, 2.5vw, 12px) clamp(12px, 4vw, 20px);

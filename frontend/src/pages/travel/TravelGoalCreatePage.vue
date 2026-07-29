@@ -181,7 +181,7 @@ const submitGoal = async () => {
 <template>
   <div class="travel-goal">
     <section class="roadmap-step" aria-label="여행 로드맵 1단계">
-      <p class="roadmap-step__label">여행 로드맵</p>
+      <p class="roadmap-step__label text-overline">여행 로드맵</p>
       <div class="roadmap-step__progress">
         <span class="roadmap-step__number">1</span>
         <span class="roadmap-step__line">
@@ -190,11 +190,11 @@ const submitGoal = async () => {
       </div>
     </section>
 
-    <h2 class="travel-goal__title">어디로 떠나고 싶습니까?</h2>
+    <h2 class="travel-goal__title text-title">어디로 떠나고 싶습니까?</h2>
 
     <form class="travel-form" @submit.prevent="submitGoal">
       <label class="field">
-        <span class="field__label">여행명</span>
+        <span class="field__label text-label">여행명</span>
         <input
           v-model="form.title"
           class="field__control field__control--box"
@@ -204,7 +204,7 @@ const submitGoal = async () => {
       </label>
 
       <label class="field">
-        <span class="field__label">출발지</span>
+        <span class="field__label text-label">출발지</span>
         <span class="select-wrap">
           <select
             v-model="form.departure"
@@ -226,7 +226,7 @@ const submitGoal = async () => {
       </label>
 
       <fieldset class="field destination-field">
-        <legend class="field__label">도착지</legend>
+        <legend class="field__label text-label">도착지</legend>
         <div class="destination-field__row">
           <label class="destination-select">
             <span class="sr-only">도착 국가</span>
@@ -275,7 +275,7 @@ const submitGoal = async () => {
       </fieldset>
 
       <fieldset class="style-field">
-        <legend class="field__label">여행 스타일</legend>
+        <legend class="field__label text-label">여행 스타일</legend>
         <div class="style-field__buttons">
           <CategoryButton
             v-for="option in STYLE_OPTIONS"
@@ -289,7 +289,7 @@ const submitGoal = async () => {
       </fieldset>
 
       <fieldset class="date-field">
-        <legend class="field__label">여행일정</legend>
+        <legend class="field__label text-label">여행일정</legend>
         <div class="date-field__row">
           <label class="date-control">
             <span class="sr-only">출발일</span>
@@ -313,7 +313,7 @@ const submitGoal = async () => {
       </fieldset>
 
       <label class="field">
-        <span class="field__label">여행예산</span>
+        <span class="field__label text-label">여행예산</span>
         <input
           v-model="form.totalBudget"
           class="field__control field__control--box"
@@ -324,7 +324,11 @@ const submitGoal = async () => {
         />
       </label>
 
-      <p v-if="loadError || submitError" class="form-error" role="alert">
+      <p
+        v-if="loadError || submitError"
+        class="form-error text-caption"
+        role="alert"
+      >
         {{ submitError || loadError }}
       </p>
     </form>
@@ -350,8 +354,6 @@ const submitGoal = async () => {
 
 .roadmap-step__label {
   margin: 0 0 15px;
-  color: #565656;
-  font-size: 12px;
 }
 
 .roadmap-step__progress {
@@ -394,8 +396,6 @@ const submitGoal = async () => {
 
 .travel-goal__title {
   margin: 0 0 22px;
-  font-size: 21px;
-  font-weight: 800;
   line-height: 1.35;
 }
 
@@ -420,9 +420,6 @@ const submitGoal = async () => {
 .field__label {
   margin: 0;
   padding: 0;
-  color: #555;
-  font-size: 12px;
-  font-weight: 500;
 }
 
 .field__control {
@@ -537,8 +534,6 @@ const submitGoal = async () => {
 .form-error {
   margin: -3px 0 0;
   color: #d34b4b;
-  font-size: 12px;
-  line-height: 1.45;
 }
 
 .sr-only {
