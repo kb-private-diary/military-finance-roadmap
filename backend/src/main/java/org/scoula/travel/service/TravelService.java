@@ -7,6 +7,8 @@ import org.scoula.travel.dto.TravelCostCreateRequestDTO;
 import org.scoula.travel.dto.TravelCostResponseDTO;
 import org.scoula.travel.dto.TravelGoalCreateRequestDTO;
 import org.scoula.travel.dto.TravelPlaceResponseDTO;
+import org.scoula.travel.dto.TravelPlaceSelectionDTO;
+import org.scoula.travel.dto.TravelPlacesUpdateRequestDTO;
 
 // 여행 로드맵 서비스
 public interface TravelService {
@@ -27,5 +29,11 @@ public interface TravelService {
     List<TravelPlaceResponseDTO> searchPlaces(
             final Long goalId,
             final String category);
+
+    void updatePlaces(
+            final Long goalId,
+            final TravelPlacesUpdateRequestDTO request);
+
+    List<TravelPlaceSelectionDTO> getSelectedPlaces(final Long goalId);
 
 }

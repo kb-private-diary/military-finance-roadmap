@@ -31,8 +31,24 @@ export default {
     await instance.post(`${BASE_URL}/find-pw`, request);
   },
 
+  // 마이페이지 - 내 정보 조회 (MEM-API: GET /api/users/me)
+  async getMyInfo() {
+    const { data } = await instance.get(`${BASE_URL}/me`);
+    return data.data;
+  },
+
+  // 마이페이지 - 회원정보 수정 (MEM-API: PUT /api/users/me)
+  async updateMyInfo(request) {
+    await instance.put(`${BASE_URL}/me`, request);
+  },
+
   // 마이페이지 - 비밀번호 변경, 로그인 상태에서 현재 비밀번호 확인 후 변경 (MEM-API: PUT /api/users/password)
   async changePassword(request) {
     await instance.put(`${BASE_URL}/password`, request);
+  },
+
+  // 마이페이지 - 회원 탈퇴 (MEM-API: DELETE /api/users/me)
+  async withdraw(request) {
+    await instance.delete(`${BASE_URL}/me`, { data: request });
   },
 };

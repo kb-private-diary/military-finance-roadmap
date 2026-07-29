@@ -160,7 +160,7 @@ const submit = async () => {
 }
 
 .mypage-password-form__message.is-ok {
-  color: #2e9e5b;
+  color: var(--success);
 }
 
 .mypage-password-form__message.is-error {
