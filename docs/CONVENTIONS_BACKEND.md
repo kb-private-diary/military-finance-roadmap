@@ -160,7 +160,7 @@ return voList.stream().map(XxxDTO::of).toList();
 public ResponseEntity<...> createGoal(@Valid @RequestBody XxxCreateRequestDTO request) { ... }
 ```
 
-> ⚠️ **현재 이슈**: `build.gradle` 에 validation provider(hibernate-validator) 미탑재라 `@Valid` 애노테이션이 실제로 동작하지 않음 → **당분간 검증은 Service 에서 `BusinessException.badRequest` 로** 수행. (validator 의존성 추가는 팀 [setting] 결정 대기)
+> ✅ **검증 엔진 탑재 완료** (PR #70): `build.gradle` 에 hibernate-validator 6.2.5(javax) 추가로 `@Valid` 가 실제 동작함. 단, **모드별 조건 검증**(예: SCHOOL 모드면 schoolId 필수)처럼 `@Valid` 로 표현 못 하는 규칙은 여전히 Service 에서 `BusinessException.badRequest` 로 수행한다.
 
 ### 외부 API 연동
 
@@ -335,6 +335,10 @@ mysql -u root -p scoula_db < kb-data.sql
 
 **⚠️ 공용 SQL(`kb-schema.sql`·`kb-data.sql`)은 각자 로컬에 실행하는 파일**
 - 변경 시 → **슬랙 공지** + 전원 **`schema` 부터 재실행** / ERD·테이블정의서에도 동시 반영(§8)
+
+**⚙️ 빌드 의존성(`build.gradle`) 변경 시** (공용 SQL 과 같은 "각자 로컬 동기화" 규칙)
+- 라이브러리 추가·버전 변경 시 → **슬랙 공지** + 전원 `git pull` 후 **Gradle 새로고침** (안 하면 새 라이브러리를 쓰는 코드가 컴파일 에러)
+- 방법: IntelliJ 에서 `build.gradle` 열면 뜨는 **코끼리 아이콘(Load Gradle Changes)** 또는 Gradle 패널 **새로고침(⟳)** / 터미널(`backend/`)에서 `gradlew.bat build`(Windows)·`./gradlew build`(Mac·Linux)
 
 ---
 
