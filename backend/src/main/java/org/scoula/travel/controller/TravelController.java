@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,6 +25,8 @@ import org.scoula.travel.dto.TravelCostCreateRequestDTO;
 import org.scoula.travel.dto.TravelCostResponseDTO;
 import org.scoula.travel.dto.TravelGoalCreateRequestDTO;
 import org.scoula.travel.dto.TravelPlaceResponseDTO;
+import org.scoula.travel.dto.TravelPlaceSelectionDTO;
+import org.scoula.travel.dto.TravelPlacesUpdateRequestDTO;
 import org.scoula.travel.service.TravelService;
 
 // 여행 로드맵 REST 컨트롤러
@@ -84,6 +87,27 @@ public class TravelController {
             @RequestParam final String category) {
         return ResponseEntity.ok(ApiResponse.success(
                 this.service.searchPlaces(goalId, category)));
+    }
+
+    @PatchMapping("/goals/{goalId}/places")
+    @ApiOperation(
+            value = "관심 관광지·맛집 저장",
+            notes = "사용자가 선택한 관광지와 맛집을 여행 목표의 JSON 목록으로 저장한다.")
+    public ResponseEntity<ApiResponse<Void>> updatePlaces(
+            @PathVariable final Long goalId,
+            @RequestBody final TravelPlacesUpdateRequestDTO request) {
+        this.service.updatePlaces(goalId, request);
+        return ResponseEntity.ok(ApiResponse.success());
+    }
+
+    @GetMapping("/goals/{goalId}/places/selected")
+    @ApiOperation(
+            value = "선택한 관광지·맛집 조회",
+            notes = "여행 목표에 JSON으로 저장된 관심 관광지와 맛집을 조회한다.")
+    public ResponseEntity<ApiResponse<List<TravelPlaceSelectionDTO>>>
+            getSelectedPlaces(@PathVariable final Long goalId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                this.service.getSelectedPlaces(goalId)));
     }
 
 }
