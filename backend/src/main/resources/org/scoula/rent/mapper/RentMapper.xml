@@ -44,4 +44,13 @@
         )
     </insert>
 
+    <!-- 목표별 희망 지역 등록 (REGION 모드, 여러 건 한 번에) -->
+    <insert id="insertGoalRegions">
+        INSERT INTO rent_goal_region (goal_id, region_code, created_date, created_nm, del_yn)
+        VALUES
+        <foreach collection="list" item="region" separator=",">
+            (#{region.goalId}, #{region.regionCode}, NOW(), #{region.createdNm}, 'N')
+        </foreach>
+    </insert>
+
 </mapper>

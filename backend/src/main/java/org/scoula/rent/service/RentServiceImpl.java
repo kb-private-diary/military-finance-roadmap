@@ -3,6 +3,7 @@ package org.scoula.rent.service;
 import lombok.RequiredArgsConstructor;
 import org.scoula.common.exception.BusinessException;
 import org.scoula.rent.domain.RentGoalVO;
+import org.scoula.rent.domain.RentGoalRegionVO;
 import org.scoula.rent.dto.RegionResponseDTO;
 import org.scoula.rent.dto.RentGoalCreateRequestDTO;
 import org.scoula.rent.mapper.RentMapper;
@@ -58,12 +59,28 @@ public class RentServiceImpl implements RentService {
         goal.setResidencePreset(request.getResidencePreset());
         goal.setResidenceMonths(months);
         goal.setStatus(STATUS_DRAFT);
-        goal.setCreatedNm("user:" + userId); // TODO: JWT 연동 후 로그인 사용자명으로 교체
 
-        // 4) INSERT — 실행 후 goal.goalId 에 생성된 번호가 채워진다 (useGeneratedKeys)
+        String creator = "user:" + userId; // TODO: JWT 연동 후 로그인 사용자명으로 교체
+        goal.setCreatedNm(creator);
+
+        // 4) rent_goal INSERT — 실행 후 goal.goalId 에 생성된 번호가 채워진다 (useGeneratedKeys)
         mapper.insertGoal(goal);
 
-        // 5) 생성된 goalId 반환
+        // 5) REGION 모드면 희망 지역들을 rent_goal_region 에 저장 (1:N)
+        if ("REGION".equals(request.getSelectionMode())) {
+            List<RentGoalRegionVO> regions = request.getRegionCodes().stream()
+                    .map(code -> {
+                        RentGoalRegionVO region = new RentGoalRegionVO();
+                        region.setGoalId(goal.getGoalId());
+                        region.setRegionCode(code);
+                        region.setCreatedNm(creator);
+                        return region;
+                    })
+                    .toList();
+            mapper.insertGoalRegions(regions);
+        }
+
+        // 6) 생성된 goalId 반환
         return goal.getGoalId();
     }
 
