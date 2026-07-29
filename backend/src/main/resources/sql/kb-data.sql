@@ -851,9 +851,9 @@ VALUES
 --  테이블: rent_goal, rent_goal_region, rent_recommend, loan_recommend
 -- --------------------------------------------------------------------
 --  월세 목표
-INSERT INTO rent_goal (goal_id, user_id, title, trade_type, estate_type, max_deposit, max_monthly, room_count, expected_fee, residence_term, current_asset, target_date, status, created_date, created_nm, del_yn) VALUES
-(1, 1, '전역 후 부산 자취',   'MONTHLY', 'OFFICETEL', 10000000, 600000, 'ONE', 100000, 'Y1', 20150000, '2026-11-01', 'CONFIRMED', NOW(), 'suyeon', 'N'),
-(2, 2, '전역 후 서울 자취',   'MONTHLY', 'OFFICETEL', 20000000, 900000, 'ONE', 100000, 'Y1', 18800000, '2027-01-01', 'DRAFT',     NOW(), 'suyeon', 'N');
+INSERT INTO rent_goal (goal_id, user_id, title, selection_mode, school_id, commute_radius_km, monthly_budget, residence_preset, residence_months, status, created_date, created_nm, del_yn) VALUES
+(1, 1, '전역 후 부산 자취', 'REGION', NULL, NULL, 700000,  'YEAR', 12, 'CONFIRMED', NOW(), 'suyeon', 'N'),
+(2, 2, '전역 후 서울 자취', 'REGION', NULL, NULL, 1000000, 'YEAR', 12, 'DRAFT',     NOW(), 'suyeon', 'N');
 
 -- 목표별 희망 지역
 INSERT INTO rent_goal_region (region_id, goal_id, region_code, created_date, created_nm, del_yn) VALUES
