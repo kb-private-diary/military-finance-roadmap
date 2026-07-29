@@ -1,6 +1,6 @@
-from typing import Tuple
+from typing import List, Optional, Tuple, TypedDict
 
-from google.genai import types
+from langgraph.graph import END, START, StateGraph
 
 from app.services import cheongyakhome, fss, gemini_client, vectorstore
 from app.services import fund as fund_service
@@ -33,7 +33,9 @@ SYSTEM_INSTRUCTION = (
     "- '~하지 말입니다' (설명을 부드럽게 덧붙일 때, 예: '자세한 조건은 다를 수 있지 말입니다')\n"
     "- '~하십니까?' (질문에 되물을 때)\n"
     "무뚝뚝한 명령조 평서문('~다', '~해라')이나 반말·부드러운 종결어미(~해요, ~예요)는 쓰지 않는다. "
-    "은행 상담원처럼 예의 있고 친절하되, 다나까 말투를 유지한다."
+    "은행 상담원처럼 예의 있고 친절하되, 다나까 말투를 유지한다. "
+    "[이전 대화]가 주어지면 그 문맥을 참고해서 자연스럽게 이어서 답한다 "
+    "(예: '그거 얼마야?'처럼 이전 답변을 가리키는 질문이면 무엇을 가리키는지 이전 대화에서 찾아 답한다)."
 )
 
 
@@ -56,26 +58,92 @@ def _build_product_context(category: str) -> str:
     return ""
 
 
-def generate_reply(question: str) -> Tuple[str, str]:
-    """반환값: (답변, source 라벨)"""
-    intent = classify_intent(question)
-    if intent == "irrelevant":
-        return IRRELEVANT_REPLY, "무관련 질문 안내"
+class ChatState(TypedDict, total=False):
+    question: str
+    history: List[Tuple[str, str]]  # [(role, content), ...] 오래된 순 - 현재 질문은 미포함
+    intent: str
+    product_category: Optional[str]
+    context: str
+    source: str
+    answer: str
 
-    product_category = classify_product_category(question) if intent == "info" else None
 
-    if product_category:
-        context = _build_product_context(product_category)
-        prompt = f"[실시간 상품 데이터 - {product_category}]\n{context}\n\n[질문]\n{question}"
-        source = _LIVE_SOURCE_LABELS[product_category]
+def _format_history(history: List[Tuple[str, str]]) -> str:
+    if not history:
+        return ""
+    lines = [f"{'사용자' if role == 'user' else '챗봇'}: {content}" for role, content in history]
+    return "[이전 대화]\n" + "\n".join(lines) + "\n\n"
+
+
+def _classify_intent_node(state: ChatState) -> ChatState:
+    return {"intent": classify_intent(state["question"])}
+
+
+def _classify_category_node(state: ChatState) -> ChatState:
+    return {"product_category": classify_product_category(state["question"])}
+
+
+def _build_context_node(state: ChatState) -> ChatState:
+    category = state.get("product_category")
+    if category:
+        context = _build_product_context(category)
+        source = _LIVE_SOURCE_LABELS[category]
     else:
-        context_chunks = vectorstore.search(question, top_k=_TOP_K)
+        context_chunks = vectorstore.search(state["question"], top_k=_TOP_K)
         context = "\n\n".join(context_chunks)
-        prompt = f"[참고 정책 문서]\n{context}\n\n[질문]\n{question}"
         source = RAG_SOURCE_LABEL
+    return {"context": context, "source": source}
 
-    response = gemini_client.generate_content(
-        prompt,
-        config=types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION),
-    )
-    return response.text, source
+
+def _generate_node(state: ChatState) -> ChatState:
+    category = state.get("product_category")
+    history_block = _format_history(state.get("history") or [])
+    if category:
+        prompt = f"{history_block}[실시간 상품 데이터 - {category}]\n{state['context']}\n\n[질문]\n{state['question']}"
+    else:
+        prompt = f"{history_block}[참고 정책 문서]\n{state['context']}\n\n[질문]\n{state['question']}"
+    answer = gemini_client.generate_content(prompt, system_instruction=SYSTEM_INSTRUCTION)
+    return {"answer": answer}
+
+
+def _irrelevant_node(state: ChatState) -> ChatState:
+    return {"answer": IRRELEVANT_REPLY, "source": "무관련 질문 안내"}
+
+
+def _route_after_intent(state: ChatState) -> str:
+    if state["intent"] == "irrelevant":
+        return "irrelevant"
+    if state["intent"] == "info":
+        return "classify_category"
+    return "build_context"  # counsel
+
+
+_graph = StateGraph(ChatState)
+_graph.add_node("classify_intent", _classify_intent_node)
+_graph.add_node("classify_category", _classify_category_node)
+_graph.add_node("build_context", _build_context_node)
+_graph.add_node("generate", _generate_node)
+_graph.add_node("irrelevant", _irrelevant_node)
+
+_graph.add_edge(START, "classify_intent")
+_graph.add_conditional_edges(
+    "classify_intent",
+    _route_after_intent,
+    {"irrelevant": "irrelevant", "classify_category": "classify_category", "build_context": "build_context"},
+)
+_graph.add_edge("classify_category", "build_context")
+_graph.add_edge("build_context", "generate")
+_graph.add_edge("generate", END)
+_graph.add_edge("irrelevant", END)
+
+_compiled_graph = _graph.compile()
+
+
+def generate_reply(question: str, history: Optional[List[Tuple[str, str]]] = None) -> Tuple[str, str]:
+    """반환값: (답변, source 라벨). LangGraph로 의도분류 → (분기) → 컨텍스트 구성 → 답변 생성을 수행한다.
+
+    history: 같은 세션의 이전 메시지들 [(role, content), ...] (오래된 순, 현재 질문은 미포함).
+    답변 생성 시 문맥으로 활용해 멀티턴 대화를 지원한다.
+    """
+    result = _compiled_graph.invoke({"question": question, "history": history or []})
+    return result["answer"], result["source"]

@@ -6,3 +6,7 @@ python-dotenv
 google-genai
 requests
 chromadb
+langchain
+langchain-google-genai
+langgraph
+langchain-chroma
