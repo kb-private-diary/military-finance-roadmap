@@ -6,6 +6,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +30,8 @@ import org.scoula.travel.dto.TravelCostCreateRequestDTO;
 import org.scoula.travel.dto.TravelCostResponseDTO;
 import org.scoula.travel.dto.TravelGoalCreateRequestDTO;
 import org.scoula.travel.dto.TravelPlaceResponseDTO;
+import org.scoula.travel.dto.TravelPlaceSelectionDTO;
+import org.scoula.travel.dto.TravelPlacesUpdateRequestDTO;
 import org.scoula.travel.mapper.TravelMapper;
 
 @Log4j2
@@ -37,6 +44,7 @@ public class TravelServiceImpl implements TravelService {
     private final FlightApiClient flightApiClient;
     private final BookingApiClient bookingApiClient;
     private final SerpApiClient serpApiClient;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     // 로그인 사용자 임시 고정값
     // 인증 모듈 완성 후 컨트롤러에서 CustomUser를 받아 넘기도록 교체.
@@ -245,6 +253,53 @@ public class TravelServiceImpl implements TravelService {
                 cityCost.getCountry(),
                 goal.getDestination(),
                 normalizedCategory);
+    }
+
+    @Transactional
+    @Override
+    public void updatePlaces(
+            final Long goalId,
+            final TravelPlacesUpdateRequestDTO request) {
+        this.getGoalOrThrow(goalId);
+        if (request == null || request.getPlaces() == null) {
+            throw BusinessException.badRequest(
+                    "관심 여행지 목록을 입력해주세요.",
+                    "TRAVEL_026");
+        }
+
+        try {
+            final String places =
+                    this.objectMapper.writeValueAsString(request.getPlaces());
+            this.mapper.updateGoalPlaces(goalId, places, LOGIN_USER_NAME);
+        } catch (final JsonProcessingException e) {
+            log.warn("관심 여행지 JSON 변환 오류: goalId={}", goalId, e);
+            throw BusinessException.badRequest(
+                    "관심 여행지 정보를 저장할 수 없습니다.",
+                    "TRAVEL_027");
+        }
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public List<TravelPlaceSelectionDTO> getSelectedPlaces(
+            final Long goalId) {
+        final TravelGoalVO goal = this.getGoalOrThrow(goalId);
+        if (goal.getPlaces() == null || goal.getPlaces().trim().isEmpty()) {
+            return List.of();
+        }
+
+        try {
+            return this.objectMapper.readValue(
+                    goal.getPlaces(),
+                    new TypeReference<List<TravelPlaceSelectionDTO>>() {
+                    });
+        } catch (final JsonProcessingException e) {
+            log.warn("관심 여행지 JSON 파싱 오류: goalId={}", goalId, e);
+            throw new BusinessException(
+                    "저장된 관심 여행지 정보를 불러올 수 없습니다.",
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "TRAVEL_028");
+        }
     }
 
 }

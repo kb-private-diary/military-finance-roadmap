@@ -25,6 +25,10 @@ public interface TravelMapper {
     // 여행 목표 단건 조회. 경비 산출의 입력값을 읽는다.
     TravelGoalVO findGoal(@Param("goalId") Long goalId);
 
+    int updateGoalPlaces(@Param("goalId") final Long goalId,
+                         @Param("places") final String places,
+                         @Param("modifiedNm") final String modifiedNm);
+
     int insertCost(TravelCostVO vo);
 
     TravelCostVO findCostByGoalId(@Param("goalId") Long goalId);
