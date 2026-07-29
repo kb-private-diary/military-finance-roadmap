@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.scoula.common.exception.BusinessException;
 import org.scoula.config.RootConfig;
+import org.scoula.member.dto.ChangePasswordRequestDTO;
 import org.scoula.member.dto.FindIdRequestDTO;
 import org.scoula.member.dto.FindIdResponseDTO;
 import org.scoula.member.dto.FindPasswordRequestDTO;
@@ -264,5 +265,48 @@ class MemberServiceImplTest {
 
         assertThrows(BusinessException.class, () -> this.service.resetPassword(new FindPasswordRequestDTO(
                 "junit.service@kbthink.com", "서비스테스트", "010-2222-2222", "weak", "weak")));
+    }
+
+    @Test
+    void changePassword_withCorrectCurrentPassword_succeeds() {
+        this.service.createMember(joinDetailDto(List.of(1L, 2L, 3L)));
+
+        this.service.changePassword("junit.service@kbthink.com",
+                new ChangePasswordRequestDTO("pw1234!@", "newPw12!@", "newPw12!@"));
+
+        String encodedPassword = this.memberMapper.get("junit.service@kbthink.com").getPassword();
+        assertEquals(true, this.passwordEncoder.matches("newPw12!@", encodedPassword));
+    }
+
+    @Test
+    void changePassword_withWrongCurrentPassword_throws() {
+        this.service.createMember(joinDetailDto(List.of(1L, 2L, 3L)));
+
+        assertThrows(BusinessException.class, () -> this.service.changePassword("junit.service@kbthink.com",
+                new ChangePasswordRequestDTO("wrongPw12!@", "newPw12!@", "newPw12!@")));
+    }
+
+    @Test
+    void changePassword_withMismatchedNewPassword_throws() {
+        this.service.createMember(joinDetailDto(List.of(1L, 2L, 3L)));
+
+        assertThrows(BusinessException.class, () -> this.service.changePassword("junit.service@kbthink.com",
+                new ChangePasswordRequestDTO("pw1234!@", "newPw12!@", "otherPw9!@")));
+    }
+
+    @Test
+    void changePassword_withWeakNewPassword_throws() {
+        this.service.createMember(joinDetailDto(List.of(1L, 2L, 3L)));
+
+        assertThrows(BusinessException.class, () -> this.service.changePassword("junit.service@kbthink.com",
+                new ChangePasswordRequestDTO("pw1234!@", "weak", "weak")));
+    }
+
+    @Test
+    void changePassword_withSameAsOldPassword_throws() {
+        this.service.createMember(joinDetailDto(List.of(1L, 2L, 3L))); // password: pw1234!@
+
+        assertThrows(BusinessException.class, () -> this.service.changePassword("junit.service@kbthink.com",
+                new ChangePasswordRequestDTO("pw1234!@", "pw1234!@", "pw1234!@")));
     }
 }

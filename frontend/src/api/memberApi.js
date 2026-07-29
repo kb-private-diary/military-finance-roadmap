@@ -30,4 +30,9 @@ export default {
   async resetPassword(request) {
     await instance.post(`${BASE_URL}/find-pw`, request);
   },
+
+  // 마이페이지 - 비밀번호 변경, 로그인 상태에서 현재 비밀번호 확인 후 변경 (MEM-API: PUT /api/users/password)
+  async changePassword(request) {
+    await instance.put(`${BASE_URL}/password`, request);
+  },
 };

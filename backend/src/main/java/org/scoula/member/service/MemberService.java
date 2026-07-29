@@ -2,6 +2,7 @@ package org.scoula.member.service;
 
 import java.util.List;
 
+import org.scoula.member.dto.ChangePasswordRequestDTO;
 import org.scoula.member.dto.FindIdRequestDTO;
 import org.scoula.member.dto.FindIdResponseDTO;
 import org.scoula.member.dto.FindPasswordRequestDTO;
@@ -20,4 +21,5 @@ public interface MemberService {
     AuthResultDTO refresh(String refreshToken);
     FindIdResponseDTO findUserId(FindIdRequestDTO request);
     void resetPassword(FindPasswordRequestDTO request);
+    void changePassword(String userId, ChangePasswordRequestDTO request);
 }

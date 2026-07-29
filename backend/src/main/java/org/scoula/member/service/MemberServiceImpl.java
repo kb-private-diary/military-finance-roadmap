@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.scoula.common.exception.BusinessException;
 import org.scoula.member.domain.TermsAgreementVO;
 import org.scoula.member.domain.TermsVO;
+import org.scoula.member.dto.ChangePasswordRequestDTO;
 import org.scoula.member.dto.FindIdRequestDTO;
 import org.scoula.member.dto.FindIdResponseDTO;
 import org.scoula.member.dto.FindPasswordRequestDTO;
@@ -197,6 +198,27 @@ public class MemberServiceImpl implements MemberService {
 
         String encoded = this.passwordEncoder.encode(request.getNewPassword());
         this.mapper.updatePassword(member.getId(), encoded, member.getUserId());
+    }
+
+    @Transactional
+    @Override
+    public void changePassword(String userId, ChangePasswordRequestDTO request) {
+        MemberVO member = Optional.ofNullable(this.mapper.get(userId))
+                .orElseThrow(() -> BusinessException.notFound("일치하는 정보가 없습니다.", "MEM_001"));
+
+        if (!this.passwordEncoder.matches(request.getCurrentPassword(), member.getPassword())) {
+            throw BusinessException.badRequest("비밀번호가 일치하지 않습니다.", "MEM_010");
+        }
+        if (this.passwordEncoder.matches(request.getNewPassword(), member.getPassword())) {
+            throw BusinessException.badRequest("새 비밀번호는 이전 비밀번호와 달라야 합니다.", "MEM_011");
+        }
+        this.validatePasswordPolicy(request.getNewPassword());
+        if (!request.getNewPassword().equals(request.getNewPasswordConfirm())) {
+            throw BusinessException.badRequest("비밀번호가 일치하지 않습니다.", "MEM_004");
+        }
+
+        String encoded = this.passwordEncoder.encode(request.getNewPassword());
+        this.mapper.updatePassword(member.getId(), encoded, userId);
     }
 
     // 개인정보 보호를 위해 아이디의 일부만 보여준다. 이메일 형식이면 @ 앞부분만, 아니면 절반만 마스킹.

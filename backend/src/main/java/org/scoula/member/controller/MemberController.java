@@ -7,14 +7,17 @@ import lombok.extern.log4j.Log4j2;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import org.scoula.common.response.ApiResponse;
+import org.scoula.member.dto.ChangePasswordRequestDTO;
 import org.scoula.member.dto.FindIdRequestDTO;
 import org.scoula.member.dto.FindIdResponseDTO;
 import org.scoula.member.dto.FindPasswordRequestDTO;
@@ -22,6 +25,7 @@ import org.scoula.member.dto.MemberJoinDetailRequestDTO;
 import org.scoula.member.dto.MemberJoinRequestDTO;
 import org.scoula.member.dto.TermsDTO;
 import org.scoula.member.service.MemberService;
+import org.scoula.security.account.domain.CustomUser;
 import org.scoula.security.account.dto.AuthResultDTO;
 import org.scoula.security.account.dto.RefreshRequestDTO;
 
@@ -66,6 +70,15 @@ public class MemberController {
     @PostMapping("/find-pw")
     public ResponseEntity<ApiResponse<Void>> resetPassword(@RequestBody FindPasswordRequestDTO request) {
         this.service.resetPassword(request);
+        return ResponseEntity.ok(ApiResponse.success());
+    }
+
+    //마이페이지 - 비밀번호 변경 (SCR-MYP-03, 로그인 상태에서 현재 비밀번호 확인 후 변경)
+    @PutMapping("/password")
+    public ResponseEntity<ApiResponse<Void>> changePassword(
+            @AuthenticationPrincipal CustomUser customUser,
+            @RequestBody ChangePasswordRequestDTO request) {
+        this.service.changePassword(customUser.getUsername(), request);
         return ResponseEntity.ok(ApiResponse.success());
     }
 
