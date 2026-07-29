@@ -7,6 +7,7 @@ import org.scoula.job.dto.JobCodeDTO;
 import org.scoula.job.dto.JobGoalCreateRequestDTO;
 import org.scoula.job.dto.JobGoalCreateResponseDTO;
 import org.scoula.job.dto.JobPlanCreateRequestDTO;
+import org.scoula.job.dto.JobPlanCreateResponseDTO;
 import org.scoula.job.dto.PrepItemRecommendResponseDTO;
 import org.scoula.job.service.JobService;
 import org.springframework.http.HttpStatus;
@@ -54,13 +55,13 @@ public class JobController {
         return ResponseEntity.ok(ApiResponse.success(jobService.findPrepItemRecommend(goalId)));
     }
 
-    //JOB-API-05: 준비항목 선택 저장
+    //JOB-API-05: 준비항목 선택 저장 (저장 후 항목별 내역 + 총액 반환)
     @PostMapping("/goals/{goalId}/plans")
-    public ResponseEntity<ApiResponse<Void>> createJobPlans(
+    public ResponseEntity<ApiResponse<JobPlanCreateResponseDTO>> createJobPlans(
             @PathVariable Long goalId,
             @RequestBody JobPlanCreateRequestDTO requestDTO) {
         log.info("Creating job plans for goalId: {}", goalId);
-        jobService.createJobPlans(goalId, requestDTO);
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success());
+        JobPlanCreateResponseDTO responseDTO = this.jobService.createJobPlans(goalId, requestDTO);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(responseDTO));
     }
 }

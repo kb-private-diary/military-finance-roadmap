@@ -440,7 +440,7 @@ CREATE TABLE `prep_item_criteria` (
   `prep_crit_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '기준항목ID',
   `goal_type` CHAR(3) NOT NULL COMMENT '목표유형',
   `item_type` CHAR(3) NOT NULL COMMENT '항목구분',
-  `job_code_id` BIGINT NOT NULL COMMENT '희망직무직렬학과ID',
+  `job_code_id` BIGINT COMMENT '희망직무직렬학과ID (NULL=직무무관 공통항목)',
   `item_name` VARCHAR(200) NOT NULL COMMENT '항목명',
   `info_url` VARCHAR(500) COMMENT '상세정보URL',
   `apply_url` VARCHAR(500) COMMENT '접수URL',

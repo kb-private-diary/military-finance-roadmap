@@ -10,8 +10,8 @@
 우리 저장소에는 브랜치가 3종류 있습니다.
 
 ```
-main          배포용        🔒 잠김 (PR + 승인 3명)
- └ dev        통합용        🔒 잠김 (PR + 승인 3명)
+main          배포용        🔒 잠김 (오너가 병합)
+ └ dev        통합용        🔒 잠김 (PR + 승인 2명)
     └ dev_이름  내 작업공간   ✅ 자유롭게 push
 ```
 
@@ -100,7 +100,7 @@ Description  - travel VO/Mapper 작성
 7. **`Create pull request`**
 
 ### 그다음은?
-- **승인 3명** 을 받아야 병합 버튼이 열립니다 (자기 PR은 자기가 승인 불가)
+- **승인 2명** 을 받아야 병합 버튼이 열립니다 (자기 PR은 자기가 승인 불가)
 - 승인 완료 → **`Merge pull request`** → **`Create a merge commit`** 선택 → `Confirm merge`
 
 > ⚠️ `Squash and merge` 는 쓰지 마세요. 커밋 ID가 바뀌어서 개인 브랜치를 계속 쓰는 우리 방식과 충돌이 납니다.
@@ -169,7 +169,7 @@ PR이 올라오면 알림이 옵니다. 다음 순서로 리뷰해주세요.
 
 | 설정 | 의미 |
 |---|---|
-| **새 커밋 시 승인 초기화 = ON** | 코드를 수정해 push 하면 **기존 승인 3개가 모두 사라집니다** → 다시 3명에게 받아야 함 |
+| **새 커밋 시 승인 초기화 = ON** | 코드를 수정해 push 하면 **기존 승인 2개가 모두 사라집니다** → 다시 2명에게 받아야 함 |
 | **코멘트 해결 필수 = ON** | 코멘트를 `Resolve` 하지 않으면 **병합 버튼이 열리지 않습니다** |
 
 > 💡 그래서 **PR 은 완성도를 갖춰서 올리는 게 좋아요.** 올린 뒤 계속 고치면 승인을 계속 다시 받아야 합니다.
@@ -228,7 +228,7 @@ Stage → Commit → Push (내 브랜치)
 [dev 에 반영]
 Fork: 내 브랜치 우클릭 → Create Pull Request
 GitHub: base=dev 확인 → 제목·본문 → Reviewers 지정 → Create
-        → 승인 3명 → Merge pull request (Create a merge commit)
+        → 승인 2명 → Merge pull request (Create a merge commit)
 
 [병합 후]
 다시 [작업 시작] 부터 (dev 최신화!)
