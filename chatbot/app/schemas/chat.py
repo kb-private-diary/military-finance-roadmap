@@ -76,3 +76,7 @@ class FeedbackItem(CamelModel):
 class RecommendationItem(CamelModel):
     label: str
     page_link: str
+
+
+class ReindexResponse(CamelModel):
+    reindexed_chunks: int

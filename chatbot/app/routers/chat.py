@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.core.exceptions import BusinessException
 from app.models.chat import ChatFeedback, ChatMessage, ChatSession
+from app.models.user import User
 from app.schemas.chat import (
     FaqCategoryItem,
     FeedbackCreateRequest,
@@ -20,6 +21,7 @@ from app.schemas.chat import (
     MessageCreateRequest,
     MessageItem,
     RecommendationItem,
+    ReindexResponse,
     SessionCreateRequest,
     SessionListItem,
     SessionResponse,
@@ -33,7 +35,7 @@ from app.schemas.product import (
     SubscriptionDetail,
     SubscriptionItem,
 )
-from app.services import cheongyakhome, fss, gemini, policy_docs
+from app.services import cheongyakhome, fss, gemini, policy_docs, vectorstore
 from app.services import fund as fund_service
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
@@ -383,3 +385,15 @@ def get_recommendation(message_id: int = Path(..., alias="messageId"), db: Sessi
     if not message:
         raise BusinessException("메시지를 찾을 수 없습니다", 404, "CHAT_009")
     return gemini.get_recommendation(message.source)
+
+
+# 관리자 전용: 정책 문서 재인덱싱 트리거
+# TODO: JWT 연동 후 SecurityContext에서 role 추출하는 방식으로 교체, 그 전까지는 임시로 query param에서 받음
+@router.post("/admin/reindex", response_model=ReindexResponse)
+def reindex_policy_docs(user_id: int = Query(...), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user or user.role != "ADMIN":
+        raise BusinessException("관리자만 접근할 수 있습니다", 403, "CHAT_010")
+
+    count = vectorstore.build_index(force=True)
+    return ReindexResponse(reindexed_chunks=count)

@@ -198,6 +198,7 @@ CREATE TABLE `user` (
   `discharge_date` DATE COMMENT '전역예정일',
   `login_provider` VARCHAR(20) COMMENT '로그인방식',
   `status` VARCHAR(20) COMMENT '계정상태',
+  `role` VARCHAR(20) NOT NULL DEFAULT 'USER' COMMENT '권한 (USER/ADMIN)',
   `withdrawn_at` DATETIME COMMENT '탈퇴일시',
   `created_date` DATETIME NOT NULL COMMENT '생성일시',
   `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
