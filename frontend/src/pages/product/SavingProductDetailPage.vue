@@ -4,6 +4,8 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import productApi from '@/api/productApi';
+import { formatWon } from '@/util/format';
+import BaseCard from '@/components/common/BaseCard.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 
 const route = useRoute();
@@ -14,19 +16,14 @@ const product = ref(null);
 const isLoading = ref(true);
 const loadError = ref('');
 
-const formatAmount = (won) =>
-  won >= 10000
-    ? `${Math.round(won / 10000)}만원`
-    : `${won.toLocaleString('ko-KR')}원`;
-
-const limitText = () => {
-  const min = `${formatAmount(product.value.minLimit)} 이상`;
+const limitText = computed(() => {
+  const min = `${formatWon(product.value.minLimit)} 이상`;
   const max =
     product.value.maxLimit == null
       ? '한도 없음'
-      : `${formatAmount(product.value.maxLimit)} 이하`;
+      : `${formatWon(product.value.maxLimit)} 이하`;
   return `${min} ${max}`;
-};
+});
 
 const fetchProduct = async () => {
   isLoading.value = true;
@@ -61,7 +58,7 @@ onMounted(fetchProduct);
       <p class="saving-detail__eyebrow">{{ eyebrow }}</p>
       <h2 class="saving-detail__title">{{ product.productName }}</h2>
 
-      <div class="saving-detail__card">
+      <BaseCard>
         <div class="saving-detail__row">
           <span class="saving-detail__label">신청 대상</span>
           <span class="saving-detail__value">{{ product.joinMember }}</span>
@@ -82,9 +79,9 @@ onMounted(fetchProduct);
         </div>
         <div class="saving-detail__row">
           <span class="saving-detail__label">납입금</span>
-          <span class="saving-detail__value">{{ limitText() }}</span>
+          <span class="saving-detail__value">{{ limitText }}</span>
         </div>
-      </div>
+      </BaseCard>
 
       <div class="saving-detail__divider" />
 
@@ -125,20 +122,15 @@ onMounted(fetchProduct);
   color: var(--text-strong);
 }
 
-.saving-detail__card {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-}
-
 .saving-detail__row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.saving-detail__row + .saving-detail__row {
+  margin-top: 12px;
 }
 
 .saving-detail__label {
