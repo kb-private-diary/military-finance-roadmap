@@ -3,6 +3,7 @@ package org.scoula.rent.mapper;
 import org.scoula.rent.domain.RegionCodeVO;
 import org.scoula.rent.domain.RentGoalVO;
 import org.scoula.rent.domain.RentGoalRegionVO;
+import org.scoula.rent.domain.SchoolVO;
 import java.util.List;
 
 public interface RentMapper {
@@ -20,4 +21,7 @@ public interface RentMapper {
 
     // 목표별 희망 지역 등록 (REGION 모드, 여러 건 한 번에)
     void insertGoalRegions(List<RentGoalRegionVO> regions);
+
+    // 학교 검색 (자동완성, 이름 부분일치)
+    List<SchoolVO> findSchoolsByKeyword(String keyword);
 }

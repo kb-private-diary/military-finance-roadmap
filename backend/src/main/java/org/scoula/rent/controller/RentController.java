@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.scoula.common.response.ApiResponse;
 import org.scoula.rent.dto.RegionResponseDTO;
 import org.scoula.rent.dto.RentGoalCreateRequestDTO;
+import org.scoula.rent.dto.SchoolSearchResponseDTO;
 import org.scoula.rent.service.RentService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -39,5 +40,13 @@ public class RentController {
 
         Long goalId = service.createGoal(request, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(goalId));
+    }
+
+    // GET /api/rent/schools?keyword=부산 → 학교 검색 (자동완성)
+    @GetMapping("/schools")
+    public ResponseEntity<ApiResponse<List<SchoolSearchResponseDTO>>> findSchools(
+            @RequestParam String keyword) {
+
+        return ResponseEntity.ok(ApiResponse.success(service.findSchools(keyword)));
     }
 }

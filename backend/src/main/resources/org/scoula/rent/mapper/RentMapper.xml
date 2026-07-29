@@ -53,4 +53,14 @@
         </foreach>
     </insert>
 
+    <!-- 학교 검색 (자동완성, 이름 부분일치) -->
+    <select id="findSchoolsByKeyword" resultType="org.scoula.rent.domain.SchoolVO">
+        SELECT school_id, school_name, address, sigungu_code, region_code, latitude, longitude
+        FROM school
+        WHERE school_name LIKE CONCAT('%', #{keyword}, '%')
+          AND del_yn = 'N'
+        ORDER BY school_name
+        LIMIT 20
+    </select>
+
 </mapper>

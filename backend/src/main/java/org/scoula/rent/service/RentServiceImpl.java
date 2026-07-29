@@ -6,6 +6,7 @@ import org.scoula.rent.domain.RentGoalVO;
 import org.scoula.rent.domain.RentGoalRegionVO;
 import org.scoula.rent.dto.RegionResponseDTO;
 import org.scoula.rent.dto.RentGoalCreateRequestDTO;
+import org.scoula.rent.dto.SchoolSearchResponseDTO;
 import org.scoula.rent.mapper.RentMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -82,6 +83,14 @@ public class RentServiceImpl implements RentService {
 
         // 6) 생성된 goalId 반환
         return goal.getGoalId();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SchoolSearchResponseDTO> findSchools(String keyword) {
+        return mapper.findSchoolsByKeyword(keyword).stream()
+                .map(SchoolSearchResponseDTO::of)
+                .toList();
     }
 
     /** SCHOOL / REGION 모드별 필수값 검증 (모드에 따라 달라지는 조건이라 @Valid 대신 여기서) */
