@@ -190,7 +190,7 @@ public class MemberServiceImpl implements MemberService {
                 && member.getName().equals(request.getName())
                 && member.getPhone().equals(request.getPhone());
         if (!identityMatches) {
-            throw BusinessException.notFound("일치하는 회원 정보가 없습니다.", "MEM_009");
+            throw BusinessException.notFound("일치하는 회원 정보가 없습니다.", "MEM_007");
         }
 
         this.validatePasswordPolicy(request.getNewPassword());
@@ -249,7 +249,7 @@ public class MemberServiceImpl implements MemberService {
                 .orElseThrow(() -> BusinessException.notFound("일치하는 정보가 없습니다.", "MEM_001"));
 
         if (!this.passwordEncoder.matches(request.getPassword(), member.getPassword())) {
-            throw BusinessException.badRequest("비밀번호가 일치하지 않습니다.", "MEM_010");
+            throw BusinessException.badRequest("현재 비밀번호가 올바르지 않습니다", "MEM_010");
         }
 
         log.info("회원 탈퇴 처리 - userId: {}, reason: {}", userId, request.getReason());
