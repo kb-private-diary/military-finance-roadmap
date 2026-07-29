@@ -23,9 +23,9 @@ defineProps({
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: clamp(4px, 1.5vw, 6px) clamp(8px, 2vw, 12px);
+  padding: clamp(3px, 1.2vw, 5px) clamp(7px, 1.8vw, 10px);
   border-radius: 999px;
-  font-size: clamp(11px, 3.5vw, 13px);
+  font-size: clamp(12px, 3.5vw, 14px);
   letter-spacing: -0.5px;
   font-weight: 600;
   font-family: inherit;

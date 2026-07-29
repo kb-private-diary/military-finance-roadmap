@@ -1,9 +1,10 @@
 package org.scoula.product.service;
 
-import org.scoula.product.dto.PolicyProductListResponseDTO;
-import org.scoula.product.dto.SavingProductListResponseDTO;
-
 import java.util.List;
+
+import org.scoula.product.dto.PolicyProductListResponseDTO;
+import org.scoula.product.dto.ProductSyncResponseDTO;
+import org.scoula.product.dto.SavingProductListResponseDTO;
 
 public interface ProductService {
     // category: deposits(예금) | savings(적금)
@@ -11,4 +12,7 @@ public interface ProductService {
 
     // 판매중인 정책 상품 목록 조회
     List<PolicyProductListResponseDTO> findPolicyProductList();
+
+    // 금융감독원 "금융상품 한눈에" API에서 KB국민은행 예·적금 상품을 가져와 DB에 UPSERT
+    ProductSyncResponseDTO syncSavingProducts();
 }

@@ -8,17 +8,21 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.scoula.common.exception.BusinessException;
 import org.scoula.config.RootConfig;
+import org.scoula.member.dto.ChangePasswordRequestDTO;
 import org.scoula.member.dto.FindIdRequestDTO;
 import org.scoula.member.dto.FindIdResponseDTO;
+import org.scoula.member.dto.FindPasswordRequestDTO;
 import org.scoula.member.dto.MemberDTO;
 import org.scoula.member.dto.MemberJoinDetailRequestDTO;
 import org.scoula.member.dto.MemberJoinRequestDTO;
 import org.scoula.member.dto.TermsDTO;
+import org.scoula.member.mapper.MemberMapper;
 import org.scoula.security.account.dto.AuthResultDTO;
 import org.scoula.security.config.SecurityConfig;
 import org.scoula.security.util.JwtProcessor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +42,12 @@ class MemberServiceImplTest {
 
     @Autowired
     private JwtProcessor jwtProcessor;
+
+    @Autowired
+    private MemberMapper memberMapper;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     private MemberJoinDetailRequestDTO joinDetailDto(List<Long> agreedTermsIds) {
         return MemberJoinDetailRequestDTO.builder()
@@ -220,5 +230,83 @@ class MemberServiceImplTest {
     void findUserId_withNoMatch_throws() {
         assertThrows(BusinessException.class,
                 () -> this.service.findUserId(new FindIdRequestDTO("없는사람", "010-0000-0000")));
+    }
+
+    @Test
+    void resetPassword_withCorrectIdentity_succeeds() {
+        this.service.createMember(joinDetailDto(List.of(1L, 2L, 3L)));
+
+        this.service.resetPassword(new FindPasswordRequestDTO(
+                "junit.service@kbthink.com", "서비스테스트", "010-2222-2222", "newPw12!@", "newPw12!@"));
+
+        String encodedPassword = this.memberMapper.get("junit.service@kbthink.com").getPassword();
+        assertEquals(true, this.passwordEncoder.matches("newPw12!@", encodedPassword));
+    }
+
+    @Test
+    void resetPassword_withWrongIdentity_throws() {
+        this.service.createMember(joinDetailDto(List.of(1L, 2L, 3L)));
+
+        assertThrows(BusinessException.class, () -> this.service.resetPassword(new FindPasswordRequestDTO(
+                "junit.service@kbthink.com", "다른이름", "010-2222-2222", "newPw12!@", "newPw12!@")));
+    }
+
+    @Test
+    void resetPassword_withMismatchedNewPassword_throws() {
+        this.service.createMember(joinDetailDto(List.of(1L, 2L, 3L)));
+
+        assertThrows(BusinessException.class, () -> this.service.resetPassword(new FindPasswordRequestDTO(
+                "junit.service@kbthink.com", "서비스테스트", "010-2222-2222", "newPw12!@", "otherPw9!@")));
+    }
+
+    @Test
+    void resetPassword_withWeakNewPassword_throws() {
+        this.service.createMember(joinDetailDto(List.of(1L, 2L, 3L)));
+
+        assertThrows(BusinessException.class, () -> this.service.resetPassword(new FindPasswordRequestDTO(
+                "junit.service@kbthink.com", "서비스테스트", "010-2222-2222", "weak", "weak")));
+    }
+
+    @Test
+    void changePassword_withCorrectCurrentPassword_succeeds() {
+        this.service.createMember(joinDetailDto(List.of(1L, 2L, 3L)));
+
+        this.service.changePassword("junit.service@kbthink.com",
+                new ChangePasswordRequestDTO("pw1234!@", "newPw12!@", "newPw12!@"));
+
+        String encodedPassword = this.memberMapper.get("junit.service@kbthink.com").getPassword();
+        assertEquals(true, this.passwordEncoder.matches("newPw12!@", encodedPassword));
+    }
+
+    @Test
+    void changePassword_withWrongCurrentPassword_throws() {
+        this.service.createMember(joinDetailDto(List.of(1L, 2L, 3L)));
+
+        assertThrows(BusinessException.class, () -> this.service.changePassword("junit.service@kbthink.com",
+                new ChangePasswordRequestDTO("wrongPw12!@", "newPw12!@", "newPw12!@")));
+    }
+
+    @Test
+    void changePassword_withMismatchedNewPassword_throws() {
+        this.service.createMember(joinDetailDto(List.of(1L, 2L, 3L)));
+
+        assertThrows(BusinessException.class, () -> this.service.changePassword("junit.service@kbthink.com",
+                new ChangePasswordRequestDTO("pw1234!@", "newPw12!@", "otherPw9!@")));
+    }
+
+    @Test
+    void changePassword_withWeakNewPassword_throws() {
+        this.service.createMember(joinDetailDto(List.of(1L, 2L, 3L)));
+
+        assertThrows(BusinessException.class, () -> this.service.changePassword("junit.service@kbthink.com",
+                new ChangePasswordRequestDTO("pw1234!@", "weak", "weak")));
+    }
+
+    @Test
+    void changePassword_withSameAsOldPassword_throws() {
+        this.service.createMember(joinDetailDto(List.of(1L, 2L, 3L))); // password: pw1234!@
+
+        assertThrows(BusinessException.class, () -> this.service.changePassword("junit.service@kbthink.com",
+                new ChangePasswordRequestDTO("pw1234!@", "pw1234!@", "pw1234!@")));
     }
 }

@@ -16,6 +16,7 @@ import org.scoula.common.exception.BusinessException;
 import org.scoula.travel.client.BookingApiClient;
 import org.scoula.travel.client.FlightApiClient;
 import org.scoula.travel.client.OdsayClient;
+import org.scoula.travel.client.SerpApiClient;
 import org.scoula.travel.domain.CityCostVO;
 import org.scoula.travel.domain.TravelCostVO;
 import org.scoula.travel.domain.TravelGoalVO;
@@ -23,6 +24,7 @@ import org.scoula.travel.dto.CityCostResponseDTO;
 import org.scoula.travel.dto.TravelCostCreateRequestDTO;
 import org.scoula.travel.dto.TravelCostResponseDTO;
 import org.scoula.travel.dto.TravelGoalCreateRequestDTO;
+import org.scoula.travel.dto.TravelPlaceResponseDTO;
 import org.scoula.travel.mapper.TravelMapper;
 
 @Log4j2
@@ -34,6 +36,7 @@ public class TravelServiceImpl implements TravelService {
     private final OdsayClient odsayClient;
     private final FlightApiClient flightApiClient;
     private final BookingApiClient bookingApiClient;
+    private final SerpApiClient serpApiClient;
 
     // 로그인 사용자 임시 고정값
     // 인증 모듈 완성 후 컨트롤러에서 CustomUser를 받아 넘기도록 교체.
@@ -218,6 +221,30 @@ public class TravelServiceImpl implements TravelService {
                     "산출된 예상 경비가 없습니다.", "TRAVEL_006");
         }
         return TravelCostResponseDTO.of(cost);
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public List<TravelPlaceResponseDTO> searchPlaces(
+            final Long goalId,
+            final String category) {
+        final String normalizedCategory = category == null
+                ? ""
+                : category.trim().toLowerCase();
+        if (!"attraction".equals(normalizedCategory)
+                && !"restaurant".equals(normalizedCategory)) {
+            throw BusinessException.badRequest(
+                    "검색 유형은 attraction 또는 restaurant이어야 합니다.",
+                    "TRAVEL_025");
+        }
+
+        final TravelGoalVO goal = this.getGoalOrThrow(goalId);
+        final CityCostVO cityCost =
+                this.findCityCostOrThrow(goal.getDestination());
+        return this.serpApiClient.searchPlaces(
+                cityCost.getCountry(),
+                goal.getDestination(),
+                normalizedCategory);
     }
 
 }

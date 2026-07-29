@@ -12,4 +12,6 @@ public interface MemberMapper {
     // 아이디 찾기 - 동명이인 등으로 이름+전화번호 조합이 여러 건일 수 있어 List로 받는다 (단일 객체면 2건 이상일 때 예외 발생)
     List<MemberVO> findByNameAndPhone(@Param("name") String name, @Param("phone") String phone);
     int insert(MemberVO member);
+    // 비밀번호 찾기(재설정) - 본인확인(아이디+이름+전화번호) 후 비밀번호 변경
+    int updatePassword(@Param("id") Long id, @Param("password") String password, @Param("modifiedNm") String modifiedNm);
 }
