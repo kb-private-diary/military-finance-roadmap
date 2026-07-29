@@ -19,6 +19,7 @@ from app.schemas.chat import (
     GlossaryItem,
     MessageCreateRequest,
     MessageItem,
+    RecommendationItem,
     SessionCreateRequest,
     SessionListItem,
     SessionResponse,
@@ -166,16 +167,18 @@ def send_message(payload: MessageCreateRequest, db: Session = Depends(get_db)):
     db.commit()
 
     try:
-        reply, source = gemini.generate_reply(content, history=history)
+        reply, source, source_detail, is_ai_generated = gemini.generate_reply(content, history=history)
     except Exception:
         logger.exception("Gemini 응답 생성 실패 (session_id=%s)", payload.session_id)
-        reply, source = GEMINI_FAILURE_MESSAGE, "오류 안내"
+        reply, source, source_detail, is_ai_generated = GEMINI_FAILURE_MESSAGE, "오류 안내", None, False
 
     bot_message = ChatMessage(
         session_id=payload.session_id,
         role="bot",
         content=reply,
         source=source,
+        source_detail=source_detail,
+        is_ai_generated=is_ai_generated,
         created_date=datetime.now(),
         created_nm=str(session.user_id),
     )
@@ -370,6 +373,13 @@ def create_feedback(payload: FeedbackCreateRequest, db: Session = Depends(get_db
 
 
 # RAG-009: 답변 관련 콘텐츠 추천
-@router.get("/messages/{messageId}/recommendations")
-def get_recommendation(message_id: int = Path(..., alias="messageId")):
-    raise NotImplementedError
+@router.get("/messages/{messageId}/recommendations", response_model=List[RecommendationItem])
+def get_recommendation(message_id: int = Path(..., alias="messageId"), db: Session = Depends(get_db)):
+    message = (
+        db.query(ChatMessage)
+        .filter(ChatMessage.message_id == message_id, ChatMessage.del_yn == "N")
+        .first()
+    )
+    if not message:
+        raise BusinessException("메시지를 찾을 수 없습니다", 404, "CHAT_009")
+    return gemini.get_recommendation(message.source)
