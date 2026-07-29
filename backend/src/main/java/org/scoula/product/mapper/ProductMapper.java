@@ -2,6 +2,7 @@ package org.scoula.product.mapper;
 
 import java.util.List;
 
+import org.scoula.product.domain.CardProductVO;
 import org.scoula.product.domain.PolicyProductVO;
 import org.scoula.product.domain.SavingProductVO;
 
@@ -24,4 +25,7 @@ public interface ProductMapper {
 
     // 현재 DB에 존재하는 모든 fin_prdt_cd 목록 (신규 상품 판별용)
     List<String> findAllFinPrdtCds();
+
+    // 로드맵 카테고리 기준 카드 상품 목록 조회
+    List<CardProductVO> findCardProductListByCategory(Integer category);
 }
