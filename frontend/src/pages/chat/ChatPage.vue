@@ -860,8 +860,8 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   min-height: 100%;
-  margin: 0 -16px;
-  padding: 0 16px;
+  margin: 0 -20px -20px;
+  padding: 0 20px 20px;
   background: var(--surface-cream);
 }
 
@@ -895,8 +895,8 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 0 -16px;
-  padding: 12px 16px;
+  margin: 0 -20px;
+  padding: 12px 20px;
   background: #ffffff;
   border-bottom: 1px solid var(--line);
 }
