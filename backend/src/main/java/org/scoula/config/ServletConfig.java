@@ -1,8 +1,15 @@
 package org.scoula.config;
 
+import java.util.List;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.http.converter.HttpMessageConverter;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartResolver;
@@ -44,6 +51,18 @@ public class ServletConfig implements WebMvcConfigurer {
     @Bean
     public MultipartResolver multipartResolver() {
         return new StandardServletMultipartResolver();
+    }
+
+    // 기본 Jackson 설정은 LocalDate/LocalDateTime을 [year, month, day] 배열로 직렬화한다.
+    // WRITE_DATES_AS_TIMESTAMPS를 꺼서 "2026-01-01" 같은 ISO-8601 문자열로 내려주도록 한다.
+    @Override
+    public void extendMessageConverters(List<HttpMessageConverter<?>> converters) {
+        for (HttpMessageConverter<?> converter : converters) {
+            if (converter instanceof MappingJackson2HttpMessageConverter) {
+                ObjectMapper mapper = ((MappingJackson2HttpMessageConverter) converter).getObjectMapper();
+                mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+            }
+        }
     }
 
     @Override

@@ -15,7 +15,9 @@ import org.scoula.member.dto.FindPasswordRequestDTO;
 import org.scoula.member.dto.MemberDTO;
 import org.scoula.member.dto.MemberJoinDetailRequestDTO;
 import org.scoula.member.dto.MemberJoinRequestDTO;
+import org.scoula.member.dto.MemberUpdateRequestDTO;
 import org.scoula.member.dto.TermsDTO;
+import org.scoula.member.dto.WithdrawRequestDTO;
 import org.scoula.member.mapper.MemberMapper;
 import org.scoula.security.account.dto.AuthResultDTO;
 import org.scoula.security.config.SecurityConfig;
@@ -268,6 +270,50 @@ class MemberServiceImplTest {
     }
 
     @Test
+    void updateMember_withNewValues_updatesProfile() {
+        this.service.createMember(joinDetailDto(List.of(1L, 2L, 3L)));
+
+        this.service.updateMember("junit.service@kbthink.com",
+                new MemberUpdateRequestDTO("이름변경", "010-3131-3131", "새부대", "NEWUNIT"));
+
+        MemberDTO result = this.service.findMember("junit.service@kbthink.com");
+        assertEquals("이름변경", result.getName());
+        assertEquals("010-3131-3131", result.getPhone());
+        assertEquals("새부대", result.getUnitName());
+    }
+
+    @Test
+    void updateMember_withUnchangedPhone_doesNotThrow() {
+        // 전화번호를 그대로 두고 수정하면 자기 자신과의 중복으로 오탐하면 안 된다.
+        this.service.createMember(joinDetailDto(List.of(1L, 2L, 3L))); // phone: 010-2222-2222
+
+        this.service.updateMember("junit.service@kbthink.com",
+                new MemberUpdateRequestDTO("이름변경", "010-2222-2222", "새부대", "NEWUNIT"));
+
+        MemberDTO result = this.service.findMember("junit.service@kbthink.com");
+        assertEquals("이름변경", result.getName());
+    }
+
+    @Test
+    void updateMember_withAnotherUsersPhone_throws() {
+        this.service.createMember(joinDetailDto(List.of(1L, 2L, 3L))); // phone: 010-2222-2222
+        MemberJoinDetailRequestDTO other = MemberJoinDetailRequestDTO.builder()
+                .userId("junit.other@kbthink.com")
+                .password("pw1234!@")
+                .passwordConfirm("pw1234!@")
+                .name("다른사람")
+                .phone("010-4141-4141")
+                .typeId(1)
+                .rankId(1)
+                .agreedTermsIds(List.of(1L, 2L, 3L))
+                .build();
+        this.service.createMember(other);
+
+        assertThrows(BusinessException.class, () -> this.service.updateMember("junit.other@kbthink.com",
+                new MemberUpdateRequestDTO("다른사람", "010-2222-2222", "새부대", "NEWUNIT")));
+    }
+
+    @Test
     void changePassword_withCorrectCurrentPassword_succeeds() {
         this.service.createMember(joinDetailDto(List.of(1L, 2L, 3L)));
 
@@ -308,5 +354,22 @@ class MemberServiceImplTest {
 
         assertThrows(BusinessException.class, () -> this.service.changePassword("junit.service@kbthink.com",
                 new ChangePasswordRequestDTO("pw1234!@", "pw1234!@", "pw1234!@")));
+    }
+
+    @Test
+    void withdraw_withCorrectPassword_softDeletesAccount() {
+        this.service.createMember(joinDetailDto(List.of(1L, 2L, 3L)));
+
+        this.service.withdraw("junit.service@kbthink.com", new WithdrawRequestDTO("pw1234!@", "서비스 종료"));
+
+        assertThrows(BusinessException.class, () -> this.service.findMember("junit.service@kbthink.com"));
+    }
+
+    @Test
+    void withdraw_withWrongPassword_throws() {
+        this.service.createMember(joinDetailDto(List.of(1L, 2L, 3L)));
+
+        assertThrows(BusinessException.class,
+                () -> this.service.withdraw("junit.service@kbthink.com", new WithdrawRequestDTO("wrongPw12!@", "사유")));
     }
 }
