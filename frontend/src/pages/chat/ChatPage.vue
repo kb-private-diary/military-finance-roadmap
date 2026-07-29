@@ -42,13 +42,24 @@ const EXTERNAL_NAV = [
   { label: '자차 준비하기', to: { name: 'CarGoalCreate' } }, // 호빈님
 ];
 
-/* 하단 태그줄 - 자주 묻는 질문 빼곤 대부분 다른 페이지로 이동
-   TODO: 군적금 활용하기/적금률 비교는 대응하는 화면이 아직 라우트정의서에 없어서 미정 상태 */
+/* 하단 태그줄 - 자주 묻는 질문 빼곤 대부분 다른 페이지로 이동.
+   "적금률 비교"는 단순 이동이 아니라 상담형 로직(WBS-6)으로 봐야 해서 아직 버튼에서 뺌 */
 const EXTERNAL_TAGS = [
-  { label: '군적금 활용하기', to: '/content/savings-tips' },
+  { label: '군적금 활용하기', onClick: () => showAllFeatures() },
   { label: '후회소비 회고', to: { name: 'RegretReview' } },
-  { label: '적금률 비교', to: '/tools/rate-compare' },
   { label: '자금 시뮬레이션', to: { name: 'Simulator' } },
+];
+
+/* "군적금 활용하기" 클릭 시 보여줄 전체 기능 목록 (라우트정의서 기준, 2026-07-30) */
+const ALL_FEATURES = [
+  { label: '여행 계획 세우기', to: { name: 'TravelGoalCreate' } },
+  { label: '자취 준비하기', to: { name: 'RentGoalCreate' } },
+  { label: '진로 준비하기', to: { name: 'JobGoalCreate' } },
+  { label: '자차 준비하기', to: { name: 'CarGoalCreate' } },
+  { label: '군적금 시뮬레이션', to: { name: 'Simulator' } },
+  { label: '대시보드 (D-Day·휴가 관리)', to: { name: 'Dashboard' } },
+  { label: '후회소비 회고', to: { name: 'RegretDashboard' } },
+  { label: '전우들과 비교(소셜)', to: { name: 'Social' } },
 ];
 
 /* 다른 팀원이 만든 프로젝트 내 페이지로 연결 - 실제 키워드/경로는 페이지가 준비되는 대로 채워 넣으면 됨 */
@@ -218,7 +229,7 @@ const buildGuideMessage = () => {
     ],
     // 이미 가이드 화면이라 "처음으로"는 여기선 의미가 없어서 빼고, 답변 메뉴에만 붙인다.
     tags: [
-      ...EXTERNAL_TAGS.map((t) => ({ label: t.label, onClick: () => goTo(t.to) })),
+      ...EXTERNAL_TAGS.map((t) => ({ label: t.label, onClick: t.onClick ?? (() => goTo(t.to)) })),
       { label: '자주 묻는 질문', onClick: () => openFaqCategories() },
     ],
     caption: '챗봇은 질문 분석을 위해 AI를 활용하며, 서비스 개선 목적으로 사용됩니다.',
@@ -237,6 +248,20 @@ const showAllProducts = () => {
         ...Object.keys(PRODUCT_QUESTIONS).map((name) => ({ label: name, onClick: () => openDoc(name) })),
         FIRST_MENU_ITEM,
       ],
+    });
+  }, 700);
+};
+
+/* "군적금 활용하기" - 챗봇 밖 전체 기능 목록을 보여준다 */
+const showAllFeatures = () => {
+  pushUser('군적금 활용하기');
+  panel.value = null;
+  typing.value = true;
+  setTimeout(() => {
+    typing.value = false;
+    pushBot({
+      text: '어떤 기능을 살펴보고 싶으신가요?',
+      menu: [...ALL_FEATURES.map((f) => ({ label: f.label, onClick: () => goTo(f.to) })), FIRST_MENU_ITEM],
     });
   }, 700);
 };
