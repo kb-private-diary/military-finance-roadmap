@@ -69,7 +69,7 @@ const props = defineProps({
 
 .app-content {
   flex: 1;
-  padding: 0 16px;
+  padding: 0 20px 20px;
   overflow-y: auto;
   overflow-x: hidden;
 }

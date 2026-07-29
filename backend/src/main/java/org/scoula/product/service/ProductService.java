@@ -2,6 +2,7 @@ package org.scoula.product.service;
 
 import java.util.List;
 
+import org.scoula.product.dto.CardProductListResponseDTO;
 import org.scoula.product.dto.PolicyProductDetailResponseDTO;
 import org.scoula.product.dto.PolicyProductListResponseDTO;
 import org.scoula.product.dto.ProductSyncResponseDTO;
@@ -23,4 +24,7 @@ public interface ProductService {
 
     // 금융감독원 "금융상품 한눈에" API에서 KB국민은행 예·적금 상품을 가져와 DB에 UPSERT
     ProductSyncResponseDTO syncSavingProducts();
+
+    // 로드맵 카테고리 기준 카드 상품 목록 조회
+    List<CardProductListResponseDTO> findCardProductListByCategory(Integer category);
 }
