@@ -39,6 +39,7 @@ const fetchProduct = async () => {
   try {
     product.value = await productApi.findSavingProductDetail(productId);
   } catch (error) {
+    console.error(error);
     loadError.value = '상품 정보를 불러오지 못했습니다.';
   } finally {
     isLoading.value = false;
