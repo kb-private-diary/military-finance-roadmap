@@ -586,9 +586,8 @@ INSERT INTO prep_item_criteria (prep_crit_id, goal_type, item_type, job_code_id,
 -- --------------------------------------------------------------------
 -- ===== 5. service_criteria (정부 정책 + KB 서비스, 카드 제외) =====
 INSERT INTO service_criteria (svc_crit_id, goal_type, service_type, service_name, service_desc, use_time, info_url, created_date, created_nm, del_yn) VALUES
-(1, 'J01', 'G02', 'KB Pay', '복무 중에도 간편결제로 이용 가능', 'S01', NULL, NOW(), 'jiwon', 'N'),
-(2, 'J01', 'G01', '국민내일배움카드', '직업훈련비 지원', 'S02', NULL, NOW(), 'jiwon', 'N'),
-(3, 'J02', 'G01', '공무원연금 대출제도', '재직 공무원 대상 저리 생활안정자금 대출', 'U02', NULL, NOW(), 'jiwon', 'N'),
+(1, 'J01', 'G02', 'KB Pay', '복무 중에도 간편결제로 이용 가능', 'U01', NULL, NOW(), 'jiwon', 'N'),
+(2, 'J01', 'G01', '국민내일배움카드', '직업훈련비 지원', 'U02', NULL, NOW(), 'jiwon', 'N'),
 (4, 'J02', 'G02', 'KB Pay', '복무 중에도 간편결제로 이용 가능', 'U01', NULL, NOW(), 'jiwon', 'N'),
 (5, 'J03', 'G01', '국가장학금(편입생 대상)', '소득분위별 등록금 지원', 'U03', NULL, NOW(), 'jiwon', 'N'),
 (6, 'J03', 'G02', 'KB Pay', '복무 중에도 간편결제로 이용 가능', 'U01', NULL, NOW(), 'jiwon', 'N');
@@ -1111,19 +1110,5 @@ INSERT INTO job_plan (plan_id, goal_id, item_type, item_name, apply_url, amount,
 (5, 4, 'P01', '토익', 'https://www.ybmnet.co.kr', 26250, NOW(), 'jiwon', 'N'),
 (6, 4, 'P02', '편입경영학 전공 종합반 인강', 'https://www.pmg2000.co.kr', 350000, NOW(), 'jiwon', 'N');
 
-
--- --------------------------------------------------------------------
---  [지원] 진로/정책서비스선택저장(service_selection)
---  테이블: service_selection
--- --------------------------------------------------------------------
--- ===== service_selection 전체 테스트 데이터 (card_id 컬럼 반영) =====
-INSERT INTO service_selection (selection_id, goal_id, svc_crit_id, card_id, created_date, created_nm, modified_date, modified_nm, del_yn) VALUES
-(1, 1, 1,    NULL, NOW(), 'jiwon', NULL, NULL, 'N'),  -- KB Pay (복무 중 이용)
-(2, 1, 2,    NULL, NOW(), 'jiwon', NULL, NULL, 'N'),  -- 국민내일배움카드 (전역 후 신청)
-(3, 3, 3,    NULL, NOW(), 'jiwon', NULL, NULL, 'N'),  -- 공무원연금 대출제도
-(4, 3, 4,    NULL, NOW(), 'jiwon', NULL, NULL, 'N'),  -- KB Pay (J02)
-(5, 4, 5,    NULL, NOW(), 'jiwon', NULL, NULL, 'N'),  -- 국가장학금(편입생 대상)
-(6, 4, 6,    NULL, NOW(), 'jiwon', NULL, NULL, 'N'),  -- KB Pay (J03)
-(7, 1, NULL, 1,    NOW(), 'jiwon', NULL, NULL, 'N');  -- 히어로즈체크카드 선택
 
 SET FOREIGN_KEY_CHECKS = 1;
