@@ -25,7 +25,7 @@ const login = async () => {
   submitting.value = true;
   try {
     await auth.login(member);
-    router.push(route.query.redirect ? String(route.query.redirect) : '/');
+    router.push(route.query.redirect ? String(route.query.redirect) : '/home');
   } catch (e) {
     const data = e.response?.data;
     error.value = typeof data === 'string' && data ? data : '로그인에 실패했습니다.';
