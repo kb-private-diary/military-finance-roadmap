@@ -55,6 +55,10 @@ const props = defineProps({
     </div>
     <p class="empty-state__title">{{ title }}</p>
     <p class="empty-state__description">{{ description }}</p>
+    <!-- 다음 행동 CTA(버튼 등). 안 주면 렌더 안 됨 → 기존 사용처 그대로 동작 -->
+    <div v-if="$slots.action" class="empty-state__action">
+      <slot name="action" />
+    </div>
   </div>
 </template>
 
@@ -97,5 +101,9 @@ const props = defineProps({
   font-size: 13px;
   color: #9ca3af;
   margin: 0;
+}
+
+.empty-state__action {
+  margin-top: 16px;
 }
 </style>
