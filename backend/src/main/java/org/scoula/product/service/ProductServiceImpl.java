@@ -14,10 +14,13 @@ import lombok.extern.log4j.Log4j2;
 
 import org.scoula.common.exception.BusinessException;
 import org.scoula.product.client.FssApiClient;
+import org.scoula.product.domain.PolicyProductVO;
 import org.scoula.product.domain.SavingProductVO;
+import org.scoula.product.dto.PolicyProductDetailResponseDTO;
 import org.scoula.product.dto.PolicyProductListResponseDTO;
 import org.scoula.product.dto.ProductSyncItemDTO;
 import org.scoula.product.dto.ProductSyncResponseDTO;
+import org.scoula.product.dto.SavingProductDetailResponseDTO;
 import org.scoula.product.dto.SavingProductListResponseDTO;
 import org.scoula.product.mapper.ProductMapper;
 
@@ -45,10 +48,30 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
+    public SavingProductDetailResponseDTO findSavingProductDetail(String productId) {
+        List<SavingProductVO> rows = this.mapper.findSavingProductDetailByFinPrdtCd(productId);
+        if (rows.isEmpty()) {
+            throw BusinessException.notFound("상품을 찾을 수 없습니다.", "PRODU_003");
+        }
+        return SavingProductDetailResponseDTO.of(rows);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<PolicyProductListResponseDTO> findPolicyProductList() {
         return this.mapper.findPolicyProductList().stream()
                 .map(PolicyProductListResponseDTO::of)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PolicyProductDetailResponseDTO findPolicyProductDetail(Long policyId) {
+        PolicyProductVO vo = this.mapper.findPolicyProductDetail(policyId);
+        if (vo == null) {
+            throw BusinessException.notFound("정책 상품을 찾을 수 없습니다.", "PRODU_004");
+        }
+        return PolicyProductDetailResponseDTO.of(vo);
     }
 
     @Override
