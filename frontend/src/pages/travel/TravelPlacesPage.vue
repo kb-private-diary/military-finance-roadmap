@@ -17,6 +17,9 @@ const selectedCategory = ref('attraction');
 const places = ref([]);
 const loading = ref(false);
 const loadError = ref('');
+const saveError = ref('');
+const saving = ref(false);
+const selectedPlaces = ref(new Map());
 const placeCache = {
   attraction: null,
   restaurant: null,
@@ -80,12 +83,76 @@ const ratingText = (place) => {
   return `★ ${place.rating.toFixed(1)}${reviews}`;
 };
 
+const selectionType = (category) =>
+  category === 'restaurant' ? 'food' : 'tour';
+
+const placeKey = (place, category = selectedCategory.value) =>
+  `${selectionType(category)}:${place.title}`;
+
+const selectedPlaceKey = (place) =>
+  `${place.type}:${place.name}`;
+
+const loadSelectedPlaces = async () => {
+  const response = await travelApi.getSelectedPlaces(goalId);
+  const savedPlaces = unwrap(response);
+  selectedPlaces.value = new Map(
+    savedPlaces
+      .filter((place) => place.type && place.name)
+      .map((place) => [selectedPlaceKey(place), place]),
+  );
+};
+
+const loadPage = async (forceRefresh = false) => {
+  loading.value = true;
+  loadError.value = '';
+  try {
+    await loadSelectedPlaces();
+    await searchPlaces(forceRefresh);
+  } catch (error) {
+    loadError.value = readErrorMessage(error);
+    loading.value = false;
+  }
+};
+
+const isSelected = (place) =>
+  selectedPlaces.value.has(placeKey(place));
+
+const togglePlace = (place) => {
+  const key = placeKey(place);
+  if (selectedPlaces.value.has(key)) {
+    selectedPlaces.value.delete(key);
+    return;
+  }
+
+  selectedPlaces.value.set(key, {
+    type: selectionType(selectedCategory.value),
+    name: place.title,
+    info: place.address || place.type || '',
+    image: place.thumbnail || '',
+  });
+};
+
 const goPrevious = () => router.back();
-const goNext = () =>
-  router.push({ name: 'TravelPackages', params: { goalId } });
+const goNext = async () => {
+  if (saving.value) return;
+
+  saving.value = true;
+  saveError.value = '';
+  try {
+    await travelApi.updatePlaces(
+      goalId,
+      Array.from(selectedPlaces.value.values()),
+    );
+    await router.push({ name: 'TravelPackages', params: { goalId } });
+  } catch (error) {
+    saveError.value = readErrorMessage(error);
+  } finally {
+    saving.value = false;
+  }
+};
 
 watch(selectedCategory, () => searchPlaces());
-onMounted(searchPlaces);
+onMounted(loadPage);
 </script>
 
 <template>
@@ -131,16 +198,30 @@ onMounted(searchPlaces);
       role="alert"
     >
       <p>{{ loadError }}</p>
-      <button type="button" @click="searchPlaces(true)">다시 시도</button>
+      <button type="button" @click="loadPage(true)">다시 시도</button>
     </div>
 
     <div v-else-if="places.length === 0" class="status-box text-caption">
       조회된 추천 정보가 없습니다.
     </div>
 
-    <ul v-else class="place-list">
+    <p v-if="saveError" class="save-error text-caption" role="alert">
+      {{ saveError }}
+    </p>
+
+    <ul v-if="!loading && !loadError && places.length" class="place-list">
       <li v-for="place in places" :key="place.placeId || place.title">
-        <article class="place-card">
+        <label
+          class="place-card"
+          :class="{ 'is-selected': isSelected(place) }"
+        >
+          <input
+            class="place-card__checkbox"
+            type="checkbox"
+            :checked="isSelected(place)"
+            :aria-label="`${place.title} 관심 항목 선택`"
+            @change="togglePlace(place)"
+          />
           <img
             v-if="place.thumbnail"
             :src="place.thumbnail"
@@ -168,18 +249,15 @@ onMounted(searchPlaces);
             >
               {{ place.address }}
             </p>
-            <p v-if="place.price" class="place-card__price text-caption">
-              가격대 {{ place.price }}
-            </p>
           </div>
-        </article>
+        </label>
       </li>
     </ul>
 
     <BottomButtonBar
       secondary-label="이전"
-      primary-label="다음"
-      :primary-disabled="loading || Boolean(loadError)"
+      :primary-label="saving ? '저장 중...' : '다음'"
+      :primary-disabled="loading || Boolean(loadError) || saving"
       @secondary-click="goPrevious"
       @primary-click="goNext"
     />
@@ -257,17 +335,17 @@ onMounted(searchPlaces);
 .category-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 6px;
   margin-bottom: 18px;
 }
 
 .category-tabs button {
-  padding: 10px;
+  padding: 7px 10px;
   border: 0;
-  border-radius: 18px;
+  border-radius: 15px;
   background: #e3e8df;
   color: #4d5945;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .category-tabs button.active {
@@ -296,27 +374,48 @@ onMounted(searchPlaces);
 
 .place-list {
   display: grid;
-  gap: 12px;
+  gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .place-card {
+  position: relative;
   display: grid;
-  grid-template-columns: 92px 1fr;
-  min-height: 112px;
+  grid-template-columns: 72px 1fr;
+  min-height: 88px;
   overflow: hidden;
   border: 1px solid #dedede;
-  border-radius: 12px;
+  border-radius: 10px;
   background: #fff;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.place-card.is-selected {
+  border-color: #657052;
+  box-shadow: 0 0 0 1px #657052;
+}
+
+.place-card__checkbox {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  z-index: 1;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #657052;
 }
 
 .place-card img,
 .place-card__placeholder {
-  width: 92px;
+  width: 72px;
   height: 100%;
-  min-height: 112px;
+  min-height: 88px;
   object-fit: cover;
 }
 
@@ -330,7 +429,7 @@ onMounted(searchPlaces);
 
 .place-card__content {
   min-width: 0;
-  padding: 12px;
+  padding: 8px 30px 8px 10px;
 }
 
 .place-card__type {
@@ -338,14 +437,14 @@ onMounted(searchPlaces);
 }
 
 .place-card h2 {
-  margin: 3px 0 6px;
+  margin: 2px 0 4px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .place-card p {
-  margin: 4px 0 0;
+  margin: 2px 0 0;
   font-size: 12px;
 }
 
@@ -361,8 +460,9 @@ onMounted(searchPlaces);
   -webkit-line-clamp: 2;
 }
 
-.place-card__price {
-  color: #536548;
-  font-weight: 600;
+.save-error {
+  margin: 0 0 10px;
+  color: #d34b4b;
+  text-align: center;
 }
 </style>
