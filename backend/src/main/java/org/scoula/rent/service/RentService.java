@@ -4,6 +4,7 @@ import org.scoula.rent.dto.RegionResponseDTO;
 import org.scoula.rent.dto.RentGoalCreateRequestDTO;
 import org.scoula.rent.dto.SchoolSearchResponseDTO;
 import org.scoula.rent.dto.ProgressUpdateRequestDTO;
+import org.scoula.rent.dto.RentGoalDetailResponseDTO;
 import java.util.List;
 
 public interface RentService {
@@ -17,4 +18,7 @@ public interface RentService {
 
     // 진행률 단계 수정 (UPSERT) → 갱신된 진행률(%) 반환
     int updateProgress(Long goalId, ProgressUpdateRequestDTO request, Long userId);
+
+    // 목표 상세 조회 (목표 정보 + 진행률 5단계)
+    RentGoalDetailResponseDTO findGoal(Long goalId);
 }

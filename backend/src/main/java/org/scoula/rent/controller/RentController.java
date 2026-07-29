@@ -6,6 +6,7 @@ import org.scoula.rent.dto.RegionResponseDTO;
 import org.scoula.rent.dto.RentGoalCreateRequestDTO;
 import org.scoula.rent.dto.SchoolSearchResponseDTO;
 import org.scoula.rent.dto.ProgressUpdateRequestDTO;
+import org.scoula.rent.dto.RentGoalDetailResponseDTO;
 import org.scoula.rent.service.RentService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -60,5 +61,11 @@ public class RentController {
 
         int percentage = service.updateProgress(goalId, request, userId);
         return ResponseEntity.ok(ApiResponse.success(percentage));
+    }
+
+    // GET /api/rent/goals/{goalId} → 목표 상세 (목표 정보 + 진행률 5단계)
+    @GetMapping("/goals/{goalId}")
+    public ResponseEntity<ApiResponse<RentGoalDetailResponseDTO>> findGoal(@PathVariable Long goalId) {
+        return ResponseEntity.ok(ApiResponse.success(service.findGoal(goalId)));
     }
 }

@@ -82,4 +82,14 @@
           AND del_yn = 'N'
     </select>
 
+    <!-- 목표 단건 조회 (상세) -->
+    <select id="findGoalById" resultType="org.scoula.rent.domain.RentGoalVO">
+        SELECT goal_id, user_id, title, selection_mode, school_id, commute_radius_km,
+               monthly_budget, residence_preset, residence_months, status,
+               created_date, created_nm, modified_date, modified_nm, del_yn
+        FROM rent_goal
+        WHERE goal_id = #{goalId}
+          AND del_yn = 'N'
+    </select>
+
 </mapper>

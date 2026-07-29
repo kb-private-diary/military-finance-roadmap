@@ -5,16 +5,22 @@ import org.scoula.common.exception.BusinessException;
 import org.scoula.rent.domain.RentGoalVO;
 import org.scoula.rent.domain.RentGoalRegionVO;
 import org.scoula.rent.domain.RentProgressVO;
+import org.scoula.rent.domain.ProgressStep;
 import org.scoula.rent.dto.RegionResponseDTO;
 import org.scoula.rent.dto.RentGoalCreateRequestDTO;
 import org.scoula.rent.dto.SchoolSearchResponseDTO;
 import org.scoula.rent.dto.ProgressUpdateRequestDTO;
+import org.scoula.rent.dto.RentGoalDetailResponseDTO;
+import org.scoula.rent.dto.ProgressStepDTO;
 import org.scoula.rent.mapper.RentMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -113,6 +119,33 @@ public class RentServiceImpl implements RentService {
 
         // 2) 진행률(%) 재계산해서 반환
         return calculatePercentage(goalId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public RentGoalDetailResponseDTO findGoal(Long goalId) {
+        RentGoalVO goal = mapper.findGoalById(goalId);
+        if (goal == null) {
+            throw BusinessException.notFound("목표를 찾을 수 없습니다.", "RENT_005");
+        }
+
+        // 완료된 단계 코드만 모으기
+        Set<String> completedCodes = mapper.findProgressListByGoalId(goalId).stream()
+                .filter(p -> "Y".equals(p.getIsCompleted()))
+                .map(RentProgressVO::getStepCode)
+                .collect(Collectors.toSet());
+
+        // 5단계 전체 상태 조립 (enum 순회 → 저장된 것과 매핑)
+        List<ProgressStepDTO> steps = Arrays.stream(ProgressStep.values())
+                .map(step -> ProgressStepDTO.builder()
+                        .stepCode(step.name())
+                        .label(step.getLabel())
+                        .completed(completedCodes.contains(step.name()))
+                        .build())
+                .toList();
+
+        int percentage = (int) (completedCodes.size() * 100L / TOTAL_PROGRESS_STEPS);
+        return RentGoalDetailResponseDTO.of(goal, percentage, steps);
     }
 
     /** 완료 단계 수 / 전체 단계 수(5) * 100 */

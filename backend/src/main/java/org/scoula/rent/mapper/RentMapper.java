@@ -31,4 +31,7 @@ public interface RentMapper {
 
     // 목표의 진행 단계 목록 조회 (진행률 계산·표시용)
     List<RentProgressVO> findProgressListByGoalId(Long goalId);
+
+    // 목표 단건 조회 (상세)
+    RentGoalVO findGoalById(Long goalId);
 }
