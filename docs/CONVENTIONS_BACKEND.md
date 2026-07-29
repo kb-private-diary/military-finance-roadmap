@@ -242,7 +242,7 @@ public XxxDTO findXxx(Long id) {
 - 접두어는 **대문자 3~6자** 이내 (`SIMULATOR`❌ → `SIMUL`⭕)
 - 번호는 도메인별 **`_001`부터** 순서대로 (건너뛰기·중복 금지)
 - 전역 에러(인증·토큰)는 `AUTH`/`COMMON` 접두어
-- 접두어: `MEM`·`MAIN`·`DASH`·`SIMUL`·`SAVE`·`PROD`·`ROAD`·`TRAVEL`·`RENT`·`CAR`·`JOB`·`REGRET`·`OPBANK`·`SOCIAL`·`BOOK`·`AUTH`·`COMMON`
+- 접두어: `MEM`·`MAIN`·`DASH`·`SIMUL`·`SAVE`·`PRODU`·`ROAD`·`TRAVEL`·`RENT`·`CAR`·`JOB`·`REGRET`·`OPBANK`·`SOCIAL`·`BOOK`·`AUTH`·`COMMON`
 
 **공통·인증 코드 (미리 정의)**
 | 코드 | HTTP | 메시지 |

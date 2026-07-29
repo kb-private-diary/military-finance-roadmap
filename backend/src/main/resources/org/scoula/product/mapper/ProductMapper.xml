@@ -38,6 +38,34 @@
         ORDER BY max_rate DESC, product_name
     </select>
 
+    <!--
+        상세페이지용 — 상품(fin_prdt_cd)의 save_trm별 행을 전부 반환한다.
+        product_name/join_member/min_limit/max_limit/product_link 는 행마다 동일한 값이 중복 저장돼 있으므로
+        서비스단에서 아무 행이나 하나를 대표로 쓰고, save_trm/basic_rate/max_rate 만 최소~최대로 집계한다.
+    -->
+    <select id="findSavingProductDetailByFinPrdtCd" parameterType="String" resultType="org.scoula.product.domain.SavingProductVO">
+        SELECT
+            saving_id       AS savingId,
+            product_type    AS productType,
+            is_active       AS isActive,
+            fin_prdt_cd     AS finPrdtCd,
+            kor_co_nm       AS korCoNm,
+            product_name    AS productName,
+            join_member     AS joinMember,
+            min_limit       AS minLimit,
+            max_limit       AS maxLimit,
+            save_trm        AS saveTrm,
+            basic_rate      AS basicRate,
+            max_rate        AS maxRate,
+            is_tax_exempt   AS isTaxExempt,
+            gov_match_rate  AS govMatchRate,
+            product_link    AS productLink
+        FROM saving_product
+        WHERE fin_prdt_cd = #{finPrdtCd}
+          AND is_active = TRUE
+          AND del_yn = 'N'
+    </select>
+
     <select id="findPolicyProductList" resultType="org.scoula.product.domain.PolicyProductVO">
         SELECT
             policy_id           AS policyId,
@@ -53,6 +81,24 @@
         WHERE policy_status = TRUE
           AND del_yn = 'N'
         ORDER BY max_rate DESC, policy_name
+    </select>
+
+    <select id="findPolicyProductDetail"
+            parameterType="Long" resultType="org.scoula.product.domain.PolicyProductVO">
+        SELECT
+            policy_id       AS policyId,
+            policy_name     AS policyName,
+            benefits        AS benefits,
+            join_member     AS joinMember,
+            min_limit       AS minLimit,
+            max_limit       AS maxLimit,
+            save_trm_note   AS saveTrmNote,
+            policy_link     AS policyLink,
+            has_calculator  AS hasCalculator
+        FROM policy_product
+        WHERE policy_id = #{policyId}
+          AND policy_status = TRUE
+          AND del_yn = 'N'
     </select>
 
     <!--

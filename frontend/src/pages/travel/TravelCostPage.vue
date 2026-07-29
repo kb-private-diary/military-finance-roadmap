@@ -79,9 +79,18 @@ onMounted(async () => {
   scrollContainer?.classList.add('travel-scrollbar-hidden');
 
   try {
-    await travelApi.createCost(goalId);
-    const response = await travelApi.findCost(goalId);
-    cost.value = unwrap(response);
+    try {
+      const response = await travelApi.findCost(goalId);
+      cost.value = unwrap(response);
+    } catch (error) {
+      if (error.response?.data?.code !== 'TRAVEL_006') {
+        throw error;
+      }
+
+      await travelApi.createCost(goalId);
+      const response = await travelApi.findCost(goalId);
+      cost.value = unwrap(response);
+    }
   } catch (error) {
     loadError.value = readErrorMessage(
       error,
@@ -104,7 +113,7 @@ const goNext = () =>
 <template>
   <div class="travel-cost">
     <section class="roadmap-step" aria-label="여행 로드맵 2단계">
-      <p class="roadmap-step__label">여행 로드맵</p>
+      <p class="roadmap-step__label text-overline">여행 로드맵</p>
       <div class="roadmap-step__progress">
         <span class="roadmap-step__number">2</span>
         <span class="roadmap-step__line">
@@ -113,17 +122,23 @@ const goNext = () =>
       </div>
     </section>
 
-    <div v-if="loading" class="status-box" role="status">
+    <div v-if="loading" class="status-box text-caption" role="status">
       예상 비용을 계산하고 있습니다.
     </div>
 
-    <div v-else-if="loadError" class="status-box status-box--error" role="alert">
+    <div
+      v-else-if="loadError"
+      class="status-box status-box--error text-caption"
+      role="alert"
+    >
       <p>{{ loadError }}</p>
       <button type="button" @click="goPrevious">이전 화면으로</button>
     </div>
 
     <template v-else-if="cost">
-      <h2 class="travel-cost__title">총 예상 여행 비용입니다.</h2>
+      <h2 class="travel-cost__title text-title">
+        총 예상 여행 비용입니다.
+      </h2>
       <p class="travel-cost__total">{{ formatWon(cost.totalCost) }}</p>
 
       <section class="cost-card" aria-label="여행 비용 상세">
@@ -143,14 +158,14 @@ const goNext = () =>
                 class="legend__swatch"
                 :style="{ backgroundColor: item.color }"
               />
-              <span>{{ item.label }}</span>
+              <span class="text-caption">{{ item.label }}</span>
             </li>
           </ul>
         </div>
 
         <ul class="breakdown">
           <li v-for="item in costItems" :key="item.label">
-            <span class="breakdown__label">{{ item.label }}</span>
+            <span class="breakdown__label text-caption">{{ item.label }}</span>
             <span class="breakdown__bar">
               <span
                 class="breakdown__fill"
@@ -189,8 +204,6 @@ const goNext = () =>
 
 .roadmap-step__label {
   margin: 0 0 15px;
-  color: #565656;
-  font-size: 12px;
 }
 
 .roadmap-step__progress {
@@ -206,7 +219,7 @@ const goNext = () =>
   display: grid;
   width: 22px;
   height: 22px;
-  margin-left: 25%;
+  margin-left: 33.3333%;
   place-items: center;
   border: 2px solid #657052;
   border-radius: 50%;
@@ -228,15 +241,13 @@ const goNext = () =>
 
 .roadmap-step__line-fill {
   display: block;
-  width: 25%;
+  width: 33.3333%;
   height: 100%;
   background: #657052;
 }
 
 .travel-cost__title {
   margin: 0 0 14px;
-  font-size: 20px;
-  font-weight: 800;
   line-height: 1.35;
   text-align: center;
 }
@@ -353,7 +364,6 @@ const goNext = () =>
 .status-box {
   margin-top: 80px;
   color: #666;
-  font-size: 14px;
   text-align: center;
 }
 
