@@ -39,6 +39,7 @@ const searchPlaces = async (forceRefresh = false) => {
   if (!forceRefresh && placeCache[category] !== null) {
     places.value = placeCache[category];
     loadError.value = '';
+    loading.value = false;
     return;
   }
 
