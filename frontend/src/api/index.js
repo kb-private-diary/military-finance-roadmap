@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { useAuthStore } from '@/stores/auth';
+import { useToast } from '@/composables/useToast';
 import router from '@/router';
 
 const instance = axios.create({
@@ -30,12 +31,25 @@ instance.interceptors.response.use(
     return response;
   },
   async (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status;
+
+    // 401: 인증 만료 → 자동 로그아웃 + 로그인 이동
+    if (status === 401) {
       const { logout } = useAuthStore();
       logout();
       router.push({ name: 'Login', query: { redirect: router.currentRoute.value.fullPath } });
       return Promise.reject({ error: '로그인이 필요한 서비스입니다.' });
     }
+
+    // 전역 공통 처리: 어느 화면이든 똑같이 반응할 것만.
+    // (4xx 비즈니스 에러는 화면 try/catch 에서 처리하도록 그대로 넘김)
+    const { show } = useToast();
+    if (!error.response) {
+      show('네트워크 연결을 확인해주세요', 'error'); // 끊김·타임아웃
+    } else if (status >= 500) {
+      show('잠시 후 다시 시도해주세요', 'error'); // 서버 오류
+    }
+
     return Promise.reject(error);
   },
 );

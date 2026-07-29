@@ -1,6 +1,7 @@
 <script setup>
 import { RouterView, useRoute } from 'vue-router';
 import AppLayout from '@/components/layouts/AppLayout.vue';
+import BaseToast from '@/components/common/BaseToast.vue';
 
 const route = useRoute();
 </script>
@@ -16,6 +17,8 @@ const route = useRoute();
   >
     <RouterView />
   </AppLayout>
+  <!-- 공통 토스트 호스트: 어디서든 useToast().show() 로 띄우면 여기서 렌더 -->
+  <BaseToast />
 </template>
 
 <style scoped></style>
