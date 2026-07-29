@@ -16,7 +16,7 @@ _PROMPT_TEMPLATE = (
 
 def classify_intent(question: str) -> str:
     response = gemini_client.generate_content(_PROMPT_TEMPLATE.format(question=question))
-    label = response.text.strip().lower()
+    label = response.strip().lower()
     return label if label in VALID_INTENTS else "info"
 
 
@@ -38,5 +38,5 @@ _CATEGORY_PROMPT_TEMPLATE = (
 
 def classify_product_category(question: str) -> Optional[str]:
     response = gemini_client.generate_content(_CATEGORY_PROMPT_TEMPLATE.format(question=question))
-    label = response.text.strip().lower()
+    label = response.strip().lower()
     return label if label in PRODUCT_CATEGORIES else None

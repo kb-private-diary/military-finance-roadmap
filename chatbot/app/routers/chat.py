@@ -10,9 +10,11 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.core.exceptions import BusinessException
-from app.models.chat import ChatMessage, ChatSession
+from app.models.chat import ChatFeedback, ChatMessage, ChatSession
 from app.schemas.chat import (
     FaqCategoryItem,
+    FeedbackCreateRequest,
+    FeedbackItem,
     GlossaryDetail,
     GlossaryItem,
     MessageCreateRequest,
@@ -38,6 +40,8 @@ logger = logging.getLogger(__name__)
 
 MESSAGE_MAX_LENGTH = 500
 GEMINI_FAILURE_MESSAGE = "서버에 문제가 발생했습니다. 잠시 후에 다시 시도해 주세요."
+FEEDBACK_VALUES = ("like", "dislike")
+HISTORY_LIMIT = 6  # 최근 메시지 몇 개까지 멀티턴 문맥으로 넘길지 (3턴치)
 
 TOPICS = [
     TopicItem(topic_id="fund_consult", label="목돈상담"),
@@ -142,6 +146,15 @@ def send_message(payload: MessageCreateRequest, db: Session = Depends(get_db)):
     if not session:
         raise BusinessException("세션을 찾을 수 없습니다", 404, "CHAT_001")
 
+    recent_messages = (
+        db.query(ChatMessage)
+        .filter(ChatMessage.session_id == payload.session_id, ChatMessage.del_yn == "N")
+        .order_by(ChatMessage.created_date.desc())
+        .limit(HISTORY_LIMIT)
+        .all()
+    )
+    history = [(m.role, m.content) for m in reversed(recent_messages)]
+
     user_message = ChatMessage(
         session_id=payload.session_id,
         role="user",
@@ -153,7 +166,7 @@ def send_message(payload: MessageCreateRequest, db: Session = Depends(get_db)):
     db.commit()
 
     try:
-        reply, source = gemini.generate_reply(content)
+        reply, source = gemini.generate_reply(content, history=history)
     except Exception:
         logger.exception("Gemini 응답 생성 실패 (session_id=%s)", payload.session_id)
         reply, source = GEMINI_FAILURE_MESSAGE, "오류 안내"
@@ -315,9 +328,45 @@ def get_glossary_term(term: str):
 
 
 # CHAT-006: 답변 만족도 피드백 저장 API
-@router.post("/feedback")
-def create_feedback():
-    raise NotImplementedError
+@router.post("/feedback", response_model=FeedbackItem)
+def create_feedback(payload: FeedbackCreateRequest, db: Session = Depends(get_db)):
+    session = (
+        db.query(ChatSession)
+        .filter(ChatSession.session_id == payload.session_id, ChatSession.del_yn == "N")
+        .first()
+    )
+    if not session:
+        raise BusinessException("세션을 찾을 수 없습니다", 404, "CHAT_001")
+
+    if payload.feedback not in FEEDBACK_VALUES:
+        raise BusinessException("feedback 값은 like 또는 dislike여야 합니다", 400, "CHAT_007")
+
+    if payload.message_id is not None:
+        message = (
+            db.query(ChatMessage)
+            # session_id가 사용자가 보낸 값이랑 같고, 삭제 여부가 N인 것을 필터링
+            .filter(
+                ChatMessage.message_id == payload.message_id,
+                ChatMessage.session_id == payload.session_id,
+                ChatMessage.del_yn == "N",
+            )
+            .first()
+        )
+        if not message:
+            raise BusinessException("해당 세션의 메시지를 찾을 수 없습니다", 404, "CHAT_008")
+
+    feedback = ChatFeedback(
+        session_id=payload.session_id,
+        message_id=payload.message_id,
+        feedback=payload.feedback,
+        reason=payload.reason,
+        created_date=datetime.now(),
+        created_nm=str(session.user_id),
+    )
+    db.add(feedback)
+    db.commit()
+    db.refresh(feedback)
+    return feedback
 
 
 # RAG-009: 답변 관련 콘텐츠 추천
