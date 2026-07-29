@@ -4,10 +4,12 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import memberApi from '@/api/memberApi';
+import { useToast } from '@/composables/useToast';
 import BaseInput from '@/components/common/BaseInput.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 
 const router = useRouter();
+const { show } = useToast();
 
 const form = reactive({
   name: '',
@@ -42,6 +44,7 @@ const submit = async () => {
   submitting.value = true;
   try {
     await memberApi.updateMyInfo({ ...form });
+    show('회원정보를 수정했어요.', 'success');
     router.push({ name: 'MyPage' });
   } catch (e) {
     errorMessage.value = e.response?.data?.message || '수정 중 오류가 발생했습니다.';

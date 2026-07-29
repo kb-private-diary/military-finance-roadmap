@@ -5,11 +5,13 @@ import { computed, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import memberApi from '@/api/memberApi';
 import { useAuthStore } from '@/stores/auth';
+import { useToast } from '@/composables/useToast';
 import BaseInput from '@/components/common/BaseInput.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 
 const router = useRouter();
 const auth = useAuthStore();
+const { show } = useToast();
 
 const REASONS = [
   { label: '더 이상 이용하지 않아요', value: 'NOT_USING' },
@@ -36,7 +38,7 @@ const submit = async () => {
   submitting.value = true;
   try {
     await memberApi.withdraw({ ...form });
-    alert('탈퇴가 완료되었습니다.');
+    show('탈퇴가 완료되었습니다.', 'success');
     auth.logout();
     router.push({ name: 'Login' });
   } catch (e) {
@@ -97,7 +99,7 @@ const submit = async () => {
 
 .mypage-withdraw-page__notice {
   margin: 0 0 24px;
-  color: var(--text-muted, #9e9e9e);
+  color: var(--text-muted);
 }
 
 .mypage-withdraw-form {
@@ -121,16 +123,16 @@ const submit = async () => {
 .mypage-withdraw-form__reason {
   text-align: left;
   padding: 14px 16px;
-  border: 1.5px solid #e0e0e0;
+  border: 1.5px solid var(--line);
   border-radius: 12px;
   background-color: #ffffff;
   font-size: 15px;
-  color: #545045;
+  color: var(--kb-dark-gray);
   cursor: pointer;
 }
 
 .mypage-withdraw-form__reason.is-selected {
-  border-color: var(--kb-yellow-deep, #ffbc00);
+  border-color: var(--kb-yellow-deep);
   background-color: #fff9e6;
   font-weight: 600;
 }

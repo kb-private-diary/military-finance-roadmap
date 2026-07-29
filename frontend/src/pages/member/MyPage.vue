@@ -1,8 +1,10 @@
 <script setup>
 // SCR-MYP-01 · 마이페이지 - 내 정보 조회 (담당: 호빈)
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import memberApi from '@/api/memberApi';
+import { formatDate } from '@/util/format';
+import bearSalute from '@/assets/images/bear-salute.png';
 
 const router = useRouter();
 
@@ -27,13 +29,16 @@ const loading = ref(true);
 const errorMessage = ref('');
 
 const typeName = (typeId) => MILITARY_TYPES.find((t) => t.typeId === typeId)?.name || '-';
-const rankName = (rankId) => MILITARY_RANKS.find((r) => r.rankId === rankId)?.name || '-';
+const rankName = (rankId) => MILITARY_RANKS.find((r) => r.rankId === rankId)?.name || '';
 
-const dischargeDday = (dischargeDate) => {
-  if (!dischargeDate) return '';
-  const diff = Math.ceil((new Date(dischargeDate) - new Date(new Date().toDateString())) / 86400000);
-  return diff >= 0 ? `D-${diff}` : `D+${Math.abs(diff)}`;
-};
+// 입대일 기준 며칠째 복무 중인지 (입대 당일도 1일차로 센다)
+const daysSinceEnlist = computed(() => {
+  if (!member.value?.enlistDate) return null;
+  const diff = Math.floor(
+    (new Date(new Date().toDateString()) - new Date(member.value.enlistDate)) / 86400000,
+  );
+  return diff >= 0 ? diff + 1 : null;
+});
 
 const load = async () => {
   loading.value = true;
@@ -52,54 +57,63 @@ onMounted(load);
 
 <template>
   <div class="mypage">
-    <h1 class="text-title mt-4 mb-4">마이페이지</h1>
-
     <p v-if="loading" class="text-caption">불러오는 중...</p>
     <p v-else-if="errorMessage" class="mypage__error text-caption">{{ errorMessage }}</p>
 
     <template v-else-if="member">
-      <section class="mypage__card">
-        <p class="mypage__name">{{ member.name }} 님</p>
-        <p class="text-caption mypage__id">{{ member.userId }}</p>
+      <section class="mypage__hero">
+        <div v-if="daysSinceEnlist !== null" class="mypage__badge">
+          <svg class="mypage__badge-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M4 13C4 9.13401 7.13401 6 11 6H13C16.866 6 20 9.13401 20 13V14H4V13Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+            <path d="M2 14H22" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            <path d="M12 6V4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            <circle cx="12" cy="2.6" r="1" fill="currentColor" />
+          </svg>
+          <span>입대한 지 {{ daysSinceEnlist }}일 째</span>
+        </div>
+
+        <p class="mypage__name">{{ member.name }} {{ rankName(member.rankId) }}님</p>
+
+        <img :src="bearSalute" alt="경례하는 곰돌이 캐릭터" class="mypage__mascot" />
       </section>
 
       <section class="mypage__info">
         <div class="mypage__row">
-          <span class="mypage__label">전화번호</span>
+          <span class="mypage__label">이메일</span>
+          <span class="mypage__value">{{ member.userId }}</span>
+        </div>
+        <div class="mypage__row">
+          <span class="mypage__label">연락처</span>
           <span class="mypage__value">{{ member.phone }}</span>
         </div>
         <div class="mypage__row">
-          <span class="mypage__label">군종 / 계급</span>
-          <span class="mypage__value">{{ typeName(member.typeId) }} / {{ rankName(member.rankId) }}</span>
+          <span class="mypage__label">군종</span>
+          <span class="mypage__value">{{ typeName(member.typeId) }}</span>
         </div>
         <div class="mypage__row">
-          <span class="mypage__label">부대</span>
+          <span class="mypage__label">사단</span>
           <span class="mypage__value">{{ member.unitName || '-' }}</span>
         </div>
         <div class="mypage__row">
           <span class="mypage__label">입대일</span>
-          <span class="mypage__value">{{ member.enlistDate || '-' }}</span>
+          <span class="mypage__value">{{ member.enlistDate ? formatDate(member.enlistDate) : '-' }}</span>
         </div>
         <div class="mypage__row">
           <span class="mypage__label">전역예정일</span>
-          <span class="mypage__value">
-            {{ member.dischargeDate || '-' }}
-            <span v-if="member.dischargeDate" class="mypage__dday">{{ dischargeDday(member.dischargeDate) }}</span>
-          </span>
+          <span class="mypage__value">{{ member.dischargeDate ? formatDate(member.dischargeDate) : '-' }}</span>
         </div>
       </section>
 
-      <section class="mypage__menu">
-        <button type="button" class="mypage__menu-item" @click="router.push({ name: 'MyPageEdit' })">
-          회원정보 수정
-        </button>
-        <button type="button" class="mypage__menu-item" @click="router.push({ name: 'MyPagePassword' })">
-          비밀번호 변경
-        </button>
-        <button type="button" class="mypage__menu-item mypage__menu-item--danger" @click="router.push({ name: 'MyPageWithdraw' })">
-          회원 탈퇴
-        </button>
-      </section>
+      <button type="button" class="mypage__edit-btn" @click="router.push({ name: 'MyPageEdit' })">
+        정보 수정
+      </button>
+
+      <button type="button" class="mypage__withdraw-link" @click="router.push({ name: 'MyPageWithdraw' })">
+        KB 텅장일병일기 서비스 탈퇴
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M9 6L15 12L9 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
     </template>
   </div>
 </template>
@@ -113,39 +127,68 @@ onMounted(load);
   color: var(--danger);
 }
 
-.mypage__card {
-  padding: 20px 4px;
-  border-bottom: 8px solid var(--kb-gray-pale);
+.mypage__hero {
+  position: relative;
+  padding: 20px 100px 24px 20px;
+  margin: 4px 0 4px;
+  background-color: var(--kb-gray-pale);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.mypage__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background-color: var(--kb-yellow-deep);
+  color: var(--text-strong);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.mypage__badge-icon {
+  width: 14px;
+  height: 14px;
 }
 
 .mypage__name {
-  font-size: 20px;
+  margin: 12px 0 0;
+  font-size: 22px;
   font-weight: 700;
   color: var(--text-strong);
-  margin: 0 0 4px;
 }
 
-.mypage__id {
-  margin: 0;
+.mypage__mascot {
+  position: absolute;
+  right: 8px;
+  bottom: 0;
+  width: 84px;
+  height: auto;
+  pointer-events: none;
 }
 
 .mypage__info {
-  padding: 20px 4px;
-  border-bottom: 8px solid var(--kb-gray-pale);
   display: flex;
   flex-direction: column;
-  gap: 16px;
 }
 
 .mypage__row {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.mypage__row:last-child {
+  border-bottom: none;
 }
 
 .mypage__label {
   font-size: 14px;
-  color: var(--text-muted, #9e9e9e);
+  color: var(--text-muted);
 }
 
 .mypage__value {
@@ -154,31 +197,32 @@ onMounted(load);
   color: var(--text-strong);
 }
 
-.mypage__dday {
-  margin-left: 6px;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--kb-yellow-deep);
-}
-
-.mypage__menu {
-  display: flex;
-  flex-direction: column;
-  padding: 8px 0;
-}
-
-.mypage__menu-item {
-  text-align: left;
-  padding: 16px 4px;
+.mypage__edit-btn {
+  display: block;
+  width: 100%;
+  margin-top: 20px;
+  padding: 14px;
   border: none;
-  background: none;
-  font-size: 15px;
-  font-weight: 500;
+  border-radius: 999px;
+  background-color: var(--kb-yellow-deep);
   color: var(--text-strong);
+  font-size: 15px;
+  font-weight: 700;
   cursor: pointer;
 }
 
-.mypage__menu-item--danger {
-  color: var(--danger);
+.mypage__withdraw-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 100%;
+  margin-top: 20px;
+  padding: 8px;
+  border: none;
+  background: none;
+  color: var(--text-hint);
+  font-size: 13px;
+  cursor: pointer;
 }
 </style>
