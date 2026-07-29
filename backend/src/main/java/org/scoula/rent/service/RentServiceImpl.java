@@ -4,13 +4,16 @@ import lombok.RequiredArgsConstructor;
 import org.scoula.common.exception.BusinessException;
 import org.scoula.rent.domain.RentGoalVO;
 import org.scoula.rent.domain.RentGoalRegionVO;
+import org.scoula.rent.domain.RentProgressVO;
 import org.scoula.rent.dto.RegionResponseDTO;
 import org.scoula.rent.dto.RentGoalCreateRequestDTO;
 import org.scoula.rent.dto.SchoolSearchResponseDTO;
+import org.scoula.rent.dto.ProgressUpdateRequestDTO;
 import org.scoula.rent.mapper.RentMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -18,6 +21,7 @@ import java.util.List;
 public class RentServiceImpl implements RentService {
 
     private static final String STATUS_DRAFT = "DRAFT";
+    private static final int TOTAL_PROGRESS_STEPS = 5;
 
     private final RentMapper mapper;
 
@@ -91,6 +95,32 @@ public class RentServiceImpl implements RentService {
         return mapper.findSchoolsByKeyword(keyword).stream()
                 .map(SchoolSearchResponseDTO::of)
                 .toList();
+    }
+
+    @Override
+    @Transactional
+    public int updateProgress(Long goalId, ProgressUpdateRequestDTO request, Long userId) {
+        boolean done = Boolean.TRUE.equals(request.getIsCompleted());
+
+        // 1) UPSERT — 있으면 UPDATE, 없으면 INSERT
+        RentProgressVO progress = new RentProgressVO();
+        progress.setGoalId(goalId);
+        progress.setStepCode(request.getStepCode());
+        progress.setIsCompleted(done ? "Y" : "N");
+        progress.setCompletedDate(done ? LocalDateTime.now() : null);
+        progress.setCreatedNm("user:" + userId); // TODO: JWT 연동 후 교체
+        mapper.upsertProgress(progress);
+
+        // 2) 진행률(%) 재계산해서 반환
+        return calculatePercentage(goalId);
+    }
+
+    /** 완료 단계 수 / 전체 단계 수(5) * 100 */
+    private int calculatePercentage(Long goalId) {
+        long completed = mapper.findProgressListByGoalId(goalId).stream()
+                .filter(p -> "Y".equals(p.getIsCompleted()))
+                .count();
+        return (int) (completed * 100 / TOTAL_PROGRESS_STEPS);
     }
 
     /** SCHOOL / REGION 모드별 필수값 검증 (모드에 따라 달라지는 조건이라 @Valid 대신 여기서) */

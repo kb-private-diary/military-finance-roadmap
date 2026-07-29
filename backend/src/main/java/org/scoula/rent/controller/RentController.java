@@ -5,6 +5,7 @@ import org.scoula.common.response.ApiResponse;
 import org.scoula.rent.dto.RegionResponseDTO;
 import org.scoula.rent.dto.RentGoalCreateRequestDTO;
 import org.scoula.rent.dto.SchoolSearchResponseDTO;
+import org.scoula.rent.dto.ProgressUpdateRequestDTO;
 import org.scoula.rent.service.RentService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -48,5 +49,16 @@ public class RentController {
             @RequestParam String keyword) {
 
         return ResponseEntity.ok(ApiResponse.success(service.findSchools(keyword)));
+    }
+
+    // PATCH /api/rent/goals/{goalId}/progress → 진행률 단계 체크/해제, 갱신된 % 반환
+    @PatchMapping("/goals/{goalId}/progress")
+    public ResponseEntity<ApiResponse<Integer>> updateProgress(
+            @PathVariable Long goalId,
+            @Valid @RequestBody ProgressUpdateRequestDTO request,
+            @RequestParam Long userId) { // TODO: JWT 연동 후 SecurityContext 로 교체
+
+        int percentage = service.updateProgress(goalId, request, userId);
+        return ResponseEntity.ok(ApiResponse.success(percentage));
     }
 }

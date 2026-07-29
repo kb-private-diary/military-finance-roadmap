@@ -4,6 +4,7 @@ import org.scoula.rent.domain.RegionCodeVO;
 import org.scoula.rent.domain.RentGoalVO;
 import org.scoula.rent.domain.RentGoalRegionVO;
 import org.scoula.rent.domain.SchoolVO;
+import org.scoula.rent.domain.RentProgressVO;
 import java.util.List;
 
 public interface RentMapper {
@@ -24,4 +25,10 @@ public interface RentMapper {
 
     // 학교 검색 (자동완성, 이름 부분일치)
     List<SchoolVO> findSchoolsByKeyword(String keyword);
+
+    // 진행률 단계 UPSERT (goal_id + step_code 있으면 UPDATE, 없으면 INSERT)
+    void upsertProgress(RentProgressVO progress);
+
+    // 목표의 진행 단계 목록 조회 (진행률 계산·표시용)
+    List<RentProgressVO> findProgressListByGoalId(Long goalId);
 }

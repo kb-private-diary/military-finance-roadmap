@@ -63,4 +63,23 @@
         LIMIT 20
     </select>
 
+    <!-- 진행률 단계 UPSERT: 같은 (goal_id, step_code) 가 있으면 UPDATE, 없으면 INSERT -->
+    <insert id="upsertProgress">
+        INSERT INTO rent_progress (goal_id, step_code, is_completed, completed_date, created_date, created_nm, del_yn)
+        VALUES (#{goalId}, #{stepCode}, #{isCompleted}, #{completedDate}, NOW(), #{createdNm}, 'N')
+        ON DUPLICATE KEY UPDATE
+            is_completed  = #{isCompleted},
+            completed_date = #{completedDate},
+            modified_date = NOW(),
+            modified_nm   = #{createdNm}
+    </insert>
+
+    <!-- 목표의 진행 단계 목록 (진행률 계산·표시용) -->
+    <select id="findProgressListByGoalId" resultType="org.scoula.rent.domain.RentProgressVO">
+        SELECT progress_id, goal_id, step_code, is_completed, completed_date
+        FROM rent_progress
+        WHERE goal_id = #{goalId}
+          AND del_yn = 'N'
+    </select>
+
 </mapper>
