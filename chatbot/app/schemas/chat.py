@@ -28,6 +28,8 @@ class MessageItem(CamelModel):
     role: str
     content: str
     source: Optional[str]
+    source_detail: Optional[str] = None
+    is_ai_generated: bool = False
     created_date: datetime
 
 
@@ -69,3 +71,12 @@ class FeedbackItem(CamelModel):
     feedback: str
     reason: Optional[str]
     created_date: datetime
+
+
+class RecommendationItem(CamelModel):
+    label: str
+    page_link: str
+
+
+class ReindexResponse(CamelModel):
+    reindexed_chunks: int
