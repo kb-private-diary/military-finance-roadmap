@@ -135,19 +135,4 @@
         AND del_yn = 'N'
     </update>
 
-    <select id="findCardProductListByCategory" parameterType="Integer" resultType="org.scoula.product.domain.CardProductVO">
-        SELECT
-            card_id     AS cardId,
-            category    AS category,
-            card_name   AS cardName,
-            card_type   AS cardType,
-            card_qual   AS cardQual,
-            card_desc   AS cardDesc,
-            card_url    AS cardUrl
-        FROM card_product
-        WHERE category = #{category}
-          AND del_yn = 'N'
-        ORDER BY card_id
-    </select>
-
 </mapper>
