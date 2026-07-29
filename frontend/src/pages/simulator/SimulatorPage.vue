@@ -134,6 +134,7 @@ const runCalculation = async () => {
     viewMode.value = 'simulated';
     simulateError.value = '';
   } catch (error) {
+    console.error(error)
     simulateError.value =
       error.response?.data?.message ?? '계산에 실패했습니다.';
   }
@@ -201,6 +202,7 @@ const fetchProducts = async () => {
     savingProducts.value = savings;
     policyProducts.value = policies;
   } catch (error) {
+    console.error(error)
     productError.value = '상품 정보를 불러오지 못했습니다.';
   } finally {
     isProductLoading.value = false;
@@ -222,6 +224,7 @@ const fetchDepositProducts = async () => {
   try {
     depositProducts.value = await productApi.findSavingProductList('deposits');
   } catch (error) {
+    console.error(error)
     depositError.value = '예금 상품을 불러오지 못했습니다.';
   } finally {
     isDepositLoading.value = false;
