@@ -1,13 +1,20 @@
 package org.scoula.product.domain;
 
+import java.math.BigDecimal;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import org.scoula.common.domain.BaseVO;
+import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
+import org.scoula.common.domain.BaseVO;
 
 // saving_product 테이블 매핑 VO (금감원 API 기반 KB 예·적금 상품 정보)
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder(toBuilder = true)
 @EqualsAndHashCode(callSuper = true)
 public class SavingProductVO extends BaseVO {
     private Long savingId;
