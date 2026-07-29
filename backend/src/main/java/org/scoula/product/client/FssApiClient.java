@@ -116,7 +116,12 @@ public class FssApiClient {
         if (node.isMissingNode() || node.isNull()) {
             return BigDecimal.ZERO;
         }
-        return new BigDecimal(node.asText("0"));
+        try {
+            return new BigDecimal(node.asText("0"));
+        } catch (NumberFormatException e) {
+            log.warn("FSS 응답 금리 파싱 실패: value={}", node.asText(), e);
+            throw this.fssApiUnavailable();
+        }
     }
 
     private JsonNode fetchPage(String endpoint, int pageNo) {

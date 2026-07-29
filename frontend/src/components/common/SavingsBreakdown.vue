@@ -74,7 +74,7 @@ const formatWon = (amount) => `${(amount ?? 0).toLocaleString('ko-KR')}원`;
 .savings-breakdown {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .savings-breakdown__bar {
@@ -105,7 +105,7 @@ const formatWon = (amount) => `${(amount ?? 0).toLocaleString('ko-KR')}원`;
 .savings-breakdown__legend {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 7px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -152,7 +152,7 @@ const formatWon = (amount) => `${(amount ?? 0).toLocaleString('ko-KR')}원`;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: 14px;
+  padding-top: 10px;
   border-top: 1px solid var(--line, #e0e0e0);
 }
 

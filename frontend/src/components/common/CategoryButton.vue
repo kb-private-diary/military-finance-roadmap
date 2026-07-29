@@ -49,9 +49,9 @@ const emit = defineEmits(['click']);
 
 /* ── 각 Variant 스타일 ── */
 .category-btn--oval-yellow {
-  padding: clamp(10px, 2.5vw, 12px) clamp(12px, 4vw, 20px);
+  padding: clamp(8px, 2vw, 10px) clamp(10px, 3vw, 16px);
   border-radius: 999px;
-  font-size: clamp(13px, 3.8vw, 15px);
+  font-size: clamp(14px, 3.8vw, 16px);
   font-weight: 500;
   background-color: #f5f5f5;
   color: #9e9e9e;
@@ -64,9 +64,9 @@ const emit = defineEmits(['click']);
 
 /* 4. oval-brown */
 .category-btn--oval-brown {
-  padding: clamp(8px, 2.5vw, 10px) clamp(12px, 4vw, 20px);
+  padding: clamp(7px, 2vw, 9px) clamp(10px, 3vw, 16px);
   border-radius: 999px;
-  font-size: clamp(13px, 3.8vw, 15px);
+  font-size: clamp(14px, 3.8vw, 16px);
   background-color: #f1ede1;
   color: #8d6e52;
 }
@@ -78,9 +78,9 @@ const emit = defineEmits(['click']);
 
 /* 2. square-yellow */
 .category-btn--square-yellow {
-  padding: clamp(10px, 2.5vw, 12px) clamp(12px, 4vw, 20px);
+  padding: clamp(8px, 2vw, 10px) clamp(10px, 3vw, 16px);
   border-radius: 12px;
-  font-size: clamp(13px, 3.8vw, 15px);
+  font-size: clamp(14px, 3.8vw, 16px);
   font-weight: 500;
   background-color: #f5f5f5;
   color: #9e9e9e;
@@ -97,9 +97,9 @@ const emit = defineEmits(['click']);
 .category-btn--pastel-yellow,
 .category-btn--pastel-green,
 .category-btn--pastel-pink {
-  padding: 8px 2vw;
+  padding: 6px 1.5vw;
   border-radius: 999px;
-  font-size: clamp(10px, 2.8vw, 13px);
+  font-size: clamp(11px, 2.8vw, 14px);
   letter-spacing: -0.5px;
   font-weight: 600;
   background-color: #c2c2c2;
