@@ -21,17 +21,17 @@ const userName = computed(() => auth.state.user.name || '고객');
 
 // 페이지 이동은 항상 이 함수를 거침 (팀원 라우터 확정 전까지는 path 문자열 그대로 사용)
 // TODO: EXTERNAL_NAV/EXTERNAL_TAGS/PAGE_LINKS 실제 경로 확정되면 router name 방식으로 교체
-function goTo(path) {
+const goTo = (path) => {
   router.push(path);
-}
+};
 
 // 챗봇 화면은 공통 헤더(AppHeader) 대신 자체 헤더를 쓰기로 팀 협의됨 (다른 은행 챗봇 UX 참고)
-function goBack() {
+const goBack = () => {
   router.back();
-}
-function goHome() {
+};
+const goHome = () => {
   router.push({ name: 'Home' });
-}
+};
 
 /* 전역 준비 바로가기 - 챗봇 밖 다른 팀원 페이지로 이동 (실제 경로로 교체 필요) */
 const EXTERNAL_NAV = [
@@ -169,33 +169,33 @@ const scrollToBottom = () => {
 
 const genId = () => `${Date.now()}-${Math.random()}`;
 
-function pushBot(msg) {
+const pushBot = (msg) => {
   messages.value.push({ id: genId(), role: 'bot', time: formatBubbleTime(), ...msg });
   scrollToBottom();
-}
-function pushUser(text) {
+};
+const pushUser = (text) => {
   messages.value.push({ id: genId(), role: 'user', text, time: formatBubbleTime() });
   scrollToBottom();
-}
-function pushError() {
+};
+const pushError = () => {
   messages.value.push({
     id: genId(),
     role: 'error',
     text: '서버 상의 오류가 있습니다. 잠시 후에 다시 시도해 주세요.',
   });
   scrollToBottom();
-}
+};
 
-function backToGuide() {
+const backToGuide = () => {
   pushBot(buildGuideMessage());
-}
+};
 
 // 어떤 답변에서든 처음 가이드 화면으로 돌아갈 수 있게 하는 공통 메뉴 항목
 // (이름을 "메인으로"가 아니라 "처음으로"로 둔 이유: 앱 홈 화면(X 버튼)과 헷갈리지 않게)
 const FIRST_MENU_ITEM = { label: '처음으로', onClick: backToGuide };
 
 /* 0단계 초기 화면: [군 적금 로드맵] 카드(외부 이동) + [무엇이든 물어보세요] 카드(챗봇 내 대화) + 하단 태그줄 */
-function buildGuideMessage() {
+const buildGuideMessage = () => {
   return {
     sections: [
       {
@@ -221,9 +221,9 @@ function buildGuideMessage() {
     ],
     caption: '챗봇은 질문 분석을 위해 AI를 활용하며, 서비스 개선 목적으로 사용됩니다.',
   };
-}
+};
 
-function showAllProducts() {
+const showAllProducts = () => {
   pushUser('적금·청약 상품이 궁금해요');
   panel.value = null;
   typing.value = true;
@@ -237,9 +237,9 @@ function showAllProducts() {
       ],
     });
   }, 700);
-}
+};
 
-async function openGlossary() {
+const openGlossary = async () => {
   pushUser('정책 용어가 궁금해요');
   panel.value = null;
   typing.value = true;
@@ -254,9 +254,9 @@ async function openGlossary() {
     typing.value = false;
     pushError();
   }
-}
+};
 
-async function openTerm(term) {
+const openTerm = async (term) => {
   pushUser(term);
   panel.value = null;
   typing.value = true;
@@ -269,9 +269,9 @@ async function openTerm(term) {
     typing.value = false;
     pushError();
   }
-}
+};
 
-async function openFaqCategories() {
+const openFaqCategories = async () => {
   pushUser('자주 묻는 질문');
   panel.value = null;
   typing.value = true;
@@ -289,9 +289,9 @@ async function openFaqCategories() {
     typing.value = false;
     pushError();
   }
-}
+};
 
-function openFaqCategory(categoryId, label) {
+const openFaqCategory = (categoryId, label) => {
   pushUser(label);
   panel.value = null;
   typing.value = true;
@@ -310,20 +310,20 @@ function openFaqCategory(categoryId, label) {
       menu: [...names.map((name) => ({ label: name, onClick: () => openDoc(name) })), FIRST_MENU_ITEM],
     });
   }, 700);
-}
+};
 
 /* 상품 소개 후 자주 묻는 질문을 하나씩 골라 물어볼 수 있게 함 - 이미 물어본 질문은 다음 메뉴에서 빠진다 */
-function openDoc(name) {
+const openDoc = (name) => {
   askProductQuestion(name, null);
-}
+};
 
-function askProductQuestion(name, askedQuestion) {
+const askProductQuestion = (name, askedQuestion) => {
   const remaining = (PRODUCT_QUESTIONS[name] || []).filter((q) => q !== askedQuestion);
   const extraMenu = remaining.map((q) => ({ label: q, onClick: () => askProductQuestion(name, q) }));
   askBackend(askedQuestion || name, { title: askedQuestion || name, extraMenu });
-}
+};
 
-function freeform() {
+const freeform = () => {
   pushUser('직접 질문 입력하기');
   panel.value = null;
   typing.value = true;
@@ -332,10 +332,10 @@ function freeform() {
     pushBot({ text: '네, 궁금하신 내용을 편하게 입력해주세요 :)' });
     inputRef.value?.focus();
   }, 600);
-}
+};
 
 /* 목돈 상담 - 되묻기형(목표기간 -> 투자성향 -> 추천) */
-function openCounsel() {
+const openCounsel = () => {
   pushUser('목돈 어떻게 쓸지 상담받기');
   panel.value = null;
   typing.value = true;
@@ -343,17 +343,17 @@ function openCounsel() {
     typing.value = false;
     startCounsel();
   }, 700);
-}
+};
 
-function startCounsel() {
+const startCounsel = () => {
   pushBot({
     title: '자금 상담',
     text: '몇 가지만 여쭤볼게요.\n목표 기간이 어떻게 되세요?',
     menu: ['1년 이하', '1~3년', '3년 이상'].map((p) => ({ label: p, onClick: () => askType(p) })),
   });
-}
+};
 
-function askType(period) {
+const askType = (period) => {
   pushUser(period);
   panel.value = null;
   typing.value = true;
@@ -367,9 +367,9 @@ function askType(period) {
       })),
     });
   }, 700);
-}
+};
 
-function finishCounsel(period, type) {
+const finishCounsel = (period, type) => {
   pushUser(type);
   panel.value = null;
   typing.value = true;
@@ -391,10 +391,10 @@ function finishCounsel(period, type) {
     }
     panel.value = 'actions';
   }, 900);
-}
+};
 
 /* 자유 입력 텍스트를 실제 백엔드(RAG/Gemini)로 보내고 답변을 받는다 */
-async function askBackend(text, { title, extraMenu = [] } = {}) {
+const askBackend = async (text, { title, extraMenu = [] } = {}) => {
   pushUser(text);
   input.value = '';
   panel.value = null;
@@ -440,9 +440,9 @@ async function askBackend(text, { title, extraMenu = [] } = {}) {
     typing.value = false;
     pushError();
   }
-}
+};
 
-function submitInput() {
+const submitInput = () => {
   const trimmed = input.value.trim();
   if (!trimmed) return;
 
@@ -460,30 +460,30 @@ function submitInput() {
   }
 
   askBackend(trimmed);
-}
+};
 
 /* 만족도 설문 모달 - "종료하기" 클릭 시 오픈 */
-function openFeedbackModal() {
+const openFeedbackModal = () => {
   selectedFeedback.value = null;
   feedbackReason.value = '';
   feedbackModalOpen.value = true;
-}
+};
 
 // X(닫기)/상담종료 둘 다 설문 제출 없이 모달만 닫는다. 상담종료는 대화 자체도 종료하는 의미라 메인 가이드로 돌아간다.
-function closeFeedbackModal() {
+const closeFeedbackModal = () => {
   feedbackModalOpen.value = false;
-}
-function endConsult() {
+};
+const endConsult = () => {
   feedbackModalOpen.value = false;
   panel.value = null;
   backToGuide();
-}
+};
 
-function selectFeedbackLevel(value) {
+const selectFeedbackLevel = (value) => {
   selectedFeedback.value = value;
-}
+};
 
-async function submitFeedbackModal() {
+const submitFeedbackModal = async () => {
   if (!selectedFeedback.value || feedbackSubmitting.value) return;
   feedbackSubmitting.value = true;
   try {
@@ -500,10 +500,10 @@ async function submitFeedbackModal() {
   feedbackModalOpen.value = false;
   panel.value = null;
   pushBot({ text: '소중한 의견 감사합니다 🙌', menu: [FIRST_MENU_ITEM] });
-}
+};
 
 /* 히스토리 제목 - 그 대화에서 처음 물어본 질문을 짧게 요약해서 타이틀로 사용 */
-function summarizeTitle(historyMessages) {
+const summarizeTitle = (historyMessages) => {
   const placeholderLabels = ['직접 질문 입력하기'];
   const userMsgs = historyMessages.filter((m) => m.role === 'user');
   const firstUser = userMsgs.find((m) => !placeholderLabels.includes(m.content)) || userMsgs[0];
@@ -511,9 +511,9 @@ function summarizeTitle(historyMessages) {
   const t = firstUser.content;
   if (TITLE_ALIASES[t]) return TITLE_ALIASES[t];
   return t.length > 14 ? `${t.slice(0, 14)}…` : t;
-}
+};
 
-function toBubble(m) {
+const toBubble = (m) => {
   if (m.role === 'user') {
     return { id: `hist-${m.messageId}`, role: 'user', text: m.content, time: formatBubbleTime(m.createdDate) };
   }
@@ -527,9 +527,9 @@ function toBubble(m) {
     isAiGenerated: m.isAiGenerated,
     menu: [FIRST_MENU_ITEM],
   };
-}
+};
 
-async function openHistory() {
+const openHistory = async () => {
   try {
     const { data: sessions } = await chatApi.listSessions(userId.value);
     if (!sessions.length) {
@@ -562,17 +562,17 @@ async function openHistory() {
   } catch {
     pushError();
   }
-}
+};
 
 // 마지막 메시지가 봇 답변이면 "종료하기" 버튼을 다시 보여준다.
 // (실시간 대화 중엔 답변 직후 panel='actions'가 되지만, 새로고침/재진입으로 히스토리를
 // 불러올 때는 이 상태가 초기화되므로 다시 계산해줘야 한다)
-function restorePanelFromHistory(historyMessages) {
+const restorePanelFromHistory = (historyMessages) => {
   const last = historyMessages[historyMessages.length - 1];
   panel.value = last?.role === 'bot' ? 'actions' : null;
-}
+};
 
-async function resumeSession(targetSessionId) {
+const resumeSession = async (targetSessionId) => {
   try {
     const { data: history } = await chatApi.getHistory(targetSessionId);
     sessionId.value = targetSessionId;
@@ -582,7 +582,7 @@ async function resumeSession(targetSessionId) {
   } catch {
     pushError();
   }
-}
+};
 
 onMounted(async () => {
   loading.value = true;
