@@ -3,9 +3,9 @@ package org.scoula.travel.service;
 import java.util.List;
 
 import org.scoula.travel.dto.CityCostResponseDTO;
-import org.scoula.travel.dto.TravelCostCreateRequestDTO;
 import org.scoula.travel.dto.TravelCostResponseDTO;
 import org.scoula.travel.dto.TravelGoalCreateRequestDTO;
+import org.scoula.travel.dto.TravelGoalDraftResponseDTO;
 import org.scoula.travel.dto.TravelPlaceResponseDTO;
 import org.scoula.travel.dto.TravelPlaceSelectionDTO;
 import org.scoula.travel.dto.TravelPlacesUpdateRequestDTO;
@@ -19,8 +19,14 @@ public interface TravelService {
     // 여행 목표 등록
     Long createGoal(TravelGoalCreateRequestDTO request);
 
-    // 예상 경비 산출 후 저장. 이미 결과가 있으면 소프트 삭제 후 재적재.
-    Long createCost(Long goalId, TravelCostCreateRequestDTO request);
+    TravelGoalDraftResponseDTO findCurrentDraft();
+
+    void updateGoal(
+            final Long goalId,
+            final TravelGoalCreateRequestDTO request);
+
+    // 예상 경비 산출 후 저장. 이미 결과가 있으면 현재 값을 갱신.
+    Long createCost(final Long goalId);
 
     // 산출된 예상 경비 조회
     TravelCostResponseDTO findCost(Long goalId);

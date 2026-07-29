@@ -7,6 +7,7 @@ import org.apache.ibatis.annotations.Param;
 import org.scoula.travel.domain.CityCostVO;
 import org.scoula.travel.domain.TravelCostVO;
 import org.scoula.travel.domain.TravelGoalVO;
+import org.scoula.travel.dto.TravelQuarterCostSearchDTO;
 
 public interface TravelMapper {
 
@@ -25,16 +26,25 @@ public interface TravelMapper {
     // 여행 목표 단건 조회. 경비 산출의 입력값을 읽는다.
     TravelGoalVO findGoal(@Param("goalId") Long goalId);
 
+    TravelGoalVO findDraftGoalByUserId(
+            @Param("userId") final Long userId);
+
+    int updateGoal(final TravelGoalVO vo);
+
     int updateGoalPlaces(@Param("goalId") final Long goalId,
                          @Param("places") final String places,
                          @Param("modifiedNm") final String modifiedNm);
 
-    int insertCost(TravelCostVO vo);
+    int insertCost(final TravelCostVO vo);
 
-    TravelCostVO findCostByGoalId(@Param("goalId") Long goalId);
+    int updateCost(final TravelCostVO vo);
 
-    // 기존 경비 산출 결과를 소프트 삭제한다. 중복 호출 시 사용.
-    int deleteCostByGoalId(@Param("goalId") Long goalId,
-                           @Param("modifiedNm") String modifiedNm);
+    TravelCostVO findCostByGoalId(@Param("goalId") final Long goalId);
+
+    Long findFlightCostByQuarter(
+            final TravelQuarterCostSearchDTO request);
+
+    Long findHotelCostByQuarter(
+            final TravelQuarterCostSearchDTO request);
 
 }

@@ -12,6 +12,7 @@ import { useRouter } from 'vue-router';
 import travelApi from '@/api/travelApi';
 import CategoryButton from '@/components/common/CategoryButton.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
+import { toIsoDate } from '@/util/format';
 
 const router = useRouter();
 
@@ -38,16 +39,12 @@ const loadingCities = ref(true);
 const loadError = ref('');
 const submitError = ref('');
 const submitting = ref(false);
+const draftGoalId = ref(null);
+const initialFormSnapshot = ref(null);
+const draftLoadFailed = ref(false);
 let scrollContainer = null;
 
-const toLocalDateString = (date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const today = toLocalDateString(new Date());
+const today = toIsoDate(new Date());
 
 const unwrap = (response) => response.data?.data;
 
@@ -96,16 +93,57 @@ const readErrorMessage = (error, fallback) =>
   error.error ||
   fallback;
 
+const toGoalRequest = () => ({
+  title: form.title.trim(),
+  departure: form.departure,
+  destination: form.destination,
+  style: form.style,
+  startDate: form.startDate,
+  endDate: form.endDate,
+  totalBudget: Number(form.totalBudget),
+});
+
+const toCostInputSnapshot = (request) =>
+  JSON.stringify({
+    departure: request.departure,
+    destination: request.destination,
+    style: request.style,
+    startDate: request.startDate,
+    endDate: request.endDate,
+  });
+
+const restoreDraft = (draft) => {
+  if (!draft) return;
+
+  const destinationCity = cities.value.find(
+    ({ city }) => city === draft.destination,
+  );
+  draftGoalId.value = draft.goalId;
+  form.title = draft.title || '';
+  form.departure = draft.departure || '';
+  form.destinationCountry = destinationCity?.country || '';
+  form.destination = draft.destination || '';
+  form.style = draft.style || '';
+  form.startDate = draft.startDate || '';
+  form.endDate = draft.endDate || '';
+  form.totalBudget = draft.totalBudget ?? '';
+  initialFormSnapshot.value = toGoalRequest();
+};
+
 onMounted(async () => {
   scrollContainer = document.querySelector('.app-content');
   scrollContainer?.classList.add('travel-scrollbar-hidden');
 
-  if (form.startDate && form.startDate < today) form.startDate = '';
-  if (form.endDate && form.endDate < today) form.endDate = '';
-
   try {
-    const response = await travelApi.findCities();
-    cities.value = unwrap(response) || [];
+    const [citiesResult, draftResult] = await Promise.allSettled([
+      travelApi.findCities(),
+      travelApi.findCurrentGoal(),
+    ]);
+    if (citiesResult.status === 'rejected') {
+      throw citiesResult.reason;
+    }
+
+    cities.value = unwrap(citiesResult.value) || [];
 
     departureOptions.value = toOptions(
       cities.value.filter(({ country }) => country === '대한민국'),
@@ -113,6 +151,16 @@ onMounted(async () => {
 
     if (!departureOptions.value.length || !cities.value.length) {
       throw new Error('도시 데이터가 비어 있습니다.');
+    }
+
+    if (draftResult.status === 'fulfilled') {
+      restoreDraft(unwrap(draftResult.value));
+    } else {
+      draftLoadFailed.value = true;
+      loadError.value = readErrorMessage(
+        draftResult.reason,
+        '작성 중인 여행 목표를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.',
+      );
     }
   } catch (error) {
     loadError.value = readErrorMessage(
@@ -141,7 +189,8 @@ const isFormValid = computed(
     form.endDate &&
     form.endDate >= today &&
     form.endDate >= form.startDate &&
-    Number(form.totalBudget) > 0,
+    Number(form.totalBudget) > 0 &&
+    !draftLoadFailed.value,
 );
 
 const selectStyle = (style) => {
@@ -155,18 +204,31 @@ const submitGoal = async () => {
   submitError.value = '';
 
   try {
-    const response = await travelApi.createGoal({
-      title: form.title.trim(),
-      departure: form.departure,
-      destination: form.destination,
-      style: form.style,
-      startDate: form.startDate,
-      endDate: form.endDate,
-      totalBudget: Number(form.totalBudget),
-    });
+    const request = toGoalRequest();
+    let goalId = draftGoalId.value;
+    let recalculate = false;
 
-    const goalId = unwrap(response);
-    await router.push({ name: 'TravelCost', params: { goalId } });
+    if (goalId) {
+      const changed =
+        JSON.stringify(request) !==
+        JSON.stringify(initialFormSnapshot.value);
+      if (changed) {
+        recalculate =
+          toCostInputSnapshot(request) !==
+          toCostInputSnapshot(initialFormSnapshot.value);
+        await travelApi.updateGoal(goalId, request);
+        initialFormSnapshot.value = request;
+      }
+    } else {
+      const response = await travelApi.createGoal(request);
+      goalId = unwrap(response);
+    }
+
+    await router.push({
+      name: 'TravelCost',
+      params: { goalId },
+      query: recalculate ? { recalculate: 'true' } : undefined,
+    });
   } catch (error) {
     submitError.value = readErrorMessage(
       error,
@@ -345,7 +407,7 @@ const submitGoal = async () => {
 .travel-goal {
   min-height: 100%;
   padding: 18px 0 88px;
-  color: #111;
+  color: var(--text-strong);
 }
 
 .roadmap-step {
@@ -370,10 +432,10 @@ const submitGoal = async () => {
   width: 22px;
   height: 22px;
   place-items: center;
-  border: 2px solid #657052;
+  border: 2px solid var(--travel-primary);
   border-radius: 50%;
-  background: #fff;
-  color: #293020;
+  background: var(--surface-default);
+  color: var(--travel-primary-dark);
   font-size: 12px;
   font-weight: 700;
 }
@@ -384,14 +446,14 @@ const submitGoal = async () => {
   left: 10px;
   height: 4px;
   overflow: hidden;
-  background: #dedede;
+  background: var(--line);
 }
 
 .roadmap-step__line-fill {
   display: block;
   width: 0;
   height: 100%;
-  background: #657052;
+  background: var(--travel-primary);
 }
 
 .travel-goal__title {
@@ -433,12 +495,12 @@ const submitGoal = async () => {
 .field__control--box {
   padding: 0 14px;
   border: 0;
-  background: #f7f7f8;
-  color: #333;
+  background: var(--surface-subtle);
+  color: var(--text-body);
 }
 
 .field__control::placeholder {
-  color: #aaa;
+  color: var(--text-disabled);
 }
 
 .select-wrap {
@@ -451,8 +513,8 @@ const submitGoal = async () => {
   right: 8px;
   width: 7px;
   height: 7px;
-  border-right: 1px solid #a5a5a5;
-  border-bottom: 1px solid #a5a5a5;
+  border-right: 1px solid var(--text-disabled);
+  border-bottom: 1px solid var(--text-disabled);
   content: '';
   pointer-events: none;
   transform: translateY(-70%) rotate(45deg);
@@ -462,10 +524,10 @@ const submitGoal = async () => {
   padding: 0 30px 0 12px;
   appearance: none;
   border: 0;
-  border-bottom: 2px solid #bdaf8d;
+  border-bottom: 2px solid var(--travel-accent-line);
   border-radius: 0;
   background: transparent;
-  color: #777;
+  color: var(--text-muted);
   text-align: center;
   text-align-last: center;
 }
@@ -516,24 +578,24 @@ const submitGoal = async () => {
   height: 40px;
   padding: 0 6px;
   border: 0;
-  border-bottom: 2px solid #bdaf8d;
+  border-bottom: 2px solid var(--travel-accent-line);
   border-radius: 0;
   outline: none;
   background: transparent;
-  color: #999;
+  color: var(--text-hint);
   font-family: inherit;
   font-size: 11px;
 }
 
 .date-field__separator {
-  color: #777;
+  color: var(--text-muted);
   font-size: 12px;
   text-align: center;
 }
 
 .form-error {
   margin: -3px 0 0;
-  color: #d34b4b;
+  color: var(--danger);
 }
 
 .sr-only {
@@ -559,17 +621,17 @@ const submitGoal = async () => {
 }
 
 .travel-goal :deep(.bottom-button-bar) {
-  background: #fff;
+  background: var(--surface-default);
 }
 
 .travel-goal :deep(.bottom-button-bar .bar-button.primary) {
-  background: #ffcc00;
-  color: #111;
+  background: var(--kb-yellow);
+  color: var(--text-strong);
 }
 
 .travel-goal :deep(.bottom-button-bar .bar-button.primary:disabled) {
-  background: #e8e8e8;
-  color: #999;
+  background: var(--kb-gray-pale);
+  color: var(--text-hint);
   cursor: not-allowed;
 }
 </style>
