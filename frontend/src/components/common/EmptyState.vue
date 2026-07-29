@@ -53,7 +53,7 @@ const props = defineProps({
         </svg>
       </slot>
     </div>
-    <p class="empty-state__title">{{ title }}</p>
+    <p class="empty-state__title text-title">{{ title }}</p>
     <p class="empty-state__description">{{ description }}</p>
     <!-- 다음 행동 CTA(버튼 등). 안 주면 렌더 안 됨 → 기존 사용처 그대로 동작 -->
     <div v-if="$slots.action" class="empty-state__action">
@@ -68,9 +68,9 @@ const props = defineProps({
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px 24px;
+  padding: 48px 24px;
   text-align: center;
-  border: 1px dashed #d1d5db;
+  border: 1px dashed var(--line-strong);
   border-radius: 12px;
 }
 
@@ -81,8 +81,9 @@ const props = defineProps({
   width: 44px;
   height: 44px;
   margin-bottom: 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--line);
   border-radius: 50%;
+  color: var(--text-hint);
 }
 
 .empty-state__icon :deep(svg) {
@@ -91,15 +92,13 @@ const props = defineProps({
 }
 
 .empty-state__title {
-  font-size: 16px;
-  font-weight: 700;
-  color: #1b1b1b;
   margin: 0 0 8px;
 }
 
 .empty-state__description {
-  font-size: 13px;
-  color: #9ca3af;
+  font-size: 14px;
+  color: var(--text-hint);
+  line-height: 1.5;
   margin: 0;
 }
 

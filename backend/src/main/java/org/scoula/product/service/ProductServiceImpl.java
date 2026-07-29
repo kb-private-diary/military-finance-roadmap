@@ -6,6 +6,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.scoula.product.dto.CardProductListResponseDTO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -134,5 +135,13 @@ public class ProductServiceImpl implements ProductService {
             return PRODUCT_TYPE_SAVING;
         }
         throw BusinessException.badRequest("유효하지 않은 상품 카테고리입니다.", "PRODU_001");
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CardProductListResponseDTO> findCardProductListByCategory(Integer category) {
+        return this.mapper.findCardProductListByCategory(category).stream()
+                .map(CardProductListResponseDTO::of)
+                .toList();
     }
 }
