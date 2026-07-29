@@ -25,6 +25,14 @@ const limitText = computed(() => {
   return `${min} ${max}`;
 });
 
+// 최소/최대가 같으면 범위(~) 대신 단일 값으로 표시
+const saveTrmText = computed(() => {
+  const { minSaveTrm, maxSaveTrm } = product.value;
+  return minSaveTrm === maxSaveTrm
+    ? `${minSaveTrm}개월`
+    : `${minSaveTrm} ~ ${maxSaveTrm}개월`;
+});
+
 const fetchProduct = async () => {
   isLoading.value = true;
   loadError.value = '';
@@ -73,9 +81,7 @@ onMounted(fetchProduct);
         </div>
         <div class="saving-detail__row">
           <span class="saving-detail__label">가입기간</span>
-          <span class="saving-detail__value">
-            {{ product.minSaveTrm }} ~ {{ product.maxSaveTrm }}개월
-          </span>
+          <span class="saving-detail__value">{{ saveTrmText }}</span>
         </div>
         <div class="saving-detail__row">
           <span class="saving-detail__label">납입금</span>
