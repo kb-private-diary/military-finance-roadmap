@@ -30,4 +30,18 @@
         ORDER BY umd_name
     </select>
 
+    <!-- 자취 목표 등록 -->
+    <insert id="insertGoal" parameterType="org.scoula.rent.domain.RentGoalVO"
+            useGeneratedKeys="true" keyProperty="goalId">
+        INSERT INTO rent_goal (
+            user_id, title, selection_mode, school_id, commute_radius_km,
+            monthly_budget, residence_preset, residence_months, status,
+            created_date, created_nm, del_yn
+        ) VALUES (
+            #{userId}, #{title}, #{selectionMode}, #{schoolId}, #{commuteRadiusKm},
+            #{monthlyBudget}, #{residencePreset}, #{residenceMonths}, #{status},
+            NOW(), #{createdNm}, 'N'
+        )
+    </insert>
+
 </mapper>
