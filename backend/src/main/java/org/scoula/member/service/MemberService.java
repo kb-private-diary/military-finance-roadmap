@@ -9,7 +9,9 @@ import org.scoula.member.dto.FindPasswordRequestDTO;
 import org.scoula.member.dto.MemberDTO;
 import org.scoula.member.dto.MemberJoinDetailRequestDTO;
 import org.scoula.member.dto.MemberJoinRequestDTO;
+import org.scoula.member.dto.MemberUpdateRequestDTO;
 import org.scoula.member.dto.TermsDTO;
+import org.scoula.member.dto.WithdrawRequestDTO;
 import org.scoula.security.account.dto.AuthResultDTO;
 
 public interface MemberService {
@@ -21,5 +23,7 @@ public interface MemberService {
     AuthResultDTO refresh(String refreshToken);
     FindIdResponseDTO findUserId(FindIdRequestDTO request);
     void resetPassword(FindPasswordRequestDTO request);
+    void updateMember(String userId, MemberUpdateRequestDTO request);
     void changePassword(String userId, ChangePasswordRequestDTO request);
+    void withdraw(String userId, WithdrawRequestDTO request);
 }

@@ -72,6 +72,15 @@
         AND goal_id = #{goalId}
     </select>
 
+    <update id="updateGoalPlaces">
+        UPDATE travel_goal
+        SET places = CAST(#{places} AS JSON),
+            modified_date = NOW(),
+            modified_nm = #{modifiedNm}
+        WHERE goal_id = #{goalId}
+          AND del_yn = 'N'
+    </update>
+
     <!-- 예상 경비 (travel_cost) -->
 
     <sql id="travelCostColumns">

@@ -26,7 +26,9 @@ import org.scoula.member.dto.FindPasswordRequestDTO;
 import org.scoula.member.dto.MemberDTO;
 import org.scoula.member.dto.MemberJoinDetailRequestDTO;
 import org.scoula.member.dto.MemberJoinRequestDTO;
+import org.scoula.member.dto.MemberUpdateRequestDTO;
 import org.scoula.member.dto.TermsDTO;
+import org.scoula.member.dto.WithdrawRequestDTO;
 import org.scoula.member.mapper.MemberMapper;
 import org.scoula.member.mapper.TermsMapper;
 import org.scoula.security.account.domain.MemberVO;
@@ -188,7 +190,7 @@ public class MemberServiceImpl implements MemberService {
                 && member.getName().equals(request.getName())
                 && member.getPhone().equals(request.getPhone());
         if (!identityMatches) {
-            throw BusinessException.notFound("일치하는 회원 정보가 없습니다.", "MEM_009");
+            throw BusinessException.notFound("일치하는 회원 정보가 없습니다.", "MEM_007");
         }
 
         this.validatePasswordPolicy(request.getNewPassword());
@@ -198,6 +200,25 @@ public class MemberServiceImpl implements MemberService {
 
         String encoded = this.passwordEncoder.encode(request.getNewPassword());
         this.mapper.updatePassword(member.getId(), encoded, member.getUserId());
+    }
+
+    @Transactional
+    @Override
+    public void updateMember(String userId, MemberUpdateRequestDTO request) {
+        MemberVO member = Optional.ofNullable(this.mapper.get(userId))
+                .orElseThrow(() -> BusinessException.notFound("일치하는 정보가 없습니다.", "MEM_001"));
+
+        // 전화번호를 실제로 바꾸는 경우에만 중복 체크한다 (그대로면 자기 자신과 충돌로 오탐).
+        if (!member.getPhone().equals(request.getPhone())) {
+            this.validatePhoneNotDuplicated(request.getPhone());
+        }
+
+        member.setName(request.getName());
+        member.setPhone(request.getPhone());
+        member.setUnitName(request.getUnitName());
+        member.setUnitCode(request.getUnitCode());
+        member.setModifiedNm(userId);
+        this.mapper.updateProfile(member);
     }
 
     @Transactional
@@ -219,6 +240,20 @@ public class MemberServiceImpl implements MemberService {
 
         String encoded = this.passwordEncoder.encode(request.getNewPassword());
         this.mapper.updatePassword(member.getId(), encoded, userId);
+    }
+
+    @Transactional
+    @Override
+    public void withdraw(String userId, WithdrawRequestDTO request) {
+        MemberVO member = Optional.ofNullable(this.mapper.get(userId))
+                .orElseThrow(() -> BusinessException.notFound("일치하는 정보가 없습니다.", "MEM_001"));
+
+        if (!this.passwordEncoder.matches(request.getPassword(), member.getPassword())) {
+            throw BusinessException.badRequest("현재 비밀번호가 올바르지 않습니다", "MEM_010");
+        }
+
+        log.info("회원 탈퇴 처리 - userId: {}, reason: {}", userId, request.getReason());
+        this.mapper.withdraw(member.getId(), userId);
     }
 
     // 개인정보 보호를 위해 아이디의 일부만 보여준다. 이메일 형식이면 @ 앞부분만, 아니면 절반만 마스킹.

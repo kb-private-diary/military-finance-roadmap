@@ -103,10 +103,12 @@
 
     <!--
         FSS API 동기화 UPSERT. (fin_prdt_cd, save_trm) UNIQUE 제약 기준으로 충돌 시 UPDATE 한다.
-        is_tax_exempt/gov_match_rate/product_link/min_limit 은 FSS API에 없는 값이라
-        UPDATE 절에서 제외해 기존에 수동으로 채워둔 값을 그대로 보존한다.
+        is_active/is_tax_exempt/gov_match_rate/product_link/min_limit 은 UPDATE 절에서 제외해
+        기존에 사람이 검수·설정해둔 값을 그대로 보존한다.
         (신규 상품은 이 값들이 아직 없으므로 FALSE/0.0/NULL 로 채워 넣는다.
-        is_active 도 신규 삽입 시엔 서비스단에서 강제로 FALSE 로 넘겨받아, 사람이 검수하기 전엔 목록에 노출되지 않는다.)
+        is_active 는 신규 삽입 시엔 서비스단에서 강제로 FALSE 로 넘겨받아, 사람이 검수하기 전엔 목록에 노출되지 않는다.
+        이후 재동기화 시 FSS 응답값으로 되돌아가지 않도록 UPDATE 절에서 제외했다 — is_active 는 오직 사람이 직접 바꾼다.
+        단, 이 때문에 단종(dcls_end_day 발생) 상품의 자동 숨김도 함께 사라지므로, 그건 사람이 별도로 확인해야 한다.)
     -->
     <insert id="upsertSavingProduct" parameterType="org.scoula.product.domain.SavingProductVO">
         INSERT INTO saving_product (
@@ -119,7 +121,6 @@
             FALSE, 0.0, NOW(), 'fss-sync', 'N'
         )
         ON DUPLICATE KEY UPDATE
-            is_active      = VALUES(is_active),
             kor_co_nm      = VALUES(kor_co_nm),
             product_name   = VALUES(product_name),
             join_member    = VALUES(join_member),

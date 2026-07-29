@@ -8,6 +8,7 @@ import lombok.extern.log4j.Log4j2;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,9 +22,12 @@ import org.scoula.member.dto.ChangePasswordRequestDTO;
 import org.scoula.member.dto.FindIdRequestDTO;
 import org.scoula.member.dto.FindIdResponseDTO;
 import org.scoula.member.dto.FindPasswordRequestDTO;
+import org.scoula.member.dto.MemberDTO;
 import org.scoula.member.dto.MemberJoinDetailRequestDTO;
 import org.scoula.member.dto.MemberJoinRequestDTO;
+import org.scoula.member.dto.MemberUpdateRequestDTO;
 import org.scoula.member.dto.TermsDTO;
+import org.scoula.member.dto.WithdrawRequestDTO;
 import org.scoula.member.service.MemberService;
 import org.scoula.security.account.domain.CustomUser;
 import org.scoula.security.account.dto.AuthResultDTO;
@@ -73,12 +77,36 @@ public class MemberController {
         return ResponseEntity.ok(ApiResponse.success());
     }
 
+    //마이페이지 - 내 정보 조회 (SCR-MYP-01)
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<MemberDTO>> findMyInfo(@AuthenticationPrincipal CustomUser customUser) {
+        return ResponseEntity.ok(ApiResponse.success(this.service.findMember(customUser.getUsername())));
+    }
+
+    //마이페이지 - 회원정보 수정 (SCR-MYP-02)
+    @PutMapping("/me")
+    public ResponseEntity<ApiResponse<Void>> updateMyInfo(
+            @AuthenticationPrincipal CustomUser customUser,
+            @RequestBody MemberUpdateRequestDTO request) {
+        this.service.updateMember(customUser.getUsername(), request);
+        return ResponseEntity.ok(ApiResponse.success());
+    }
+
     //마이페이지 - 비밀번호 변경 (SCR-MYP-03, 로그인 상태에서 현재 비밀번호 확인 후 변경)
     @PutMapping("/password")
     public ResponseEntity<ApiResponse<Void>> changePassword(
             @AuthenticationPrincipal CustomUser customUser,
             @RequestBody ChangePasswordRequestDTO request) {
         this.service.changePassword(customUser.getUsername(), request);
+        return ResponseEntity.ok(ApiResponse.success());
+    }
+
+    //마이페이지 - 회원 탈퇴 (SCR-MYP-04, 비밀번호 확인 후 소프트 삭제)
+    @DeleteMapping("/me")
+    public ResponseEntity<ApiResponse<Void>> withdraw(
+            @AuthenticationPrincipal CustomUser customUser,
+            @RequestBody WithdrawRequestDTO request) {
+        this.service.withdraw(customUser.getUsername(), request);
         return ResponseEntity.ok(ApiResponse.success());
     }
 

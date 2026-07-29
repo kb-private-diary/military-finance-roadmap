@@ -23,6 +23,39 @@ _LIVE_SOURCE_LABELS = {
     "investment": "Gemini AI (펀드 실시간 데이터 기반 생성)",
 }
 
+# RAG 답변의 출처 캡션용 — 문서(doc_name)별 기관명 표기. 정확한 상품 페이지 연결(랜딩)은
+# policy_product 데이터 정리 후 별도 처리하고, 우선 텍스트 출처 표시만 제공한다.
+_DOC_SOURCE_ORG = {
+    "장병내일준비적금": "KB국민은행 상품안내",
+    "청년미래적금": "KB국민은행 상품안내",
+    "청년주택드림청약통장": "KB국민은행 상품안내",
+    "정책용어사전": "정책용어사전",
+}
+_DOC_AS_OF = "2026년 3월 기준"
+
+
+def _build_source_detail(doc_name: Optional[str]) -> Optional[str]:
+    if not doc_name:
+        return None
+    org = _DOC_SOURCE_ORG.get(doc_name, doc_name)
+    if doc_name == "정책용어사전":
+        return org
+    return f"{org} · {doc_name} ({_DOC_AS_OF})"
+
+
+# CHAT-API-10: 답변의 source 라벨 기준 랜딩 추천. 청약/펀드는 아직 프론트에 전용 목록
+# 페이지가 없어 추천하지 않는다 (적금/예금만 /simulator 페이지에 실제 비교 UI가 있음).
+_LANDING_RECOMMENDATIONS = {
+    _LIVE_SOURCE_LABELS["savings"]: {"label": "적금 상품 더 보기", "page_link": "/simulator"},
+    _LIVE_SOURCE_LABELS["deposit"]: {"label": "예금 상품 더 보기", "page_link": "/simulator"},
+}
+
+
+def get_recommendation(source: Optional[str]) -> List[dict]:
+    """메시지의 source 라벨을 보고 랜딩 추천 목록을 반환한다. 해당 없으면 빈 리스트."""
+    recommendation = _LANDING_RECOMMENDATIONS.get(source)
+    return [recommendation] if recommendation else []
+
 SYSTEM_INSTRUCTION = (
     "너는 군장병을 위한 재무 상담 챗봇이다. 아래 [참고 자료]에 있는 내용만 근거로 답변한다. "
     "자료에 없는 내용은 모른다고 솔직히 답한다. "
@@ -65,6 +98,9 @@ class ChatState(TypedDict, total=False):
     product_category: Optional[str]
     context: str
     source: str
+    doc_names: List[str]  # RAG 검색결과 top_k의 doc_name (유사도 순), 실시간 데이터면 빈 리스트
+    source_detail: Optional[str]  # 사람이 읽는 출처 캡션 (RAG 답변만 해당, 없으면 None)
+    is_ai_generated: bool  # 프론트에 "AI가 생성한 답변입니다" 문구를 보여줄지 여부
     answer: str
 
 
@@ -83,16 +119,37 @@ def _classify_category_node(state: ChatState) -> ChatState:
     return {"product_category": classify_product_category(state["question"])}
 
 
+_SPECIFIC_DOC_NAMES = ("장병내일준비적금", "청년미래적금", "청년주택드림청약통장")
+
+
+def _pick_doc_name(answer: str, doc_names: List[str]) -> Optional[str]:
+    """생성된 답변 본문과 검색된 문서 목록을 보고 어느 문서가 출처인지 고른다.
+
+    검색 1위 청크만 보면 부정확할 수 있다 — 예를 들어 "장병내일준비적금 가입 조건"을
+    물으면 정책용어사전의 "가입자격확인서" 항목이 임베딩 유사도로는 1위인데,
+    실제 답변 본문은 2·3위인 장병내일준비적금 청크 내용으로 채워지는 경우가 있다.
+    그래서 답변에 특정 상품명이 하나만 명시적으로 언급되면 그걸 우선하고,
+    "비과세가 뭐야?"처럼 여러 상품에 걸치거나 상품명이 안 나오는 일반 용어 설명이면
+    검색 1위 문서(보통 정책용어사전)를 기본값으로 쓴다.
+    """
+    mentioned = [name for name in _SPECIFIC_DOC_NAMES if name in answer]
+    if len(mentioned) == 1:
+        return mentioned[0]
+    return doc_names[0] if doc_names else None
+
+
 def _build_context_node(state: ChatState) -> ChatState:
     category = state.get("product_category")
     if category:
         context = _build_product_context(category)
         source = _LIVE_SOURCE_LABELS[category]
-    else:
-        context_chunks = vectorstore.search(state["question"], top_k=_TOP_K)
-        context = "\n\n".join(context_chunks)
-        source = RAG_SOURCE_LABEL
-    return {"context": context, "source": source}
+        return {"context": context, "source": source, "doc_names": [], "is_ai_generated": True}
+
+    results = vectorstore.search_with_metadata(state["question"], top_k=_TOP_K)
+    context = "\n\n".join(text for text, _ in results)
+    source = RAG_SOURCE_LABEL
+    doc_names = [meta.get("doc_name") for _, meta in results if meta.get("doc_name")]
+    return {"context": context, "source": source, "doc_names": doc_names, "is_ai_generated": True}
 
 
 def _generate_node(state: ChatState) -> ChatState:
@@ -103,11 +160,22 @@ def _generate_node(state: ChatState) -> ChatState:
     else:
         prompt = f"{history_block}[참고 정책 문서]\n{state['context']}\n\n[질문]\n{state['question']}"
     answer = gemini_client.generate_content(prompt, system_instruction=SYSTEM_INSTRUCTION)
-    return {"answer": answer}
+
+    source_detail = None
+    if not category:
+        doc_name = _pick_doc_name(answer, state.get("doc_names") or [])
+        source_detail = _build_source_detail(doc_name)
+
+    return {"answer": answer, "source_detail": source_detail}
 
 
 def _irrelevant_node(state: ChatState) -> ChatState:
-    return {"answer": IRRELEVANT_REPLY, "source": "무관련 질문 안내"}
+    return {
+        "answer": IRRELEVANT_REPLY,
+        "source": "무관련 질문 안내",
+        "source_detail": None,
+        "is_ai_generated": False,
+    }
 
 
 def _route_after_intent(state: ChatState) -> str:
@@ -139,11 +207,19 @@ _graph.add_edge("irrelevant", END)
 _compiled_graph = _graph.compile()
 
 
-def generate_reply(question: str, history: Optional[List[Tuple[str, str]]] = None) -> Tuple[str, str]:
-    """반환값: (답변, source 라벨). LangGraph로 의도분류 → (분기) → 컨텍스트 구성 → 답변 생성을 수행한다.
+def generate_reply(
+    question: str, history: Optional[List[Tuple[str, str]]] = None
+) -> Tuple[str, str, Optional[str], bool]:
+    """반환값: (답변, source 라벨, source_detail 캡션, is_ai_generated).
+    LangGraph로 의도분류 → (분기) → 컨텍스트 구성 → 답변 생성을 수행한다.
 
     history: 같은 세션의 이전 메시지들 [(role, content), ...] (오래된 순, 현재 질문은 미포함).
     답변 생성 시 문맥으로 활용해 멀티턴 대화를 지원한다.
     """
     result = _compiled_graph.invoke({"question": question, "history": history or []})
-    return result["answer"], result["source"]
+    return (
+        result["answer"],
+        result["source"],
+        result.get("source_detail"),
+        result.get("is_ai_generated", False),
+    )

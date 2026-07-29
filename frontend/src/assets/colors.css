@@ -9,6 +9,7 @@
 
   --kb-gray-pale: #e8e8e8; /* 보조 버튼 · 비활성 배경 */
   --danger: #fa6e6e; /* 삭제·해지 */
+  --success: #2e9e5b; /* 비밀번호 일치 등 인라인 성공 상태 텍스트 */
 
   /* 텍스트 */
   --text-strong: #000000;
@@ -26,4 +27,9 @@
   --chart-2: #b39d89;
   --chart-3: #dac183;
   --chart-4: #ffecbe;
+
+  /* 챗봇(SCR-CHAT-01) 배경: 크림톤 */
+  --surface-cream: #fbf8ee;
+  /* 챗봇 만족도 설문(만족) 강조색 - 긍정 상태 전용, danger(부정)와 대응 */
+  --mood-positive: #4caf7d;
 }

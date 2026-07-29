@@ -61,6 +61,7 @@ public class ProductController {
     }
 
     // POST /api/products/sync → FSS API에서 KB 예·적금 상품을 가져와 DB에 반영 (운영/디버깅용 수동 트리거, 스케줄러와 동일 로직)
+    // TODO: JWT 연동 후 접근 제어 필요
     @PostMapping("/sync")
     public ResponseEntity<ApiResponse<ProductSyncResponseDTO>> syncSavingProducts() {
         ProductSyncResponseDTO result = service.syncSavingProducts();

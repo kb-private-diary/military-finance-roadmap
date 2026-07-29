@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.core.exceptions import BusinessException
 from app.models.chat import ChatFeedback, ChatMessage, ChatSession
+from app.models.user import User
 from app.schemas.chat import (
     FaqCategoryItem,
     FeedbackCreateRequest,
@@ -19,6 +20,8 @@ from app.schemas.chat import (
     GlossaryItem,
     MessageCreateRequest,
     MessageItem,
+    RecommendationItem,
+    ReindexResponse,
     SessionCreateRequest,
     SessionListItem,
     SessionResponse,
@@ -32,7 +35,7 @@ from app.schemas.product import (
     SubscriptionDetail,
     SubscriptionItem,
 )
-from app.services import cheongyakhome, fss, gemini, policy_docs
+from app.services import cheongyakhome, fss, gemini, policy_docs, vectorstore
 from app.services import fund as fund_service
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
@@ -40,7 +43,7 @@ logger = logging.getLogger(__name__)
 
 MESSAGE_MAX_LENGTH = 500
 GEMINI_FAILURE_MESSAGE = "서버에 문제가 발생했습니다. 잠시 후에 다시 시도해 주세요."
-FEEDBACK_VALUES = ("like", "dislike")
+FEEDBACK_VALUES = ("like", "neutral", "dislike")
 HISTORY_LIMIT = 6  # 최근 메시지 몇 개까지 멀티턴 문맥으로 넘길지 (3턴치)
 
 TOPICS = [
@@ -166,16 +169,18 @@ def send_message(payload: MessageCreateRequest, db: Session = Depends(get_db)):
     db.commit()
 
     try:
-        reply, source = gemini.generate_reply(content, history=history)
+        reply, source, source_detail, is_ai_generated = gemini.generate_reply(content, history=history)
     except Exception:
         logger.exception("Gemini 응답 생성 실패 (session_id=%s)", payload.session_id)
-        reply, source = GEMINI_FAILURE_MESSAGE, "오류 안내"
+        reply, source, source_detail, is_ai_generated = GEMINI_FAILURE_MESSAGE, "오류 안내", None, False
 
     bot_message = ChatMessage(
         session_id=payload.session_id,
         role="bot",
         content=reply,
         source=source,
+        source_detail=source_detail,
+        is_ai_generated=is_ai_generated,
         created_date=datetime.now(),
         created_nm=str(session.user_id),
     )
@@ -339,7 +344,7 @@ def create_feedback(payload: FeedbackCreateRequest, db: Session = Depends(get_db
         raise BusinessException("세션을 찾을 수 없습니다", 404, "CHAT_001")
 
     if payload.feedback not in FEEDBACK_VALUES:
-        raise BusinessException("feedback 값은 like 또는 dislike여야 합니다", 400, "CHAT_007")
+        raise BusinessException("feedback 값은 like, neutral, dislike 중 하나여야 합니다", 400, "CHAT_007")
 
     if payload.message_id is not None:
         message = (
@@ -370,6 +375,25 @@ def create_feedback(payload: FeedbackCreateRequest, db: Session = Depends(get_db
 
 
 # RAG-009: 답변 관련 콘텐츠 추천
-@router.get("/messages/{messageId}/recommendations")
-def get_recommendation(message_id: int = Path(..., alias="messageId")):
-    raise NotImplementedError
+@router.get("/messages/{messageId}/recommendations", response_model=List[RecommendationItem])
+def get_recommendation(message_id: int = Path(..., alias="messageId"), db: Session = Depends(get_db)):
+    message = (
+        db.query(ChatMessage)
+        .filter(ChatMessage.message_id == message_id, ChatMessage.del_yn == "N")
+        .first()
+    )
+    if not message:
+        raise BusinessException("메시지를 찾을 수 없습니다", 404, "CHAT_009")
+    return gemini.get_recommendation(message.source)
+
+
+# 관리자 전용: 정책 문서 재인덱싱 트리거
+# TODO: JWT 연동 후 SecurityContext에서 role 추출하는 방식으로 교체, 그 전까지는 임시로 query param에서 받음
+@router.post("/admin/reindex", response_model=ReindexResponse)
+def reindex_policy_docs(user_id: int = Query(...), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user or user.role != "ADMIN":
+        raise BusinessException("관리자만 접근할 수 있습니다", 403, "CHAT_010")
+
+    count = vectorstore.build_index(force=True)
+    return ReindexResponse(reindexed_chunks=count)
