@@ -54,7 +54,7 @@ const goHome = () => {
         </svg>
       </button>
 
-      <h1 class="app-header__title">{{ APP_NAME }}</h1>
+      <h1 class="app-header__title text-label">{{ APP_NAME }}</h1>
     </div>
 
     <div class="app-header__right">
@@ -146,8 +146,8 @@ const goHome = () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 52px;
-  padding: 0 16px;
+  height: 56px;
+  padding: 0 20px;
   background-color: #ffffff;
   flex-shrink: 0;
 }
@@ -157,6 +157,7 @@ const goHome = () => {
   align-items: center;
   gap: 10px;
   min-width: 0;
+  line-height: 1;
 }
 
 .app-header__right {
@@ -175,7 +176,7 @@ const goHome = () => {
   padding: 0;
   background: none;
   border: none;
-  color: #9ca3af;
+  color: var(--text-strong);
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -186,13 +187,10 @@ const goHome = () => {
 }
 
 .app-header__icon-btn:hover {
-  color: #ffbc00;
+  color: var(--kb-yellow-deep);
 }
 
 .app-header__title {
-  font-size: 17px;
-  font-weight: 700;
-  color: #9ca3af;
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
