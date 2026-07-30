@@ -19,10 +19,10 @@ const { show: showToast } = useToast();
 const userId = computed(() => auth.state.user.id);
 const userName = computed(() => auth.state.user.name || '고객');
 
-// 페이지 이동은 항상 이 함수를 거침 (팀원 라우터 확정 전까지는 path 문자열 그대로 사용)
-// TODO: EXTERNAL_NAV/EXTERNAL_TAGS/PAGE_LINKS 실제 경로 확정되면 router name 방식으로 교체
-const goTo = (path) => {
-  router.push(path);
+// 페이지 이동은 항상 이 함수를 거침. router.push는 문자열 경로/{name} 객체를 모두 받으므로
+// target 자리에 실제 확정된 라우트는 { name: 'X' }, 아직 안 정해진 자리는 문자열 경로(TODO)를 넣는다.
+const goTo = (target) => {
+  router.push(target);
 };
 
 // 챗봇 화면은 공통 헤더(AppHeader) 대신 자체 헤더를 쓰기로 팀 협의됨 (다른 은행 챗봇 UX 참고)
@@ -33,33 +33,46 @@ const goHome = () => {
   router.push({ name: 'Home' });
 };
 
-/* 전역 준비 바로가기 - 챗봇 밖 다른 팀원 페이지로 이동 (실제 경로로 교체 필요) */
+/* 전역 준비 바로가기 - 챗봇 밖 다른 팀원 화면으로 이동. 각 로드맵의 1단계(목표 등록)로 연결한다
+   (라우트정의서 기준, 2026-07-30) */
 const EXTERNAL_NAV = [
-  { label: '여행 계획 세우기', path: '/roadmap/travel' }, // 태석님 로드맵
-  { label: '자취 준비하기', path: '/roadmap/realestate' }, // 수연님 로드맵
-  { label: '진로 준비하기', path: '/roadmap/career' }, // 지원님 로드맵
-  { label: '자차 준비하기', path: '/roadmap/car' }, // 로드맵
+  { label: '여행 계획 세우기', to: { name: 'TravelGoalCreate' } }, // 태석님
+  { label: '자취 준비하기', to: { name: 'RentGoalCreate' } }, // 수연님
+  { label: '진로 준비하기', to: { name: 'JobGoalCreate' } }, // 지원님
+  { label: '자차 준비하기', to: { name: 'CarGoalCreate' } }, // 호빈님
 ];
 
-/* 하단 태그줄 - 메인으로/자주 묻는 질문 빼곤 대부분 다른 페이지로 이동 (실제 경로로 교체 필요) */
+/* 하단 태그줄 - 자주 묻는 질문 빼곤 대부분 다른 페이지로 이동.
+   "적금률 비교"는 단순 이동이 아니라 상담형 로직(WBS-6)으로 봐야 해서 아직 버튼에서 뺌 */
 const EXTERNAL_TAGS = [
-  { label: '군적금 활용하기', path: '/content/savings-tips' },
-  { label: '후회소비 회고', path: '/content/spending-review' },
-  { label: '적금률 비교', path: '/tools/rate-compare' },
-  { label: '자금 시뮬레이션', path: '/tools/finance-simulation' },
+  { label: '군적금 활용하기', onClick: () => showAllFeatures() },
+  { label: '후회소비 회고', to: { name: 'RegretReview' } },
+  { label: '자금 시뮬레이션', to: { name: 'Simulator' } },
+];
+
+/* "군적금 활용하기" 클릭 시 보여줄 전체 기능 목록 (라우트정의서 기준, 2026-07-30) */
+const ALL_FEATURES = [
+  { label: '여행 계획 세우기', to: { name: 'TravelGoalCreate' } },
+  { label: '자취 준비하기', to: { name: 'RentGoalCreate' } },
+  { label: '진로 준비하기', to: { name: 'JobGoalCreate' } },
+  { label: '자차 준비하기', to: { name: 'CarGoalCreate' } },
+  { label: '군적금 시뮬레이션', to: { name: 'Simulator' } },
+  { label: '대시보드 (D-Day·휴가 관리)', to: { name: 'Dashboard' } },
+  { label: '후회소비 회고', to: { name: 'RegretDashboard' } },
+  { label: '전우들과 비교(소셜)', to: { name: 'Social' } },
 ];
 
 /* 다른 팀원이 만든 프로젝트 내 페이지로 연결 - 실제 키워드/경로는 페이지가 준비되는 대로 채워 넣으면 됨 */
 const PAGE_LINKS = [
   {
     keywords: ['계산기', '이자 계산', '목돈 계산', '얼마 모'],
-    label: '적금 이자 계산기 페이지로 이동',
-    path: '/tools/interest-calculator',
+    label: '군적금 계산기 페이지로 이동',
+    to: { name: 'SimulatorCalc' },
   },
   {
-    keywords: ['전세', '부동산', '내 집 마련 가이드', '신혼', '매매'],
-    label: '내 집 마련 가이드 페이지로 이동',
-    path: '/guide/real-estate',
+    keywords: ['전세', '자취', '신혼', '매매', '집 마련'],
+    label: '자취 준비 페이지로 이동',
+    to: { name: 'RentGoalCreate' },
   },
 ];
 
@@ -201,7 +214,7 @@ const buildGuideMessage = () => {
       {
         heading: '군 적금 로드맵',
         subtitle: '필요한 정보를 모아왔어요.',
-        items: EXTERNAL_NAV.map((n) => ({ label: n.label, onClick: () => goTo(n.path) })),
+        items: EXTERNAL_NAV.map((n) => ({ label: n.label, onClick: () => goTo(n.to) })),
       },
       {
         heading: '무엇이든 물어보세요',
@@ -216,7 +229,7 @@ const buildGuideMessage = () => {
     ],
     // 이미 가이드 화면이라 "처음으로"는 여기선 의미가 없어서 빼고, 답변 메뉴에만 붙인다.
     tags: [
-      ...EXTERNAL_TAGS.map((t) => ({ label: t.label, onClick: () => goTo(t.path) })),
+      ...EXTERNAL_TAGS.map((t) => ({ label: t.label, onClick: t.onClick ?? (() => goTo(t.to)) })),
       { label: '자주 묻는 질문', onClick: () => openFaqCategories() },
     ],
     caption: '챗봇은 질문 분석을 위해 AI를 활용하며, 서비스 개선 목적으로 사용됩니다.',
@@ -235,6 +248,20 @@ const showAllProducts = () => {
         ...Object.keys(PRODUCT_QUESTIONS).map((name) => ({ label: name, onClick: () => openDoc(name) })),
         FIRST_MENU_ITEM,
       ],
+    });
+  }, 700);
+};
+
+/* "군적금 활용하기" - 챗봇 밖 전체 기능 목록을 보여준다 */
+const showAllFeatures = () => {
+  pushUser('군적금 활용하기');
+  panel.value = null;
+  typing.value = true;
+  setTimeout(() => {
+    typing.value = false;
+    pushBot({
+      text: '어떤 기능을 살펴보고 싶으신가요?',
+      menu: [...ALL_FEATURES.map((f) => ({ label: f.label, onClick: () => goTo(f.to) })), FIRST_MENU_ITEM],
     });
   }, 700);
 };
@@ -406,7 +433,7 @@ const askBackend = async (text, { title, extraMenu = [] } = {}) => {
     const menu = [...extraMenu, FIRST_MENU_ITEM];
     const pageLink = PAGE_LINKS.find((p) => p.keywords.some((k) => text.includes(k)));
     if (pageLink) {
-      menu.unshift({ label: pageLink.label, onClick: () => goTo(pageLink.path) });
+      menu.unshift({ label: pageLink.label, onClick: () => goTo(pageLink.to) });
     }
 
     const bubble = {
@@ -860,8 +887,8 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   min-height: 100%;
-  margin: 0 -16px;
-  padding: 0 16px;
+  margin: 0 -20px -20px;
+  padding: 0 20px 20px;
   background: var(--surface-cream);
 }
 
@@ -895,8 +922,8 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 0 -16px;
-  padding: 12px 16px;
+  margin: 0 -20px;
+  padding: 12px 20px;
   background: #ffffff;
   border-bottom: 1px solid var(--line);
 }
