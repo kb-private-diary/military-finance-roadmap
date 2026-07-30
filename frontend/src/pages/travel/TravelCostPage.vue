@@ -3,7 +3,11 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import travelApi from '@/api/travelApi';
+import BaseCard from '@/components/common/BaseCard.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
+import DonutChart from '@/components/common/DonutChart.vue';
+import ProgressBar from '@/components/common/ProgressBar.vue';
+import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
 import { formatWon } from '@/util/format';
 
 const route = useRoute();
@@ -48,24 +52,6 @@ const costItems = computed(() => [
 const chartTotal = computed(() =>
   costItems.value.reduce((sum, item) => sum + item.value, 0),
 );
-
-const segments = computed(() => {
-  if (!chartTotal.value) return [];
-
-  let accumulated = 0;
-  return costItems.value.map((item) => {
-    const start = (accumulated / chartTotal.value) * 100;
-    accumulated += item.value;
-    const end = (accumulated / chartTotal.value) * 100;
-    return `${item.color} ${start}% ${end}%`;
-  });
-});
-
-const donutStyle = computed(() => ({
-  background: segments.value.length
-    ? `conic-gradient(${segments.value.join(', ')})`
-    : 'var(--surface-muted)',
-}));
 
 const percentOf = (value) => {
   if (!chartTotal.value) return 0;
@@ -120,15 +106,7 @@ const goNext = () =>
 
 <template>
   <div class="travel-cost">
-    <section class="roadmap-step" aria-label="여행 로드맵 2단계">
-      <p class="roadmap-step__label text-overline">여행 로드맵</p>
-      <div class="roadmap-step__progress">
-        <span class="roadmap-step__number">2</span>
-        <span class="roadmap-step__line">
-          <span class="roadmap-step__line-fill" />
-        </span>
-      </div>
-    </section>
+    <RoadmapCharacterSlider :progress="34" label="여행 로드맵" />
 
     <div v-if="loading" class="status-box text-caption" role="status">
       예상 비용을 계산하고 있습니다.
@@ -149,16 +127,18 @@ const goNext = () =>
       </h2>
       <p class="travel-cost__total">{{ formatWon(cost.totalCost) }}</p>
 
-      <section class="cost-card" aria-label="여행 비용 상세">
+      <BaseCard
+        class="cost-card"
+        padding="29px 22px 31px"
+        aria-label="여행 비용 상세"
+      >
         <div class="chart-area">
-          <div
-            class="donut-chart"
-            :style="donutStyle"
-            role="img"
-            aria-label="숙소비, 식비, 교통비 비율을 나타내는 도넛 차트"
-          >
-            <span class="donut-chart__hole" />
-          </div>
+          <DonutChart
+            :items="costItems"
+            :size="174"
+            :thickness="38"
+            chart-label="숙소비, 관광비, 교통비 비율"
+          />
 
           <ul class="legend">
             <li v-for="item in costItems" :key="item.label">
@@ -174,19 +154,16 @@ const goNext = () =>
         <ul class="breakdown">
           <li v-for="item in costItems" :key="item.label">
             <span class="breakdown__label text-caption">{{ item.label }}</span>
-            <span class="breakdown__bar">
-              <span
-                class="breakdown__fill"
-                :style="{
-                  width: `${percentOf(item.value)}%`,
-                  backgroundColor: item.color,
-                }"
-              />
-            </span>
+            <ProgressBar
+              :value="item.value"
+              :total="chartTotal"
+              :color="item.color"
+              :height="6"
+            />
             <strong>{{ percentOf(item.value) }}%</strong>
           </li>
         </ul>
-      </section>
+      </BaseCard>
     </template>
 
     <BottomButtonBar
@@ -206,52 +183,8 @@ const goNext = () =>
   color: var(--text-strong);
 }
 
-.roadmap-step {
-  margin-bottom: 34px;
-}
-
-.roadmap-step__label {
-  margin: 0 0 15px;
-}
-
-.roadmap-step__progress {
-  position: relative;
-  display: flex;
-  align-items: center;
-  height: 22px;
-}
-
-.roadmap-step__number {
-  position: relative;
-  z-index: 2;
-  display: grid;
-  width: 22px;
-  height: 22px;
-  margin-left: 33.3333%;
-  place-items: center;
-  border: 2px solid var(--travel-primary);
-  border-radius: 50%;
-  background: var(--surface-default);
-  color: var(--travel-primary-dark);
-  font-size: 12px;
-  font-weight: 700;
-  transform: translateX(-50%);
-}
-
-.roadmap-step__line {
-  position: absolute;
-  right: 10px;
-  left: 10px;
-  height: 4px;
-  overflow: hidden;
-  background: var(--line);
-}
-
-.roadmap-step__line-fill {
-  display: block;
-  width: 33.3333%;
-  height: 100%;
-  background: var(--travel-primary);
+.travel-cost :deep(.character-slider) {
+  margin-bottom: 28px;
 }
 
 .travel-cost__title {
@@ -270,8 +203,6 @@ const goNext = () =>
 }
 
 .cost-card {
-  padding: 29px 22px 31px;
-  border: 1px solid var(--line-strong);
   border-radius: 13px;
 }
 
@@ -281,24 +212,6 @@ const goNext = () =>
   justify-content: center;
   gap: 23px;
   margin-bottom: 36px;
-}
-
-.donut-chart {
-  position: relative;
-  display: grid;
-  width: 174px;
-  height: 174px;
-  flex: 0 0 174px;
-  place-items: center;
-  border-radius: 50%;
-  transform: rotate(-8deg);
-}
-
-.donut-chart__hole {
-  width: 82px;
-  height: 82px;
-  border-radius: 50%;
-  background: var(--surface-default);
 }
 
 .legend,
@@ -346,20 +259,6 @@ const goNext = () =>
 
 .breakdown__label {
   font-weight: 500;
-}
-
-.breakdown__bar {
-  height: 6px;
-  overflow: hidden;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  background: var(--surface-default);
-}
-
-.breakdown__fill {
-  display: block;
-  height: 100%;
-  min-width: 0;
 }
 
 .breakdown strong {
