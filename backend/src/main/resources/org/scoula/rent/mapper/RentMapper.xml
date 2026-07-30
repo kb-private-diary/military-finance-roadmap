@@ -30,4 +30,75 @@
         ORDER BY umd_name
     </select>
 
+    <!-- 자취 목표 등록 -->
+    <insert id="insertGoal" parameterType="org.scoula.rent.domain.RentGoalVO"
+            useGeneratedKeys="true" keyProperty="goalId">
+        INSERT INTO rent_goal (
+            user_id, title, selection_mode, school_id, commute_radius_km,
+            monthly_budget, residence_preset, residence_months, status,
+            created_date, created_nm, del_yn
+        ) VALUES (
+            #{userId}, #{title}, #{selectionMode}, #{schoolId}, #{commuteRadiusKm},
+            #{monthlyBudget}, #{residencePreset}, #{residenceMonths}, #{status},
+            NOW(), #{createdNm}, 'N'
+        )
+    </insert>
+
+    <!-- 목표별 희망 지역 등록 (REGION 모드, 여러 건 한 번에) -->
+    <insert id="insertGoalRegions">
+        INSERT INTO rent_goal_region (goal_id, region_code, created_date, created_nm, del_yn)
+        VALUES
+        <foreach collection="list" item="region" separator=",">
+            (#{region.goalId}, #{region.regionCode}, NOW(), #{region.createdNm}, 'N')
+        </foreach>
+    </insert>
+
+    <!-- 학교 검색 (자동완성, 이름 부분일치) -->
+    <select id="findSchoolsByKeyword" resultType="org.scoula.rent.domain.SchoolVO">
+        SELECT school_id, school_name, address, sigungu_code, region_code, latitude, longitude
+        FROM school
+        WHERE school_name LIKE CONCAT('%', #{keyword}, '%')
+          AND del_yn = 'N'
+        ORDER BY school_name
+        LIMIT 20
+    </select>
+
+    <!-- 진행률 단계 UPSERT: 같은 (goal_id, step_code) 가 있으면 UPDATE, 없으면 INSERT -->
+    <insert id="upsertProgress">
+        INSERT INTO rent_progress (goal_id, step_code, is_completed, completed_date, created_date, created_nm, del_yn)
+        VALUES (#{goalId}, #{stepCode}, #{isCompleted}, #{completedDate}, NOW(), #{createdNm}, 'N')
+        ON DUPLICATE KEY UPDATE
+            is_completed  = #{isCompleted},
+            completed_date = #{completedDate},
+            modified_date = NOW(),
+            modified_nm   = #{createdNm}
+    </insert>
+
+    <!-- 목표의 진행 단계 목록 (진행률 계산·표시용) -->
+    <select id="findProgressListByGoalId" resultType="org.scoula.rent.domain.RentProgressVO">
+        SELECT progress_id, goal_id, step_code, is_completed, completed_date
+        FROM rent_progress
+        WHERE goal_id = #{goalId}
+          AND del_yn = 'N'
+    </select>
+
+    <!-- 목표 단건 조회 (상세) -->
+    <select id="findGoalById" resultType="org.scoula.rent.domain.RentGoalVO">
+        SELECT goal_id, user_id, title, selection_mode, school_id, commute_radius_km,
+               monthly_budget, residence_preset, residence_months, status,
+               created_date, created_nm, modified_date, modified_nm, del_yn
+        FROM rent_goal
+        WHERE goal_id = #{goalId}
+          AND del_yn = 'N'
+    </select>
+
+    <!-- 재등록 시 기존 DRAFT soft delete (회원당 DRAFT 1건 유지) -->
+    <update id="deleteDraftGoalByUserId">
+        UPDATE rent_goal
+        SET del_yn = 'Y', modified_date = NOW(), modified_nm = #{modifiedNm}
+        WHERE user_id = #{userId}
+          AND status = 'DRAFT'
+          AND del_yn = 'N'
+    </update>
+
 </mapper>
