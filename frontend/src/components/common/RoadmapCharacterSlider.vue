@@ -57,7 +57,7 @@ const characterStyle = computed(() => ({
 
 .character-slider__label {
   font-size: 0.85rem;
-  color: var(--bs-secondary-color);
+  color: var(--text-muted);
   margin-bottom: 0.5rem;
 }
 
@@ -65,13 +65,13 @@ const characterStyle = computed(() => ({
   position: relative;
   height: 6px;
   border-radius: 999px;
-  background-color: #e9e2d5;
+  background-color: var(--surface-muted);
 }
 
 .character-slider__fill {
   height: 100%;
   border-radius: 999px;
-  background-color: #f0ad2e;
+  background-color: var(--travel-primary);
   transition: width 0.25s ease;
 }
 
@@ -90,7 +90,7 @@ const characterStyle = computed(() => ({
   margin-top: 0.5rem;
   font-size: 0.8rem;
   font-weight: 600;
-  color: #a9895a;
+  color: var(--travel-primary-dark);
   text-align: right;
 }
 </style>
