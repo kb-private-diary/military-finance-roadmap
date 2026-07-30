@@ -447,6 +447,20 @@ const askBackend = async (text, { title, extraMenu = [] } = {}) => {
       answerText += `\n\n저희 서비스에 ${pageLink.description}이 있는데, 확인해 보시겠습니까?`;
     }
 
+    // 답변에서 특정 상품이 언급됐으면, 그 상품의 자주 묻는 질문으로 이어갈 수 있는 버튼도 붙인다.
+    // 이미 그 상품의 되묻기 메뉴(extraMenu)가 붙어있는 상태(=이미 상품 Q&A 흐름 안)면 중복이라 스킵.
+    if (!extraMenu.length) {
+      const relatedProduct = Object.keys(PRODUCT_QUESTIONS).find(
+        (name) => botMsg.content.includes(name) || (botMsg.sourceDetail || '').includes(name),
+      );
+      if (relatedProduct) {
+        menu.unshift({
+          label: '더 자세한 내용 확인해보기',
+          onClick: () => askProductQuestion(relatedProduct, null),
+        });
+      }
+    }
+
     const bubble = {
       id: `bot-${botMsg.messageId}`,
       role: 'bot',
