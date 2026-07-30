@@ -755,7 +755,7 @@ onMounted(async () => {
           <div v-else-if="msg.sections" class="bubble-row">
             <div class="bot-header">
               <img :src="mascotImg" alt="마스코트" class="mascot" width="22" height="22" />
-              <span class="bot-name">노이일병</span>
+              <span class="bot-name">노이병장</span>
               <span v-if="msg.time" class="bubble-time">{{ msg.time }}</span>
             </div>
             <div class="guide-card">
@@ -786,7 +786,7 @@ onMounted(async () => {
           <div v-else class="bubble-row">
             <div class="bot-header">
               <img :src="mascotImg" alt="마스코트" class="mascot" width="22" height="22" />
-              <span class="bot-name">노이일병</span>
+              <span class="bot-name">노이병장</span>
               <span v-if="msg.time" class="bubble-time">{{ msg.time }}</span>
             </div>
             <div class="answer-card">
@@ -823,7 +823,7 @@ onMounted(async () => {
         <div v-if="typing" class="bubble-row">
           <div class="bot-header">
             <img :src="mascotImg" alt="마스코트" class="mascot" width="22" height="22" />
-            <span class="bot-name">노이일병</span>
+            <span class="bot-name">노이병장</span>
           </div>
           <div class="typing-dots">
             <span v-for="i in 3" :key="i" :style="{ animationDelay: `${(i - 1) * 0.15}s` }" />
