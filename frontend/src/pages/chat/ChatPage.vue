@@ -67,11 +67,13 @@ const PAGE_LINKS = [
   {
     keywords: ['계산기', '이자 계산', '목돈 계산', '얼마 모'],
     label: '군적금 계산기 페이지로 이동',
+    description: '군적금 납입 현황과 예상 만기 수령액을 계산해볼 수 있는 계산기 기능',
     to: { name: 'SimulatorCalc' },
   },
   {
     keywords: ['전세', '자취', '신혼', '매매', '집 마련'],
     label: '자취 준비 페이지로 이동',
+    description: '자취 목표를 등록하고 예산에 맞는 매물·금융상품을 추천받는 자취 준비 기능',
     to: { name: 'RentGoalCreate' },
   },
 ];
@@ -438,8 +440,11 @@ const askBackend = async (text, { title, extraMenu = [] } = {}) => {
 
     const menu = [...extraMenu, FIRST_MENU_ITEM];
     const pageLink = PAGE_LINKS.find((p) => p.keywords.some((k) => text.includes(k)));
+    let answerText = botMsg.content;
     if (pageLink) {
       menu.unshift({ label: pageLink.label, onClick: () => goTo(pageLink.to) });
+      // 버튼만 툭 주지 않고, 어떤 기능인지 먼저 설명하고 이동을 제안한다
+      answerText += `\n\n저희 서비스에 ${pageLink.description}이 있는데, 확인해 보시겠습니까?`;
     }
 
     const bubble = {
@@ -447,7 +452,7 @@ const askBackend = async (text, { title, extraMenu = [] } = {}) => {
       role: 'bot',
       time: formatBubbleTime(botMsg.createdDate),
       title,
-      text: botMsg.content,
+      text: answerText,
       source: botMsg.source,
       sourceDetail: botMsg.sourceDetail,
       isAiGenerated: botMsg.isAiGenerated,
