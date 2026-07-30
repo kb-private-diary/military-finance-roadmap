@@ -5,6 +5,7 @@ import org.scoula.rent.domain.RentGoalVO;
 import org.scoula.rent.domain.RentGoalRegionVO;
 import org.scoula.rent.domain.SchoolVO;
 import org.scoula.rent.domain.RentProgressVO;
+import org.apache.ibatis.annotations.Param;
 import java.util.List;
 
 public interface RentMapper {
@@ -34,4 +35,7 @@ public interface RentMapper {
 
     // 목표 단건 조회 (상세)
     RentGoalVO findGoalById(Long goalId);
+
+    // 재등록 시 기존 DRAFT 목표 soft delete (회원당 DRAFT 1건 유지)
+    void deleteDraftGoalByUserId(@Param("userId") Long userId, @Param("modifiedNm") String modifiedNm);
 }

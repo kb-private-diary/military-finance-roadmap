@@ -92,4 +92,13 @@
           AND del_yn = 'N'
     </select>
 
+    <!-- 재등록 시 기존 DRAFT soft delete (회원당 DRAFT 1건 유지) -->
+    <update id="deleteDraftGoalByUserId">
+        UPDATE rent_goal
+        SET del_yn = 'Y', modified_date = NOW(), modified_nm = #{modifiedNm}
+        WHERE user_id = #{userId}
+          AND status = 'DRAFT'
+          AND del_yn = 'N'
+    </update>
+
 </mapper>
