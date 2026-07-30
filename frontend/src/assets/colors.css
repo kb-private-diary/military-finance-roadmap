@@ -22,6 +22,14 @@
   --line: #e0e0e0;
   --line-strong: #d0d0d0;
 
+  /* 여행 로드맵 */
+  --travel-primary: #657052;
+  --travel-primary-dark: #293020;
+  --travel-accent-line: #bdaf8d;
+  --surface-default: #ffffff;
+  --surface-subtle: #f7f7f8;
+  --surface-muted: #ececec;
+
   /* 차트 4색. 도넛과 프로그래스 바가 같은 순서로 쓴다. */
   --chart-1: #6e5f52;
   --chart-2: #b39d89;

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="org.scoula.job.mapper.JobMapper">
-    <select id="findJobCodesByGoalType" parameterType="String" resultType="org.scoula.job.domain.JobCodeVO">
+    <select id="findJobCodeListByGoalType" parameterType="String" resultType="org.scoula.job.domain.JobCodeVO">
         SELECT
             job_code_id AS jobCodeId,
             goal_type   AS goalType,
@@ -12,7 +12,7 @@
         ORDER BY job_code_id
     </select>
 
-    <insert id="createJobGoal" parameterType="org.scoula.job.domain.JobGoalVO" useGeneratedKeys="true" keyProperty="goalId">
+    <insert id="insertJobGoal" parameterType="org.scoula.job.domain.JobGoalVO" useGeneratedKeys="true" keyProperty="goalId">
         <!--
             TODO: 테이블정의서 원본에는 status DEFAULT 'DRAFT'로 명시되어 있으나
             실제 DDL(kb-schema.sql)에는 DEFAULT 값이 누락되어 있음.
@@ -30,7 +30,7 @@
         )
     </insert>
 
-    <insert id="createJobInterestedType" parameterType="org.scoula.job.domain.JobInterestedTypeVO">
+    <insert id="insertJobInterestedType" parameterType="org.scoula.job.domain.JobInterestedTypeVO">
         <!--
             TODO: created_nm은 job_goal insert와 동일하게 JWT 미연동으로 인해
             임시로 userId를 문자열로 기록함. 추후 JWT 연동 시 실제 사용자명으로 교체 예정.
@@ -57,7 +57,7 @@
           AND del_yn = 'N'
     </select>
 
-    <select id="findInterestedItemTypes" parameterType="Long" resultType="String">
+    <select id="findInterestedItemTypeList" parameterType="Long" resultType="String">
         SELECT item_type
         FROM job_interested_type
         WHERE goal_id = #{goalId}
@@ -66,6 +66,10 @@
     </select>
 
     <select id="findPrepItemCriteriaList" resultType="org.scoula.job.domain.PrepItemCriteriaVO">
+        <!--
+            job_code_id가 NULL인 행은 직무 무관 공통 항목(어학 등)이므로 함께 조회한다.
+            AND가 OR보다 우선순위가 높아 괄호가 없으면 다른 목표유형의 공통 항목까지 조회되므로 괄호 필수.
+        -->
         SELECT
         prep_crit_id   AS prepCritId,
         goal_type      AS goalType,
@@ -89,7 +93,7 @@
         ORDER BY item_type, prep_crit_id
     </select>
 
-    <select id="findPrepItemCriteriaByIds" resultType="org.scoula.job.domain.PrepItemCriteriaVO">
+    <select id="findPrepItemCriteriaListByIds" resultType="org.scoula.job.domain.PrepItemCriteriaVO">
         SELECT
         prep_crit_id   AS prepCritId,
         goal_type      AS goalType,
@@ -106,9 +110,10 @@
         <foreach collection="prepCritIds" item="id" open="(" separator="," close=")">
             #{id}
         </foreach>
+        ORDER BY prep_crit_id
     </select>
 
-    <insert id="createJobPlans">
+    <insert id="insertJobPlanList">
         <!--
             job_plan은 스냅샷 저장이라 prep_crit_id FK 없이 값만 복사해서 저장함.
             createdNm은 job_goal insert와 동일하게 JWT 미연동으로 userId를 임시로 기록.
@@ -125,7 +130,7 @@
         </foreach>
     </insert>
 
-    <update id="deleteJobPlansByGoalId">
+    <update id="deleteJobPlanListByGoalId">
         <!-- job_plan은 스냅샷이므로 재선택 시 기존 행을 소프트 삭제 후 재저장 -->
         UPDATE job_plan
         SET del_yn = 'Y',
@@ -135,19 +140,19 @@
         AND del_yn = 'N'
     </update>
 
-    <select id="findCardProductListByCategory" parameterType="Integer" resultType="org.scoula.product.domain.CardProductVO">
+    <select id="findServiceCriteriaListByGoalType" parameterType="String" resultType="org.scoula.job.domain.ServiceCriteriaVO">
         SELECT
-            card_id     AS cardId,
-            category    AS category,
-            card_name   AS cardName,
-            card_type   AS cardType,
-            card_qual   AS cardQual,
-            card_desc   AS cardDesc,
-            card_url    AS cardUrl
-        FROM card_product
-        WHERE category = #{category}
+            svc_crit_id  AS svcCritId,
+            goal_type    AS goalType,
+            service_type AS serviceType,
+            service_name AS serviceName,
+            service_desc AS serviceDesc,
+            use_time     AS useTime,
+            info_url     AS infoUrl
+        FROM service_criteria
+        WHERE goal_type = #{goalType}
           AND del_yn = 'N'
-        ORDER BY card_id
+        ORDER BY service_type, svc_crit_id
     </select>
 
 </mapper>

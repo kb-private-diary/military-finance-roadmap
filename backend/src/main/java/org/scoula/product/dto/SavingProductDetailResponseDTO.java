@@ -31,9 +31,15 @@ public class SavingProductDetailResponseDTO {
     private Long minLimit;
     private Long maxLimit;
     private String productLink;
+    private Boolean isTaxExempt;
+    private List<SaveTrmRateDTO> saveTrmRates;
 
     public static SavingProductDetailResponseDTO of(List<SavingProductVO> rows) {
         SavingProductVO representative = rows.get(0);
+
+        List<SaveTrmRateDTO> saveTrmRates = rows.stream()
+                .map(SaveTrmRateDTO::of)
+                .toList();
 
         BigDecimal minRate = rows.stream()
                 .map(SavingProductVO::getBasicRate)
@@ -64,6 +70,8 @@ public class SavingProductDetailResponseDTO {
                 .minLimit(representative.getMinLimit())
                 .maxLimit(representative.getMaxLimit())
                 .productLink(representative.getProductLink())
+                .isTaxExempt(representative.getIsTaxExempt())
+                .saveTrmRates(saveTrmRates)
                 .build();
     }
 }

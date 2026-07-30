@@ -4,6 +4,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import travelApi from '@/api/travelApi';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
+import { formatWon } from '@/util/format';
 
 const route = useRoute();
 const router = useRouter();
@@ -30,17 +31,17 @@ const costItems = computed(() => [
   {
     label: '숙소비',
     value: toAmount(cost.value?.hotelCost),
-    color: '#6e5f52',
+    color: 'var(--chart-1)',
   },
   {
     label: '관광비',
     value: toAmount(cost.value?.livingCost),
-    color: '#d8bd76',
+    color: 'var(--chart-3)',
   },
   {
     label: '교통비',
     value: toAmount(cost.value?.flightCost),
-    color: '#ffebba',
+    color: 'var(--chart-4)',
   },
 ]);
 
@@ -63,7 +64,7 @@ const segments = computed(() => {
 const donutStyle = computed(() => ({
   background: segments.value.length
     ? `conic-gradient(${segments.value.join(', ')})`
-    : '#ececec',
+    : 'var(--surface-muted)',
 }));
 
 const percentOf = (value) => {
@@ -71,25 +72,32 @@ const percentOf = (value) => {
   return Math.round((toAmount(value) / chartTotal.value) * 100);
 };
 
-const formatWon = (value) =>
-  `${toAmount(value).toLocaleString('ko-KR')}원`;
-
 onMounted(async () => {
   scrollContainer = document.querySelector('.app-content');
   scrollContainer?.classList.add('travel-scrollbar-hidden');
 
   try {
-    try {
-      const response = await travelApi.findCost(goalId);
-      cost.value = unwrap(response);
-    } catch (error) {
-      if (error.response?.data?.code !== 'TRAVEL_006') {
-        throw error;
-      }
-
+    if (route.query.recalculate === 'true') {
       await travelApi.createCost(goalId);
       const response = await travelApi.findCost(goalId);
       cost.value = unwrap(response);
+      await router.replace({
+        name: 'TravelCost',
+        params: { goalId },
+      });
+    } else {
+      try {
+        const response = await travelApi.findCost(goalId);
+        cost.value = unwrap(response);
+      } catch (error) {
+        if (error.response?.data?.code !== 'TRAVEL_006') {
+          throw error;
+        }
+
+        await travelApi.createCost(goalId);
+        const response = await travelApi.findCost(goalId);
+        cost.value = unwrap(response);
+      }
     }
   } catch (error) {
     loadError.value = readErrorMessage(
@@ -195,7 +203,7 @@ const goNext = () =>
 .travel-cost {
   min-height: 100%;
   padding: 18px 0 88px;
-  color: #111;
+  color: var(--text-strong);
 }
 
 .roadmap-step {
@@ -221,10 +229,10 @@ const goNext = () =>
   height: 22px;
   margin-left: 33.3333%;
   place-items: center;
-  border: 2px solid #657052;
+  border: 2px solid var(--travel-primary);
   border-radius: 50%;
-  background: #fff;
-  color: #293020;
+  background: var(--surface-default);
+  color: var(--travel-primary-dark);
   font-size: 12px;
   font-weight: 700;
   transform: translateX(-50%);
@@ -236,14 +244,14 @@ const goNext = () =>
   left: 10px;
   height: 4px;
   overflow: hidden;
-  background: #dedede;
+  background: var(--line);
 }
 
 .roadmap-step__line-fill {
   display: block;
   width: 33.3333%;
   height: 100%;
-  background: #657052;
+  background: var(--travel-primary);
 }
 
 .travel-cost__title {
@@ -254,7 +262,7 @@ const goNext = () =>
 
 .travel-cost__total {
   margin: 0 0 18px;
-  color: #74695c;
+  color: var(--kb-gray);
   font-size: 27px;
   font-weight: 500;
   line-height: 1.25;
@@ -263,7 +271,7 @@ const goNext = () =>
 
 .cost-card {
   padding: 29px 22px 31px;
-  border: 1px solid #cfcfcf;
+  border: 1px solid var(--line-strong);
   border-radius: 13px;
 }
 
@@ -290,7 +298,7 @@ const goNext = () =>
   width: 82px;
   height: 82px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--surface-default);
 }
 
 .legend,
@@ -310,7 +318,7 @@ const goNext = () =>
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #4f4b45;
+  color: var(--text-body);
   font-size: 11px;
   white-space: nowrap;
 }
@@ -332,7 +340,7 @@ const goNext = () =>
   grid-template-columns: 49px minmax(0, 1fr) 38px;
   align-items: center;
   gap: 9px;
-  color: #58534c;
+  color: var(--kb-gray);
   font-size: 12px;
 }
 
@@ -343,9 +351,9 @@ const goNext = () =>
 .breakdown__bar {
   height: 6px;
   overflow: hidden;
-  border-top: 1px solid #ddd;
-  border-bottom: 1px solid #ddd;
-  background: #fff;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-default);
 }
 
 .breakdown__fill {
@@ -355,7 +363,7 @@ const goNext = () =>
 }
 
 .breakdown strong {
-  color: #333;
+  color: var(--text-body);
   font-size: 12px;
   font-weight: 600;
   text-align: right;
@@ -363,12 +371,12 @@ const goNext = () =>
 
 .status-box {
   margin-top: 80px;
-  color: #666;
+  color: var(--text-muted);
   text-align: center;
 }
 
 .status-box--error {
-  color: #d34b4b;
+  color: var(--danger);
 }
 
 .status-box p {
@@ -378,8 +386,8 @@ const goNext = () =>
 .status-box button {
   padding: 9px 16px;
   border: 0;
-  background: #657052;
-  color: #fff;
+  background: var(--travel-primary);
+  color: var(--surface-default);
   font-family: inherit;
   font-size: 12px;
 }
@@ -396,16 +404,16 @@ const goNext = () =>
 }
 
 .travel-cost :deep(.bottom-button-bar) {
-  background: #fff;
+  background: var(--surface-default);
 }
 
 .travel-cost :deep(.bottom-button-bar .bar-button.secondary) {
-  background: #e8e8e8;
-  color: #333;
+  background: var(--kb-gray-pale);
+  color: var(--text-body);
 }
 
 .travel-cost :deep(.bottom-button-bar .bar-button.primary) {
-  background: #ffcc00;
-  color: #111;
+  background: var(--kb-yellow);
+  color: var(--text-strong);
 }
 </style>

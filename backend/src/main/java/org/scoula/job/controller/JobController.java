@@ -9,6 +9,7 @@ import org.scoula.job.dto.JobGoalCreateResponseDTO;
 import org.scoula.job.dto.JobPlanCreateRequestDTO;
 import org.scoula.job.dto.JobPlanCreateResponseDTO;
 import org.scoula.job.dto.PrepItemRecommendResponseDTO;
+import org.scoula.job.dto.ServiceRecommendResponseDTO;
 import org.scoula.job.service.JobService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -63,5 +64,14 @@ public class JobController {
         log.info("Creating job plans for goalId: {}", goalId);
         JobPlanCreateResponseDTO responseDTO = this.jobService.createJobPlans(goalId, requestDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(responseDTO));
+    }
+
+    //JOB-API-07: 정책·서비스 추천 조회
+    @GetMapping("/goals/{goalId}/services")
+    public ResponseEntity<ApiResponse<ServiceRecommendResponseDTO>> findServiceRecommend(
+            @PathVariable Long goalId) {
+
+        log.info("Fetching job services for goalId: {}", goalId);
+        return ResponseEntity.ok(ApiResponse.success(this.jobService.findServiceRecommend(goalId)));
     }
 }
