@@ -38,10 +38,10 @@ const periods = ref([{ range: ['', ''], amount: '' }]);
 
 const isCalcFormValid = computed(() => {
   if (calcMode.value === 'constant') {
-    return monthlySave.value !== '' && saveMonths.value !== '';
+    return Number(monthlySave.value) > 0 && saveMonths.value !== '';
   }
   return periods.value.every(
-    (period) => period.range[0] && period.range[1] && period.amount !== '',
+    (period) => period.range[0] && period.range[1] && Number(period.amount) > 0,
   );
 });
 
@@ -351,7 +351,7 @@ onMounted(() => {
       <div v-if="calcMode === 'constant'" class="calc-sheet__form">
         <BaseInput
           v-model="monthlySave"
-          type="number"
+          type="amount"
           label="월 납입액"
           suffix="원"
           placeholder="최대 550,000"
@@ -394,7 +394,7 @@ onMounted(() => {
             @update:model-value="period.range = $event"
           />
           <BaseInput
-            type="number"
+            type="amount"
             label="월 납입액"
             suffix="원"
             placeholder="최대 550,000"

@@ -1,5 +1,6 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
+import { formatAmountInput, parseAmountInput } from '@/util/format';
 
 const props = defineProps({
   type: {
@@ -69,6 +70,37 @@ const currentSelectLabel = computed(() => {
   const selected = props.options.find((opt) => opt.value === props.modelValue);
   return selected ? selected.label : props.placeholder || '선택';
 });
+
+// ==========================================
+// Amount(금액) 전용 로직 — 콤마 실시간 포맷 + 커서 유지
+// modelValue는 항상 순수 숫자로 유지하고, 콤마 붙은 표시값은 내부에서만 관리한다.
+// ==========================================
+const amountDisplay = ref(formatAmountInput(props.modelValue));
+
+watch(
+  () => props.modelValue,
+  (val) => {
+    const formatted = formatAmountInput(val);
+    if (formatted !== amountDisplay.value) amountDisplay.value = formatted;
+  },
+);
+
+// 콤마 삽입/삭제로 문자열 길이가 바뀌어도 커서가 입력 위치에 그대로 머물도록,
+// 길이 변화량만큼 커서 위치를 보정한다 (그대로 두면 콤마 추가 시 커서가 맨 끝으로 튐).
+const handleAmountInput = (event) => {
+  const input = event.target;
+  const prevLength = input.value.length;
+  const prevCaret = input.selectionStart ?? prevLength;
+
+  const formatted = formatAmountInput(input.value);
+  amountDisplay.value = formatted;
+  emit('update:modelValue', parseAmountInput(input.value));
+
+  nextTick(() => {
+    const caret = Math.max(0, prevCaret + (formatted.length - prevLength));
+    input.setSelectionRange(caret, caret);
+  });
+};
 </script>
 
 <template>
@@ -142,6 +174,21 @@ const currentSelectLabel = computed(() => {
             @input="updateRange(1, $event.target.value)"
           />
         </div>
+      </template>
+
+      <!-- AMOUNT (금액, 실시간 콤마 포맷) -->
+      <template v-else-if="type === 'amount'">
+        <span v-if="icon" class="base-input__icon">{{ icon }}</span>
+        <input
+          type="text"
+          inputmode="numeric"
+          class="base-input__field"
+          :class="{ 'is-error': error, 'has-icon': icon, 'has-suffix': suffix }"
+          :value="amountDisplay"
+          @input="handleAmountInput"
+          :placeholder="placeholder"
+        />
+        <span v-if="suffix" class="base-input__suffix">{{ suffix }}</span>
       </template>
 
       <!-- TEXT / PASSWORD / NUMBER / DATE -->
