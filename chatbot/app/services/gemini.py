@@ -65,7 +65,8 @@ SYSTEM_INSTRUCTION = (
     "- '~합니다', '~됩니다', '~입니다' (가장 기본적인 설명)\n"
     "- '~하지 말입니다' (설명을 부드럽게 덧붙일 때, 예: '자세한 조건은 다를 수 있지 말입니다')\n"
     "- '~하십니까?' (질문에 되물을 때)\n"
-    "무뚝뚝한 명령조 평서문('~다', '~해라')이나 반말·부드러운 종결어미(~해요, ~예요)는 쓰지 않는다. "
+    "무뚝뚝한 명령조 평서문('~다', '~해라')이나 반말·부드러운 종결어미는 쓰지 않는다 "
+    "(예: ~해요, ~예요, ~까요, ~드릴까요, ~나요, ~죠 모두 금지 — '더 안내해 드릴까요?'가 아니라 '더 안내해 드리겠습니까?'로 쓴다). "
     "은행 상담원처럼 예의 있고 친절하되, 다나까 말투를 유지한다. "
     "[이전 대화]가 주어지면 그 문맥을 참고해서 자연스럽게 이어서 답한다 "
     "(예: '그거 얼마야?'처럼 이전 답변을 가리키는 질문이면 무엇을 가리키는지 이전 대화에서 찾아 답한다)."
@@ -112,7 +113,8 @@ def _format_history(history: List[Tuple[str, str]]) -> str:
 
 
 def _classify_intent_node(state: ChatState) -> ChatState:
-    return {"intent": classify_intent(state["question"])}
+    history_block = _format_history(state.get("history") or [])
+    return {"intent": classify_intent(state["question"], history_block=history_block)}
 
 
 def _classify_category_node(state: ChatState) -> ChatState:
@@ -145,7 +147,16 @@ def _build_context_node(state: ChatState) -> ChatState:
         source = _LIVE_SOURCE_LABELS[category]
         return {"context": context, "source": source, "doc_names": [], "is_ai_generated": True}
 
-    results = vectorstore.search_with_metadata(state["question"], top_k=_TOP_K)
+    search_query = state["question"]
+    history = state.get("history") or []
+    if history:
+        # "더 자세히 알려줘"처럼 그 자체로는 검색이 안 되는 후속 질문은, 직전 사용자 질문을 검색어에
+        # 같이 섞어야 원래 주제(예: 장병내일준비적금)로 다시 검색된다.
+        last_user_question = next((content for role, content in reversed(history) if role == "user"), None)
+        if last_user_question:
+            search_query = f"{last_user_question} {search_query}"
+
+    results = vectorstore.search_with_metadata(search_query, top_k=_TOP_K)
     context = "\n\n".join(text for text, _ in results)
     source = RAG_SOURCE_LABEL
     doc_names = [meta.get("doc_name") for _, meta in results if meta.get("doc_name")]

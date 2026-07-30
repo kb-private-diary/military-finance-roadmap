@@ -76,6 +76,12 @@ const PAGE_LINKS = [
     description: '자취 목표를 등록하고 예산에 맞는 매물·금융상품을 추천받는 자취 준비 기능',
     to: { name: 'RentGoalCreate' },
   },
+  {
+    keywords: ['자동차', '자차', '차량', '벤츠', '차 사'],
+    label: '자차 준비 페이지로 이동',
+    description: '자동차 목표를 등록하고 예산에 맞는 차량·금융상품을 추천받는 자차 준비 기능',
+    to: { name: 'CarGoalCreate' },
+  },
 ];
 
 /* RAG 정책 문서 3종 - 상품별 자주 묻는 질문(문구만). 실제 답변은 항상 chatApi.sendMessage로 받아온다 */
@@ -447,16 +453,20 @@ const askBackend = async (text, { title, extraMenu = [] } = {}) => {
       answerText += `\n\n저희 서비스에 ${pageLink.description}이 있는데, 확인해 보시겠습니까?`;
     }
 
-    // 답변에서 특정 상품이 언급됐으면, 그 상품의 자주 묻는 질문으로 이어갈 수 있는 버튼도 붙인다.
-    // 이미 그 상품의 되묻기 메뉴(extraMenu)가 붙어있는 상태(=이미 상품 Q&A 흐름 안)면 중복이라 스킵.
-    if (!extraMenu.length) {
+    // 답변에서 특정 상품이 언급됐으면 "더 자세한 내용 확인해보기" 버튼을 붙인다.
+    // 고정된 FAQ를 다시 보여주는 게 아니라, 실제로 백엔드에 새 질문을 보내서
+    // (멀티턴 문맥 덕분에) 지금까지 대화 주제에 맞는 답변을 받아오게 한다.
+    // - 이미 그 상품의 되묻기 메뉴(extraMenu)가 붙어있으면(=이미 상품 Q&A 흐름 안) 중복이라 스킵
+    // - pageLink가 떴으면(=진짜 관련 있는 답을 못 찾아서 다른 기능으로 유도 중) 언급된 상품은
+    //   그냥 스쳐간 참고용이라 더 파고들면 오히려 엉뚱한 대화로 새서 같이 스킵
+    if (!extraMenu.length && !pageLink) {
       const relatedProduct = Object.keys(PRODUCT_QUESTIONS).find(
         (name) => botMsg.content.includes(name) || (botMsg.sourceDetail || '').includes(name),
       );
       if (relatedProduct) {
         menu.unshift({
           label: '더 자세한 내용 확인해보기',
-          onClick: () => askProductQuestion(relatedProduct, null),
+          onClick: () => askBackend('더 자세한 내용을 확인하고 싶어요'),
         });
       }
     }
