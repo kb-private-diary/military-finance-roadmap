@@ -575,19 +575,69 @@ const summarizeTitle = (historyMessages) => {
   return t.length > 14 ? `${t.slice(0, 14)}…` : t;
 };
 
-const toBubble = (m) => {
+// 히스토리를 다시 불러왔을 때도 그 시점에 있던 버튼(더 자세히/추천 이동 등)을 최대한 그대로 복원한다.
+// 실제로 눌렀던 버튼 자체가 저장되는 게 아니라서, 그 답변 직전 사용자 메시지를 보고 같은 로직으로 재계산한다.
+const findActiveProductBefore = (history, index) => {
+  for (let i = index - 1; i >= 0; i -= 1) {
+    const msg = history[i];
+    if (msg.role === 'user' && PRODUCT_QUESTIONS[msg.content]) {
+      return msg.content;
+    }
+  }
+  return null;
+};
+
+const deriveHistoryMenu = (history, index) => {
+  const m = history[index];
+  const prev = index > 0 ? history[index - 1] : null;
+  const precedingUserText = prev && prev.role === 'user' ? prev.content : null;
+
+  if (precedingUserText) {
+    if (PRODUCT_QUESTIONS[precedingUserText]) {
+      // 직전에 상품명 자체를 물어본 경우 -> 그 상품의 질문 목록을 보여준다
+      const name = precedingUserText;
+      return { menu: PRODUCT_QUESTIONS[name].map((q) => ({ label: q, onClick: () => askProductQuestion(name, q) })) };
+    }
+    const activeProduct = findActiveProductBefore(history, index);
+    if (activeProduct && PRODUCT_QUESTIONS[activeProduct].includes(precedingUserText)) {
+      // 그 상품에 대한 후속 질문 중 하나였던 경우 -> 방금 물어본 것만 빼고 다시 보여준다
+      const remaining = PRODUCT_QUESTIONS[activeProduct].filter((q) => q !== precedingUserText);
+      return { menu: remaining.map((q) => ({ label: q, onClick: () => askProductQuestion(activeProduct, q) })) };
+    }
+    const pageLink = PAGE_LINKS.find((p) => p.keywords.some((k) => precedingUserText.includes(k)));
+    if (pageLink) {
+      return {
+        menu: [{ label: pageLink.label, onClick: () => goTo(pageLink.to) }],
+        extraText: `\n\n저희 서비스에 ${pageLink.description}이 있는데, 확인해 보시겠습니까?`,
+      };
+    }
+  }
+
+  const relatedProduct = Object.keys(PRODUCT_QUESTIONS).find(
+    (name) => m.content.includes(name) || (m.sourceDetail || '').includes(name),
+  );
+  if (relatedProduct) {
+    return {
+      menu: [{ label: '더 자세한 내용 확인해보기', onClick: () => askBackend('더 자세한 내용을 확인하고 싶어요') }],
+    };
+  }
+  return { menu: [] };
+};
+
+const toBubble = (m, history, index) => {
   if (m.role === 'user') {
     return { id: `hist-${m.messageId}`, role: 'user', text: m.content, time: formatBubbleTime(m.createdDate) };
   }
+  const { menu, extraText } = deriveHistoryMenu(history, index);
   return {
     id: `hist-${m.messageId}`,
     role: 'bot',
     time: formatBubbleTime(m.createdDate),
-    text: m.content,
+    text: extraText ? `${m.content}${extraText}` : m.content,
     source: m.source,
     sourceDetail: m.sourceDetail,
     isAiGenerated: m.isAiGenerated,
-    menu: [FIRST_MENU_ITEM],
+    menu: [...menu, FIRST_MENU_ITEM],
   };
 };
 
@@ -640,7 +690,7 @@ const resumeSession = async (targetSessionId) => {
     sessionId.value = targetSessionId;
     messages.value = [
       { id: 'guide', role: 'bot', time: formatBubbleTime(), ...buildGuideMessage() },
-      ...history.map(toBubble),
+      ...history.map((m, i) => toBubble(m, history, i)),
     ];
     restorePanelFromHistory(history);
     scrollToBottom();
@@ -664,7 +714,7 @@ onMounted(async () => {
         // 가이드 카드는 대화가 이어져도 계속 보여야 하는 진입점이라, 히스토리 앞에 항상 붙인다
         messages.value = [
           { id: 'guide', role: 'bot', time: formatBubbleTime(), ...buildGuideMessage() },
-          ...history.map(toBubble),
+          ...history.map((m, i) => toBubble(m, history, i)),
         ];
         restorePanelFromHistory(history);
       } else {
