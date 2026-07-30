@@ -1,11 +1,11 @@
 SET FOREIGN_KEY_CHECKS = 0;
 
 /*
-총 테이블 갯수: 57개
+총 테이블 갯수: 58개
 
 [테이블 구분]
 - 회원/공통: user, military_types, military_rank, badge, user_badge, terms, terms_agreement, vacation
-- 예적금/금융: bank_category, saving_product, card_product, saving_account, saving_history, policy_product
+- 예적금/금융: bank_category, saving_product, military_saving_product, card_product, saving_account, saving_history, policy_product
 - 목표/로드맵 공통: roadmap_category, user_bookmark
 - 여행 목표: travel_goal, travel_cost, city_cost, hotel_cost, flight_cost, travel_package, travel_insurance
 - 진로 목표: job_goal, job_code, prep_item_criteria, job_plan, service_criteria, service_selection
@@ -271,6 +271,30 @@ CREATE TABLE `policy_product` (
   `created_date` DATETIME NOT NULL COMMENT '생성날짜',
   `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
   `modified_date` DATETIME COMMENT '수정날짜',
+  `modified_nm` VARCHAR(50) COMMENT '수정자',
+  `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
+);
+
+DROP TABLE IF EXISTS `military_saving_product`;
+CREATE TABLE `military_saving_product` (
+  `military_saving_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '군적금상품ID',
+  `bank_code` CHAR(3) NOT NULL COMMENT '취급은행코드',
+  `product_name` VARCHAR(100) NOT NULL COMMENT '상품명',
+  `min_limit` BIGINT COMMENT '월 최소납입한도',
+  `max_limit` BIGINT COMMENT '월 최대납입한도',
+  `max_join_month` INT COMMENT '최대 가입가능 개월수 (예: 24)',
+  `gov_match_rate` DECIMAL(5,2) COMMENT '정부매칭 기여금 비율',
+  `rate_type` VARCHAR(10) NOT NULL COMMENT '금리구간 유형: MATURITY(만기) | WITHDRAWAL(중도해지)',
+  `value_unit` VARCHAR(10) NOT NULL DEFAULT 'MONTH' COMMENT '구간 단위: MONTH(경과개월) | RATIO(납입기간 경과비율%)',
+  `min_value` DECIMAL(6,2) COMMENT '구간 시작값(포함), NULL이면 0',
+  `max_value` DECIMAL(6,2) COMMENT '구간 끝값(미포함), NULL이면 상한 없음',
+  `basic_rate` DECIMAL(4,2) COMMENT '기본금리 (MATURITY 전용)',
+  `max_rate` DECIMAL(4,2) COMMENT '최고우대금리 (MATURITY 전용)',
+  `rate_ratio` DECIMAL(4,2) COMMENT '기본이율 대비 배율% (WITHDRAWAL 전용, NULL이면 floor_rate를 그대로 적용)',
+  `floor_rate` DECIMAL(4,2) COMMENT '최저 보장금리 (WITHDRAWAL 전용)',
+  `created_date` DATETIME NOT NULL COMMENT '생성일시',
+  `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+  `modified_date` DATETIME COMMENT '수정일시',
   `modified_nm` VARCHAR(50) COMMENT '수정자',
   `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
 );
@@ -934,6 +958,8 @@ ALTER TABLE `user` COMMENT = '서비스에 가입한 이용자(장병/전역예�
 
 ALTER TABLE `saving_account` COMMENT = '회원의 군적금 계좌 및 납입 현황';
 
+ALTER TABLE `military_saving_product` COMMENT = '군적금(장병내일준비적금) 상품별 만기이율·중도해지이율 구간 데이터';
+
 ALTER TABLE `travel_goal` COMMENT = '회원이 등록한 여행 목표 정보';
 
 ALTER TABLE `travel_cost` COMMENT = '여행 목표별 예상 경비 계산 결과';
@@ -1031,6 +1057,8 @@ ALTER TABLE `saving_account` ADD FOREIGN KEY (`user_id`) REFERENCES `user` (`id`
 ALTER TABLE `saving_account` ADD FOREIGN KEY (`bank_code`) REFERENCES `bank_category` (`bank_code`);
 
 ALTER TABLE `saving_history` ADD FOREIGN KEY (`account_id`) REFERENCES `saving_account` (`account_id`);
+
+ALTER TABLE `military_saving_product` ADD FOREIGN KEY (`bank_code`) REFERENCES `bank_category` (`bank_code`);
 
 ALTER TABLE `vacation` ADD FOREIGN KEY (`user_id`) REFERENCES `user` (`id`);
 
