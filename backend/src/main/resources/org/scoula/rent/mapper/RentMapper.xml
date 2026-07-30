@@ -101,4 +101,12 @@
           AND del_yn = 'N'
     </update>
 
+    <!-- 목표 상태 변경 (로드맵 저장: DRAFT → CONFIRMED) -->
+    <update id="updateGoalStatus">
+        UPDATE rent_goal
+        SET status = #{status}, modified_date = NOW(), modified_nm = #{modifiedNm}
+        WHERE goal_id = #{goalId}
+          AND del_yn = 'N'
+    </update>
+
 </mapper>

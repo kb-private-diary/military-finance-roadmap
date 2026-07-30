@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 public class RentServiceImpl implements RentService {
 
     private static final String STATUS_DRAFT = "DRAFT";
+    private static final String STATUS_CONFIRMED = "CONFIRMED";
     private static final String MODE_SCHOOL = "SCHOOL";
     private static final String MODE_REGION = "REGION";
     private static final int TOTAL_PROGRESS_STEPS = 5;
@@ -155,6 +156,29 @@ public class RentServiceImpl implements RentService {
 
         int percentage = calculatePercentage(completedCodes.size());
         return RentGoalDetailResponseDTO.of(goal, percentage, steps);
+    }
+
+    @Override
+    @Transactional
+    public void confirmGoal(Long goalId, Long userId) {
+        RentGoalVO goal = this.mapper.findGoalById(goalId);
+        if (goal == null) {
+            throw BusinessException.notFound("목표를 찾을 수 없습니다.", "RENT_005");
+        }
+
+        String actor = "user:" + userId; // TODO: JWT 연동 후 교체
+
+        // 1) DRAFT → CONFIRMED 전환 (로드맵에 저장)
+        this.mapper.updateGoalStatus(goalId, STATUS_CONFIRMED, actor);
+
+        // 2) 진행률 SAVE_GOAL 단계 자동 완료 (체크리스트 첫 칸)
+        RentProgressVO saveStep = new RentProgressVO();
+        saveStep.setGoalId(goalId);
+        saveStep.setStepCode(ProgressStep.SAVE_GOAL.name());
+        saveStep.setIsCompleted("Y");
+        saveStep.setCompletedDate(LocalDateTime.now());
+        saveStep.setCreatedNm(actor);
+        this.mapper.upsertProgress(saveStep);
     }
 
     /** SCHOOL / REGION 모드별 필수값 검증 (모드에 따라 달라지는 조건이라 @Valid 대신 여기서) */
