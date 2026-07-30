@@ -41,4 +41,7 @@ public interface RentMapper {
 
     // 목표 상태 변경 (로드맵 저장: DRAFT → CONFIRMED)
     void updateGoalStatus(@Param("goalId") Long goalId, @Param("status") String status, @Param("modifiedNm") String modifiedNm);
+
+    // 기존 CONFIRMED 목표를 ARCHIVED 로 보관 (회원당 CONFIRMED 1건 유지)
+    void archiveConfirmedGoalByUserId(@Param("userId") Long userId, @Param("modifiedNm") String modifiedNm);
 }

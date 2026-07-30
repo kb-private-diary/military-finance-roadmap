@@ -109,4 +109,13 @@
           AND del_yn = 'N'
     </update>
 
+    <!-- 기존 CONFIRMED 목표를 ARCHIVED 로 보관 (회원당 CONFIRMED 1건 유지) -->
+    <update id="archiveConfirmedGoalByUserId">
+        UPDATE rent_goal
+        SET status = 'ARCHIVED', modified_date = NOW(), modified_nm = #{modifiedNm}
+        WHERE user_id = #{userId}
+          AND status = 'CONFIRMED'
+          AND del_yn = 'N'
+    </update>
+
 </mapper>

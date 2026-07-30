@@ -165,13 +165,24 @@ public class RentServiceImpl implements RentService {
         if (goal == null) {
             throw BusinessException.notFound("목표를 찾을 수 없습니다.", "RENT_005");
         }
+        // 소유권 확인 - 남의 목표를 저장하지 못하게 (IDOR 방지)
+        if (!goal.getUserId().equals(userId)) {
+            throw BusinessException.forbidden("본인의 목표만 저장할 수 있습니다.", "AUTH_004");
+        }
+        // 상태 전이 검증 - DRAFT 인 목표만 저장 가능 (이미 CONFIRMED/ARCHIVED 는 불가)
+        if (!STATUS_DRAFT.equals(goal.getStatus())) {
+            throw BusinessException.conflict("작성 중인 목표만 저장할 수 있습니다.", "RENT_006");
+        }
 
         String actor = "user:" + userId; // TODO: JWT 연동 후 교체
 
-        // 1) DRAFT → CONFIRMED 전환 (로드맵에 저장)
+        // 1) 회원당 CONFIRMED 1건 유지 - 기존 CONFIRMED 는 ARCHIVED 로 보관
+        this.mapper.archiveConfirmedGoalByUserId(userId, actor);
+
+        // 2) DRAFT → CONFIRMED 전환 (로드맵에 저장)
         this.mapper.updateGoalStatus(goalId, STATUS_CONFIRMED, actor);
 
-        // 2) 진행률 SAVE_GOAL 단계 자동 완료 (체크리스트 첫 칸)
+        // 3) 진행률 SAVE_GOAL 단계 자동 완료 (체크리스트 첫 칸)
         RentProgressVO saveStep = new RentProgressVO();
         saveStep.setGoalId(goalId);
         saveStep.setStepCode(ProgressStep.SAVE_GOAL.name());
