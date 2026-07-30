@@ -39,12 +39,9 @@ const characterStyle = computed(() => ({
     <div v-if="label" class="character-slider__label">{{ label }}</div>
     <div class="character-slider__track">
       <div class="character-slider__fill" :style="{ width: `${clampedProgress}%` }" />
-      <img
-        :src="characterImg"
-        class="character-slider__character"
-        :style="characterStyle"
-        alt="진행 상황 캐릭터"
-      />
+      <div class="character-slider__badge" :style="characterStyle">
+        <img :src="characterImg" class="character-slider__character" alt="진행 상황 캐릭터" />
+      </div>
     </div>
     <div class="character-slider__percent">{{ Math.round(clampedProgress) }}%</div>
   </div>
@@ -75,15 +72,28 @@ const characterStyle = computed(() => ({
   transition: width 0.25s ease;
 }
 
-.character-slider__character {
+.character-slider__badge {
   position: absolute;
   top: 50%;
-  width: 44px;
-  height: 44px;
-  object-fit: contain;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background-color: #ffffff;
+  border: 2px solid var(--kb-yellow-deep);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
   transform: translate(-50%, -75%);
   transition: left 0.25s ease;
   pointer-events: none;
+}
+
+.character-slider__character {
+  width: 84%;
+  height: 84%;
+  object-fit: contain;
 }
 
 .character-slider__percent {

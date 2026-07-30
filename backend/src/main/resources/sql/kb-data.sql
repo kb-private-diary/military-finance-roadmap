@@ -73,6 +73,16 @@ INSERT INTO `roadmap_category` (`category_id`, `category_name`, `created_date`, 
 
 
 -- --------------------------------------------------------------------
+--  [호빈] 차량 종류
+--  테이블: car_type
+-- --------------------------------------------------------------------
+INSERT INTO `car_type` (`code`, `name`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`) VALUES
+(1, '경차', NOW(), 'hobin', NULL, NULL, 'N'),
+(2, '준중형', NOW(), 'hobin', NULL, NULL, 'N'),
+(3, 'SUV', NOW(), 'hobin', NULL, NULL, 'N');
+
+
+-- --------------------------------------------------------------------
 --  [태석] 공통 / 뱃지(badge)
 --  테이블: badge
 -- --------------------------------------------------------------------
