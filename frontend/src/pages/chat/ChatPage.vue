@@ -106,14 +106,6 @@ const PRODUCT_QUESTIONS = {
   ],
 };
 
-/* 자주 묻는 질문 1단계 카테고리 - categoryId 기준(적금/청약은 실제 문서, 예금/투자는 준비중) */
-const FAQ_CATEGORY_PRODUCTS = {
-  savings: ['장병내일준비적금', '청년미래적금'],
-  subscription: ['청년주택드림청약통장'],
-  deposit: null,
-  investment: null,
-};
-
 /* 목돈 상담 되묻기용 추천표 - 상담형 되묻기 API(WBS-6)가 아직 없어서 임시로 프론트에 유지 */
 const RECO_TABLE = {
   '1년 이하_안정추구형': { product: '청년미래적금', note: '단기간 안전하게 모으기 좋은 조합이에요.' },
@@ -257,12 +249,14 @@ const showAllProducts = () => {
   setTimeout(() => {
     typing.value = false;
     pushBot({
-      text: '아래 3개는 군장병 전용 정책 상품이고, 은행별 실시간 상품도 더 볼 수 있어요. 어떤 게 궁금하신가요?',
+      text: '어떤 카테고리가 궁금하신가요?',
       menu: [
-        ...Object.keys(PRODUCT_QUESTIONS).map((name) => ({ label: name, onClick: () => openDoc(name) })),
         ...Object.entries(LIVE_CATEGORY_LABELS).map(([category, label]) => ({
-          label: `실시간 ${label} 상품 더 보기`,
-          onClick: () => showLiveProducts(category, label),
+          label,
+          onClick: () => {
+            pushUser(label);
+            showProductCategoryList(category, label);
+          },
         })),
         FIRST_MENU_ITEM,
       ],
@@ -270,8 +264,16 @@ const showAllProducts = () => {
   }, 700);
 };
 
-/* 실시간 은행 상품(FSS 예적금/청약홈/펀드) - 카테고리별로 목록을 받아와서 최대 8개까지 보여준다 */
-const LIVE_CATEGORY_LABELS = { savings: '적금', deposit: '예금', subscription: '청약', investment: '펀드' };
+/* 실시간 은행 상품(FSS 예적금/청약홈/펀드) - 카테고리별로 목록을 받아와서 최대 8개까지 보여준다.
+   장병내일준비적금 등 3개는 API로 못 받아오는 KB 군장병 전용 상품이라 텍스트로 직접 정리해둔 것뿐이고,
+   실제로는 해당 카테고리(적금/청약)의 "상품 중 하나"라 API 상품들과 같은 목록에 같이 보여준다. */
+const LIVE_CATEGORY_LABELS = { savings: '적금', deposit: '예금', subscription: '청약', investment: '투자' };
+const FIXED_PRODUCTS_BY_CATEGORY = {
+  savings: ['장병내일준비적금', '청년미래적금'],
+  subscription: ['청년주택드림청약통장'],
+  deposit: [],
+  investment: [],
+};
 const LIVE_ITEM_LABEL = {
   savings: (p) => `${p.finPrdtNm} (${p.korCoNm} · 최고 ${p.maxRate}%)`,
   deposit: (p) => `${p.finPrdtNm} (${p.korCoNm} · 최고 ${p.maxRate}%)`,
@@ -285,24 +287,22 @@ const LIVE_ITEM_NAME = {
   investment: (p) => p.fndNm,
 };
 
-const showLiveProducts = async (category, categoryLabel) => {
-  pushUser(`실시간 ${categoryLabel} 상품 더 보기`);
+const showProductCategoryList = async (category, categoryLabel) => {
   panel.value = null;
   typing.value = true;
   try {
-    const { data: products } = await chatApi.listProducts(category);
+    const { data: liveProducts } = await chatApi.listProducts(category);
     typing.value = false;
-    if (!products.length) {
-      pushBot({
-        text: `지금은 표시할 수 있는 실시간 ${categoryLabel} 상품이 없습니다.`,
-        menu: [FIRST_MENU_ITEM],
-      });
+    const fixedNames = FIXED_PRODUCTS_BY_CATEGORY[category] || [];
+    if (!fixedNames.length && !liveProducts.length) {
+      pushBot({ text: `지금은 표시할 수 있는 ${categoryLabel} 상품이 없습니다.`, menu: [FIRST_MENU_ITEM] });
       return;
     }
-    const top = products.slice(0, 8);
+    const top = liveProducts.slice(0, 8);
     pushBot({
-      text: `실시간 ${categoryLabel} 상품이에요. 궁금한 상품을 골라주세요.`,
+      text: `${categoryLabel} 상품이에요. 궁금한 상품을 골라주세요.`,
       menu: [
+        ...fixedNames.map((name) => ({ label: name, onClick: () => openDoc(name) })),
         ...top.map((p) => ({
           label: LIVE_ITEM_LABEL[category](p),
           onClick: () => showLiveProductDetail(LIVE_ITEM_NAME[category](p), category),
@@ -413,23 +413,7 @@ const openFaqCategories = async () => {
 
 const openFaqCategory = (categoryId, label) => {
   pushUser(label);
-  panel.value = null;
-  typing.value = true;
-  setTimeout(() => {
-    typing.value = false;
-    const names = FAQ_CATEGORY_PRODUCTS[categoryId];
-    if (!names) {
-      pushBot({
-        text: `${label} 관련 데이터는 아직 준비 중이에요. 곧 추가될 예정이니, 우선 다른 상품부터 확인해보시겠어요?`,
-        menu: [FIRST_MENU_ITEM],
-      });
-      return;
-    }
-    pushBot({
-      text: '어떤 상품이 궁금하신가요?',
-      menu: [...names.map((name) => ({ label: name, onClick: () => openDoc(name) })), FIRST_MENU_ITEM],
-    });
-  }, 700);
+  showProductCategoryList(categoryId, label);
 };
 
 /* 상품 소개 후 자주 묻는 질문을 하나씩 골라 물어볼 수 있게 함 - 이미 물어본 질문은 다음 메뉴에서 빠진다 */
