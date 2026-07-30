@@ -38,6 +38,34 @@
         ORDER BY max_rate DESC, product_name
     </select>
 
+    <!--
+        상세페이지용 — 상품(fin_prdt_cd)의 save_trm별 행을 전부 반환한다.
+        product_name/join_member/min_limit/max_limit/product_link 는 행마다 동일한 값이 중복 저장돼 있으므로
+        서비스단에서 아무 행이나 하나를 대표로 쓰고, save_trm/basic_rate/max_rate 만 최소~최대로 집계한다.
+    -->
+    <select id="findSavingProductDetailByFinPrdtCd" parameterType="String" resultType="org.scoula.product.domain.SavingProductVO">
+        SELECT
+            saving_id       AS savingId,
+            product_type    AS productType,
+            is_active       AS isActive,
+            fin_prdt_cd     AS finPrdtCd,
+            kor_co_nm       AS korCoNm,
+            product_name    AS productName,
+            join_member     AS joinMember,
+            min_limit       AS minLimit,
+            max_limit       AS maxLimit,
+            save_trm        AS saveTrm,
+            basic_rate      AS basicRate,
+            max_rate        AS maxRate,
+            is_tax_exempt   AS isTaxExempt,
+            gov_match_rate  AS govMatchRate,
+            product_link    AS productLink
+        FROM saving_product
+        WHERE fin_prdt_cd = #{finPrdtCd}
+          AND is_active = TRUE
+          AND del_yn = 'N'
+    </select>
+
     <select id="findPolicyProductList" resultType="org.scoula.product.domain.PolicyProductVO">
         SELECT
             policy_id           AS policyId,
@@ -55,12 +83,32 @@
         ORDER BY max_rate DESC, policy_name
     </select>
 
+    <select id="findPolicyProductDetail"
+            parameterType="Long" resultType="org.scoula.product.domain.PolicyProductVO">
+        SELECT
+            policy_id       AS policyId,
+            policy_name     AS policyName,
+            benefits        AS benefits,
+            join_member     AS joinMember,
+            min_limit       AS minLimit,
+            max_limit       AS maxLimit,
+            save_trm_note   AS saveTrmNote,
+            policy_link     AS policyLink,
+            has_calculator  AS hasCalculator
+        FROM policy_product
+        WHERE policy_id = #{policyId}
+          AND policy_status = TRUE
+          AND del_yn = 'N'
+    </select>
+
     <!--
         FSS API 동기화 UPSERT. (fin_prdt_cd, save_trm) UNIQUE 제약 기준으로 충돌 시 UPDATE 한다.
-        is_tax_exempt/gov_match_rate/product_link/min_limit 은 FSS API에 없는 값이라
-        UPDATE 절에서 제외해 기존에 수동으로 채워둔 값을 그대로 보존한다.
+        is_active/is_tax_exempt/gov_match_rate/product_link/min_limit 은 UPDATE 절에서 제외해
+        기존에 사람이 검수·설정해둔 값을 그대로 보존한다.
         (신규 상품은 이 값들이 아직 없으므로 FALSE/0.0/NULL 로 채워 넣는다.
-        is_active 도 신규 삽입 시엔 서비스단에서 강제로 FALSE 로 넘겨받아, 사람이 검수하기 전엔 목록에 노출되지 않는다.)
+        is_active 는 신규 삽입 시엔 서비스단에서 강제로 FALSE 로 넘겨받아, 사람이 검수하기 전엔 목록에 노출되지 않는다.
+        이후 재동기화 시 FSS 응답값으로 되돌아가지 않도록 UPDATE 절에서 제외했다 — is_active 는 오직 사람이 직접 바꾼다.
+        단, 이 때문에 단종(dcls_end_day 발생) 상품의 자동 숨김도 함께 사라지므로, 그건 사람이 별도로 확인해야 한다.)
     -->
     <insert id="upsertSavingProduct" parameterType="org.scoula.product.domain.SavingProductVO">
         INSERT INTO saving_product (
@@ -73,7 +121,6 @@
             FALSE, 0.0, NOW(), 'fss-sync', 'N'
         )
         ON DUPLICATE KEY UPDATE
-            is_active      = VALUES(is_active),
             kor_co_nm      = VALUES(kor_co_nm),
             product_name   = VALUES(product_name),
             join_member    = VALUES(join_member),
@@ -90,5 +137,20 @@
 
     <select id="findAllFinPrdtCds" resultType="String">
         SELECT DISTINCT fin_prdt_cd FROM saving_product
+    </select>
+
+    <select id="findCardProductListByCategory" parameterType="Integer" resultType="org.scoula.product.domain.CardProductVO">
+        SELECT
+            card_id     AS cardId,
+            category    AS category,
+            card_name   AS cardName,
+            card_type   AS cardType,
+            card_qual   AS cardQual,
+            card_desc   AS cardDesc,
+            card_url    AS cardUrl
+        FROM card_product
+        WHERE category = #{category}
+          AND del_yn = 'N'
+        ORDER BY card_id
     </select>
 </mapper>

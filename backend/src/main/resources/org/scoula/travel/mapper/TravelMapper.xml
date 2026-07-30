@@ -72,6 +72,50 @@
         AND goal_id = #{goalId}
     </select>
 
+    <select id="findDraftGoalByUserId"
+            resultType="org.scoula.travel.domain.TravelGoalVO">
+        SELECT
+        <include refid="travelGoalColumns"/>
+        FROM travel_goal
+        WHERE user_id = #{userId}
+          AND status = 'DRAFT'
+          AND del_yn = 'N'
+        ORDER BY goal_id DESC
+        LIMIT 1
+    </select>
+
+    <update id="updateGoal"
+            parameterType="org.scoula.travel.domain.TravelGoalVO">
+        UPDATE travel_goal
+        SET places = CASE
+                WHEN destination &lt;&gt; #{destination} THEN NULL
+                ELSE places
+            END,
+            title = #{title},
+            departure = #{departure},
+            destination = #{destination},
+            is_domestic = #{isDomestic},
+            style = #{style},
+            start_date = #{startDate},
+            end_date = #{endDate},
+            total_budget = #{totalBudget},
+            modified_date = NOW(),
+            modified_nm = #{modifiedNm}
+        WHERE goal_id = #{goalId}
+          AND user_id = #{userId}
+          AND status = 'DRAFT'
+          AND del_yn = 'N'
+    </update>
+
+    <update id="updateGoalPlaces">
+        UPDATE travel_goal
+        SET places = CAST(#{places} AS JSON),
+            modified_date = NOW(),
+            modified_nm = #{modifiedNm}
+        WHERE goal_id = #{goalId}
+          AND del_yn = 'N'
+    </update>
+
     <!-- 예상 경비 (travel_cost) -->
 
     <sql id="travelCostColumns">
@@ -93,6 +137,21 @@
              NOW(), #{createdNm}, 'N')
     </insert>
 
+    <update id="updateCost"
+            parameterType="org.scoula.travel.domain.TravelCostVO">
+        UPDATE travel_cost
+        SET flight_cost = #{flightCost},
+            hotel_cost = #{hotelCost},
+            living_cost = #{livingCost},
+            total_cost = #{totalCost},
+            remaining_budget = #{remainingBudget},
+            modified_date = NOW(),
+            modified_nm = #{modifiedNm}
+        WHERE cost_id = #{costId}
+          AND goal_id = #{goalId}
+          AND del_yn = 'N'
+    </update>
+
     <select id="findCostByGoalId" resultType="org.scoula.travel.domain.TravelCostVO">
         SELECT
         <include refid="travelCostColumns"/>
@@ -103,14 +162,34 @@
         LIMIT 1
     </select>
 
-    <!-- 재계산 시 기존 행을 소프트 삭제. 삭제자·일시는 수정 컬럼에 기록 -->
-    <update id="deleteCostByGoalId">
-        UPDATE travel_cost
-        SET del_yn = 'Y',
-            modified_date = NOW(),
-            modified_nm = #{modifiedNm}
-        WHERE del_yn = 'N'
-          AND goal_id = #{goalId}
-    </update>
+    <select id="findFlightCostByQuarter"
+            parameterType="org.scoula.travel.dto.TravelQuarterCostSearchDTO"
+            resultType="java.lang.Long">
+        SELECT CASE #{quarter}
+                   WHEN 1 THEN q1_cost
+                   WHEN 2 THEN q2_cost
+                   WHEN 3 THEN q3_cost
+                   WHEN 4 THEN q4_cost
+               END
+        FROM flight_cost
+        WHERE city_cost_id = #{cityCostId}
+          AND del_yn = 'N'
+        LIMIT 1
+    </select>
+
+    <select id="findHotelCostByQuarter"
+            parameterType="org.scoula.travel.dto.TravelQuarterCostSearchDTO"
+            resultType="java.lang.Long">
+        SELECT CASE #{quarter}
+                   WHEN 1 THEN q1_cost
+                   WHEN 2 THEN q2_cost
+                   WHEN 3 THEN q3_cost
+                   WHEN 4 THEN q4_cost
+               END
+        FROM hotel_cost
+        WHERE city_cost_id = #{cityCostId}
+          AND del_yn = 'N'
+        LIMIT 1
+    </select>
 
 </mapper>

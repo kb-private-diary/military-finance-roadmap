@@ -30,6 +30,7 @@ const toggleLike = () => {
 <template>
   <button
     class="like-button"
+    :class="{ 'like-button--active': modelValue }"
     type="button"
     :aria-pressed="modelValue"
     aria-label="관심 등록"
@@ -38,8 +39,6 @@ const toggleLike = () => {
     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path
         d="M12 20.5C12 20.5 3 15.2 3 9.2C3 6.3 5.3 4 8.2 4C9.8 4 11.2 4.8 12 6C12.8 4.8 14.2 4 15.8 4C18.7 4 21 6.3 21 9.2C21 15.2 12 20.5 12 20.5Z"
-        :fill="modelValue ? '#ef4444' : 'none'"
-        :stroke="modelValue ? '#ef4444' : '#1b1b1b'"
         stroke-width="1.8"
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -65,6 +64,16 @@ const toggleLike = () => {
   width: 20px;
   height: 20px;
   transition: transform 0.15s ease;
+}
+
+.like-button svg path {
+  fill: none;
+  stroke: var(--text-strong);
+}
+
+.like-button--active svg path {
+  fill: var(--danger);
+  stroke: var(--danger);
 }
 
 .like-button:active svg {

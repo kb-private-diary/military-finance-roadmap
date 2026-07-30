@@ -77,8 +77,8 @@ const moveToTab = (routeName) => {
   display: flex;
   overflow-x: auto;
   min-width: 0;
-  padding: 0 16px;
-  border-bottom: 1px solid #e5e5e5;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--line);
   flex-shrink: 0;
   scrollbar-width: none; /* Firefox */
   -webkit-overflow-scrolling: touch; /* iOS 관성 스크롤 */
@@ -90,18 +90,18 @@ const moveToTab = (routeName) => {
 
 .app-tabnav__item {
   flex-shrink: 0;
-  padding: 10px 12px;
+  padding: 12px 14px;
   background: none;
   border: none;
   font-size: 14px;
-  color: #9ca3af;
+  color: var(--text-hint);
   cursor: pointer;
   white-space: nowrap;
 }
 
 .app-tabnav__item--active {
-  color: #1b1b1b;
+  color: var(--text-strong);
   font-weight: 700;
-  border-bottom: 2px solid #ffbc00;
+  border-bottom: 2px solid var(--kb-yellow-deep);
 }
 </style>

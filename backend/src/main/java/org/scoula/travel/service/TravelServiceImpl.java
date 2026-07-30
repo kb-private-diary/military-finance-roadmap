@@ -1,11 +1,17 @@
 package org.scoula.travel.service;
 
 import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,11 +27,15 @@ import org.scoula.travel.domain.CityCostVO;
 import org.scoula.travel.domain.TravelCostVO;
 import org.scoula.travel.domain.TravelGoalVO;
 import org.scoula.travel.dto.CityCostResponseDTO;
-import org.scoula.travel.dto.TravelCostCreateRequestDTO;
 import org.scoula.travel.dto.TravelCostResponseDTO;
 import org.scoula.travel.dto.TravelGoalCreateRequestDTO;
+import org.scoula.travel.dto.TravelGoalDraftResponseDTO;
 import org.scoula.travel.dto.TravelPlaceResponseDTO;
+import org.scoula.travel.dto.TravelPlaceSelectionDTO;
+import org.scoula.travel.dto.TravelPlacesUpdateRequestDTO;
+import org.scoula.travel.dto.TravelQuarterCostSearchDTO;
 import org.scoula.travel.mapper.TravelMapper;
+import org.scoula.travel.util.TravelDateCalculator;
 
 @Log4j2
 @Service
@@ -37,6 +47,7 @@ public class TravelServiceImpl implements TravelService {
     private final FlightApiClient flightApiClient;
     private final BookingApiClient bookingApiClient;
     private final SerpApiClient serpApiClient;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     // 로그인 사용자 임시 고정값
     // 인증 모듈 완성 후 컨트롤러에서 CustomUser를 받아 넘기도록 교체.
@@ -52,6 +63,13 @@ public class TravelServiceImpl implements TravelService {
     private static final List<String> VALID_STYLES =
             Arrays.asList("saving", "common", "premium");
 
+    private static final Set<String> FLIGHT_FALLBACK_CODES =
+            Set.of("TRAVEL_017", "TRAVEL_018", "TRAVEL_019");
+
+    private static final Set<String> HOTEL_FALLBACK_CODES =
+            Set.of("TRAVEL_020", "TRAVEL_021", "TRAVEL_022");
+
+    @Transactional(readOnly = true)
     @Override
     public List<CityCostResponseDTO> findCityCosts(String country) {
         log.info("findCityCosts: country = " + country);
@@ -89,6 +107,97 @@ public class TravelServiceImpl implements TravelService {
         this.mapper.insertGoal(goal);
 
         return goal.getGoalId();
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public TravelGoalDraftResponseDTO findCurrentDraft() {
+        final TravelGoalVO goal =
+                this.mapper.findDraftGoalByUserId(LOGIN_USER_ID);
+        return goal == null ? null : TravelGoalDraftResponseDTO.of(goal);
+    }
+
+    @Transactional
+    @Override
+    public void updateGoal(
+            final Long goalId,
+            final TravelGoalCreateRequestDTO request) {
+        this.validatePeriod(request.getStartDate(), request.getEndDate());
+        this.validateStyle(request.getStyle());
+        this.validateBudget(request.getTotalBudget());
+
+        final TravelGoalVO savedGoal = this.getGoalOrThrow(goalId);
+        if (!LOGIN_USER_ID.equals(savedGoal.getUserId())) {
+            throw BusinessException.forbidden(
+                    "본인의 여행 목표만 수정할 수 있습니다.",
+                    "AUTH_004");
+        }
+        if (!STATUS_DRAFT.equals(savedGoal.getStatus())) {
+            throw BusinessException.conflict(
+                    "작성 중인 여행 목표만 수정할 수 있습니다.",
+                    "TRAVEL_029");
+        }
+
+        final CityCostVO cityCost =
+                this.findCityCostOrThrow(request.getDestination());
+        final TravelGoalVO goal = new TravelGoalVO();
+        goal.setGoalId(goalId);
+        goal.setUserId(LOGIN_USER_ID);
+        goal.setTitle(request.getTitle());
+        goal.setDeparture(request.getDeparture());
+        goal.setDestination(request.getDestination());
+        goal.setIsDomestic(
+                DOMESTIC_COUNTRY.equals(cityCost.getCountry()));
+        goal.setStyle(request.getStyle().toLowerCase());
+        goal.setStartDate(request.getStartDate());
+        goal.setEndDate(request.getEndDate());
+        goal.setTotalBudget(request.getTotalBudget());
+        goal.setModifiedNm(LOGIN_USER_NAME);
+
+        final boolean costInputChanged =
+                this.hasCostCalculationInputChanged(savedGoal, request);
+        final boolean budgetChanged = !Objects.equals(
+                savedGoal.getTotalBudget(), request.getTotalBudget());
+
+        if (this.mapper.updateGoal(goal) == 0) {
+            throw BusinessException.conflict(
+                    "작성 중인 여행 목표만 수정할 수 있습니다.",
+                    "TRAVEL_029");
+        }
+
+        if (!costInputChanged && budgetChanged) {
+            this.updateRemainingBudget(goalId, request.getTotalBudget());
+        }
+    }
+
+    private boolean hasCostCalculationInputChanged(
+            final TravelGoalVO savedGoal,
+            final TravelGoalCreateRequestDTO request) {
+        return !Objects.equals(
+                        savedGoal.getDeparture(), request.getDeparture())
+                || !Objects.equals(
+                        savedGoal.getDestination(),
+                        request.getDestination())
+                || !Objects.equals(
+                        savedGoal.getStyle(), request.getStyle())
+                || !Objects.equals(
+                        savedGoal.getStartDate(), request.getStartDate())
+                || !Objects.equals(
+                        savedGoal.getEndDate(), request.getEndDate());
+    }
+
+    private void updateRemainingBudget(
+            final Long goalId,
+            final Long totalBudget) {
+        final TravelCostVO cost = this.mapper.findCostByGoalId(goalId);
+        if (cost == null) {
+            return;
+        }
+
+        cost.setRemainingBudget(
+                this.nvl(totalBudget) - this.nvl(cost.getTotalCost()));
+        cost.setModifiedNm(LOGIN_USER_NAME);
+        this.mapper.updateCost(cost);
     }
 
     private void validatePeriod(LocalDate startDate, LocalDate endDate) {
@@ -137,24 +246,15 @@ public class TravelServiceImpl implements TravelService {
     // 저장된 목표와 외부 교통·항공·숙박 API 결과로 예상 경비를 산출해 저장한다.
     @Transactional
     @Override
-    public Long createCost(Long goalId, TravelCostCreateRequestDTO request) {
+    public Long createCost(final Long goalId) {
         TravelGoalVO goal = this.getGoalOrThrow(goalId);
         CityCostVO cityCost = this.findCityCostOrThrow(goal.getDestination());
 
-        long flightCost = Boolean.TRUE.equals(goal.getIsDomestic())
-                ? this.odsayClient.estimateRoundTripCost(
-                        goal.getDeparture(), goal.getDestination())
-                : this.flightApiClient.estimateRoundTripCost(
-                        cityCost.getCountry(),
-                        goal.getStartDate(),
-                        goal.getEndDate());
-        long hotelCost = this.bookingApiClient.estimateHotelCost(
-                cityCost.getCountry(),
-                goal.getDestination(),
-                goal.getStartDate(),
-                goal.getEndDate());
-
-        int days = this.calculateDays(goal.getStartDate(), goal.getEndDate());
+        final long flightCost =
+                this.calculateTransportationCost(goal, cityCost);
+        final long hotelCost = this.calculateHotelCost(goal, cityCost);
+        final int days = TravelDateCalculator.calculateTravelDays(
+                goal.getStartDate(), goal.getEndDate());
         long dailyCost = this.findDailyCost(cityCost, goal.getStyle());
         long livingCost = dailyCost * days;
         long totalCost = flightCost + hotelCost + livingCost;
@@ -165,7 +265,7 @@ public class TravelServiceImpl implements TravelService {
                 goalId, goal.getDestination(), goal.getStyle(),
                 dailyCost, days, livingCost, totalCost, remainingBudget));
 
-        TravelCostVO cost = new TravelCostVO();
+        final TravelCostVO cost = new TravelCostVO();
         cost.setGoalId(goalId);
         cost.setFlightCost(flightCost);
         cost.setHotelCost(hotelCost);
@@ -173,10 +273,21 @@ public class TravelServiceImpl implements TravelService {
         cost.setTotalCost(totalCost);
         cost.setRemainingBudget(remainingBudget);
         cost.setCreatedNm(LOGIN_USER_NAME);
+        cost.setModifiedNm(LOGIN_USER_NAME);
 
-        // 같은 목표로 다시 호출되면(뒤로가기·새로고침 등) 기존 결과를 소프트 삭제하고 새로 적재한다.
-        this.mapper.deleteCostByGoalId(goalId, LOGIN_USER_NAME);
-        this.mapper.insertCost(cost);
+        // 목표에 저장된 비용이 있으면 현재 값을 갱신하고, 없을 때만 새로 생성한다.
+        final TravelCostVO savedCost =
+                this.mapper.findCostByGoalId(goalId);
+        if (savedCost == null) {
+            this.mapper.insertCost(cost);
+        } else {
+            cost.setCostId(savedCost.getCostId());
+            final int updatedRows = this.mapper.updateCost(cost);
+            if (updatedRows == 0) {
+                cost.setCostId(null);
+                this.mapper.insertCost(cost);
+            }
+        }
 
         return cost.getCostId();
     }
@@ -190,9 +301,122 @@ public class TravelServiceImpl implements TravelService {
         return goal;
     }
 
-    // 총 일수 = 종료일 - 시작일 + 1 (3박4일이면 4)
-    private int calculateDays(LocalDate startDate, LocalDate endDate) {
-        return (int) ChronoUnit.DAYS.between(startDate, endDate) + 1;
+    private long calculateTransportationCost(
+            final TravelGoalVO goal,
+            final CityCostVO cityCost) {
+        if (Boolean.TRUE.equals(goal.getIsDomestic())) {
+            return this.odsayClient.estimateRoundTripCost(
+                    goal.getDeparture(), goal.getDestination());
+        }
+
+        try {
+            return this.flightApiClient.estimateRoundTripCost(
+                    cityCost.getCountry(),
+                    goal.getStartDate(),
+                    goal.getEndDate());
+        } catch (final BusinessException exception) {
+            if (!FLIGHT_FALLBACK_CODES.contains(exception.getCode())) {
+                throw exception;
+            }
+            return this.calculateFallbackFlightCost(
+                    goal, cityCost, exception);
+        }
+    }
+
+    private long calculateFallbackFlightCost(
+            final TravelGoalVO goal,
+            final CityCostVO cityCost,
+            final BusinessException originalException) {
+        final int quarter =
+                TravelDateCalculator.findQuarter(goal.getStartDate());
+        final TravelQuarterCostSearchDTO search =
+                new TravelQuarterCostSearchDTO(
+                        cityCost.getCityCostId(), quarter);
+        final Long fallbackCost =
+                this.mapper.findFlightCostByQuarter(search);
+
+        if (fallbackCost == null || fallbackCost <= 0) {
+            log.warn(
+                    "항공비 DB 대체값 없음: cityCostId={}, quarter={}",
+                    cityCost.getCityCostId(),
+                    quarter);
+            throw originalException;
+        }
+
+        log.warn(
+                "Flight API 대신 DB 항공비 사용: "
+                        + "cityCostId={}, quarter={}, cost={}",
+                cityCost.getCityCostId(),
+                quarter,
+                fallbackCost);
+        return fallbackCost;
+    }
+
+    private long calculateHotelCost(
+            final TravelGoalVO goal,
+            final CityCostVO cityCost) {
+        final int nights = TravelDateCalculator.calculateNights(
+                goal.getStartDate(), goal.getEndDate());
+        if (nights == 0) {
+            return 0L;
+        }
+
+        try {
+            return this.bookingApiClient.estimateHotelCost(
+                    cityCost.getCountry(),
+                    goal.getDestination(),
+                    goal.getStartDate(),
+                    goal.getEndDate());
+        } catch (final BusinessException exception) {
+            if (!HOTEL_FALLBACK_CODES.contains(exception.getCode())) {
+                throw exception;
+            }
+            return this.calculateFallbackHotelCost(
+                    goal, cityCost, nights, exception);
+        }
+    }
+
+    private long calculateFallbackHotelCost(
+            final TravelGoalVO goal,
+            final CityCostVO cityCost,
+            final int nights,
+            final BusinessException originalException) {
+        final int quarter =
+                TravelDateCalculator.findQuarter(goal.getStartDate());
+        final TravelQuarterCostSearchDTO search =
+                new TravelQuarterCostSearchDTO(
+                        cityCost.getCityCostId(), quarter);
+        final Long nightlyCost =
+                this.mapper.findHotelCostByQuarter(search);
+
+        if (nightlyCost == null || nightlyCost <= 0) {
+            log.warn(
+                    "숙박비 DB 대체값 없음: cityCostId={}, quarter={}",
+                    cityCost.getCityCostId(),
+                    quarter);
+            throw originalException;
+        }
+
+        try {
+            final long fallbackCost = Math.multiplyExact(nightlyCost, nights);
+            log.warn(
+                    "Booking API 대신 DB 숙박비 사용: "
+                            + "cityCostId={}, quarter={}, nightlyCost={}, "
+                            + "nights={}, cost={}",
+                    cityCost.getCityCostId(),
+                    quarter,
+                    nightlyCost,
+                    nights,
+                    fallbackCost);
+            return fallbackCost;
+        } catch (final ArithmeticException exception) {
+            log.warn(
+                    "숙박비 DB 대체값 계산 범위 초과: "
+                            + "cityCostId={}, nights={}",
+                    cityCost.getCityCostId(),
+                    nights);
+            throw originalException;
+        }
     }
 
     private long findDailyCost(CityCostVO cityCost, String style) {
@@ -212,6 +436,7 @@ public class TravelServiceImpl implements TravelService {
         return value;
     }
 
+    @Transactional(readOnly = true)
     @Override
     public TravelCostResponseDTO findCost(Long goalId) {
         this.getGoalOrThrow(goalId);
@@ -245,6 +470,53 @@ public class TravelServiceImpl implements TravelService {
                 cityCost.getCountry(),
                 goal.getDestination(),
                 normalizedCategory);
+    }
+
+    @Transactional
+    @Override
+    public void updatePlaces(
+            final Long goalId,
+            final TravelPlacesUpdateRequestDTO request) {
+        this.getGoalOrThrow(goalId);
+        if (request == null || request.getPlaces() == null) {
+            throw BusinessException.badRequest(
+                    "관심 여행지 목록을 입력해주세요.",
+                    "TRAVEL_026");
+        }
+
+        try {
+            final String places =
+                    this.objectMapper.writeValueAsString(request.getPlaces());
+            this.mapper.updateGoalPlaces(goalId, places, LOGIN_USER_NAME);
+        } catch (final JsonProcessingException e) {
+            log.warn("관심 여행지 JSON 변환 오류: goalId={}", goalId, e);
+            throw BusinessException.badRequest(
+                    "관심 여행지 정보를 저장할 수 없습니다.",
+                    "TRAVEL_027");
+        }
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public List<TravelPlaceSelectionDTO> getSelectedPlaces(
+            final Long goalId) {
+        final TravelGoalVO goal = this.getGoalOrThrow(goalId);
+        if (goal.getPlaces() == null || goal.getPlaces().trim().isEmpty()) {
+            return List.of();
+        }
+
+        try {
+            return this.objectMapper.readValue(
+                    goal.getPlaces(),
+                    new TypeReference<List<TravelPlaceSelectionDTO>>() {
+                    });
+        } catch (final JsonProcessingException e) {
+            log.warn("관심 여행지 JSON 파싱 오류: goalId={}", goalId, e);
+            throw new BusinessException(
+                    "저장된 관심 여행지 정보를 불러올 수 없습니다.",
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "TRAVEL_028");
+        }
     }
 
 }

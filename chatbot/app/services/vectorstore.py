@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 import chromadb
 from google import genai
@@ -90,7 +90,12 @@ def build_index(force: bool = False) -> int:
     return count
 
 
+def search_with_metadata(query: str, top_k: int = 3) -> List[Tuple[str, dict]]:
+    """LangChain Retriever(Chroma)를 통해 의미 기반 검색을 수행하고, 청크 본문과 메타데이터(doc_name, section)를 함께 반환한다."""
+    docs = _vectorstore.similarity_search(query, k=top_k)
+    return [(doc.page_content, doc.metadata) for doc in docs]
+
+
 def search(query: str, top_k: int = 3) -> List[str]:
     """LangChain Retriever(Chroma)를 통해 의미 기반 검색을 수행한다."""
-    docs = _vectorstore.similarity_search(query, k=top_k)
-    return [doc.page_content for doc in docs]
+    return [text for text, _ in search_with_metadata(query, top_k)]
