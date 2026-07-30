@@ -66,7 +66,9 @@ public class RentServiceImpl implements RentService {
 
         String creator = "user:" + userId; // TODO: JWT 연동 후 로그인 사용자명으로 교체
 
-        // 3) 재등록 방식: 기존 DRAFT 는 soft delete (자취는 수정 없이 재등록 → DRAFT 1건 유지)
+        // 3) 재등록 방식: 기존 DRAFT 를 soft delete(del_yn='Y') 후 새로 INSERT.
+        //    자취는 "목표 수정"이 없다 - 등록값을 바꾸면 step1부터 다시 추천해야 해서 새 등록과 동일하기 때문.
+        //    그래서 conflict(막기)가 아니라 기존 DRAFT 대체로 처리한다 (결과적으로 회원당 DRAFT 1건 유지).
         this.mapper.deleteDraftGoalByUserId(userId, creator);
 
         // 4) VO 조립 — 서버가 정하는 값(status·개월수·생성자)을 여기서 채운다
