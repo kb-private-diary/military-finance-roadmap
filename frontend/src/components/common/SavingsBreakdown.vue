@@ -13,15 +13,15 @@
     />
 -->
 <script setup>
+import { formatWon } from '@/util/format';
+
 defineProps({
-  principal: { type: Number, required: true, default: 0 },
-  interest: { type: Number, required: true, default: 0 },
-  matchingFund: { type: Number, required: true, default: 0 },
-  total: { type: Number, required: true, default: 0 },
+  principal: { type: Number, required: true },
+  interest: { type: Number, required: true },
+  matchingFund: { type: Number, required: true },
+  total: { type: Number, required: true },
   interestLabel: { type: String, required: false, default: '이자 (연 5.0%)' },
 });
-
-const formatWon = (amount) => `${(amount ?? 0).toLocaleString('ko-KR')}원`;
 </script>
 
 <template>
@@ -82,7 +82,7 @@ const formatWon = (amount) => `${(amount ?? 0).toLocaleString('ko-KR')}원`;
   height: 12px;
   border-radius: 8px;
   overflow: hidden;
-  background-color: var(--kb-gray-pale, #e8e8e8);
+  background-color: var(--kb-gray-pale);
 }
 
 .savings-breakdown__segment {
@@ -91,15 +91,15 @@ const formatWon = (amount) => `${(amount ?? 0).toLocaleString('ko-KR')}원`;
 }
 
 .savings-breakdown__segment--principal {
-  background-color: #f2a56d;
+  background-color: var(--chart-1);
 }
 
 .savings-breakdown__segment--interest {
-  background-color: #bfe3a0;
+  background-color: var(--chart-2);
 }
 
 .savings-breakdown__segment--matching {
-  background-color: #aedff5;
+  background-color: var(--chart-3);
 }
 
 .savings-breakdown__legend {
@@ -125,27 +125,27 @@ const formatWon = (amount) => `${(amount ?? 0).toLocaleString('ko-KR')}원`;
 }
 
 .savings-breakdown__dot--principal {
-  background-color: #f2a56d;
+  background-color: var(--chart-1);
 }
 
 .savings-breakdown__dot--interest {
-  background-color: #bfe3a0;
+  background-color: var(--chart-2);
 }
 
 .savings-breakdown__dot--matching {
-  background-color: #aedff5;
+  background-color: var(--chart-3);
 }
 
 .savings-breakdown__label {
   flex: 1;
   font-size: 13px;
-  color: var(--text-body, #545045);
+  color: var(--text-body);
 }
 
 .savings-breakdown__value {
   font-size: 14px;
   font-weight: 700;
-  color: var(--text-strong, #000000);
+  color: var(--text-strong);
 }
 
 .savings-breakdown__total {
@@ -153,18 +153,18 @@ const formatWon = (amount) => `${(amount ?? 0).toLocaleString('ko-KR')}원`;
   align-items: center;
   justify-content: space-between;
   padding-top: 10px;
-  border-top: 1px solid var(--line, #e0e0e0);
+  border-top: 1px solid var(--line);
 }
 
 .savings-breakdown__total-label {
   font-size: 14px;
   font-weight: 700;
-  color: var(--text-strong, #000000);
+  color: var(--text-strong);
 }
 
 .savings-breakdown__total-value {
   font-size: 18px;
   font-weight: 800;
-  color: #a9895a;
+  color: var(--brand-gold);
 }
 </style>
