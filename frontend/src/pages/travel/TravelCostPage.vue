@@ -113,7 +113,8 @@ onBeforeUnmount(() => {
   scrollContainer?.classList.remove('travel-scrollbar-hidden');
 });
 
-const goPrevious = () => router.back();
+const goPrevious = () =>
+  router.push({ name: 'TravelGoalCreate' });
 const goNext = () =>
   router.push({ name: 'TravelPlaces', params: { goalId } });
 </script>

@@ -9,6 +9,8 @@ import org.scoula.travel.dto.TravelGoalDraftResponseDTO;
 import org.scoula.travel.dto.TravelPlaceResponseDTO;
 import org.scoula.travel.dto.TravelPlaceSelectionDTO;
 import org.scoula.travel.dto.TravelPlacesUpdateRequestDTO;
+import org.scoula.travel.dto.TravelPackageResponseDTO;
+import org.scoula.travel.dto.TravelPackageUpdateRequestDTO;
 
 // 여행 로드맵 서비스
 public interface TravelService {
@@ -41,5 +43,11 @@ public interface TravelService {
             final TravelPlacesUpdateRequestDTO request);
 
     List<TravelPlaceSelectionDTO> getSelectedPlaces(final Long goalId);
+
+    List<TravelPackageResponseDTO> findPackages(final Long goalId);
+
+    void updatePackage(
+            final Long goalId,
+            final TravelPackageUpdateRequestDTO request);
 
 }

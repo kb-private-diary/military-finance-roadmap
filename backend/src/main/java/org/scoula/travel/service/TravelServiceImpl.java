@@ -1,10 +1,15 @@
 package org.scoula.travel.service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -23,9 +28,11 @@ import org.scoula.travel.client.BookingApiClient;
 import org.scoula.travel.client.FlightApiClient;
 import org.scoula.travel.client.OdsayClient;
 import org.scoula.travel.client.SerpApiClient;
+import org.scoula.travel.client.YellowBalloonClient;
 import org.scoula.travel.domain.CityCostVO;
 import org.scoula.travel.domain.TravelCostVO;
 import org.scoula.travel.domain.TravelGoalVO;
+import org.scoula.travel.domain.TravelPackageVO;
 import org.scoula.travel.dto.CityCostResponseDTO;
 import org.scoula.travel.dto.TravelCostResponseDTO;
 import org.scoula.travel.dto.TravelGoalCreateRequestDTO;
@@ -34,6 +41,9 @@ import org.scoula.travel.dto.TravelPlaceResponseDTO;
 import org.scoula.travel.dto.TravelPlaceSelectionDTO;
 import org.scoula.travel.dto.TravelPlacesUpdateRequestDTO;
 import org.scoula.travel.dto.TravelQuarterCostSearchDTO;
+import org.scoula.travel.dto.TravelPackageResponseDTO;
+import org.scoula.travel.dto.TravelPackageSearchDTO;
+import org.scoula.travel.dto.TravelPackageUpdateRequestDTO;
 import org.scoula.travel.mapper.TravelMapper;
 import org.scoula.travel.util.TravelDateCalculator;
 
@@ -47,7 +57,10 @@ public class TravelServiceImpl implements TravelService {
     private final FlightApiClient flightApiClient;
     private final BookingApiClient bookingApiClient;
     private final SerpApiClient serpApiClient;
+    private final YellowBalloonClient yellowBalloonClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final Map<String, LocalDateTime> packageQueryCache =
+            new ConcurrentHashMap<>();
 
     // 로그인 사용자 임시 고정값
     // 인증 모듈 완성 후 컨트롤러에서 CustomUser를 받아 넘기도록 교체.
@@ -58,6 +71,9 @@ public class TravelServiceImpl implements TravelService {
     private static final String STATUS_DRAFT = "DRAFT";
 
     private static final String DOMESTIC_COUNTRY = "대한민국";
+    private static final DateTimeFormatter PACKAGE_DATE_FORMAT =
+            DateTimeFormatter.ofPattern("yyyy.MM.dd");
+    private static final int PACKAGE_CACHE_HOURS = 6;
 
     // 여행 스타일. city_cost 의 saving_cost / common_cost / premium_cost 에 대응.
     private static final List<String> VALID_STYLES =
@@ -517,6 +533,199 @@ public class TravelServiceImpl implements TravelService {
                     HttpStatus.INTERNAL_SERVER_ERROR,
                     "TRAVEL_028");
         }
+    }
+
+    @Transactional
+    @Override
+    public List<TravelPackageResponseDTO> findPackages(
+            final Long goalId) {
+        final TravelGoalVO goal = this.getGoalOrThrow(goalId);
+        final CityCostVO cityCost =
+                this.findCityCostOrThrow(goal.getDestination());
+        final TravelCostVO travelCost =
+                this.mapper.findCostByGoalId(goalId);
+        if (travelCost == null || travelCost.getTotalCost() == null) {
+            throw BusinessException.notFound(
+                    "산출된 예상 경비가 없습니다.",
+                    "TRAVEL_006");
+        }
+        final TravelPackageSearchDTO packageSearch =
+                this.createPackageSearch(
+                        goal, cityCost, travelCost.getTotalCost());
+
+        final String cacheKey = goal.getDestination()
+                + ":"
+                + goal.getStartDate();
+        if (!this.hasFreshPackageQuery(cacheKey)) {
+            try {
+                final List<TravelPackageVO> crawledPackages =
+                        this.yellowBalloonClient.searchPackages(
+                                cityCost.getCountry(),
+                                goal.getDestination(),
+                                goal.getStartDate());
+                crawledPackages.stream()
+                        .filter(travelPackage -> this.isAvailablePackage(
+                                travelPackage, goal.getStartDate()))
+                        .forEach(this::savePackage);
+                this.packageQueryCache.put(
+                        cacheKey, LocalDateTime.now());
+            } catch (final BusinessException exception) {
+                log.warn(
+                        "노랑풍선 조회 대신 DB 패키지 사용: "
+                                + "goalId={}, destination={}, code={}",
+                        goalId,
+                        goal.getDestination(),
+                        exception.getCode());
+            }
+        }
+
+        final List<TravelPackageVO> packages =
+                this.mapper.findPackagesByDestination(packageSearch)
+                        .stream()
+                        .filter(travelPackage -> this.isAvailablePackage(
+                                travelPackage, goal.getStartDate()))
+                        .collect(Collectors.toList());
+        if (packages.isEmpty()) {
+            return List.of();
+        }
+
+        return packages.stream()
+                .map(travelPackage -> TravelPackageResponseDTO.of(
+                        travelPackage, goal.getPackageId()))
+                .collect(Collectors.toList());
+    }
+
+    private boolean hasFreshPackageQuery(final String cacheKey) {
+        final LocalDateTime cacheBoundary =
+                LocalDateTime.now().minusHours(PACKAGE_CACHE_HOURS);
+        final LocalDateTime cachedAt =
+                this.packageQueryCache.get(cacheKey);
+        return cachedAt != null && cachedAt.isAfter(cacheBoundary);
+    }
+
+    private void savePackage(final TravelPackageVO travelPackage) {
+        final TravelPackageVO savedPackage =
+                this.mapper.findPackageByGoodsCode(
+                        travelPackage.getGoodsCode());
+        travelPackage.setCreatedNm(LOGIN_USER_NAME);
+        travelPackage.setModifiedNm(LOGIN_USER_NAME);
+
+        if (savedPackage == null) {
+            this.mapper.insertPackage(travelPackage);
+            return;
+        }
+
+        travelPackage.setPackageId(savedPackage.getPackageId());
+        this.mapper.updatePackage(travelPackage);
+    }
+
+    private TravelPackageSearchDTO createPackageSearch(
+            final TravelGoalVO goal,
+            final CityCostVO cityCost,
+            final Long maxPrice) {
+        return TravelPackageSearchDTO.builder()
+                .country(cityCost.getCountry())
+                .destination(goal.getDestination())
+                .maxPrice(maxPrice)
+                .build();
+    }
+
+    private boolean isAvailablePackage(
+            final TravelPackageVO travelPackage,
+            final LocalDate startDate) {
+        if (startDate == null
+                || travelPackage.getDeparturePeriod() == null) {
+            return true;
+        }
+
+        final String[] period =
+                travelPackage.getDeparturePeriod().split("\\s*~\\s*");
+        if (period.length != 2) {
+            return true;
+        }
+
+        try {
+            final LocalDate availableFrom =
+                    LocalDate.parse(period[0], PACKAGE_DATE_FORMAT);
+            final LocalDate availableUntil =
+                    LocalDate.parse(period[1], PACKAGE_DATE_FORMAT);
+            return !startDate.isBefore(availableFrom)
+                    && !startDate.isAfter(availableUntil);
+        } catch (final DateTimeParseException exception) {
+            log.warn("패키지 출발기간 파싱 실패: goodsCode={}, period={}",
+                    travelPackage.getGoodsCode(),
+                    travelPackage.getDeparturePeriod());
+            return true;
+        }
+    }
+
+    @Transactional
+    @Override
+    public void updatePackage(
+            final Long goalId,
+            final TravelPackageUpdateRequestDTO request) {
+        final TravelGoalVO goal = this.getGoalOrThrow(goalId);
+        if (!LOGIN_USER_ID.equals(goal.getUserId())) {
+            throw BusinessException.forbidden(
+                    "본인의 여행 목표만 수정할 수 있습니다.",
+                    "AUTH_004");
+        }
+        if (!STATUS_DRAFT.equals(goal.getStatus())) {
+            throw BusinessException.conflict(
+                    "작성 중인 여행 목표만 수정할 수 있습니다.",
+                    "TRAVEL_029");
+        }
+        if (request == null) {
+            throw BusinessException.badRequest(
+                    "여행 패키지 선택 정보를 입력해주세요.",
+                    "TRAVEL_032");
+        }
+
+        if (request.getPackageId() == null) {
+            if (this.mapper.updateGoalPackage(
+                    goalId, null, LOGIN_USER_NAME) == 0) {
+                throw BusinessException.conflict(
+                        "작성 중인 여행 목표만 수정할 수 있습니다.",
+                        "TRAVEL_029");
+            }
+            return;
+        }
+
+        final TravelPackageVO travelPackage = this.mapper
+                .findPackagesByDestination(
+                        this.createPackageSearch(
+                                goal,
+                                this.findCityCostOrThrow(
+                                        goal.getDestination()),
+                                this.findCostOrThrow(goalId)
+                                        .getTotalCost()))
+                .stream()
+                .filter(item -> request.getPackageId()
+                        .equals(item.getPackageId()))
+                .findFirst()
+                .orElseThrow(() -> BusinessException.badRequest(
+                        "선택할 수 없는 여행 패키지 상품입니다.",
+                        "TRAVEL_033"));
+
+        if (this.mapper.updateGoalPackage(
+                goalId,
+                travelPackage.getPackageId(),
+                LOGIN_USER_NAME) == 0) {
+            throw BusinessException.conflict(
+                    "작성 중인 여행 목표만 수정할 수 있습니다.",
+                    "TRAVEL_029");
+        }
+    }
+
+    private TravelCostVO findCostOrThrow(final Long goalId) {
+        final TravelCostVO travelCost =
+                this.mapper.findCostByGoalId(goalId);
+        if (travelCost == null || travelCost.getTotalCost() == null) {
+            throw BusinessException.notFound(
+                    "산출된 예상 경비가 없습니다.",
+                    "TRAVEL_006");
+        }
+        return travelCost;
     }
 
 }

@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import travelApi from '@/api/travelApi';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
@@ -28,6 +28,9 @@ const placeRequests = {
   attraction: null,
   restaurant: null,
 };
+const hasSelectedPlaces = computed(
+  () => selectedPlaces.value.size > 0,
+);
 
 const unwrap = (response) => response.data?.data ?? [];
 
@@ -132,7 +135,8 @@ const togglePlace = (place) => {
   });
 };
 
-const goPrevious = () => router.back();
+const goPrevious = () =>
+  router.push({ name: 'TravelCost', params: { goalId } });
 const goNext = async () => {
   if (saving.value) return;
 
@@ -255,9 +259,15 @@ onMounted(loadPage);
     </ul>
 
     <BottomButtonBar
-      secondary-label="이전"
-      :primary-label="saving ? '저장 중...' : '다음'"
-      :primary-disabled="loading || Boolean(loadError) || saving"
+      secondary-label="이 전"
+      :primary-label="
+        saving
+          ? '저장 중...'
+          : hasSelectedPlaces
+            ? '다 음'
+            : '선택하지 않고 넘어가기'
+      "
+      :primary-disabled="loading || saving"
       @secondary-click="goPrevious"
       @primary-click="goNext"
     />
