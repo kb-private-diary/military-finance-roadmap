@@ -1,8 +1,11 @@
 <script setup>
-import { onMounted, ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import travelApi from '@/api/travelApi';
+import BaseCard from '@/components/common/BaseCard.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
+import EmptyState from '@/components/common/EmptyState.vue';
+import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
 import { formatWon } from '@/util/format';
 
 const route = useRoute();
@@ -16,6 +19,7 @@ const loading = ref(false);
 const saving = ref(false);
 const loadError = ref('');
 const saveError = ref('');
+let scrollContainer = null;
 
 const readErrorMessage = (error) =>
   error.response?.data?.message ||
@@ -68,20 +72,20 @@ const goNext = async () => {
   }
 };
 
-onMounted(loadPackages);
+onMounted(() => {
+  scrollContainer = document.querySelector('.app-content');
+  scrollContainer?.classList.add('travel-scrollbar-hidden');
+  loadPackages();
+});
+
+onBeforeUnmount(() => {
+  scrollContainer?.classList.remove('travel-scrollbar-hidden');
+});
 </script>
 
 <template>
   <div class="travel-packages">
-    <section class="roadmap-step" aria-label="여행 로드맵 3단계">
-      <p class="roadmap-step__label text-overline">여행 로드맵</p>
-      <div class="roadmap-step__progress">
-        <span class="roadmap-step__number">3</span>
-        <span class="roadmap-step__line">
-          <span class="roadmap-step__line-fill" />
-        </span>
-      </div>
-    </section>
+    <RoadmapCharacterSlider :progress="67" label="여행 로드맵" />
 
     <header class="page-header">
       <h1 class="text-title">이런 패키지는 어떠세요?</h1>
@@ -103,20 +107,20 @@ onMounted(loadPackages);
       <button type="button" @click="loadPackages">다시 시도</button>
     </div>
 
-    <div
+    <EmptyState
       v-else-if="packages.length === 0"
-      class="status-box text-caption"
-    >
-      개별 여행 예상 경비보다 저렴한 패키지 상품이 없습니다.
-    </div>
+      title="추천 가능한 패키지가 없습니다."
+      description="개별 여행 예상 경비보다 저렴한 패키지 상품이 없습니다."
+    />
 
     <ul v-else class="package-list">
       <li
         v-for="travelPackage in packages"
         :key="travelPackage.packageId"
       >
-        <article
+        <BaseCard
           class="package-card"
+          padding="0"
           :class="{
             'is-selected':
               selectedPackageId === travelPackage.packageId,
@@ -185,7 +189,7 @@ onMounted(loadPackages);
               />
             </svg>
           </a>
-        </article>
+        </BaseCard>
       </li>
     </ul>
 
@@ -219,52 +223,8 @@ onMounted(loadPackages);
   color: var(--text-strong);
 }
 
-.roadmap-step {
-  margin-bottom: 34px;
-}
-
-.roadmap-step__label {
-  margin: 0 0 15px;
-}
-
-.roadmap-step__progress {
-  position: relative;
-  display: flex;
-  align-items: center;
-  height: 22px;
-}
-
-.roadmap-step__line {
-  position: absolute;
-  right: 10px;
-  left: 10px;
-  height: 4px;
-  overflow: hidden;
-  background: var(--line);
-}
-
-.roadmap-step__line-fill {
-  display: block;
-  width: 66.6667%;
-  height: 100%;
-  background: var(--travel-primary);
-}
-
-.roadmap-step__number {
-  position: relative;
-  z-index: 2;
-  display: grid;
-  width: 22px;
-  height: 22px;
-  margin-left: 66.6667%;
-  place-items: center;
-  border: 2px solid var(--travel-primary);
-  border-radius: 50%;
-  background: var(--surface-default);
-  color: var(--travel-primary-dark);
-  font-size: 12px;
-  font-weight: 700;
-  transform: translateX(-50%);
+.travel-packages :deep(.character-slider) {
+  margin-bottom: 28px;
 }
 
 .page-header {
@@ -312,9 +272,7 @@ onMounted(loadPackages);
 .package-card {
   position: relative;
   overflow: hidden;
-  border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--surface-default);
 }
 
 .package-card.is-selected {
@@ -429,5 +387,16 @@ onMounted(loadPackages);
   margin: 12px 0 0;
   color: var(--danger);
   text-align: center;
+}
+
+:global(.app-content.travel-scrollbar-hidden) {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+:global(.app-content.travel-scrollbar-hidden::-webkit-scrollbar) {
+  display: none;
+  width: 0;
+  height: 0;
 }
 </style>

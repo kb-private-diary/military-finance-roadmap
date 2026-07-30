@@ -1,8 +1,18 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue';
+import {
+  computed,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import travelApi from '@/api/travelApi';
+import BaseCard from '@/components/common/BaseCard.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
+import CategoryButton from '@/components/common/CategoryButton.vue';
+import EmptyState from '@/components/common/EmptyState.vue';
+import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -28,6 +38,7 @@ const placeRequests = {
   attraction: null,
   restaurant: null,
 };
+let scrollContainer = null;
 const hasSelectedPlaces = computed(
   () => selectedPlaces.value.size > 0,
 );
@@ -156,20 +167,20 @@ const goNext = async () => {
 };
 
 watch(selectedCategory, () => searchPlaces());
-onMounted(loadPage);
+onMounted(() => {
+  scrollContainer = document.querySelector('.app-content');
+  scrollContainer?.classList.add('travel-scrollbar-hidden');
+  loadPage();
+});
+
+onBeforeUnmount(() => {
+  scrollContainer?.classList.remove('travel-scrollbar-hidden');
+});
 </script>
 
 <template>
   <div class="travel-places">
-    <section class="roadmap-step" aria-label="여행 로드맵 3단계">
-      <p class="roadmap-step__label text-overline">여행 로드맵</p>
-      <div class="roadmap-step__progress">
-        <span class="roadmap-step__number">3</span>
-        <span class="roadmap-step__line">
-          <span class="roadmap-step__line-fill" />
-        </span>
-      </div>
-    </section>
+    <RoadmapCharacterSlider :progress="67" label="여행 로드맵" />
 
     <header class="page-header">
       <h1 class="text-title">어디를 둘러볼까요?</h1>
@@ -179,17 +190,16 @@ onMounted(loadPage);
     </header>
 
     <div class="category-tabs" role="tablist" aria-label="추천 유형">
-      <button
+      <CategoryButton
         v-for="category in categories"
         :key="category.value"
-        type="button"
+        variant="oval-yellow"
+        :label="category.label"
+        :active="selectedCategory === category.value"
         role="tab"
         :aria-selected="selectedCategory === category.value"
-        :class="{ active: selectedCategory === category.value }"
         @click="selectedCategory = category.value"
-      >
-        {{ category.label }}
-      </button>
+      />
     </div>
 
     <div v-if="loading" class="status-box text-caption" role="status">
@@ -205,9 +215,11 @@ onMounted(loadPage);
       <button type="button" @click="loadPage(true)">다시 시도</button>
     </div>
 
-    <div v-else-if="places.length === 0" class="status-box text-caption">
-      조회된 추천 정보가 없습니다.
-    </div>
+    <EmptyState
+      v-else-if="places.length === 0"
+      title="조회된 추천 정보가 없습니다."
+      description="다른 추천 유형을 확인하거나 잠시 후 다시 시도해주세요."
+    />
 
     <p v-if="saveError" class="save-error text-caption" role="alert">
       {{ saveError }}
@@ -215,46 +227,49 @@ onMounted(loadPage);
 
     <ul v-if="!loading && !loadError && places.length" class="place-list">
       <li v-for="place in places" :key="place.placeId || place.title">
-        <label
+        <BaseCard
           class="place-card"
+          padding="0"
           :class="{ 'is-selected': isSelected(place) }"
         >
-          <input
-            class="place-card__checkbox"
-            type="checkbox"
-            :checked="isSelected(place)"
-            :aria-label="`${place.title} 관심 항목 선택`"
-            @change="togglePlace(place)"
-          />
-          <img
-            v-if="place.thumbnail"
-            :src="place.thumbnail"
-            :alt="`${place.title} 이미지`"
-            loading="lazy"
-          />
-          <div v-else class="place-card__placeholder" aria-hidden="true">
-            {{ selectedCategory === 'restaurant' ? '맛집' : '여행' }}
-          </div>
+          <label class="place-card__select">
+            <input
+              class="place-card__checkbox"
+              type="checkbox"
+              :checked="isSelected(place)"
+              :aria-label="`${place.title} 관심 항목 선택`"
+              @change="togglePlace(place)"
+            />
+            <img
+              v-if="place.thumbnail"
+              :src="place.thumbnail"
+              :alt="`${place.title} 이미지`"
+              loading="lazy"
+            />
+            <div v-else class="place-card__placeholder" aria-hidden="true">
+              {{ selectedCategory === 'restaurant' ? '맛집' : '여행' }}
+            </div>
 
-          <div class="place-card__content">
-            <span
-              v-if="place.type"
-              class="place-card__type text-caption"
-            >
-              {{ place.type }}
-            </span>
-            <h2 class="text-label">{{ place.title }}</h2>
-            <p class="place-card__rating text-caption">
-              {{ ratingText(place) }}
-            </p>
-            <p
-              v-if="place.address"
-              class="place-card__address text-caption"
-            >
-              {{ place.address }}
-            </p>
-          </div>
-        </label>
+            <div class="place-card__content">
+              <span
+                v-if="place.type"
+                class="place-card__type text-caption"
+              >
+                {{ place.type }}
+              </span>
+              <h2 class="text-label">{{ place.title }}</h2>
+              <p class="place-card__rating text-caption">
+                {{ ratingText(place) }}
+              </p>
+              <p
+                v-if="place.address"
+                class="place-card__address text-caption"
+              >
+                {{ place.address }}
+              </p>
+            </div>
+          </label>
+        </BaseCard>
       </li>
     </ul>
 
@@ -278,55 +293,11 @@ onMounted(loadPage);
 .travel-places {
   min-height: 100%;
   padding: 18px 0 88px;
-  color: #111;
+  color: var(--text-strong);
 }
 
-.roadmap-step {
-  margin-bottom: 34px;
-}
-
-.roadmap-step__label {
-  margin: 0 0 15px;
-}
-
-.roadmap-step__progress {
-  position: relative;
-  display: flex;
-  align-items: center;
-  height: 22px;
-}
-
-.roadmap-step__line {
-  position: absolute;
-  right: 10px;
-  left: 10px;
-  height: 4px;
-  overflow: hidden;
-  background: #dedede;
-}
-
-.roadmap-step__line-fill {
-  display: block;
-  width: 66.6667%;
-  height: 100%;
-  background: #657052;
-}
-
-.roadmap-step__number {
-  position: relative;
-  z-index: 2;
-  display: grid;
-  width: 22px;
-  height: 22px;
-  margin-left: 66.6667%;
-  place-items: center;
-  border: 2px solid #657052;
-  border-radius: 50%;
-  background: #fff;
-  color: #293020;
-  font-size: 12px;
-  font-weight: 700;
-  transform: translateX(-50%);
+.travel-places :deep(.character-slider) {
+  margin-bottom: 28px;
 }
 
 .page-header {
@@ -349,37 +320,22 @@ onMounted(loadPage);
   margin-bottom: 18px;
 }
 
-.category-tabs button {
-  padding: 7px 10px;
-  border: 0;
-  border-radius: 15px;
-  background: #e3e8df;
-  color: #4d5945;
-  font-size: 13px;
-}
-
-.category-tabs button.active {
-  background: #536548;
-  color: #fff;
-  font-weight: 700;
-}
-
 .status-box {
   padding: 48px 12px;
-  color: #777;
+  color: var(--text-muted);
   text-align: center;
 }
 
 .status-box--error {
-  color: #ef5350;
+  color: var(--danger);
 }
 
 .status-box button {
   margin-top: 12px;
   padding: 8px 14px;
   border: 0;
-  background: #617052;
-  color: #fff;
+  background: var(--travel-primary);
+  color: var(--surface-default);
 }
 
 .place-list {
@@ -392,22 +348,24 @@ onMounted(loadPage);
 
 .place-card {
   position: relative;
-  display: grid;
-  grid-template-columns: 72px 1fr;
-  min-height: 88px;
   overflow: hidden;
-  border: 1px solid #dedede;
   border-radius: 10px;
-  background: #fff;
-  cursor: pointer;
   transition:
     border-color 0.15s ease,
     box-shadow 0.15s ease;
 }
 
 .place-card.is-selected {
-  border-color: #657052;
-  box-shadow: 0 0 0 1px #657052;
+  border-color: var(--travel-primary);
+  box-shadow: 0 0 0 1px var(--travel-primary);
+}
+
+.place-card__select {
+  position: relative;
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  min-height: 88px;
+  cursor: pointer;
 }
 
 .place-card__checkbox {
@@ -418,7 +376,7 @@ onMounted(loadPage);
   width: 16px;
   height: 16px;
   margin: 0;
-  accent-color: #657052;
+  accent-color: var(--travel-primary);
 }
 
 .place-card img,
@@ -432,8 +390,8 @@ onMounted(loadPage);
 .place-card__placeholder {
   display: grid;
   place-items: center;
-  background: #edf0e9;
-  color: #77816f;
+  background: var(--surface-muted);
+  color: var(--text-muted);
   font-size: 12px;
 }
 
@@ -443,7 +401,7 @@ onMounted(loadPage);
 }
 
 .place-card__type {
-  color: #78806f;
+  color: var(--text-muted);
 }
 
 .place-card h2 {
@@ -459,20 +417,31 @@ onMounted(loadPage);
 }
 
 .place-card__rating {
-  color: #9a752a;
+  color: var(--kb-gray);
 }
 
 .place-card__address {
   display: -webkit-box;
   overflow: hidden;
-  color: #777;
+  color: var(--text-muted);
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
 
 .save-error {
   margin: 0 0 10px;
-  color: #d34b4b;
+  color: var(--danger);
   text-align: center;
+}
+
+:global(.app-content.travel-scrollbar-hidden) {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+:global(.app-content.travel-scrollbar-hidden::-webkit-scrollbar) {
+  display: none;
+  width: 0;
+  height: 0;
 }
 </style>
