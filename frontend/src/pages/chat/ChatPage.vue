@@ -207,6 +207,12 @@ const backToGuide = () => {
 // (이름을 "메인으로"가 아니라 "처음으로"로 둔 이유: 앱 홈 화면(X 버튼)과 헷갈리지 않게)
 const FIRST_MENU_ITEM = { label: '처음으로', onClick: backToGuide };
 
+// 세션을 새로 여는 시점(오늘 첫 진입)에만 인사말+가이드를 함께 보여준다
+const buildGreetAndGuide = () => [
+  { id: 'greet', role: 'bot', time: formatBubbleTime(), text: `${userName.value}님, 안녕하세요! 어떤 내용이 궁금하세요?` },
+  { id: 'guide', role: 'bot', time: formatBubbleTime(), ...buildGuideMessage() },
+];
+
 /* 0단계 초기 화면: [군 적금 로드맵] 카드(외부 이동) + [무엇이든 물어보세요] 카드(챗봇 내 대화) + 하단 태그줄 */
 const buildGuideMessage = () => {
   return {
@@ -603,7 +609,10 @@ const resumeSession = async (targetSessionId) => {
   try {
     const { data: history } = await chatApi.getHistory(targetSessionId);
     sessionId.value = targetSessionId;
-    messages.value = history.map(toBubble);
+    messages.value = [
+      { id: 'guide', role: 'bot', time: formatBubbleTime(), ...buildGuideMessage() },
+      ...history.map(toBubble),
+    ];
     restorePanelFromHistory(history);
     scrollToBottom();
   } catch {
@@ -619,20 +628,18 @@ onMounted(async () => {
     sessionId.value = session.sessionId;
 
     if (session.isNew) {
-      messages.value = [
-        { id: 'greet', role: 'bot', time: formatBubbleTime(), text: `${userName.value}님, 안녕하세요! 어떤 내용이 궁금하세요?` },
-        { id: 'guide', role: 'bot', time: formatBubbleTime(), ...buildGuideMessage() },
-      ];
+      messages.value = buildGreetAndGuide();
     } else {
       const { data: history } = await chatApi.getHistory(sessionId.value);
       if (history.length) {
-        messages.value = history.map(toBubble);
+        // 가이드 카드는 대화가 이어져도 계속 보여야 하는 진입점이라, 히스토리 앞에 항상 붙인다
+        messages.value = [
+          { id: 'guide', role: 'bot', time: formatBubbleTime(), ...buildGuideMessage() },
+          ...history.map(toBubble),
+        ];
         restorePanelFromHistory(history);
       } else {
-        messages.value = [
-          { id: 'greet', role: 'bot', time: formatBubbleTime(), text: `${userName.value}님, 안녕하세요! 어떤 내용이 궁금하세요?` },
-          { id: 'guide', role: 'bot', time: formatBubbleTime(), ...buildGuideMessage() },
-        ];
+        messages.value = buildGreetAndGuide();
       }
     }
     scrollToBottom();
@@ -757,8 +764,8 @@ onMounted(async () => {
               <div class="bubble bubble--bot">
                 <div v-if="msg.title" class="answer-title">{{ msg.title }}</div>
                 <div class="answer-text">{{ msg.text }}</div>
-                <div v-if="msg.sourceDetail" class="answer-source">출처 · {{ msg.sourceDetail }}</div>
-                <div v-else-if="msg.source" class="answer-source">출처 · {{ msg.source }}</div>
+                <div v-if="msg.isAiGenerated && msg.sourceDetail" class="answer-source">출처 · {{ msg.sourceDetail }}</div>
+                <div v-else-if="msg.isAiGenerated && msg.source" class="answer-source">출처 · {{ msg.source }}</div>
                 <div v-if="msg.isAiGenerated" class="answer-ai-caption">AI가 생성한 답변이에요</div>
               </div>
 
@@ -919,6 +926,9 @@ onMounted(async () => {
 
 /* 챗봇 전용 자체 헤더 - 공통 AppHeader 대신 사용 (팀 협의된 예외, AppLayout.vue 주석 참고) */
 .chat-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   display: flex;
   align-items: center;
   gap: 8px;

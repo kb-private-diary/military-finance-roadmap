@@ -8,7 +8,9 @@ _PROMPT_TEMPLATE = (
     "다음 질문을 아래 세 카테고리 중 하나로만 분류해라. 다른 말은 붙이지 말고 카테고리 이름만 정확히 출력해라.\n"
     "- info: 특정 금융 상품·정책의 정보를 묻는 질문 (예: 금리, 가입조건, 혜택, 신청방법)\n"
     "- counsel: 본인 상황에 맞는 재무 계획·상담·추천을 요청하는 질문 (예: 목돈을 어떻게 굴려야 하는지, 얼마를 모아야 하는지)\n"
-    "- irrelevant: 군 재무·금융 상품과 관련 없는 질문\n\n"
+    "- irrelevant: 군 재무·금융 상품과 관련 없는 질문. 전세·부동산·날씨처럼 키워드만 비슷하고 "
+    "실제로는 특정 금융 상품·정책 정보를 묻는 게 아닌 질문도 포함한다 "
+    "(예: '전세 사기 조심하는 법', '오늘 날씨 어때')\n\n"
     "질문: {question}\n"
     "분류:"
 )
@@ -17,7 +19,8 @@ _PROMPT_TEMPLATE = (
 def classify_intent(question: str) -> str:
     response = gemini_client.generate_content(_PROMPT_TEMPLATE.format(question=question))
     label = response.strip().lower()
-    return label if label in VALID_INTENTS else "info"
+    # 분류 결과가 애매하면 안전하게 무관련 처리(fail-closed) — 잘못된 출처를 붙여 답하는 것보다 낫다
+    return label if label in VALID_INTENTS else "irrelevant"
 
 
 PRODUCT_CATEGORIES = ("savings", "deposit", "subscription", "investment")
