@@ -257,13 +257,92 @@ const showAllProducts = () => {
   setTimeout(() => {
     typing.value = false;
     pushBot({
-      text: '어떤 상품이 궁금하신가요?',
+      text: '아래 3개는 군장병 전용 정책 상품이고, 은행별 실시간 상품도 더 볼 수 있어요. 어떤 게 궁금하신가요?',
       menu: [
         ...Object.keys(PRODUCT_QUESTIONS).map((name) => ({ label: name, onClick: () => openDoc(name) })),
+        ...Object.entries(LIVE_CATEGORY_LABELS).map(([category, label]) => ({
+          label: `실시간 ${label} 상품 더 보기`,
+          onClick: () => showLiveProducts(category, label),
+        })),
         FIRST_MENU_ITEM,
       ],
     });
   }, 700);
+};
+
+/* 실시간 은행 상품(FSS 예적금/청약홈/펀드) - 카테고리별로 목록을 받아와서 최대 8개까지 보여준다 */
+const LIVE_CATEGORY_LABELS = { savings: '적금', deposit: '예금', subscription: '청약', investment: '펀드' };
+const LIVE_ITEM_LABEL = {
+  savings: (p) => `${p.finPrdtNm} (${p.korCoNm} · 최고 ${p.maxRate}%)`,
+  deposit: (p) => `${p.finPrdtNm} (${p.korCoNm} · 최고 ${p.maxRate}%)`,
+  subscription: (p) => `${p.houseNm} (청약 ${p.rceptBgnde || '-'}~${p.rceptEndde || '-'})`,
+  investment: (p) => p.fndNm,
+};
+const LIVE_ITEM_NAME = {
+  savings: (p) => p.finPrdtNm,
+  deposit: (p) => p.finPrdtNm,
+  subscription: (p) => p.houseNm,
+  investment: (p) => p.fndNm,
+};
+
+const showLiveProducts = async (category, categoryLabel) => {
+  pushUser(`실시간 ${categoryLabel} 상품 더 보기`);
+  panel.value = null;
+  typing.value = true;
+  try {
+    const { data: products } = await chatApi.listProducts(category);
+    typing.value = false;
+    if (!products.length) {
+      pushBot({
+        text: `지금은 표시할 수 있는 실시간 ${categoryLabel} 상품이 없습니다.`,
+        menu: [FIRST_MENU_ITEM],
+      });
+      return;
+    }
+    const top = products.slice(0, 8);
+    pushBot({
+      text: `실시간 ${categoryLabel} 상품이에요. 궁금한 상품을 골라주세요.`,
+      menu: [
+        ...top.map((p) => ({
+          label: LIVE_ITEM_LABEL[category](p),
+          onClick: () => showLiveProductDetail(LIVE_ITEM_NAME[category](p), category),
+        })),
+        FIRST_MENU_ITEM,
+      ],
+    });
+  } catch {
+    typing.value = false;
+    pushError();
+  }
+};
+
+const LIVE_DETAIL_TEXT = {
+  savings: (p) =>
+    `${p.korCoNm}에서 제공하는 상품입니다.\n가입 방법: ${p.joinWay}\n가입 대상: ${p.joinMember}\n우대조건: ${p.spclCnd}${p.etcNote ? `\n기타: ${p.etcNote}` : ''}`,
+  deposit: (p) =>
+    `${p.korCoNm}에서 제공하는 상품입니다.\n가입 방법: ${p.joinWay}\n가입 대상: ${p.joinMember}\n우대조건: ${p.spclCnd}${p.etcNote ? `\n기타: ${p.etcNote}` : ''}`,
+  subscription: (p) =>
+    `주소: ${p.hssplyAdres || '정보 없음'}\n청약 접수: ${p.rceptBgnde || '-'}~${p.rceptEndde || '-'}\n입주 예정: ${p.mvnPrearngeYm || '미정'}`,
+  investment: (p) => `분류: ${p.ctg || '정보 없음'}\n설정일: ${p.setpDt || '정보 없음'}\n유형: ${p.fndTp || '정보 없음'}`,
+};
+
+const showLiveProductDetail = async (name, category) => {
+  pushUser(name);
+  panel.value = null;
+  typing.value = true;
+  try {
+    const { data: p } = await chatApi.getProduct(name, category);
+    typing.value = false;
+    pushBot({
+      title: name,
+      text: LIVE_DETAIL_TEXT[category](p),
+      source: p.source,
+      menu: [FIRST_MENU_ITEM],
+    });
+  } catch {
+    typing.value = false;
+    pushError();
+  }
 };
 
 /* "군적금 활용하기" - 챗봇 밖 전체 기능 목록을 보여준다 */
