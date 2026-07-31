@@ -19,9 +19,24 @@ import { toIsoDate } from '@/util/format';
 const router = useRouter();
 
 const STYLE_OPTIONS = [
-  { value: 'saving', label: '알뜰' },
-  { value: 'common', label: '일반' },
-  { value: 'premium', label: '프리미엄' },
+  {
+    value: 'saving',
+    label: '최저가',
+    description:
+      '가성비 위주의 실속 있는 여행.\n최저가 숙박, 교통비를 조회하여 가장 저렴한 경우를 추천합니다.',
+  },
+  {
+    value: 'common',
+    label: '일반',
+    description:
+      '편안함과 만족도를 모두 잡은 표준 여행.\n적절한 이동 동선과 대중적인 식비를 반영한 균형 잡힌 일정입니다.',
+  },
+  {
+    value: 'premium',
+    label: '로열티',
+    description:
+      '여행지의 모든 걸 체험해보고 싶은 사람을 위한 여행.\n예산 제한 없이 여행지를 알차게 즐기는 완전 정복 여행입니다.',
+  },
 ];
 
 const form = reactive({
@@ -195,6 +210,12 @@ const isFormValid = computed(
     !draftLoadFailed.value,
 );
 
+const selectedStyleDescription = computed(
+  () =>
+    STYLE_OPTIONS.find(({ value }) => value === form.style)
+      ?.description || '',
+);
+
 const selectStyle = (style) => {
   form.style = style;
 };
@@ -339,6 +360,12 @@ const submitGoal = async () => {
             @click="selectStyle(option.value)"
           />
         </div>
+        <p
+          v-if="selectedStyleDescription"
+          class="style-field__description text-caption"
+        >
+          {{ selectedStyleDescription }}
+        </p>
       </fieldset>
 
       <fieldset class="date-field">
@@ -368,7 +395,7 @@ const submitGoal = async () => {
       <BaseInput
         v-model="form.totalBudget"
         label="여행예산"
-        type="number"
+        type="amount"
         placeholder="총 여행 예산"
       />
 
@@ -472,6 +499,16 @@ const submitGoal = async () => {
 .style-field__buttons {
   display: flex;
   gap: 8px;
+}
+
+.style-field__description {
+  margin: 2px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface-subtle);
+  color: var(--text-muted);
+  white-space: pre-line;
+  word-break: keep-all;
 }
 
 .destination-field__row {
