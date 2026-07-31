@@ -169,10 +169,10 @@ def send_message(payload: MessageCreateRequest, db: Session = Depends(get_db)):
     db.commit()
 
     try:
-        reply, source, source_detail, is_ai_generated = gemini.generate_reply(content, history=history)
+        reply, source, source_detail, is_ai_generated, intent = gemini.generate_reply(content, history=history)
     except Exception:
         logger.exception("Gemini 응답 생성 실패 (session_id=%s)", payload.session_id)
-        reply, source, source_detail, is_ai_generated = GEMINI_FAILURE_MESSAGE, "오류 안내", None, False
+        reply, source, source_detail, is_ai_generated, intent = GEMINI_FAILURE_MESSAGE, "오류 안내", None, False, "info"
 
     bot_message = ChatMessage(
         session_id=payload.session_id,
@@ -187,6 +187,8 @@ def send_message(payload: MessageCreateRequest, db: Session = Depends(get_db)):
     db.add(bot_message)
     db.commit()
     db.refresh(bot_message)
+    # intent는 DB에 저장하지 않는 응답 전용 값 - 프론트가 상담형 되묻기로 분기할지 판단하는 용도
+    bot_message.intent = intent
     return bot_message
 
 

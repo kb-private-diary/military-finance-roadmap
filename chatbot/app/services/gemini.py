@@ -189,12 +189,27 @@ def _irrelevant_node(state: ChatState) -> ChatState:
     }
 
 
+# 상담(counsel)으로 분류되면 RAG로 답을 만들지 않고, 프론트가 되묻기 플로우를
+# 시작할 수 있도록 intent만 그대로 신호로 전달한다 (answer는 프론트가 되묻기로
+# 대체 표시하므로 실제로는 거의 노출되지 않는 안내 문구).
+COUNSEL_INTRO_REPLY = "자세한 상담을 위해 몇 가지 더 여쭤보겠습니다."
+
+
+def _counsel_node(state: ChatState) -> ChatState:
+    return {
+        "answer": COUNSEL_INTRO_REPLY,
+        "source": "상담형 질문 안내",
+        "source_detail": None,
+        "is_ai_generated": False,
+    }
+
+
 def _route_after_intent(state: ChatState) -> str:
     if state["intent"] == "irrelevant":
         return "irrelevant"
     if state["intent"] == "info":
         return "classify_category"
-    return "build_context"  # counsel
+    return "counsel"
 
 
 _graph = StateGraph(ChatState)
@@ -203,29 +218,32 @@ _graph.add_node("classify_category", _classify_category_node)
 _graph.add_node("build_context", _build_context_node)
 _graph.add_node("generate", _generate_node)
 _graph.add_node("irrelevant", _irrelevant_node)
+_graph.add_node("counsel", _counsel_node)
 
 _graph.add_edge(START, "classify_intent")
 _graph.add_conditional_edges(
     "classify_intent",
     _route_after_intent,
-    {"irrelevant": "irrelevant", "classify_category": "classify_category", "build_context": "build_context"},
+    {"irrelevant": "irrelevant", "classify_category": "classify_category", "counsel": "counsel"},
 )
 _graph.add_edge("classify_category", "build_context")
 _graph.add_edge("build_context", "generate")
 _graph.add_edge("generate", END)
 _graph.add_edge("irrelevant", END)
+_graph.add_edge("counsel", END)
 
 _compiled_graph = _graph.compile()
 
 
 def generate_reply(
     question: str, history: Optional[List[Tuple[str, str]]] = None
-) -> Tuple[str, str, Optional[str], bool]:
-    """반환값: (답변, source 라벨, source_detail 캡션, is_ai_generated).
+) -> Tuple[str, str, Optional[str], bool, str]:
+    """반환값: (답변, source 라벨, source_detail 캡션, is_ai_generated, intent).
     LangGraph로 의도분류 → (분기) → 컨텍스트 구성 → 답변 생성을 수행한다.
 
     history: 같은 세션의 이전 메시지들 [(role, content), ...] (오래된 순, 현재 질문은 미포함).
     답변 생성 시 문맥으로 활용해 멀티턴 대화를 지원한다.
+    intent는 프론트가 "counsel"일 때 되묻기 플로우로 분기할 수 있도록 그대로 반환한다.
     """
     result = _compiled_graph.invoke({"question": question, "history": history or []})
     return (
@@ -233,4 +251,5 @@ def generate_reply(
         result["source"],
         result.get("source_detail"),
         result.get("is_ai_generated", False),
+        result["intent"],
     )
