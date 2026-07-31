@@ -79,18 +79,24 @@ public class MilitarySavingsCalculator {
                 }
                 long amount = history.getPayAmount() != null ? history.getPayAmount() : 0L;
                 result.pastPrincipal += amount;
-                
+
+                // 만기(totalMaturityMonths)가 24개월로 잘렸을 수 있으므로,
+                // 회차 기준 상한(maxInvestedMonths)으로 실제 투자개월수를 재검증한다.
+                int payRound = history.getPayRound() != null ? history.getPayRound() : 1;
+                int maxInvestedMonths = totalMaturityMonths - payRound + 1;
+
                 int investedMonths;
                 if (history.getCreatedDate() != null) {
                     investedMonths = (int) ChronoUnit.MONTHS.between(
-                            history.getCreatedDate().withDayOfMonth(1), 
+                            history.getCreatedDate().withDayOfMonth(1),
                             dischargeDate.withDayOfMonth(1)) + 1;
                 } else {
-                    investedMonths = totalMaturityMonths 
-                            - (history.getPayRound() != null ? history.getPayRound() : 1) 
-                            + 1;
+                    investedMonths = maxInvestedMonths;
                 }
-                
+
+                if (investedMonths > maxInvestedMonths) {
+                    investedMonths = maxInvestedMonths;
+                }
                 if (investedMonths < 0) {
                     investedMonths = 0;
                 }

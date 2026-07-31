@@ -37,7 +37,15 @@
 
     <!-- resultType 변경 필요 : 예) org.scoula.openbanking.domain.SavingAccountVO -->
     <select id="findSavingAccountListByUserId" resultType="org.scoula.dashboard.dto.DashboardSavingAccountDTO">
-        SELECT *
+        SELECT
+            account_id      AS accountId,
+            user_id         AS userId,
+            bank_code       AS bankCode,
+            monthly_save    AS monthlySave,
+            monthly_count   AS monthlyCount,
+            curr_amount     AS currAmount,
+            account_status  AS accountStatus,
+            created_date    AS createdDate
         FROM saving_account
         WHERE user_id = #{userId}
           AND del_yn = 'N'

@@ -1,5 +1,6 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
+import { formatAmountInput, parseAmountInput } from '@/util/format';
 
 const props = defineProps({
   type: {
@@ -30,8 +31,8 @@ const emit = defineEmits(['update:modelValue']);
 
 const updateRange = (index, value) => {
   const newVal = Array.isArray(props.modelValue)
-      ? [...props.modelValue]
-      : ['', ''];
+    ? [...props.modelValue]
+    : ['', ''];
   newVal[index] = value;
   emit('update:modelValue', newVal);
 };
@@ -69,14 +70,42 @@ const currentSelectLabel = computed(() => {
   const selected = props.options.find((opt) => opt.value === props.modelValue);
   return selected ? selected.label : props.placeholder || '선택';
 });
+
+// ==========================================
+// Amount(금액) 전용 로직 — 콤마 실시간 포맷 + 커서 유지
+// modelValue는 항상 순수 숫자로 유지하고, 콤마 붙은 표시값은 내부에서만 관리한다.
+// ==========================================
+const amountDisplay = ref(formatAmountInput(props.modelValue));
+
+watch(
+  () => props.modelValue,
+  (val) => {
+    const formatted = formatAmountInput(val);
+    if (formatted !== amountDisplay.value) amountDisplay.value = formatted;
+  },
+);
+
+// 콤마 삽입/삭제로 문자열 길이가 바뀌어도 커서가 입력 위치에 그대로 머물도록,
+// 길이 변화량만큼 커서 위치를 보정한다 (그대로 두면 콤마 추가 시 커서가 맨 끝으로 튐).
+const handleAmountInput = (event) => {
+  const input = event.target;
+  const prevLength = input.value.length;
+  const prevCaret = input.selectionStart ?? prevLength;
+
+  const formatted = formatAmountInput(input.value);
+  amountDisplay.value = formatted;
+  emit('update:modelValue', parseAmountInput(input.value));
+
+  nextTick(() => {
+    const caret = Math.max(0, prevCaret + (formatted.length - prevLength));
+    input.setSelectionRange(caret, caret);
+  });
+};
 </script>
 
 <template>
   <div
-      :class="[
-      'base-input',
-      type === 'select' ? '' : `base-input--${variant}`,
-    ]"
+    :class="['base-input', type === 'select' ? '' : `base-input--${variant}`]"
   >
     <div v-if="label" class="base-input__label">
       {{ label }}
@@ -88,24 +117,24 @@ const currentSelectLabel = computed(() => {
       <template v-if="type === 'select'">
         <div class="dropdown" ref="dropdownRef">
           <button
-              class="dropdown__button"
-              type="button"
-              @click="toggleSelect"
-              :class="{ 'is-open': isSelectOpen }"
+            class="dropdown__button"
+            type="button"
+            @click="toggleSelect"
+            :class="{ 'is-open': isSelectOpen }"
           >
             <span class="dropdown__text">{{ currentSelectLabel }}</span>
             <svg
-                class="dropdown__icon"
-                viewBox="0 0 24 24"
-                width="16"
-                height="16"
+              class="dropdown__icon"
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
             >
               <path
-                  d="M7 10l5 5 5-5"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
+                d="M7 10l5 5 5-5"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
               />
             </svg>
           </button>
@@ -113,11 +142,11 @@ const currentSelectLabel = computed(() => {
           <transition name="dropdown-fade">
             <ul v-if="isSelectOpen" class="dropdown__menu">
               <li
-                  v-for="opt in options"
-                  :key="opt.value"
-                  class="dropdown__item"
-                  :class="{ 'is-selected': modelValue === opt.value }"
-                  @click="selectOption(opt)"
+                v-for="opt in options"
+                :key="opt.value"
+                class="dropdown__item"
+                :class="{ 'is-selected': modelValue === opt.value }"
+                @click="selectOption(opt)"
               >
                 {{ opt.label }}
               </li>
@@ -130,34 +159,49 @@ const currentSelectLabel = computed(() => {
       <template v-else-if="type === 'month-range' || type === 'date-range'">
         <div class="base-input__range">
           <input
-              :type="type === 'month-range' ? 'month' : 'date'"
-              class="base-input__field"
-              :class="{ 'is-error': error }"
-              :value="Array.isArray(modelValue) ? modelValue[0] : ''"
-              @input="updateRange(0, $event.target.value)"
+            :type="type === 'month-range' ? 'month' : 'date'"
+            class="base-input__field"
+            :class="{ 'is-error': error }"
+            :value="Array.isArray(modelValue) ? modelValue[0] : ''"
+            @input="updateRange(0, $event.target.value)"
           />
           <span class="base-input__range-sep">~</span>
           <input
-              :type="type === 'month-range' ? 'month' : 'date'"
-              class="base-input__field"
-              :class="{ 'is-error': error }"
-              :value="Array.isArray(modelValue) ? modelValue[1] : ''"
-              @input="updateRange(1, $event.target.value)"
+            :type="type === 'month-range' ? 'month' : 'date'"
+            class="base-input__field"
+            :class="{ 'is-error': error }"
+            :value="Array.isArray(modelValue) ? modelValue[1] : ''"
+            @input="updateRange(1, $event.target.value)"
           />
         </div>
+      </template>
+
+      <!-- AMOUNT (금액, 실시간 콤마 포맷) -->
+      <template v-else-if="type === 'amount'">
+        <span v-if="icon" class="base-input__icon">{{ icon }}</span>
+        <input
+          type="text"
+          inputmode="numeric"
+          class="base-input__field"
+          :class="{ 'is-error': error, 'has-icon': icon, 'has-suffix': suffix }"
+          :value="amountDisplay"
+          @input="handleAmountInput"
+          :placeholder="placeholder"
+        />
+        <span v-if="suffix" class="base-input__suffix">{{ suffix }}</span>
       </template>
 
       <!-- TEXT / PASSWORD / NUMBER / DATE -->
       <template v-else>
         <span v-if="icon" class="base-input__icon">{{ icon }}</span>
         <input
-            :type="type"
-            class="base-input__field"
-            :class="{ 'is-error': error, 'has-icon': icon, 'has-suffix': suffix }"
-            :value="modelValue"
-            @input="emit('update:modelValue', $event.target.value)"
-            :placeholder="placeholder"
-            :maxlength="maxLength || null"
+          :type="type"
+          class="base-input__field"
+          :class="{ 'is-error': error, 'has-icon': icon, 'has-suffix': suffix }"
+          :value="modelValue"
+          @input="emit('update:modelValue', $event.target.value)"
+          :placeholder="placeholder"
+          :maxlength="maxLength || null"
         />
         <span v-if="suffix" class="base-input__suffix">{{ suffix }}</span>
       </template>
@@ -183,13 +227,13 @@ const currentSelectLabel = computed(() => {
 .base-input__label {
   font-size: 15px;
   font-weight: 600;
-  color: #545045; /* KB Dark Gray */
+  color: var(--text-body);
   display: flex;
   align-items: center;
   gap: 4px;
 }
 .base-input__required {
-  color: #ffbc00; /* KB Yellow Positive */
+  color: var(--kb-yellow-deep);
   font-size: 16px;
 }
 
@@ -202,27 +246,27 @@ const currentSelectLabel = computed(() => {
 .base-input__field {
   width: 100%;
   padding: 14px 16px;
-  border: 1.5px solid #e0e0e0;
+  border: 1.5px solid var(--line);
   border-radius: 12px;
   font-size: 16px;
-  color: #545045; /* KB Dark Gray */
-  background-color: #ffffff;
+  color: var(--text-body);
+  background-color: var(--surface-default);
   outline: none;
   transition: all 0.2s ease;
   font-family: inherit;
 }
 .base-input__field::placeholder {
-  color: #bdbdbd;
+  color: var(--placeholder);
 }
 .base-input__field:focus {
-  border-color: #ffbc00; /* KB Yellow Positive */
-  box-shadow: 0 0 0 3px rgba(255, 179, 0, 0.15);
+  border-color: var(--kb-yellow-deep);
+  box-shadow: 0 0 0 3px var(--focus-ring-yellow);
 }
 .base-input__field.is-error {
-  border-color: #ff5252;
+  border-color: var(--danger);
 }
 .base-input__field.is-error:focus {
-  box-shadow: 0 0 0 3px rgba(255, 82, 82, 0.15);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 15%, transparent);
 }
 
 .base-input__range {
@@ -239,7 +283,7 @@ const currentSelectLabel = computed(() => {
   letter-spacing: -0.5px;
 }
 .base-input__range-sep {
-  color: #9e9e9e;
+  color: var(--gray-mid);
   font-weight: 500;
   flex-shrink: 0;
 }
@@ -251,7 +295,7 @@ const currentSelectLabel = computed(() => {
   position: absolute;
   left: 14px;
   font-size: 18px;
-  color: #9e9e9e;
+  color: var(--gray-mid);
   pointer-events: none;
 }
 
@@ -262,7 +306,7 @@ const currentSelectLabel = computed(() => {
   position: absolute;
   right: 16px;
   font-size: 14px;
-  color: #9e9e9e;
+  color: var(--gray-mid);
   font-weight: 500;
   pointer-events: none;
 }
@@ -292,18 +336,18 @@ input[type='month']::-webkit-calendar-picker-indicator:hover {
   padding: 0 4px;
 }
 .base-input__error {
-  color: #ff5252;
+  color: var(--danger);
   font-weight: 500;
 }
 .base-input__counter {
-  color: #9e9e9e;
+  color: var(--gray-mid);
   margin-left: auto;
 }
 
 /* ── Underline Variant ── */
 .base-input--underline .base-input__field {
   border: none;
-  border-bottom: 2px solid #85714d; /* KB Gold (Pantone 872 C) */
+  border-bottom: 2px solid var(--kb-gold);
   border-radius: 0;
   padding: 12px 28px 12px 12px;
   background-color: transparent;
@@ -317,7 +361,7 @@ input[type='month']::-webkit-calendar-picker-indicator:hover {
   font-size: 12px;
 }
 .base-input--underline .base-input__field:focus {
-  border-bottom-color: #ffbc00; /* KB Yellow Positive */
+  border-bottom-color: var(--kb-yellow-deep);
   box-shadow: none;
 }
 
@@ -336,10 +380,10 @@ input[type='month']::-webkit-calendar-picker-indicator:hover {
   padding: 10px 28px 10px 12px;
   background-color: transparent;
   border: none;
-  border-bottom: 2px solid #85714d; /* KB Gold */
+  border-bottom: 2px solid var(--kb-gold);
   border-radius: 0;
   font-size: 16px;
-  color: #545045; /* KB Dark Gray */
+  color: var(--text-body);
   font-weight: 500;
   cursor: pointer;
   transition: border-color 0.2s;
@@ -348,7 +392,7 @@ input[type='month']::-webkit-calendar-picker-indicator:hover {
 
 .dropdown__button:hover,
 .dropdown__button.is-open {
-  border-bottom-color: #ffbc00; /* KB Yellow Positive */
+  border-bottom-color: var(--kb-yellow-deep);
   box-shadow: none;
 }
 
@@ -360,13 +404,15 @@ input[type='month']::-webkit-calendar-picker-indicator:hover {
 .dropdown__icon {
   position: absolute;
   right: 4px;
-  color: #9e9e9e;
-  transition: transform 0.3s ease, color 0.2s ease;
+  color: var(--gray-mid);
+  transition:
+    transform 0.3s ease,
+    color 0.2s ease;
 }
 
 .dropdown__button.is-open .dropdown__icon {
   transform: rotate(180deg);
-  color: #ffbc00;
+  color: var(--kb-yellow-deep);
 }
 
 .dropdown__menu {
@@ -379,10 +425,10 @@ input[type='month']::-webkit-calendar-picker-indicator:hover {
   overflow-y: auto;
   margin: 0;
   padding: 8px 0;
-  background-color: #ffffff;
-  border: 1px solid #eeeeee;
+  background-color: var(--surface-default);
+  border: 1px solid var(--dropdown-border);
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 12px var(--shadow-dropdown);
   list-style: none;
   z-index: 100;
 }
@@ -390,25 +436,29 @@ input[type='month']::-webkit-calendar-picker-indicator:hover {
 .dropdown__item {
   padding: 12px 16px;
   font-size: 14px;
-  color: #60584c;
+  color: var(--kb-gray);
   cursor: pointer;
-  transition: background-color 0.2s, color 0.2s;
+  transition:
+    background-color 0.2s,
+    color 0.2s;
   white-space: nowrap;
 }
 
 .dropdown__item:hover {
-  background-color: #fff9e6; /* KB 연한 노란색 */
+  background-color: var(--kb-yellow-pale);
 }
 
 .dropdown__item.is-selected {
-  background-color: #fff9e6;
-  color: #ffbc00;
+  background-color: var(--kb-yellow-pale);
+  color: var(--kb-yellow-deep);
   font-weight: 600;
 }
 
 .dropdown-fade-enter-active,
 .dropdown-fade-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
 }
 .dropdown-fade-enter-from,
 .dropdown-fade-leave-to {

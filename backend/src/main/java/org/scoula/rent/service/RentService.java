@@ -21,4 +21,7 @@ public interface RentService {
 
     // 목표 상세 조회 (목표 정보 + 진행률 5단계)
     RentGoalDetailResponseDTO findGoal(Long goalId);
+
+    // 로드맵 저장 (DRAFT → CONFIRMED + SAVE_GOAL 자동 완료)
+    void confirmGoal(Long goalId, Long userId);
 }
