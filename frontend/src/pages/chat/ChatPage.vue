@@ -4,6 +4,7 @@
 import { computed, nextTick, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import chatApi from '@/api/chatApi';
+import simulatorApi from '@/api/simulatorApi';
 import { useAuthStore } from '@/stores/auth';
 import { useToast } from '@/composables/useToast';
 import { formatDate } from '@/util/format';
@@ -36,10 +37,26 @@ const goHome = () => {
 /* 전역 준비 바로가기 - 챗봇 밖 다른 팀원 화면으로 이동. 각 로드맵의 1단계(목표 등록)로 연결한다
    (라우트정의서 기준, 2026-07-30) */
 const EXTERNAL_NAV = [
-  { label: '여행 계획 세우기', to: { name: 'TravelGoalCreate' } }, // 태석님
-  { label: '자취 준비하기', to: { name: 'RentGoalCreate' } }, // 수연님
-  { label: '진로 준비하기', to: { name: 'JobGoalCreate' } }, // 지원님
-  { label: '자차 준비하기', to: { name: 'CarGoalCreate' } }, // 호빈님
+  {
+    label: '여행 계획 세우기',
+    description: '여행 목표를 등록하고 예산에 맞는 여행 계획을 세울 수 있는 여행 준비 기능',
+    to: { name: 'TravelGoalCreate' },
+  }, // 태석님
+  {
+    label: '자취 준비하기',
+    description: '자취 목표를 등록하고 예산에 맞는 매물·금융상품을 추천받는 자취 준비 기능',
+    to: { name: 'RentGoalCreate' },
+  }, // 수연님
+  {
+    label: '진로 준비하기',
+    description: '진로 목표를 등록하고 준비 과정에 맞는 계획을 세울 수 있는 진로 준비 기능',
+    to: { name: 'JobGoalCreate' },
+  }, // 지원님
+  {
+    label: '자차 준비하기',
+    description: '자동차 목표를 등록하고 예산에 맞는 차량·금융상품을 추천받는 자차 준비 기능',
+    to: { name: 'CarGoalCreate' },
+  }, // 호빈님
 ];
 
 /* 하단 태그줄 - 자주 묻는 질문 빼곤 대부분 다른 페이지로 이동.
@@ -106,26 +123,44 @@ const PRODUCT_QUESTIONS = {
   ],
 };
 
-/* 목돈 상담 되묻기용 추천표 - 상담형 되묻기 API(WBS-6)가 아직 없어서 임시로 프론트에 유지 */
-const RECO_TABLE = {
-  '1년 이하_안정추구형': { product: '청년미래적금', note: '단기간 안전하게 모으기 좋은 조합이에요.' },
-  '1년 이하_중립형': { product: '청년미래적금', note: '단기라도 정부기여금 혜택을 챙길 수 있어요.' },
-  '1년 이하_공격투자형': {
-    product: null,
-    note: '1년 이하 단기에 공격적 투자는 리스크가 커요. 우선 예·적금으로 시작하는 걸 추천드려요.',
-  },
-  '1~3년_안정추구형': { product: '청년미래적금', note: '중기 목표에도 안전한 적금이 잘 맞아요.' },
-  '1~3년_중립형': { product: '청년주택드림청약통장', note: '중기 목표라면 주택청약도 함께 고려해보세요.' },
-  '1~3년_공격투자형': {
-    product: null,
-    note: '펀드·투자상품 데이터가 아직 준비 중이에요. 지금은 예·적금 조합을 우선 추천드려요.',
-  },
-  '3년 이상_안정추구형': { product: '청년주택드림청약통장', note: '장기 목표라면 청약통장으로 내 집 마련을 준비해보세요.' },
-  '3년 이상_중립형': { product: '청년주택드림청약통장', note: '장기 목표엔 청약통장이 좋은 시작점이에요.' },
-  '3년 이상_공격투자형': {
-    product: null,
-    note: '장기·공격투자 상품 데이터는 아직 준비 중이에요. 상담사 연결을 통해 자세히 안내받아보세요.',
-  },
+/* 상담(목적=투자 수익)에서 위험성향별 실시간 펀드를 추천할 때 쓰는 매핑.
+   펀드 API(fndTp)엔 보유기간 데이터가 없어 목표기간은 필터링엔 못 쓰고 안내 문구에만 참고로 반영한다.
+   변액보험은 보험 상품이라 중도해지 시 사업비·해지공제 손해 구조가 있어 추천 후보에서 제외한다. */
+const FUND_RISK_TYPE = {
+  단기금융: '안정추구형',
+  채권형: '안정추구형',
+  혼합채권형: '중립형',
+  혼합자산: '중립형',
+  재간접: '중립형',
+  주식형: '공격투자형',
+  파생상품: '공격투자형',
+};
+
+const COUNSEL_PERIOD_NOTE = {
+  '1년 이하': '단기 목표라 변동성이 큰 상품은 주의가 필요해요.',
+  '1~3년': '중기 목표시니 변동성을 어느 정도 감내할 수 있는 선에서 안내드려요.',
+  '3년 이상': '장기 목표라 단기 변동성보다는 성향에 맞는 상품 위주로 안내드려요.',
+};
+
+/* 상담 되묻기 1단계 - 목적 선택지 (value는 이후 분기 흐름 판별용) */
+const COUNSEL_GOALS = [
+  { label: '목돈 모으기', value: 'savings' },
+  { label: '내 집 마련(청약)', value: 'housing' },
+  { label: '투자 수익', value: 'investment' },
+  { label: '생활자금 관리', value: 'spending' },
+];
+
+/* 자유입력에 목적이 이미 드러나 있으면(예: "투자해보고싶어") 목적을 다시 묻지 않고
+   바로 해당 목적의 되묻기로 들어간다. 애매하면(매칭 없음) 그대로 목적부터 물어본다. */
+const COUNSEL_GOAL_KEYWORDS = [
+  { value: 'investment', keywords: ['투자'] },
+  { value: 'housing', keywords: ['청약', '내 집', '집 마련', '전세', '매매'] },
+  { value: 'spending', keywords: ['생활비', '소비', '용돈'] },
+];
+
+const detectCounselGoal = (text) => {
+  const found = COUNSEL_GOAL_KEYWORDS.find((g) => g.keywords.some((k) => text.includes(k)));
+  return found ? COUNSEL_GOALS.find((g) => g.value === found.value) : null;
 };
 
 /* 상담 만족도 3단계 - value는 백엔드 feedback 값(like/neutral/dislike)과 그대로 매칭 */
@@ -151,6 +186,9 @@ const input = ref('');
 const typing = ref(false);
 const panel = ref(null); // 'actions' (종료하기 버튼 노출)
 const inputRef = ref(null);
+
+// 상담 되묻기 중 숫자 등 자유입력 답변을 기다리는 상태 - 있으면 submitInput이 백엔드 대신 이 핸들러로 보낸다
+const counselInputHandler = ref(null);
 
 // 만족도 설문 모달 상태
 const feedbackModalOpen = ref(false);
@@ -200,6 +238,7 @@ const pushError = () => {
 };
 
 const backToGuide = () => {
+  counselInputHandler.value = null;
   pushBot(buildGuideMessage());
 };
 
@@ -438,8 +477,9 @@ const freeform = () => {
   }, 600);
 };
 
-/* 목돈 상담 - 되묻기형(목표기간 -> 투자성향 -> 추천) */
+/* 목돈 상담 - 되묻기형(목적 -> 목적별 분기) */
 const openCounsel = () => {
+  counselInputHandler.value = null;
   pushUser('목돈 어떻게 쓸지 상담받기');
   panel.value = null;
   typing.value = true;
@@ -452,7 +492,194 @@ const openCounsel = () => {
 const startCounsel = () => {
   pushBot({
     title: '자금 상담',
-    text: '몇 가지만 여쭤볼게요.\n목표 기간이 어떻게 되세요?',
+    text: '몇 가지만 여쭤볼게요.\n어떤 목적으로 목돈을 활용하고 싶으세요?',
+    menu: COUNSEL_GOALS.map((g) => ({ label: g.label, onClick: () => askGoal(g) })),
+  });
+};
+
+const askGoal = (goal, { announce = true } = {}) => {
+  if (announce) pushUser(goal.label);
+  panel.value = null;
+
+  // 내 집 마련(청약): 되묻기 없이 바로 실시간 청약 상품 + 자취 준비 페이지 안내
+  if (goal.value === 'housing') {
+    typing.value = true;
+    setTimeout(async () => {
+      typing.value = false;
+      await showProductCategoryList('subscription', '청약');
+      const rentLink = PAGE_LINKS.find((p) => p.to.name === 'RentGoalCreate');
+      pushBot({
+        text: `저희 서비스에 ${rentLink.description}이 있는데, 확인해 보시겠습니까?`,
+        menu: [{ label: rentLink.label, onClick: () => goTo(rentLink.to) }, FIRST_MENU_ITEM],
+      });
+      panel.value = 'actions';
+    }, 700);
+    return;
+  }
+
+  // 생활자금 관리: 되묻기 없이 바로 시뮬레이터/후회소비 페이지 안내
+  if (goal.value === 'spending') {
+    typing.value = true;
+    setTimeout(() => {
+      typing.value = false;
+      pushBot({
+        text: '생활자금 관리는 자금 시뮬레이션이나 후회소비 회고 기능에서 도와드릴 수 있어요.',
+        menu: [
+          { label: '자금 시뮬레이션', onClick: () => goTo({ name: 'Simulator' }) },
+          { label: '후회소비 회고', onClick: () => goTo({ name: 'RegretReview' }) },
+          FIRST_MENU_ITEM,
+        ],
+      });
+      panel.value = 'actions';
+    }, 700);
+    return;
+  }
+
+  // 투자 수익: 목표기간 -> 투자성향으로 이어감
+  if (goal.value === 'investment') {
+    typing.value = true;
+    setTimeout(() => {
+      typing.value = false;
+      askPeriod();
+    }, 700);
+    return;
+  }
+
+  // 목돈 모으기: 상품을 바로 추천하지 않고, 방식(적금/투자)부터 되물어 실제 상담으로 이어간다
+  askSavingsMethod();
+};
+
+/* 목돈 모으기 - "어떤 방식으로" 되묻기. 적금은 실제 계산(월납입액/기간 직접입력 -> 계산기 API),
+   예금은 실시간 예금 상품 목록, 투자는 기존 투자 수익 흐름(기간->성향->실시간 펀드) 재사용,
+   목표부터 정하기는 상품이 아니라 기존 목표 로드맵 페이지(여행/자취/진로/자차)로 안내한다 */
+const askSavingsMethod = () => {
+  typing.value = true;
+  setTimeout(() => {
+    typing.value = false;
+    pushBot({
+      text: '어떤 방식으로 모으고 싶으세요?',
+      menu: [
+        { label: '적금', onClick: () => chooseSavingsMethod('적금') },
+        { label: '예금', onClick: () => chooseSavingsMethod('예금') },
+        { label: '투자', onClick: () => chooseSavingsMethod('투자') },
+        { label: '목표부터 정하기', onClick: () => chooseSavingsMethod('목표부터 정하기') },
+      ],
+    });
+  }, 700);
+};
+
+const chooseSavingsMethod = (method) => {
+  pushUser(method);
+  panel.value = null;
+  typing.value = true;
+
+  if (method === '투자') {
+    setTimeout(() => {
+      typing.value = false;
+      askPeriod();
+    }, 700);
+    return;
+  }
+
+  if (method === '예금') {
+    setTimeout(async () => {
+      typing.value = false;
+      await showProductCategoryList('deposit', '예금');
+      panel.value = 'actions';
+    }, 700);
+    return;
+  }
+
+  if (method === '목표부터 정하기') {
+    setTimeout(() => {
+      typing.value = false;
+      askGoalTarget();
+    }, 700);
+    return;
+  }
+
+  // 적금
+  setTimeout(() => {
+    typing.value = false;
+    pushBot({ text: '한 달에 얼마씩 저축하실 수 있으세요? 숫자로 입력해주세요. (예: 30만원, 300000)' });
+    counselInputHandler.value = handleMonthlyAmountInput;
+  }, 700);
+};
+
+const askGoalTarget = () => {
+  pushBot({
+    text: '어떤 목표를 준비 중이세요?',
+    menu: [...EXTERNAL_NAV.map((n) => ({ label: n.label, onClick: () => confirmGoalTarget(n) })), FIRST_MENU_ITEM],
+  });
+};
+
+const confirmGoalTarget = (navItem) => {
+  pushUser(navItem.label);
+  panel.value = null;
+  typing.value = true;
+  setTimeout(() => {
+    typing.value = false;
+    pushBot({
+      text: `저희 서비스에 ${navItem.description}이 있는데, 확인해 보시겠습니까?`,
+      menu: [{ label: navItem.label, onClick: () => goTo(navItem.to) }, FIRST_MENU_ITEM],
+    });
+    panel.value = 'actions';
+  }, 700);
+};
+
+// "30만원", "300000", "300,000원" 형태를 원 단위 숫자로 변환. 못 알아들으면 null.
+const parseKoreanAmount = (text) => {
+  const cleaned = text.replace(/[,원\s]/g, '');
+  const manMatch = cleaned.match(/^(\d+(?:\.\d+)?)만$/);
+  if (manMatch) return Math.round(parseFloat(manMatch[1]) * 10000);
+  if (/^\d+$/.test(cleaned)) return parseInt(cleaned, 10);
+  return null;
+};
+
+const handleMonthlyAmountInput = (text) => {
+  pushUser(text);
+  const amount = parseKoreanAmount(text);
+  if (!amount || amount <= 0) {
+    pushBot({ text: '금액을 다시 확인해주세요. 숫자로 입력해주세요. (예: 30만원, 300000)' });
+    counselInputHandler.value = handleMonthlyAmountInput;
+    return;
+  }
+  pushBot({ text: '몇 개월 동안 모으실 계획이세요? 숫자로 입력해주세요. (예: 24)' });
+  counselInputHandler.value = (t) => handleSaveMonthsInput(t, amount);
+};
+
+const handleSaveMonthsInput = async (text, monthlyAmount) => {
+  pushUser(text);
+  const months = parseInt(text.replace(/[^0-9]/g, ''), 10);
+  if (!months || months <= 0) {
+    pushBot({ text: '기간을 다시 확인해주세요. 숫자로 입력해주세요. (예: 24)' });
+    counselInputHandler.value = (t) => handleSaveMonthsInput(t, monthlyAmount);
+    return;
+  }
+  panel.value = null;
+  typing.value = true;
+  try {
+    const result = await simulatorApi.calculateConstant({ monthlySave: monthlyAmount, saveMonths: months });
+    typing.value = false;
+    const won = (n) => `${Number(n).toLocaleString('ko-KR')}원`;
+    pushBot({
+      title: '적금 상담 결과',
+      text:
+        `월 ${won(monthlyAmount)}씩 ${months}개월 납입하면\n` +
+        `원금 ${won(result.totalPrincipal)} + 이자 ${won(result.totalInterest)} + 정부기여금 ${won(result.totalMatchingFund)}\n` +
+        `= 총 ${won(result.totalReceiptAmount)}을 받으실 수 있습니다.`,
+      menu: [{ label: '장병내일준비적금 자세히 보기', onClick: () => openDoc('장병내일준비적금') }, FIRST_MENU_ITEM],
+    });
+    panel.value = 'actions';
+  } catch {
+    typing.value = false;
+    pushError();
+  }
+};
+
+const askPeriod = () => {
+  pushBot({
+    text: '목표 기간이 어떻게 되세요?',
     menu: ['1년 이하', '1~3년', '3년 이상'].map((p) => ({ label: p, onClick: () => askType(p) })),
   });
 };
@@ -473,32 +700,43 @@ const askType = (period) => {
   }, 700);
 };
 
-const finishCounsel = (period, type) => {
+const finishCounsel = async (period, type) => {
   pushUser(type);
   panel.value = null;
   typing.value = true;
-  setTimeout(() => {
+  try {
+    const { data: funds } = await chatApi.listProducts('investment');
     typing.value = false;
-    const reco = RECO_TABLE[`${period}_${type}`];
-    if (reco.product) {
+    const matched = funds.filter((f) => FUND_RISK_TYPE[f.fndTp] === type).slice(0, 5);
+    if (!matched.length) {
       pushBot({
         title: `${period} · ${type} 추천`,
-        text: reco.note,
-        menu: [{ label: `${reco.product} 자세히 보기`, onClick: () => openDoc(reco.product) }, FIRST_MENU_ITEM],
+        text: '지금은 조건에 맞는 펀드 상품이 없습니다.',
+        menu: [FIRST_MENU_ITEM],
       });
     } else {
       pushBot({
         title: `${period} · ${type} 추천`,
-        text: reco.note,
-        menu: [FIRST_MENU_ITEM],
+        text: `${COUNSEL_PERIOD_NOTE[period]}\n${type}에 맞는 펀드를 모아봤어요.`,
+        menu: [
+          ...matched.map((f) => ({
+            label: f.fndNm,
+            onClick: () => showLiveProductDetail(f.fndNm, 'investment'),
+          })),
+          FIRST_MENU_ITEM,
+        ],
       });
     }
     panel.value = 'actions';
-  }, 900);
+  } catch {
+    typing.value = false;
+    pushError();
+  }
 };
 
 /* 자유 입력 텍스트를 실제 백엔드(RAG/Gemini)로 보내고 답변을 받는다 */
 const askBackend = async (text, { title, extraMenu = [] } = {}) => {
+  counselInputHandler.value = null;
   pushUser(text);
   input.value = '';
   panel.value = null;
@@ -506,6 +744,20 @@ const askBackend = async (text, { title, extraMenu = [] } = {}) => {
   try {
     const { data: botMsg } = await chatApi.sendMessage(sessionId.value, text);
     typing.value = false;
+
+    // 백엔드가 자유입력을 상담(counsel)으로 분류하면, 일반 RAG 답변 대신
+    // 되묻기 플로우로 분기한다 (WBS-6) - 가이드 화면의 "목돈 상담받기" 버튼과 동일한 흐름 재사용.
+    // 텍스트에 목적이 이미 드러나 있으면(예: "투자해보고싶어") 목적 질문은 건너뛴다.
+    if (botMsg.intent === 'counsel') {
+      pushBot({ text: botMsg.content });
+      const matchedGoal = detectCounselGoal(text);
+      if (matchedGoal) {
+        askGoal(matchedGoal, { announce: false });
+      } else {
+        startCounsel();
+      }
+      return;
+    }
 
     const menu = [...extraMenu, FIRST_MENU_ITEM];
     const pageLink = PAGE_LINKS.find((p) => p.keywords.some((k) => text.includes(k)));
@@ -570,20 +822,18 @@ const askBackend = async (text, { title, extraMenu = [] } = {}) => {
 const submitInput = () => {
   const trimmed = input.value.trim();
   if (!trimmed) return;
+  input.value = '';
 
-  // 상담형 되묻기(WBS-6) API가 아직 없어 관련 키워드는 임시로 로컬 되묻기 흐름으로 유도
-  if (trimmed.includes('투자') || trimmed.includes('상담') || trimmed.includes('돈 관리')) {
-    pushUser(trimmed);
-    input.value = '';
-    panel.value = null;
-    typing.value = true;
-    setTimeout(() => {
-      typing.value = false;
-      startCounsel();
-    }, 700);
+  // 상담 되묻기 중 숫자 등 자유입력 답변을 기다리고 있으면, 백엔드로 보내지 않고 그 핸들러가 받는다
+  if (counselInputHandler.value) {
+    const handler = counselInputHandler.value;
+    counselInputHandler.value = null;
+    handler(trimmed);
     return;
   }
 
+  // 그 외엔 백엔드의 classify_intent("counsel") 분류 결과로 상담형 되묻기 진입 여부를 판단한다
+  // (askBackend 내부에서 botMsg.intent === 'counsel'이면 되묻기 플로우로 분기)
   askBackend(trimmed);
 };
 
@@ -1005,7 +1255,7 @@ onMounted(async () => {
           ref="inputRef"
           v-model="input"
           type="text"
-          placeholder="궁금한 점을 물어보세요"
+          :placeholder="counselInputHandler ? '숫자로 입력해주세요' : '궁금한 점을 물어보세요'"
           class="composer-input"
           @keydown.enter.prevent="submitInput"
         />
