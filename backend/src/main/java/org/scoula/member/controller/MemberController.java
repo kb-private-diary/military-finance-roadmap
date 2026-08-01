@@ -26,6 +26,7 @@ import org.scoula.member.dto.MemberDTO;
 import org.scoula.member.dto.MemberJoinDetailRequestDTO;
 import org.scoula.member.dto.MemberJoinRequestDTO;
 import org.scoula.member.dto.MemberUpdateRequestDTO;
+import org.scoula.member.dto.MilitaryTypeDTO;
 import org.scoula.member.dto.TermsDTO;
 import org.scoula.member.dto.WithdrawRequestDTO;
 import org.scoula.member.service.MemberService;
@@ -62,6 +63,12 @@ public class MemberController {
     @GetMapping("/terms")
     public ResponseEntity<ApiResponse<List<TermsDTO>>> findTerms() {
         return ResponseEntity.ok(ApiResponse.success(this.service.findTerms()));
+    }
+
+    //회원가입 - 군종 목록 조회 (SCR-COM-05 군종 드롭다운용)
+    @GetMapping("/military-types")
+    public ResponseEntity<ApiResponse<List<MilitaryTypeDTO>>> findMilitaryTypeList() {
+        return ResponseEntity.ok(ApiResponse.success(this.service.findMilitaryTypeList()));
     }
 
     //이름+전화번호로 아이디 찾기 (마스킹된 아이디 반환)

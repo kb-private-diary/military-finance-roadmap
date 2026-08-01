@@ -27,9 +27,11 @@ import org.scoula.member.dto.MemberDTO;
 import org.scoula.member.dto.MemberJoinDetailRequestDTO;
 import org.scoula.member.dto.MemberJoinRequestDTO;
 import org.scoula.member.dto.MemberUpdateRequestDTO;
+import org.scoula.member.dto.MilitaryTypeDTO;
 import org.scoula.member.dto.TermsDTO;
 import org.scoula.member.dto.WithdrawRequestDTO;
 import org.scoula.member.mapper.MemberMapper;
+import org.scoula.member.mapper.MilitaryTypeMapper;
 import org.scoula.member.mapper.TermsMapper;
 import org.scoula.security.account.domain.MemberVO;
 import org.scoula.security.account.dto.AuthResultDTO;
@@ -52,6 +54,7 @@ public class MemberServiceImpl implements MemberService {
     private final PasswordEncoder passwordEncoder;
     private final MemberMapper mapper;
     private final TermsMapper termsMapper;
+    private final MilitaryTypeMapper militaryTypeMapper;
     private final JwtProcessor jwtProcessor;
     private final UserDetailsMapper userDetailsMapper;
 
@@ -149,6 +152,12 @@ public class MemberServiceImpl implements MemberService {
     @Override
     public List<TermsDTO> findTerms() {
         return this.termsMapper.findAll().stream().map(TermsDTO::of).toList();
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public List<MilitaryTypeDTO> findMilitaryTypeList() {
+        return this.militaryTypeMapper.findMilitaryTypeList().stream().map(MilitaryTypeDTO::of).toList();
     }
 
     @Override
