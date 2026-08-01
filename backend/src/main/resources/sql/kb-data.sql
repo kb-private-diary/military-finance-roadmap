@@ -102,6 +102,17 @@ INSERT INTO `military_unit` (`unit_code`, `unit_name`, `type_id`, `created_date`
 ('MC01', '해병대사령부', 4, NOW(), 'seokyun', NULL, NULL, 'N'),
 ('MC02', '해병대교육훈련단/군수단', 4, NOW(), 'seokyun', NULL, NULL, 'N');
 
+-- 군종별 "기타" 캐치올 부대 (엑셀 원본 목록에는 없음, 별도 추가)
+-- 목적: 목록에 없는 부대 소속 사용자도 unit_code 값을 갖게 해서 부대별 통계(GROUP BY unit_code)가 가능하도록 함.
+--       unit_name은 화면에서 사용자가 직접 입력한 값으로 덮어써서 보여주고, unit_code만 이 값으로 고정.
+INSERT INTO `military_unit` (`unit_code`, `unit_name`, `type_id`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`) VALUES
+('AETC', '기타', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('NETC', '기타', 2, NOW(), 'seokyun', NULL, NULL, 'N'),
+('FETC', '기타', 3, NOW(), 'seokyun', NULL, NULL, 'N'),
+('METC', '기타', 4, NOW(), 'seokyun', NULL, NULL, 'N'),
+('OETC', '기타', 5, NOW(), 'seokyun', NULL, NULL, 'N'),
+('EETC', '기타', 6, NOW(), 'seokyun', NULL, NULL, 'N');
+
 
 -- --------------------------------------------------------------------
 --  [석윤] 공통/ 계급(military_rank)
