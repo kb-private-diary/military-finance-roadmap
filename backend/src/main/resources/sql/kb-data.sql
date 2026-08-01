@@ -55,7 +55,7 @@ INSERT INTO `military_unit` (`unit_code`, `unit_name`, `type_id`, `created_date`
 ('AC02', '육군특수전사령부', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
 ('AC03', '육군항공사령부', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
 ('AC04', '육군미사일전략사령부', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
-('AC05', '윤군동원전력사령부', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AC05', '육군동원전력사령부', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
 ('AC06', '육군교육사령부', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
 ('AC07', '육군군수사령부/인사사령부', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
 -- 해군 (type_id=2)
