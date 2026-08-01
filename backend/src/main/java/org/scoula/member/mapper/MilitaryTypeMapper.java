@@ -6,4 +6,5 @@ import org.scoula.member.domain.MilitaryTypeVO;
 
 public interface MilitaryTypeMapper {
     List<MilitaryTypeVO> findMilitaryTypeList();
+    MilitaryTypeVO findMilitaryType(Integer typeId);
 }

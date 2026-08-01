@@ -11,6 +11,7 @@
         <typeAlias alias="TermsVO" type="org.scoula.member.domain.TermsVO"/>
         <typeAlias alias="TermsAgreementVO" type="org.scoula.member.domain.TermsAgreementVO"/>
         <typeAlias alias="MilitaryTypeVO" type="org.scoula.member.domain.MilitaryTypeVO"/>
+        <typeAlias alias="MilitaryUnitVO" type="org.scoula.member.domain.MilitaryUnitVO"/>
         <!-- 도메인 VO/DTO 추가 시 여기에 typeAlias 등록 (또는 mapper XML에서 전체 경로 사용) -->
     </typeAliases>
 </configuration>

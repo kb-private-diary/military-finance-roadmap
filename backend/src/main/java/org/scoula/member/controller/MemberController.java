@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import org.scoula.common.response.ApiResponse;
@@ -27,6 +28,7 @@ import org.scoula.member.dto.MemberJoinDetailRequestDTO;
 import org.scoula.member.dto.MemberJoinRequestDTO;
 import org.scoula.member.dto.MemberUpdateRequestDTO;
 import org.scoula.member.dto.MilitaryTypeDTO;
+import org.scoula.member.dto.MilitaryUnitDTO;
 import org.scoula.member.dto.TermsDTO;
 import org.scoula.member.dto.WithdrawRequestDTO;
 import org.scoula.member.service.MemberService;
@@ -69,6 +71,14 @@ public class MemberController {
     @GetMapping("/military-types")
     public ResponseEntity<ApiResponse<List<MilitaryTypeDTO>>> findMilitaryTypeList() {
         return ResponseEntity.ok(ApiResponse.success(this.service.findMilitaryTypeList()));
+    }
+
+    //회원가입 - 군종별 부대 목록 조회 (SCR-COM-05 부대 드롭다운용)
+    @GetMapping("/military-units")
+    public ResponseEntity<ApiResponse<List<MilitaryUnitDTO>>> findMilitaryUnitListByTypeId(
+            @RequestParam Integer typeId) {
+        return ResponseEntity.ok(
+                ApiResponse.success(this.service.findMilitaryUnitListByTypeId(typeId)));
     }
 
     //이름+전화번호로 아이디 찾기 (마스킹된 아이디 반환)

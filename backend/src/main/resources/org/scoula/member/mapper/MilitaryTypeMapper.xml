@@ -12,4 +12,12 @@
         ORDER BY type_id
     </select>
 
+    <select id="findMilitaryType" resultType="MilitaryTypeVO">
+        SELECT type_id, type_name,
+               created_date, created_nm, modified_date, modified_nm, del_yn
+        FROM military_types
+        WHERE type_id = #{typeId}
+          AND del_yn = 'N'
+    </select>
+
 </mapper>
