@@ -20,7 +20,7 @@ defineProps({
   interest: { type: Number, required: true },
   matchingFund: { type: Number, required: true },
   total: { type: Number, required: true },
-  interestLabel: { type: String, required: false, default: '이자 (연 5.0%)' },
+  interestLabel: { type: String, required: false, default: '이자' },
 });
 </script>
 
