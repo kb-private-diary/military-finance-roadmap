@@ -9,6 +9,8 @@ import java.util.List;
 import org.scoula.common.exception.BusinessException;
 import org.scoula.common.util.MilitarySavingsCalculator;
 import org.scoula.common.util.MilitarySavingsCalculator.CalcResult;
+import org.scoula.saving.mapper.MilitarySavingProductMapper;
+import org.scoula.saving.util.MilitarySavingRateResolver;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -34,6 +36,7 @@ public class SimulatorServiceImpl implements SimulatorService {
     // TODO: SimulatorSavingHistoryDTO -> openbanking 의 SavingHistoryVO 로 교체
     // (교체 후 getter 메서드명이 동일한지 확인 필요 - 예: getCreatedDate(), getMonthlySave() 등)
     private final SimulatorMapper mapper;
+    private final MilitarySavingProductMapper militarySavingProductMapper;
 
     @Transactional(readOnly = true)
     @Override
@@ -66,36 +69,37 @@ public class SimulatorServiceImpl implements SimulatorService {
         double expectedInterestTotal = 0.0;
         long expectedMatchingFundTotal = 0L;
 
-        double annualInterestRate = 0.05; // 5%
-        
         for (SimulatorSavingAccountDTO account : accounts) {
             long monthlySave = account.getMonthlySave() != null ? account.getMonthlySave() : 0L;
             monthlySaveTotal += monthlySave;
-            
-            List<SimulatorSavingHistoryDTO> histories = 
+
+            List<SimulatorSavingHistoryDTO> histories =
                     this.mapper.findHistoryListByAccountId(account.getAccountId());
-            
+
+            MilitarySavingRateResolver rateResolver = new MilitarySavingRateResolver(
+                    this.militarySavingProductMapper, account.getBankCode());
             CalcResult calc = MilitarySavingsCalculator.calculateAccount(
                     account.getCreatedDate(),
                     monthlySave,
                     dischargeDate,
                     histories,
-                    annualInterestRate
+                    rateResolver
             );
-            
-            if (calc.totalMaturityMonths > maxJoinableMonths) {
-                maxJoinableMonths = calc.totalMaturityMonths;
+
+            if (calc.actualTotalMonths > maxJoinableMonths) {
+                maxJoinableMonths = calc.actualTotalMonths;
             }
             if (calc.maxCurrentPaidMonths > maxCurrentPaidMonths) {
                 maxCurrentPaidMonths = calc.maxCurrentPaidMonths;
             }
-            
+
             currentPaidAmountTotal += calc.pastPrincipal;
             expectedPrincipalTotal += calc.getTotalPrincipal();
             expectedInterestTotal += calc.getTotalInterest();
-            
+
             // 3. 계좌별 매칭지원금 및 최대 한도(복무개월수 * 월납입액) 제한 적용
-            long accountMatchingFund = (long) (calc.getTotalPrincipal() * 1.0);
+            long accountMatchingFund =
+                    (long) (calc.getTotalPrincipal() * rateResolver.getGovMatchRate());
             long maxAccountMatchingFund = (long) totalServiceMonths * monthlySave;
             if (accountMatchingFund > maxAccountMatchingFund) {
                 accountMatchingFund = maxAccountMatchingFund;
@@ -240,7 +244,7 @@ public class SimulatorServiceImpl implements SimulatorService {
     private double calculateSimpleInterest(long amount, double annualRate, int investedMonths) {
         return amount * annualRate * (investedMonths / 12.0);
     }
-    
+
     private SimulatorCalculateResponseDTO buildSimulationResponse(long totalPrincipal, double totalInterest) {
         double governmentMatchingRate = 1.0;
         double matchingFund = totalPrincipal * governmentMatchingRate;

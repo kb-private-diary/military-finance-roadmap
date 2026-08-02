@@ -10,16 +10,33 @@ import {
 } from 'vue';
 import { useRouter } from 'vue-router';
 import travelApi from '@/api/travelApi';
+import BaseInput from '@/components/common/BaseInput.vue';
 import CategoryButton from '@/components/common/CategoryButton.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
+import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
 import { toIsoDate } from '@/util/format';
 
 const router = useRouter();
 
 const STYLE_OPTIONS = [
-  { value: 'saving', label: '알뜰' },
-  { value: 'common', label: '일반' },
-  { value: 'premium', label: '프리미엄' },
+  {
+    value: 'saving',
+    label: '최저가',
+    description:
+      '가성비 위주의 실속 있는 여행.\n최저가 숙박, 교통비를 조회하여 가장 저렴한 경우를 추천합니다.',
+  },
+  {
+    value: 'common',
+    label: '일반',
+    description:
+      '편안함과 만족도를 모두 잡은 표준 여행.\n적절한 이동 동선과 대중적인 식비를 반영한 균형 잡힌 일정입니다.',
+  },
+  {
+    value: 'premium',
+    label: '로열티',
+    description:
+      '여행지의 모든 걸 체험해보고 싶은 사람을 위한 여행.\n예산 제한 없이 여행지를 알차게 즐기는 완전 정복 여행입니다.',
+  },
 ];
 
 const form = reactive({
@@ -193,6 +210,12 @@ const isFormValid = computed(
     !draftLoadFailed.value,
 );
 
+const selectedStyleDescription = computed(
+  () =>
+    STYLE_OPTIONS.find(({ value }) => value === form.style)
+      ?.description || '',
+);
+
 const selectStyle = (style) => {
   form.style = style;
 };
@@ -242,28 +265,17 @@ const submitGoal = async () => {
 
 <template>
   <div class="travel-goal">
-    <section class="roadmap-step" aria-label="여행 로드맵 1단계">
-      <p class="roadmap-step__label text-overline">여행 로드맵</p>
-      <div class="roadmap-step__progress">
-        <span class="roadmap-step__number">1</span>
-        <span class="roadmap-step__line">
-          <span class="roadmap-step__line-fill" />
-        </span>
-      </div>
-    </section>
+    <RoadmapCharacterSlider :progress="0" label="여행 로드맵" />
 
     <h2 class="travel-goal__title text-title">어디로 떠나고 싶습니까?</h2>
 
     <form class="travel-form" @submit.prevent="submitGoal">
-      <label class="field">
-        <span class="field__label text-label">여행명</span>
-        <input
-          v-model="form.title"
-          class="field__control field__control--box"
-          type="text"
-          placeholder="졸업 여행, 전역 여행 ..."
-        />
-      </label>
+      <BaseInput
+        v-model="form.title"
+        label="여행명"
+        type="text"
+        placeholder="졸업 여행, 전역 여행 ..."
+      />
 
       <label class="field">
         <span class="field__label text-label">출발지</span>
@@ -342,12 +354,18 @@ const submitGoal = async () => {
           <CategoryButton
             v-for="option in STYLE_OPTIONS"
             :key="option.value"
-            variant="oval-green"
+            variant="oval-yellow"
             :label="option.label"
             :active="form.style === option.value"
             @click="selectStyle(option.value)"
           />
         </div>
+        <p
+          v-if="selectedStyleDescription"
+          class="style-field__description text-caption"
+        >
+          {{ selectedStyleDescription }}
+        </p>
       </fieldset>
 
       <fieldset class="date-field">
@@ -374,17 +392,12 @@ const submitGoal = async () => {
         </div>
       </fieldset>
 
-      <label class="field">
-        <span class="field__label text-label">여행예산</span>
-        <input
-          v-model="form.totalBudget"
-          class="field__control field__control--box"
-          type="number"
-          min="1"
-          inputmode="numeric"
-          placeholder="총 여행 예산"
-        />
-      </label>
+      <BaseInput
+        v-model="form.totalBudget"
+        label="여행예산"
+        type="amount"
+        placeholder="총 여행 예산"
+      />
 
       <p
         v-if="loadError || submitError"
@@ -410,50 +423,8 @@ const submitGoal = async () => {
   color: var(--text-strong);
 }
 
-.roadmap-step {
-  margin-bottom: 34px;
-}
-
-.roadmap-step__label {
-  margin: 0 0 15px;
-}
-
-.roadmap-step__progress {
-  position: relative;
-  display: flex;
-  align-items: center;
-  height: 22px;
-}
-
-.roadmap-step__number {
-  position: relative;
-  z-index: 2;
-  display: grid;
-  width: 22px;
-  height: 22px;
-  place-items: center;
-  border: 2px solid var(--travel-primary);
-  border-radius: 50%;
-  background: var(--surface-default);
-  color: var(--travel-primary-dark);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.roadmap-step__line {
-  position: absolute;
-  right: 10px;
-  left: 10px;
-  height: 4px;
-  overflow: hidden;
-  background: var(--line);
-}
-
-.roadmap-step__line-fill {
-  display: block;
-  width: 0;
-  height: 100%;
-  background: var(--travel-primary);
+.travel-goal :deep(.character-slider) {
+  margin-bottom: 28px;
 }
 
 .travel-goal__title {
@@ -492,13 +463,6 @@ const submitGoal = async () => {
   font-size: 13px;
 }
 
-.field__control--box {
-  padding: 0 14px;
-  border: 0;
-  background: var(--surface-subtle);
-  color: var(--text-body);
-}
-
 .field__control::placeholder {
   color: var(--text-disabled);
 }
@@ -535,6 +499,16 @@ const submitGoal = async () => {
 .style-field__buttons {
   display: flex;
   gap: 8px;
+}
+
+.style-field__description {
+  margin: 2px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface-subtle);
+  color: var(--text-muted);
+  white-space: pre-line;
+  word-break: keep-all;
 }
 
 .destination-field__row {

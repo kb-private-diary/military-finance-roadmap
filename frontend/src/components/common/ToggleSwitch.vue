@@ -11,7 +11,6 @@ const props = defineProps({
   modelValue: {
     type: Boolean,
     required: true,
-    default: false,
   },
   /** 토글 옆에 표시할 라벨 텍스트 */
   label: {
@@ -50,7 +49,7 @@ const toggle = () => {
 
 <template>
   <label
-      :class="[
+    :class="[
       'toggle-wrapper',
       `toggle-wrapper--${labelPosition}`,
       { 'toggle-wrapper--disabled': disabled },
@@ -61,16 +60,16 @@ const toggle = () => {
 
     <!-- 토글 트랙 -->
     <span
-        :class="[
+      :class="[
         'toggle-track',
         { 'toggle-track--on': modelValue, 'toggle-track--inner': innerLabel },
       ]"
-        role="switch"
-        :aria-checked="modelValue"
-        tabindex="0"
-        @click="toggle"
-        @keydown.space.prevent="toggle"
-        @keydown.enter.prevent="toggle"
+      role="switch"
+      :aria-checked="modelValue"
+      tabindex="0"
+      @click="toggle"
+      @keydown.space.prevent="toggle"
+      @keydown.enter.prevent="toggle"
     >
       <span v-if="innerLabel" class="toggle-inner-text">{{ innerLabel }}</span>
       <!-- 토글 썸(원형 버튼) -->
@@ -112,7 +111,7 @@ const toggle = () => {
   width: 48px;
   height: 26px;
   border-radius: 999px;
-  background-color: #d9d9d9;
+  background-color: var(--gray-track);
   transition: background-color 0.25s ease;
   outline: none;
   flex-shrink: 0;
@@ -120,23 +119,23 @@ const toggle = () => {
 }
 
 .toggle-track:focus-visible {
-  box-shadow: 0 0 0 3px rgba(255, 179, 0, 0.4);
+  box-shadow: 0 0 0 3px var(--focus-ring-yellow-strong);
 }
 
 .toggle-track--on {
-  background-color: #ffbc00; /* KB Yellow Positive */
+  background-color: var(--kb-yellow);
 }
 
 /* ── 트랙 (Inner Label 사용 시) ── */
 .toggle-track--inner {
   width: 80px;
   height: 34px;
-  background-color: #e5e5e5;
-  border: 1px solid #d9d9d9;
+  background-color: var(--gray-track-light);
+  border: 1px solid var(--gray-track);
   transition: all 0.25s ease;
 }
 .toggle-track--inner.toggle-track--on {
-  background-color: #ffffff;
+  background-color: var(--surface-default);
 }
 
 /* ── 썸(원형) ── */
@@ -147,8 +146,8 @@ const toggle = () => {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background-color: #ffffff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  background-color: var(--surface-default);
+  box-shadow: 0 1px 4px var(--shadow-thumb);
   transition: all 0.25s ease;
 }
 
@@ -162,11 +161,11 @@ const toggle = () => {
   left: 4px;
   width: 26px;
   height: 26px;
-  background-color: #60584c; /* 어두운 회색 */
+  background-color: var(--kb-gray);
   box-shadow: none;
 }
 .toggle-track--inner.toggle-track--on .toggle-thumb {
-  background-color: #ffbc00;
+  background-color: var(--kb-yellow);
   transform: translateX(44px);
 }
 
@@ -177,7 +176,7 @@ const toggle = () => {
   transform: translateY(-50%);
   font-size: 14px;
   font-weight: 600;
-  color: #545045;
+  color: var(--text-body);
   transition: all 0.25s ease;
 }
 .toggle-track--inner:not(.toggle-track--on) .toggle-inner-text {
@@ -190,7 +189,7 @@ const toggle = () => {
 /* ── 외부 라벨 ── */
 .toggle-label {
   font-size: 16px;
-  color: #545045; /* KB Dark Gray */
+  color: var(--text-body);
   font-weight: 500;
 }
 </style>

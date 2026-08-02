@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @Builder
 public class SimulatorSavingDetailsResponseDTO {
     private Long monthlySaveTotal;       // 계좌 2개를 합친 월 납입액
-    private Integer joinableMonths;      // 납입가능 개월 (계좌 개설일부터 전역일까지 +1 포함)
+    private Integer joinableMonths;      // 실제 납입 개월수 (자동이체 예정일이 만기일을 넘기면 그 전 회차까지만)
     
     private Long currentPaidAmount;      // 현재납입액
     private Integer currentPaidMonths;   // 현재 납입개월수 (최대 회차)

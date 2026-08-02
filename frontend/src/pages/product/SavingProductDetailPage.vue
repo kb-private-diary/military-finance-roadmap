@@ -62,7 +62,7 @@ const selectedRate = computed(() => {
 
 // 상품별 최소·최대 납입금(위 "납입금" 항목과 동일한 한도)을 벗어나면 인라인으로 안내한다.
 const amountError = computed(() => {
-  if (!product.value || inputAmount.value === '') {
+  if (!product.value || !inputAmount.value) {
     return '';
   }
   const amount = Number(inputAmount.value);
@@ -185,7 +185,7 @@ onMounted(fetchProduct);
           <div class="saving-detail__sim-field">
             <BaseInput
               v-model="inputAmount"
-              type="number"
+              type="amount"
               variant="underline"
               suffix="원"
               placeholder="0"

@@ -194,6 +194,57 @@ INSERT INTO `saving_product`
 
 
 -- --------------------------------------------------------------------
+--  [석윤] 공통/ 군적금 상품 만기·중도해지이율(military_saving_product)
+--  테이블: military_saving_product
+--  출처(KB): KB장병내일준비적금 상품설명서(PDF, 준법감시인 심의필 제2026-3282호, 2026.07.21 현재 세전) — 전부 확인, 스크린샷 기반 기존 데이터와 100% 일치
+--  출처(IBK): IBK장병내일준비적금 상품설명서(PDF, 준법감시인 심의필 제2025-8992호, 2026.1.5 현재 세전) — 기본이자율/우대이자율/중도해지이자율(가계우대정기적금 준용) 전부 확인
+--  출처(신한): 신한 장병내일준비적금 상품설명서(PDF, 준법감시인 사전심사필 제2026-13556-1호, 2026.07.24 현재 세전) — 계약기간 4구간(1~6/6~12/12~15/15~24개월), 1~6개월 구간은 우대이율 미적용
+--    ※ gov_match_rate는 PDF에 "3:1 매칭지원금"이라고만 표기(표 없음) — 병역법 시행령상 국가 공통 정책으로 보고 KB/IBK와 동일하게 100 적용, 확인 필요
+--  출처(하나): 하나 장병내일준비적금 상품설명서(PDF, 준법감시인 심의필 제2026-설명서-027호, 2026.03.03 현재 세전) — 중도해지금리가 1~6개월 구간은 고정값(0.10/0.15/0.20%), 6개월 이상만 산식 적용
+-- --------------------------------------------------------------------
+INSERT INTO `military_saving_product`
+(`military_saving_id`, `bank_code`, `product_name`, `min_limit`, `max_limit`, `max_join_month`, `gov_match_rate`, `rate_type`, `value_unit`, `min_value`, `max_value`, `basic_rate`, `max_rate`, `rate_ratio`, `floor_rate`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`) VALUES
+(1, '004', '장병내일준비적금', 1000, 300000, 24, 100.00, 'MATURITY', 'MONTH', 1, 12, 4.0, 9.5, NULL, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
+(2, '004', '장병내일준비적금', 1000, 300000, 24, 100.00, 'MATURITY', 'MONTH', 12, 15, 4.5, 10.0, NULL, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
+(3, '004', '장병내일준비적금', 1000, 300000, 24, 100.00, 'MATURITY', 'MONTH', 15, 24, 5.0, 10.5, NULL, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
+(4, '004', '장병내일준비적금', 1000, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', NULL, 1, NULL, NULL, NULL, 0.1, NOW(), 'seokyun', NULL, NULL, 'N'),
+(5, '004', '장병내일준비적금', 1000, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 1, 3, NULL, NULL, 50, 0.1, NOW(), 'seokyun', NULL, NULL, 'N'),
+(6, '004', '장병내일준비적금', 1000, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 3, 6, NULL, NULL, 50, 0.1, NOW(), 'seokyun', NULL, NULL, 'N'),
+(7, '004', '장병내일준비적금', 1000, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 6, 8, NULL, NULL, 60, 0.2, NOW(), 'seokyun', NULL, NULL, 'N'),
+(8, '004', '장병내일준비적금', 1000, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 8, 10, NULL, NULL, 70, 0.2, NOW(), 'seokyun', NULL, NULL, 'N'),
+(9, '004', '장병내일준비적금', 1000, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 10, 11, NULL, NULL, 80, 0.2, NOW(), 'seokyun', NULL, NULL, 'N'),
+(10, '004', '장병내일준비적금', 1000, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 11, NULL, NULL, NULL, 90, 0.2, NOW(), 'seokyun', NULL, NULL, 'N'),
+(11, '003', '장병내일준비적금', 1000, 300000, 24, 100.00, 'WITHDRAWAL', 'RATIO', NULL, 10, NULL, NULL, 5, 0.1, NOW(), 'seokyun', NULL, NULL, 'N'),
+(12, '003', '장병내일준비적금', 1000, 300000, 24, 100.00, 'WITHDRAWAL', 'RATIO', 10, 20, NULL, NULL, 10, 0.1, NOW(), 'seokyun', NULL, NULL, 'N'),
+(13, '003', '장병내일준비적금', 1000, 300000, 24, 100.00, 'WITHDRAWAL', 'RATIO', 20, 40, NULL, NULL, 20, 0.1, NOW(), 'seokyun', NULL, NULL, 'N'),
+(14, '003', '장병내일준비적금', 1000, 300000, 24, 100.00, 'WITHDRAWAL', 'RATIO', 40, 60, NULL, NULL, 40, 0.1, NOW(), 'seokyun', NULL, NULL, 'N'),
+(15, '003', '장병내일준비적금', 1000, 300000, 24, 100.00, 'WITHDRAWAL', 'RATIO', 60, 80, NULL, NULL, 60, 0.1, NOW(), 'seokyun', NULL, NULL, 'N'),
+(16, '003', '장병내일준비적금', 1000, 300000, 24, 100.00, 'WITHDRAWAL', 'RATIO', 80, NULL, NULL, NULL, 80, 0.1, NOW(), 'seokyun', NULL, NULL, 'N'),
+(17, '003', '장병내일준비적금', 1000, 300000, 24, 100.00, 'MATURITY', 'MONTH', 1, 12, 4.0, 9.2, NULL, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
+(18, '003', '장병내일준비적금', 1000, 300000, 24, 100.00, 'MATURITY', 'MONTH', 12, 15, 4.5, 9.7, NULL, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
+(19, '003', '장병내일준비적금', 1000, 300000, 24, 100.00, 'MATURITY', 'MONTH', 15, 24, 5.0, 10.2, NULL, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
+(20, '088', '장병내일준비적금', NULL, 300000, 24, 100.00, 'MATURITY', 'MONTH', 1, 6, 3.50, 3.50, NULL, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
+(21, '088', '장병내일준비적금', NULL, 300000, 24, 100.00, 'MATURITY', 'MONTH', 6, 12, 4.00, 9.50, NULL, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
+(22, '088', '장병내일준비적금', NULL, 300000, 24, 100.00, 'MATURITY', 'MONTH', 12, 15, 4.50, 10.00, NULL, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
+(23, '088', '장병내일준비적금', NULL, 300000, 24, 100.00, 'MATURITY', 'MONTH', 15, 24, 5.00, 10.50, NULL, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
+(24, '088', '장병내일준비적금', NULL, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', NULL, 1, NULL, NULL, NULL, 0.10, NOW(), 'seokyun', NULL, NULL, 'N'),
+(25, '088', '장병내일준비적금', NULL, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 1, 3, NULL, NULL, 20, 0.10, NOW(), 'seokyun', NULL, NULL, 'N'),
+(26, '088', '장병내일준비적금', NULL, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 3, 6, NULL, NULL, 30, 0.10, NOW(), 'seokyun', NULL, NULL, 'N'),
+(27, '088', '장병내일준비적금', NULL, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 6, 9, NULL, NULL, 70, 0.10, NOW(), 'seokyun', NULL, NULL, 'N'),
+(28, '088', '장병내일준비적금', NULL, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 9, 11, NULL, NULL, 80, 0.10, NOW(), 'seokyun', NULL, NULL, 'N'),
+(29, '088', '장병내일준비적금', NULL, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 11, NULL, NULL, NULL, 90, 0.10, NOW(), 'seokyun', NULL, NULL, 'N'),
+(30, '081', '장병내일준비적금', 10, 300000, 24, 100.00, 'MATURITY', 'MONTH', 1, 12, 3.50, 8.70, NULL, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
+(31, '081', '장병내일준비적금', 10, 300000, 24, 100.00, 'MATURITY', 'MONTH', 12, 15, 4.60, 9.80, NULL, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
+(32, '081', '장병내일준비적금', 10, 300000, 24, 100.00, 'MATURITY', 'MONTH', 15, 24, 5.00, 10.20, NULL, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
+(33, '081', '장병내일준비적금', 10, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', NULL, 1, NULL, NULL, NULL, 0.10, NOW(), 'seokyun', NULL, NULL, 'N'),
+(34, '081', '장병내일준비적금', 10, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 1, 3, NULL, NULL, NULL, 0.15, NOW(), 'seokyun', NULL, NULL, 'N'),
+(35, '081', '장병내일준비적금', 10, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 3, 6, NULL, NULL, NULL, 0.20, NOW(), 'seokyun', NULL, NULL, 'N'),
+(36, '081', '장병내일준비적금', 10, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 6, 9, NULL, NULL, 60, 0.20, NOW(), 'seokyun', NULL, NULL, 'N'),
+(37, '081', '장병내일준비적금', 10, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 9, 11, NULL, NULL, 70, 0.20, NOW(), 'seokyun', NULL, NULL, 'N'),
+(38, '081', '장병내일준비적금', 10, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 11, NULL, NULL, NULL, 90, 0.20, NOW(), 'seokyun', NULL, NULL, 'N');
+
+
+-- --------------------------------------------------------------------
 --  [석윤] 시뮬레이터/ 정책상품(policy_product)
 --  테이블: policy_product
 -- --------------------------------------------------------------------
@@ -857,12 +908,18 @@ VALUES
 
 -- --------------------------------------------------------------------
 --  [수연] 자취/로드맵 추천 (2명)
---  테이블: rent_goal, rent_goal_region, rent_recommend, loan_recommend
+--  테이블: school, rent_goal, rent_goal_region, rent_recommend, loan_recommend
 -- --------------------------------------------------------------------
+--  학교 마스터 (Mock: 대학알리미 API 전환 전 임시 3건)
+INSERT INTO school (school_id, school_name, school_type, address, sigungu_code, region_code, latitude, longitude, created_date, created_nm, del_yn) VALUES
+(1, '부산대학교', 'UNIVERSITY', '부산광역시 금정구 부산대학로63번길 2', '26410', '2641010100', 35.2339000, 129.0806000, NOW(), 'suyeon', 'N'),
+(2, '부경대학교', 'UNIVERSITY', '부산광역시 남구 용소로 45',        '26290', '2629010100', 35.1336000, 129.1058000, NOW(), 'suyeon', 'N'),
+(3, '서울대학교', 'UNIVERSITY', '서울특별시 관악구 관악로 1',       '11620', '1162010100', 37.4599000, 126.9520000, NOW(), 'suyeon', 'N');
+
 --  월세 목표
-INSERT INTO rent_goal (goal_id, user_id, title, trade_type, estate_type, max_deposit, max_monthly, room_count, expected_fee, residence_term, current_asset, target_date, status, created_date, created_nm, del_yn) VALUES
-(1, 1, '전역 후 부산 자취',   'MONTHLY', 'OFFICETEL', 10000000, 600000, 'ONE', 100000, 'Y1', 20150000, '2026-11-01', 'CONFIRMED', NOW(), 'suyeon', 'N'),
-(2, 2, '전역 후 서울 자취',   'MONTHLY', 'OFFICETEL', 20000000, 900000, 'ONE', 100000, 'Y1', 18800000, '2027-01-01', 'DRAFT',     NOW(), 'suyeon', 'N');
+INSERT INTO rent_goal (goal_id, user_id, title, selection_mode, school_id, commute_radius_km, monthly_budget, residence_preset, residence_months, status, created_date, created_nm, del_yn) VALUES
+(1, 1, '전역 후 부산 자취', 'REGION', NULL, NULL, 700000,  'YEAR', 12, 'CONFIRMED', NOW(), 'suyeon', 'N'),
+(2, 2, '전역 후 서울 자취', 'REGION', NULL, NULL, 1000000, 'YEAR', 12, 'DRAFT',     NOW(), 'suyeon', 'N');
 
 -- 목표별 희망 지역
 INSERT INTO rent_goal_region (region_id, goal_id, region_code, created_date, created_nm, del_yn) VALUES
