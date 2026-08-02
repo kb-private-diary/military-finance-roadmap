@@ -17,6 +17,7 @@ import org.scoula.simulator.dto.SimulatorCalculateResponseDTO;
 import org.scoula.simulator.dto.SimulatorConstantCalcRequestDTO;
 import org.scoula.simulator.dto.SimulatorVariableCalcRequestDTO;
 import org.scoula.simulator.dto.SimulatorSavingDetailsResponseDTO;
+import org.scoula.simulator.dto.SimulatorSavingLossResponseDTO;
 import org.scoula.simulator.service.SimulatorService;
 
 @RestController
@@ -40,6 +41,18 @@ public class SimulatorController {
         return ResponseEntity.ok(ApiResponse.success(dto));
     }
     
+    // SIM-API-04: 현재 납입금 기준 중도해지 수령액 및 손실금 조회
+    @GetMapping("/saving-loss")
+    public ResponseEntity<ApiResponse<SimulatorSavingLossResponseDTO>> findSavingLoss(
+            @RequestParam Long userId
+    ) {
+        log.info("Fetching simulator saving loss for userId: {}", userId);
+
+        SimulatorSavingLossResponseDTO dto = this.service.findSavingLoss(userId);
+
+        return ResponseEntity.ok(ApiResponse.success(dto));
+    }
+
     // SIM-API-02: 만기수령액 1회성 시뮬레이션 (동일 금액)
     @PostMapping("/calculate/constant")
     public ResponseEntity<ApiResponse<SimulatorCalculateResponseDTO>> calculateConstant(
