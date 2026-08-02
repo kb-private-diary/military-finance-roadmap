@@ -20,17 +20,27 @@ const props = defineProps({
 
 const clampedProgress = computed(() => Math.min(100, Math.max(0, props.progress)));
 
-// 진행률 구간별 캐릭터 포즈: 시작 전(누움) → 조금 진행(앉음) → 열심히 진행 중(뜀) → 목표 달성(경례)
+// 진행률 구간별 캐릭터 포즈: 25%(누움) → 50%(앉음) → 75%(뜀) → 100%(경례) 4단계
 const characterImg = computed(() => {
   if (clampedProgress.value >= 100) return saluteImg;
-  if (clampedProgress.value >= 67) return runImg;
-  if (clampedProgress.value >= 34) return sitdownImg;
+  if (clampedProgress.value >= 75) return runImg;
+  if (clampedProgress.value >= 50) return sitdownImg;
   return lyingImg;
 });
 
-// 캐릭터 이미지가 트랙 중앙에 오도록 살짝 보정 (이미지 폭 절반만큼)
+const CHARACTER_BASE_SIZE = 32;
+const characterSize = computed(() => {
+  if (clampedProgress.value >= 100) return CHARACTER_BASE_SIZE * 1.15; // 경례
+  if (clampedProgress.value >= 75) return CHARACTER_BASE_SIZE * 1.15; // 뜀
+  if (clampedProgress.value >= 50) return CHARACTER_BASE_SIZE * 1.15; // 앉음
+  return CHARACTER_BASE_SIZE * 1.2; // 누움
+});
+
+
 const characterStyle = computed(() => ({
   left: `${clampedProgress.value}%`,
+  bottom: `calc(100% - 4px)`, 
+  width: `${characterSize.value}px`,
 }));
 </script>
 
@@ -52,7 +62,7 @@ const characterStyle = computed(() => ({
 
 <style scoped>
 .character-slider {
-  padding-top: 2.5rem;
+  margin-bottom: 1rem;
 }
 
 .character-slider__label {
@@ -64,24 +74,23 @@ const characterStyle = computed(() => ({
 .character-slider__track {
   position: relative;
   height: 6px;
+  
+  margin-top: 90px;
   border-radius: 999px;
-  background-color: #e9e2d5;
+  background-color: var(--kb-gray-pale);
 }
 
 .character-slider__fill {
   height: 100%;
   border-radius: 999px;
-  background-color: #f0ad2e;
+  background-color: #536349; 
   transition: width 0.25s ease;
 }
 
 .character-slider__character {
   position: absolute;
-  top: 50%;
-  width: 64px;
-  height: 64px;
-  object-fit: contain;
-  transform: translate(-50%, -75%);
+  height: auto;
+  transform: translateX(-50%);
   transition: left 0.25s ease;
   pointer-events: none;
 }
