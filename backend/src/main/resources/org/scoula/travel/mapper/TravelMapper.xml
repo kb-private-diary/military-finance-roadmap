@@ -91,6 +91,10 @@
                 WHEN destination &lt;&gt; #{destination} THEN NULL
                 ELSE places
             END,
+            package_id = CASE
+                WHEN destination &lt;&gt; #{destination} THEN NULL
+                ELSE package_id
+            END,
             title = #{title},
             departure = #{departure},
             destination = #{destination},
@@ -191,5 +195,88 @@
           AND del_yn = 'N'
         LIMIT 1
     </select>
+
+    <!-- 여행 패키지 상품 -->
+
+    <sql id="travelPackageColumns">
+        package_id, goods_code, country, region_name, name, image_url,
+        description, min_price, departure_period, crawled_at, is_active,
+        detail_url, created_date, created_nm, modified_date, modified_nm, del_yn
+    </sql>
+
+    <select id="findPackageByGoodsCode"
+            resultType="org.scoula.travel.domain.TravelPackageVO">
+        SELECT
+        <include refid="travelPackageColumns"/>
+        FROM travel_package
+        WHERE goods_code = #{goodsCode}
+          AND del_yn = 'N'
+        ORDER BY package_id DESC
+        LIMIT 1
+    </select>
+
+    <select id="findPackagesByDestination"
+            parameterType="org.scoula.travel.dto.TravelPackageSearchDTO"
+            resultType="org.scoula.travel.domain.TravelPackageVO">
+        SELECT
+        <include refid="travelPackageColumns"/>
+        FROM travel_package
+        WHERE del_yn = 'N'
+          AND is_active = TRUE
+          AND region_name = #{destination}
+          AND departure_period = CONCAT(
+              DATE_FORMAT(#{departureDate}, '%Y.%m.%d'),
+              ' ~ ',
+              DATE_FORMAT(#{arrivalDate}, '%Y.%m.%d'))
+          AND min_price &lt; #{maxPrice}
+        ORDER BY
+            min_price ASC,
+            crawled_at DESC
+        LIMIT 100
+    </select>
+
+    <insert id="insertPackage"
+            parameterType="org.scoula.travel.domain.TravelPackageVO"
+            useGeneratedKeys="true"
+            keyProperty="packageId"
+            keyColumn="package_id">
+        INSERT INTO travel_package
+        (goods_code, country, region_name, name, image_url, description,
+         min_price, departure_period, crawled_at, is_active, detail_url,
+         created_date, created_nm, del_yn)
+        VALUES
+        (#{goodsCode}, #{country}, #{regionName}, #{name}, #{imageUrl},
+         #{description}, #{minPrice}, #{departurePeriod}, NOW(), TRUE,
+         #{detailUrl}, NOW(), #{createdNm}, 'N')
+    </insert>
+
+    <update id="updatePackage"
+            parameterType="org.scoula.travel.domain.TravelPackageVO">
+        UPDATE travel_package
+        SET country = #{country},
+            region_name = #{regionName},
+            name = #{name},
+            image_url = #{imageUrl},
+            description = #{description},
+            min_price = #{minPrice},
+            departure_period = #{departurePeriod},
+            crawled_at = NOW(),
+            is_active = TRUE,
+            detail_url = #{detailUrl},
+            modified_date = NOW(),
+            modified_nm = #{modifiedNm}
+        WHERE package_id = #{packageId}
+          AND del_yn = 'N'
+    </update>
+
+    <update id="updateGoalPackage">
+        UPDATE travel_goal
+        SET package_id = #{packageId},
+            modified_date = NOW(),
+            modified_nm = #{modifiedNm}
+        WHERE goal_id = #{goalId}
+          AND status = 'DRAFT'
+          AND del_yn = 'N'
+    </update>
 
 </mapper>

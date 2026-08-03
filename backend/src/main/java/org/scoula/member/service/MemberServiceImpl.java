@@ -27,9 +27,13 @@ import org.scoula.member.dto.MemberDTO;
 import org.scoula.member.dto.MemberJoinDetailRequestDTO;
 import org.scoula.member.dto.MemberJoinRequestDTO;
 import org.scoula.member.dto.MemberUpdateRequestDTO;
+import org.scoula.member.dto.MilitaryTypeDTO;
+import org.scoula.member.dto.MilitaryUnitDTO;
 import org.scoula.member.dto.TermsDTO;
 import org.scoula.member.dto.WithdrawRequestDTO;
 import org.scoula.member.mapper.MemberMapper;
+import org.scoula.member.mapper.MilitaryTypeMapper;
+import org.scoula.member.mapper.MilitaryUnitMapper;
 import org.scoula.member.mapper.TermsMapper;
 import org.scoula.security.account.domain.MemberVO;
 import org.scoula.security.account.dto.AuthResultDTO;
@@ -52,6 +56,8 @@ public class MemberServiceImpl implements MemberService {
     private final PasswordEncoder passwordEncoder;
     private final MemberMapper mapper;
     private final TermsMapper termsMapper;
+    private final MilitaryTypeMapper militaryTypeMapper;
+    private final MilitaryUnitMapper militaryUnitMapper;
     private final JwtProcessor jwtProcessor;
     private final UserDetailsMapper userDetailsMapper;
 
@@ -149,6 +155,23 @@ public class MemberServiceImpl implements MemberService {
     @Override
     public List<TermsDTO> findTerms() {
         return this.termsMapper.findAll().stream().map(TermsDTO::of).toList();
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public List<MilitaryTypeDTO> findMilitaryTypeList() {
+        return this.militaryTypeMapper.findMilitaryTypeList().stream()
+                .map(MilitaryTypeDTO::of).toList();
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public List<MilitaryUnitDTO> findMilitaryUnitListByTypeId(Integer typeId) {
+        if (this.militaryTypeMapper.findMilitaryType(typeId) == null) {
+            throw BusinessException.notFound("존재하지 않는 군종입니다.", "MEM_012");
+        }
+        return this.militaryUnitMapper.findMilitaryUnitListByTypeId(typeId).stream()
+                .map(MilitaryUnitDTO::of).toList();
     }
 
     @Override

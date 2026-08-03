@@ -10,6 +10,8 @@ import org.scoula.member.dto.MemberDTO;
 import org.scoula.member.dto.MemberJoinDetailRequestDTO;
 import org.scoula.member.dto.MemberJoinRequestDTO;
 import org.scoula.member.dto.MemberUpdateRequestDTO;
+import org.scoula.member.dto.MilitaryTypeDTO;
+import org.scoula.member.dto.MilitaryUnitDTO;
 import org.scoula.member.dto.TermsDTO;
 import org.scoula.member.dto.WithdrawRequestDTO;
 import org.scoula.security.account.dto.AuthResultDTO;
@@ -20,6 +22,8 @@ public interface MemberService {
     void checkJoinBasic(MemberJoinRequestDTO basic);
     Long createMember(MemberJoinDetailRequestDTO member);
     List<TermsDTO> findTerms();
+    List<MilitaryTypeDTO> findMilitaryTypeList();
+    List<MilitaryUnitDTO> findMilitaryUnitListByTypeId(Integer typeId);
     AuthResultDTO refresh(String refreshToken);
     FindIdResponseDTO findUserId(FindIdRequestDTO request);
     void resetPassword(FindPasswordRequestDTO request);

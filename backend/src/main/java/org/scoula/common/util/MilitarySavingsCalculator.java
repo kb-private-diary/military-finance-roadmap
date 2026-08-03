@@ -22,6 +22,10 @@ public class MilitarySavingsCalculator {
         // 실제로 납입이 일어나는 마지막 회차(자동이체 예정일이 만기일을 넘기면 그 이전 회차까지만).
         public int actualTotalMonths;
         public int maxCurrentPaidMonths;
+        // 실제 첫 입금일. 중도해지 계산 등 이 계좌의 기준일이 다시 필요한 곳에서 재사용한다.
+        public LocalDate firstPayDate;
+        // 24개월 캡까지 반영된 실제 만기일. 위와 같은 이유로 노출한다.
+        public LocalDate maturityDate;
         public long pastPrincipal;
         public double pastInterest;
         public long futurePrincipal;
@@ -80,6 +84,8 @@ public class MilitarySavingsCalculator {
         LocalDate maturityDate = rawMaturityMonths > MAX_JOIN_MONTHS
                 ? firstPayDate.plusMonths(MAX_JOIN_MONTHS)
                 : dischargeDate;
+        result.firstPayDate = firstPayDate;
+        result.maturityDate = maturityDate;
 
         // 총 가입기간(totalMaturityMonths) 기준으로 계좌 전체에 적용될 금리를 한 번만 결정한다
         // (회차별 경과개월이 아니라, 계좌가 통째로 속하는 구간 하나의 금리를 전 회차에 동일 적용).
