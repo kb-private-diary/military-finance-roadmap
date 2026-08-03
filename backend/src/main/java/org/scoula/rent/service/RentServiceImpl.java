@@ -4,36 +4,31 @@ import lombok.RequiredArgsConstructor;
 import org.scoula.common.exception.BusinessException;
 import org.scoula.rent.domain.RentGoalVO;
 import org.scoula.rent.domain.RentGoalRegionVO;
-import org.scoula.rent.domain.RentProgressVO;
-import org.scoula.rent.domain.ProgressStep;
+import org.scoula.rent.domain.RentListingVO;
 import org.scoula.rent.domain.ResidencePreset;
 import org.scoula.rent.dto.RegionResponseDTO;
 import org.scoula.rent.dto.RentGoalCreateRequestDTO;
 import org.scoula.rent.dto.SchoolSearchResponseDTO;
-import org.scoula.rent.dto.ProgressUpdateRequestDTO;
 import org.scoula.rent.dto.RentGoalDetailResponseDTO;
-import org.scoula.rent.dto.ProgressStepDTO;
+import org.scoula.rent.dto.RentListingResponseDTO;
+import org.scoula.rent.dto.RentListingDetailResponseDTO;
 import org.scoula.rent.mapper.RentMapper;
+import org.scoula.rent.mapper.RentListingMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class RentServiceImpl implements RentService {
 
     private static final String STATUS_DRAFT = "DRAFT";
-    private static final String STATUS_CONFIRMED = "CONFIRMED";
     private static final String MODE_SCHOOL = "SCHOOL";
     private static final String MODE_REGION = "REGION";
-    private static final int TOTAL_PROGRESS_STEPS = 5;
 
     private final RentMapper mapper;
+    private final RentListingMapper listingMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -67,12 +62,12 @@ public class RentServiceImpl implements RentService {
 
         String creator = "user:" + userId; // TODO: JWT 연동 후 로그인 사용자명으로 교체
 
-        // 3) 재등록 방식: 기존 DRAFT 를 soft delete(del_yn='Y') 후 새로 INSERT.
-        //    자취는 "목표 수정"이 없다 - 등록값을 바꾸면 step1부터 다시 추천해야 해서 새 등록과 동일하기 때문.
-        //    그래서 conflict(막기)가 아니라 기존 DRAFT 대체로 처리한다 (결과적으로 회원당 DRAFT 1건 유지).
+        // 3) 재등록 방식: 기존 DRAFT 를 soft delete(del_yn='Y') 후 새로 INSERT
+        //    자취는 "목표 수정"이 없음 - 등록값을 바꾸면 step1부터 다시 추천해야 해서 새 등록과 동일하기 때문
+        //    그래서 conflict(막기)가 아니라 기존 DRAFT 대체로 처리 (결과적으로 회원당 DRAFT 1건 유지)
         this.mapper.deleteDraftGoalByUserId(userId, creator);
 
-        // 4) VO 조립 — 서버가 정하는 값(status·개월수·생성자)을 여기서 채운다
+        // 4) VO 조립 - 서버가 정하는 값(status·개월수·생성자)을 여기서 채움
         RentGoalVO goal = new RentGoalVO();
         goal.setUserId(userId);
         goal.setSelectionMode(request.getSelectionMode());
@@ -84,7 +79,7 @@ public class RentServiceImpl implements RentService {
         goal.setStatus(STATUS_DRAFT);
         goal.setCreatedNm(creator);
 
-        // 5) rent_goal INSERT — 실행 후 goal.goalId 에 생성된 번호가 채워진다 (useGeneratedKeys)
+        // 5) rent_goal INSERT - 실행 후 goal.goalId 에 생성된 번호가 채워짐 (useGeneratedKeys)
         this.mapper.insertGoal(goal);
 
         // 6) REGION 모드면 희망 지역들을 rent_goal_region 에 저장 (1:N)
@@ -114,82 +109,46 @@ public class RentServiceImpl implements RentService {
     }
 
     @Override
-    @Transactional
-    public int updateProgress(Long goalId, ProgressUpdateRequestDTO request, Long userId) {
-        boolean done = Boolean.TRUE.equals(request.getIsCompleted());
-
-        // UPSERT — 있으면 UPDATE, 없으면 INSERT
-        RentProgressVO progress = new RentProgressVO();
-        progress.setGoalId(goalId);
-        progress.setStepCode(request.getStepCode());
-        progress.setIsCompleted(done ? "Y" : "N");
-        progress.setCompletedDate(done ? LocalDateTime.now() : null);
-        progress.setCreatedNm("user:" + userId); // TODO: JWT 연동 후 교체
-        this.mapper.upsertProgress(progress);
-
-        // 진행률(%) 재계산해서 반환
-        return calculatePercentage(countCompletedSteps(goalId));
-    }
-
-    @Override
     @Transactional(readOnly = true)
     public RentGoalDetailResponseDTO findGoal(Long goalId) {
         RentGoalVO goal = this.mapper.findGoalById(goalId);
         if (goal == null) {
             throw BusinessException.notFound("목표를 찾을 수 없습니다.", "RENT_005");
         }
-
-        // 완료된 단계 코드만 모으기
-        Set<String> completedCodes = this.mapper.findProgressListByGoalId(goalId).stream()
-                .filter(p -> "Y".equals(p.getIsCompleted()))
-                .map(RentProgressVO::getStepCode)
-                .collect(Collectors.toSet());
-
-        // 5단계 전체 상태 조립 (enum 순회 → 저장된 것과 매핑)
-        List<ProgressStepDTO> steps = Arrays.stream(ProgressStep.values())
-                .map(step -> ProgressStepDTO.builder()
-                        .stepCode(step.name())
-                        .label(step.getLabel())
-                        .completed(completedCodes.contains(step.name()))
-                        .build())
-                .toList();
-
-        int percentage = calculatePercentage(completedCodes.size());
-        return RentGoalDetailResponseDTO.of(goal, percentage, steps);
+        return RentGoalDetailResponseDTO.of(goal);
     }
 
     @Override
-    @Transactional
-    public void confirmGoal(Long goalId, Long userId) {
+    @Transactional(readOnly = true)
+    public List<RentListingResponseDTO> findListings(Long goalId) {
         RentGoalVO goal = this.mapper.findGoalById(goalId);
         if (goal == null) {
             throw BusinessException.notFound("목표를 찾을 수 없습니다.", "RENT_005");
         }
-        // 소유권 확인 - 남의 목표를 저장하지 못하게 (IDOR 방지)
-        if (!goal.getUserId().equals(userId)) {
-            throw BusinessException.forbidden("본인의 목표만 저장할 수 있습니다.", "AUTH_004");
+
+        List<RentListingVO> listings;
+        if (MODE_SCHOOL.equals(goal.getSelectionMode())) {
+            // 학교 좌표 기준 반경 내 매물
+            listings = this.listingMapper.findListingsBySchool(
+                    goal.getSchoolId(), goal.getCommuteRadiusKm(), goal.getMonthlyBudget());
+        } else {
+            // 희망 지역(법정동코드)에 속한 매물
+            List<String> regionCodes = this.mapper.findRegionCodesByGoalId(goalId);
+            listings = regionCodes.isEmpty()
+                    ? List.of()
+                    : this.listingMapper.findListingsByRegions(regionCodes, goal.getMonthlyBudget());
         }
-        // 상태 전이 검증 - DRAFT 인 목표만 저장 가능 (이미 CONFIRMED/ARCHIVED 는 불가)
-        if (!STATUS_DRAFT.equals(goal.getStatus())) {
-            throw BusinessException.conflict("작성 중인 목표만 저장할 수 있습니다.", "RENT_006");
+        return listings.stream().map(RentListingResponseDTO::of).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public RentListingDetailResponseDTO findListingDetail(Long listingId) {
+        RentListingVO vo = this.listingMapper.findById(listingId);
+        if (vo == null) {
+            throw BusinessException.notFound("매물을 찾을 수 없습니다.", "RENT_006");
         }
-
-        String actor = "user:" + userId; // TODO: JWT 연동 후 교체
-
-        // 1) 회원당 CONFIRMED 1건 유지 - 기존 CONFIRMED 는 ARCHIVED 로 보관
-        this.mapper.archiveConfirmedGoalByUserId(userId, actor);
-
-        // 2) DRAFT → CONFIRMED 전환 (로드맵에 저장)
-        this.mapper.updateGoalStatus(goalId, STATUS_CONFIRMED, actor);
-
-        // 3) 진행률 SAVE_GOAL 단계 자동 완료 (체크리스트 첫 칸)
-        RentProgressVO saveStep = new RentProgressVO();
-        saveStep.setGoalId(goalId);
-        saveStep.setStepCode(ProgressStep.SAVE_GOAL.name());
-        saveStep.setIsCompleted("Y");
-        saveStep.setCompletedDate(LocalDateTime.now());
-        saveStep.setCreatedNm(actor);
-        this.mapper.upsertProgress(saveStep);
+        return RentListingDetailResponseDTO.of(vo);
     }
 
     /** SCHOOL / REGION 모드별 필수값 검증 (모드에 따라 달라지는 조건이라 @Valid 대신 여기서) */
@@ -215,17 +174,5 @@ public class RentServiceImpl implements RentService {
         } catch (IllegalArgumentException | NullPointerException e) {
             throw BusinessException.badRequest("거주기간 선택이 올바르지 않습니다.", "RENT_004");
         }
-    }
-
-    /** 목표의 완료된(Y) 진행 단계 수 */
-    private long countCompletedSteps(Long goalId) {
-        return this.mapper.findProgressListByGoalId(goalId).stream()
-                .filter(p -> "Y".equals(p.getIsCompleted()))
-                .count();
-    }
-
-    /** 완료 단계 수 / 전체 단계 수(5) * 100 */
-    private int calculatePercentage(long completedCount) {
-        return (int) (completedCount * 100 / TOTAL_PROGRESS_STEPS);
     }
 }

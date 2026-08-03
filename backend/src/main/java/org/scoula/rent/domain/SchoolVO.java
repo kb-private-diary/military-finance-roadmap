@@ -7,9 +7,9 @@ import lombok.EqualsAndHashCode;
 import org.scoula.common.domain.BaseVO;
 
 /**
- * 학교 마스터. school 테이블 한 행을 담는 VO.
+ * 학교 마스터 : school 테이블 한 행을 담는 VO
  * 통학 반경 매물 검색(위경도 기반 거리 계산)에 사용한다.
- * 감사컬럼 5개는 BaseVO 상속.
+ * 감사컬럼 5개는 BaseVO 상속
  */
 @Data
 @EqualsAndHashCode(callSuper = true)

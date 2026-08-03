@@ -5,8 +5,8 @@ import lombok.EqualsAndHashCode;
 import org.scoula.common.domain.BaseVO;
 
 /**
- * 자취(월세) 목표. rent_goal 테이블 한 행을 담는 VO.
- * 감사컬럼 5개(createdDate/createdNm/modifiedDate/modifiedNm/delYn)는 BaseVO 상속.
+ * 자취(월세) 목표 : rent_goal 테이블 한 행을 담는 VO
+ * 감사컬럼 5개(createdDate/createdNm/modifiedDate/modifiedNm/delYn)는 BaseVO 상속
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
