@@ -27,6 +27,8 @@ import org.scoula.travel.dto.TravelGoalDraftResponseDTO;
 import org.scoula.travel.dto.TravelPlaceResponseDTO;
 import org.scoula.travel.dto.TravelPlaceSelectionDTO;
 import org.scoula.travel.dto.TravelPlacesUpdateRequestDTO;
+import org.scoula.travel.dto.TravelPackageResponseDTO;
+import org.scoula.travel.dto.TravelPackageUpdateRequestDTO;
 import org.scoula.travel.service.TravelService;
 
 // 여행 로드맵 REST 컨트롤러
@@ -128,6 +130,28 @@ public class TravelController {
             getSelectedPlaces(@PathVariable final Long goalId) {
         return ResponseEntity.ok(ApiResponse.success(
                 this.service.getSelectedPlaces(goalId)));
+    }
+
+    @GetMapping("/goals/{goalId}/packages")
+    @ApiOperation(
+            value = "여행 패키지 상품 추천",
+            notes = "목표의 도착지를 기준으로 노랑풍선 패키지 상품을 추천한다. "
+                    + "외부 조회 실패 시 저장된 상품을 제공한다.")
+    public ResponseEntity<ApiResponse<List<TravelPackageResponseDTO>>>
+            findPackages(@PathVariable final Long goalId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                this.service.findPackages(goalId)));
+    }
+
+    @PatchMapping("/goals/{goalId}/package")
+    @ApiOperation(
+            value = "여행 패키지 상품 선택",
+            notes = "추천 목록에서 선택한 상품을 여행 목표에 저장한다.")
+    public ResponseEntity<ApiResponse<Void>> updatePackage(
+            @PathVariable final Long goalId,
+            @RequestBody final TravelPackageUpdateRequestDTO request) {
+        this.service.updatePackage(goalId, request);
+        return ResponseEntity.ok(ApiResponse.success());
     }
 
 }
