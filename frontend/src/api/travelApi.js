@@ -56,4 +56,16 @@ export default {
       timeout: DEFAULT_TIMEOUT,
     });
   },
+
+  findPackages(goalId) {
+    return api.get(`${BASE_URL}/goals/${goalId}/packages`, {
+      timeout: DEFAULT_TIMEOUT,
+    });
+  },
+
+  updatePackage(goalId, packageId) {
+    return api.patch(`${BASE_URL}/goals/${goalId}/package`, {
+      packageId,
+    });
+  },
 };

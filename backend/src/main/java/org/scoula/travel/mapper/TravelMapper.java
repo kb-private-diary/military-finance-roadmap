@@ -7,7 +7,9 @@ import org.apache.ibatis.annotations.Param;
 import org.scoula.travel.domain.CityCostVO;
 import org.scoula.travel.domain.TravelCostVO;
 import org.scoula.travel.domain.TravelGoalVO;
+import org.scoula.travel.domain.TravelPackageVO;
 import org.scoula.travel.dto.TravelQuarterCostSearchDTO;
+import org.scoula.travel.dto.TravelPackageSearchDTO;
 
 public interface TravelMapper {
 
@@ -46,5 +48,19 @@ public interface TravelMapper {
 
     Long findHotelCostByQuarter(
             final TravelQuarterCostSearchDTO request);
+
+    TravelPackageVO findPackageByGoodsCode(
+            @Param("goodsCode") final String goodsCode);
+
+    List<TravelPackageVO> findPackagesByDestination(
+            final TravelPackageSearchDTO request);
+
+    int insertPackage(final TravelPackageVO travelPackage);
+
+    int updatePackage(final TravelPackageVO travelPackage);
+
+    int updateGoalPackage(@Param("goalId") final Long goalId,
+                          @Param("packageId") final Long packageId,
+                          @Param("modifiedNm") final String modifiedNm);
 
 }
