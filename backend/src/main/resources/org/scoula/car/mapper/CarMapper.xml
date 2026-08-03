@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.scoula.car.mapper.CarMapper">
+
+    <insert id="createCarGoal" parameterType="org.scoula.car.domain.CarGoalVO" useGeneratedKeys="true" keyProperty="goalId">
+        <!--
+            임시로 userId를 문자열로 기록함. 추후 JWT 연동 시 실제 사용자명으로 교체 예정.
+        -->
+        INSERT INTO car_goal (
+            user_id, budget, car_type_code, is_new, target_date, region, status,
+            created_date, created_nm, del_yn
+        ) VALUES (
+            #{userId}, #{budget}, #{carTypeCode}, #{isNew}, #{targetDate}, #{region}, 'DRAFT',
+            NOW(), #{userId}, 'N'
+        )
+    </insert>
+
+</mapper>
