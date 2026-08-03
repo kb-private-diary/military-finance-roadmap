@@ -8,6 +8,8 @@ import org.springframework.web.servlet.support.AbstractAnnotationConfigDispatche
 
 import javax.servlet.Filter;
 import javax.servlet.MultipartConfigElement;
+import javax.servlet.ServletContext;
+import javax.servlet.ServletException;
 import javax.servlet.ServletRegistration;
 
 public class WebConfig extends AbstractAnnotationConfigDispatcherServletInitializer {
@@ -18,6 +20,21 @@ public class WebConfig extends AbstractAnnotationConfigDispatcherServletInitiali
     final long MAX_REQUEST_SIZE = 1024 * 1024 * 20L;
     final int FILE_SIZE_THRESHOLD = 1024 * 1024 * 5;
 
+
+    /**
+     * 웹앱 기동 시 활성 프로파일을 결정한다.
+     * Mock 구현체(@Profile("dev"))가 빈으로 등록되려면 dev 프로파일이 켜져 있어야 한다.
+     * 기본값은 dev이며, 배포 환경에서는 시스템 프로퍼티 {@code -Dspring.profiles.active=prod} 로 덮어쓸 수 있다.
+     * (프로파일 해석 우선순위: 시스템 프로퍼티 > ServletContext 초기 파라미터)
+     */
+    @Override
+    public void onStartup(ServletContext servletContext) throws ServletException {
+        if (System.getProperty("spring.profiles.active") == null
+                && servletContext.getInitParameter("spring.profiles.active") == null) {
+            servletContext.setInitParameter("spring.profiles.active", "dev");
+        }
+        super.onStartup(servletContext);
+    }
 
     @Override
     protected Class<?>[] getRootConfigClasses() {
