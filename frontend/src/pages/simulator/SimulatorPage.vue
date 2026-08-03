@@ -14,10 +14,6 @@ import CategoryButton from '@/components/common/CategoryButton.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import SavingsBreakdown from '@/components/common/SavingsBreakdown.vue';
 
-// TODO: JWT 연동 후 SecurityContext(authStore)에서 userId 추출
-// 백엔드가 아직 @RequestParam Long userId 임시 방식이라 프론트도 임시 고정값 사용
-const TEMP_USER_ID = 1;
-
 const route = useRoute();
 const router = useRouter();
 
@@ -70,7 +66,7 @@ const fetchSavingDetails = async () => {
   hasNoAccount.value = false;
   viewMode.value = 'real';
   try {
-    details.value = await simulatorApi.findSavingDetails(TEMP_USER_ID);
+    details.value = await simulatorApi.findSavingDetails();
   } catch (error) {
     // 군적금 미가입(SIMUL_002) 등은 빈 상태로 처리
     details.value = null;
@@ -82,7 +78,7 @@ const fetchSavingDetails = async () => {
 
 const fetchSavingLoss = async () => {
   try {
-    savingLoss.value = await simulatorApi.findSavingLoss(TEMP_USER_ID);
+    savingLoss.value = await simulatorApi.findSavingLoss();
   } catch (error) {
     const code = error.response?.data?.code;
     // 군적금 미가입(SIMUL_002)·이미 전역(SIMUL_008)은 카드 자체를 숨긴다
