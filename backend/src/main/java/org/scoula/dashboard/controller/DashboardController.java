@@ -2,9 +2,9 @@ package org.scoula.dashboard.controller;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
@@ -14,6 +14,7 @@ import org.scoula.common.response.ApiResponse;
 import org.scoula.dashboard.dto.DashboardBasicResponseDTO;
 import org.scoula.dashboard.dto.DashboardSavingsResponseDTO;
 import org.scoula.dashboard.service.DashboardService;
+import org.scoula.security.account.domain.CustomUser;
 
 @RestController
 @RequestMapping("/api/dashboard")
@@ -27,21 +28,21 @@ public class DashboardController {
 
     @GetMapping("/basic")
     public ResponseEntity<ApiResponse<DashboardBasicResponseDTO>> findBasicInfo(
-            @RequestParam Long userId
+            @AuthenticationPrincipal CustomUser customUser
     ) {
+        Long userId = customUser.getMember().getId();
         log.info("Fetching basic info for userId: {}", userId);
         DashboardBasicResponseDTO dto = this.service.findBasicInfo(userId);
-        
+
         return ResponseEntity.ok(ApiResponse.success(dto));
     }
 
     // DASH-API-03: 적금 현황 조회(현재 납입액 및 예상 만기 수령액 반환)
     @GetMapping("/savings")
     public ResponseEntity<ApiResponse<DashboardSavingsResponseDTO>> findSavingsStatus(
-            // TODO: 실제 구현에서는 JWT 기반 보안(SecurityContext)에서 userId를 가져와야 합니다.
-            // 개발 편의를 위해 임시로 param에서 받도록 설정합니다.
-            @RequestParam Long userId
+            @AuthenticationPrincipal CustomUser customUser
     ) {
+        Long userId = customUser.getMember().getId();
         log.info("Fetching savings status for userId: {}", userId);
         DashboardSavingsResponseDTO dto = this.service.findSavingsStatus(userId);
         
