@@ -1,10 +1,10 @@
 SET FOREIGN_KEY_CHECKS = 0;
 
 /*
-총 테이블 갯수: 58개
+총 테이블 갯수: 59개
 
 [테이블 구분]
-- 회원/공통: user, military_types, military_rank, badge, user_badge, terms, terms_agreement, vacation
+- 회원/공통: user, military_types, military_unit, military_rank, badge, user_badge, terms, terms_agreement, vacation
 - 예적금/금융: bank_category, saving_product, military_saving_product, card_product, saving_account, saving_history, policy_product
 - 목표/로드맵 공통: roadmap_category, user_bookmark
 - 여행 목표: travel_goal, travel_cost, city_cost, hotel_cost, flight_cost, travel_package, travel_insurance
@@ -19,6 +19,18 @@ DROP TABLE IF EXISTS `military_types`;
 CREATE TABLE `military_types` (
   `type_id` INT PRIMARY KEY NOT NULL COMMENT '군종ID',
   `type_name` VARCHAR(20) NOT NULL COMMENT '군종명',
+  `created_date` DATETIME NOT NULL COMMENT '생성일시',
+  `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+  `modified_date` DATETIME COMMENT '수정일시',
+  `modified_nm` VARCHAR(50) COMMENT '수정자',
+  `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
+);
+
+DROP TABLE IF EXISTS `military_unit`;
+CREATE TABLE `military_unit` (
+  `unit_code` VARCHAR(10) PRIMARY KEY NOT NULL COMMENT '부대코드',
+  `unit_name` VARCHAR(50) NOT NULL COMMENT '부대명',
+  `type_id` INT NOT NULL COMMENT '군종ID',
   `created_date` DATETIME NOT NULL COMMENT '생성일시',
   `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
   `modified_date` DATETIME COMMENT '수정일시',
@@ -936,6 +948,8 @@ CREATE UNIQUE INDEX `car_ev_index_0` ON `car_ev` (`region`, `base_year`);
 
 ALTER TABLE `military_types` COMMENT = '군종(육군/해군/공군 등) 공통 코드';
 
+ALTER TABLE `military_unit` COMMENT = '군종별 부대 목록 마스터 (회원가입 부대 선택 드롭다운용)';
+
 ALTER TABLE `car_type` COMMENT = '경차/준중형/SUV 등 차종 구분 공통 코드 테이블';
 
 ALTER TABLE `badge` COMMENT = '업적뱃지';
@@ -1051,6 +1065,8 @@ ALTER TABLE `terms_agreement` ADD FOREIGN KEY (`user_id`) REFERENCES `user` (`id
 ALTER TABLE `terms_agreement` ADD FOREIGN KEY (`terms_id`) REFERENCES `terms` (`terms_id`);
 
 ALTER TABLE `user` ADD FOREIGN KEY (`type_id`) REFERENCES `military_types` (`type_id`);
+
+ALTER TABLE `military_unit` ADD FOREIGN KEY (`type_id`) REFERENCES `military_types` (`type_id`);
 
 ALTER TABLE `saving_account` ADD FOREIGN KEY (`user_id`) REFERENCES `user` (`id`);
 

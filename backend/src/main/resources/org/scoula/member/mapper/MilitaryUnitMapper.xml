@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.scoula.member.mapper.MilitaryUnitMapper">
+
+    <select id="findMilitaryUnitListByTypeId" resultType="MilitaryUnitVO">
+        SELECT unit_code, unit_name, type_id,
+               created_date, created_nm, modified_date, modified_nm, del_yn
+        FROM military_unit
+        WHERE type_id = #{typeId}
+          AND del_yn = 'N'
+        ORDER BY CASE WHEN unit_name = '기타' THEN 1 ELSE 0 END, unit_code
+    </select>
+
+</mapper>
