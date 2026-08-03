@@ -9,10 +9,6 @@ import BaseTag from '@/components/common/BaseTag.vue';
 import ProgressBar from '@/components/common/ProgressBar.vue';
 import ToggleSwitch from '@/components/common/ToggleSwitch.vue';
 
-// TODO: JWT 연동 후 SecurityContext(authStore)에서 userId 추출
-// 백엔드가 아직 @RequestParam Long userId 임시 방식이라 프론트도 임시 고정값 사용
-const TEMP_USER_ID = 1;
-
 const DAYS_PER_MONTH = 30;
 const DAYS_PER_WEEK = 7;
 
@@ -47,12 +43,12 @@ const formatDate = (dateStr) => {
 const formatWon = (amount) => `${(amount ?? 0).toLocaleString('ko-KR')}원`;
 
 const fetchBasicInfo = async () => {
-  basic.value = await dashboardApi.findBasicInfo(TEMP_USER_ID);
+  basic.value = await dashboardApi.findBasicInfo();
 };
 
 const fetchSavingsStatus = async () => {
   try {
-    savings.value = await dashboardApi.findSavingsStatus(TEMP_USER_ID);
+    savings.value = await dashboardApi.findSavingsStatus();
   } catch (error) {
     // 군적금 미가입(DASH_002) 등은 빈 상태로 처리
     savings.value = null;

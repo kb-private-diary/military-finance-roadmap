@@ -37,6 +37,7 @@ import javax.sql.DataSource;
         "org.scoula.main.mapper",
         "org.scoula.dashboard.mapper",
         "org.scoula.simulator.mapper",
+        "org.scoula.saving.mapper",
         "org.scoula.product.mapper",
         "org.scoula.travel.mapper",
         "org.scoula.rent.mapper",

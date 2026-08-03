@@ -68,4 +68,14 @@ public class RentController {
     public ResponseEntity<ApiResponse<RentGoalDetailResponseDTO>> findGoal(@PathVariable Long goalId) {
         return ResponseEntity.ok(ApiResponse.success(service.findGoal(goalId)));
     }
+
+    // POST /api/rent/goals/{goalId}/confirm → 로드맵 저장 (DRAFT → CONFIRMED)
+    @PostMapping("/goals/{goalId}/confirm")
+    public ResponseEntity<ApiResponse<Void>> confirmGoal(
+            @PathVariable Long goalId,
+            @RequestParam Long userId) { // TODO: JWT 연동 후 SecurityContext 로 교체
+
+        service.confirmGoal(goalId, userId);
+        return ResponseEntity.ok(ApiResponse.success());
+    }
 }

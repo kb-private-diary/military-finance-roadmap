@@ -10,6 +10,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.scoula.common.exception.BusinessException;
 import org.scoula.common.util.MilitarySavingsCalculator;
 import org.scoula.common.util.MilitarySavingsCalculator.CalcResult;
+import org.scoula.saving.mapper.MilitarySavingProductMapper;
+import org.scoula.saving.util.MilitarySavingRateResolver;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -28,6 +30,7 @@ public class DashboardServiceImpl implements DashboardService {
     // DashboardSavingAccountDTO account -> SavingAccountVO account 교체
     // VO getter 가 같은지 확인 필요(getCreatedDate(), getMonthlySave() 등)
     private final DashboardMapper mapper;
+    private final MilitarySavingProductMapper militarySavingProductMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -107,34 +110,32 @@ public class DashboardServiceImpl implements DashboardService {
         }
         
         Long expectedMaturityTotal = 0L;
-        
-        // 군적금 기본 금리 및 지원금 조건 (현재 스펙 기준 가정)
-        double annualInterestRate = 0.05; // 연이율 5%
-        double governmentMatchingRate = 1.0; // 정부 매칭 기여금 100% (2024년 기준)
-        
+
         if (accounts != null) {
             for(DashboardSavingAccountDTO account : accounts) {
                 // 1. 해당 계좌의 실제 납입 내역(saving_history) 가져오기
-                List<DashboardSavingHistoryDTO> histories = 
+                List<DashboardSavingHistoryDTO> histories =
                         this.mapper.findSavingHistoryListByAccountId(account.getAccountId());
-                
+
                 Long monthlySave = account.getMonthlySave() != null ? account.getMonthlySave() : 0L;
-                
+
+                MilitarySavingRateResolver rateResolver = new MilitarySavingRateResolver(
+                        this.militarySavingProductMapper, account.getBankCode());
                 CalcResult calc = MilitarySavingsCalculator.calculateAccount(
                         account.getCreatedDate(),
                         monthlySave,
                         dischargeDate,
                         histories,
-                        annualInterestRate
+                        rateResolver
                 );
-                
+
                 // 4. 총 원금 및 총 이자 합산
                 long totalPrincipal = calc.getTotalPrincipal();
                 double totalInterest = calc.getTotalInterest();
-                
-                // 5. 정부 매칭지원금 계산 (납입 원금의 100%)
-                double matchingFund = totalPrincipal * governmentMatchingRate;
-                
+
+                // 5. 정부 매칭지원금 계산 (military_saving_product.gov_match_rate 기준)
+                double matchingFund = totalPrincipal * rateResolver.getGovMatchRate();
+
                 // 매칭지원금 최대 한도 제한 (복무개월수 * 해당 계좌 월 납입액)
                 double maxMatchingFundLimit = (double) totalServiceMonths * monthlySave;
                 if (matchingFund > maxMatchingFundLimit) {

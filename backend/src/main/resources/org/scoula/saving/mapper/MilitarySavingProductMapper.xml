@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.scoula.saving.mapper.MilitarySavingProductMapper">
+
+    <!--
+        은행별 만기금리는 "총 가입기간(개월)"에 따라 계좌 전체에 동일하게 적용되는 구간 금리다
+        (회차마다 다른 금리가 아니라, 계좌의 총 가입기간이 속한 구간 하나로 결정됨).
+        min_value 포함, max_value 미포함. 0~1개월 구간은 데이터가 없어 자연히 null(무이자) 처리된다.
+    -->
+    <select id="findMaturityRate" resultType="org.scoula.saving.dto.MilitarySavingRateDTO">
+        SELECT
+            basic_rate     AS basicRate,
+            gov_match_rate AS govMatchRate
+        FROM military_saving_product
+        WHERE bank_code = #{bankCode}
+          AND rate_type = 'MATURITY'
+          AND value_unit = 'MONTH'
+          AND (min_value IS NULL OR min_value &lt;= #{totalMaturityMonths})
+          AND (max_value IS NULL OR max_value > #{totalMaturityMonths})
+          AND del_yn = 'N'
+        LIMIT 1
+    </select>
+
+    <!--
+        은행마다 중도해지 구간을 MONTH(경과개월) 또는 RATIO(경과비율) 중 하나로만 관리하므로,
+        회차의 경과개월·경과비율을 둘 다 넘겨서 그 은행이 실제로 쓰는 쪽 구간에만 매칭시킨다.
+    -->
+    <select id="findWithdrawalRate"
+            resultType="org.scoula.saving.dto.MilitarySavingWithdrawalRateDTO">
+        SELECT
+            rate_ratio  AS rateRatio,
+            floor_rate  AS floorRate,
+            value_unit  AS valueUnit
+        FROM military_saving_product
+        WHERE bank_code = #{bankCode}
+          AND rate_type = 'WITHDRAWAL'
+          AND (
+                (value_unit = 'MONTH'
+                    AND (min_value IS NULL OR min_value &lt;= #{elapsedMonths})
+                    AND (max_value IS NULL OR max_value > #{elapsedMonths}))
+             OR (value_unit = 'RATIO'
+                    AND (min_value IS NULL OR min_value &lt;= #{elapsedRatio})
+                    AND (max_value IS NULL OR max_value > #{elapsedRatio}))
+              )
+          AND del_yn = 'N'
+        LIMIT 1
+    </select>
+
+</mapper>

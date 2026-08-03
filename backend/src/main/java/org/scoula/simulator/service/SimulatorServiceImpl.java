@@ -1,5 +1,6 @@
 package org.scoula.simulator.service;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.time.YearMonth;
@@ -9,6 +10,9 @@ import java.util.List;
 import org.scoula.common.exception.BusinessException;
 import org.scoula.common.util.MilitarySavingsCalculator;
 import org.scoula.common.util.MilitarySavingsCalculator.CalcResult;
+import org.scoula.saving.mapper.MilitarySavingProductMapper;
+import org.scoula.saving.util.MilitarySavingRateResolver;
+import org.scoula.saving.util.MilitarySavingWithdrawalCalculator;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -23,6 +27,7 @@ import org.scoula.simulator.dto.SimulatorVariableCalcRequestDTO;
 import org.scoula.simulator.dto.SimulatorSavingAccountDTO;
 import org.scoula.simulator.dto.SimulatorSavingDetailsResponseDTO;
 import org.scoula.simulator.dto.SimulatorSavingHistoryDTO;
+import org.scoula.simulator.dto.SimulatorSavingLossResponseDTO;
 import org.scoula.simulator.dto.SimulatorUserDatesDTO;
 import org.scoula.simulator.mapper.SimulatorMapper;
 
@@ -34,75 +39,62 @@ public class SimulatorServiceImpl implements SimulatorService {
     // TODO: SimulatorSavingHistoryDTO -> openbanking 의 SavingHistoryVO 로 교체
     // (교체 후 getter 메서드명이 동일한지 확인 필요 - 예: getCreatedDate(), getMonthlySave() 등)
     private final SimulatorMapper mapper;
+    private final MilitarySavingProductMapper militarySavingProductMapper;
 
     @Transactional(readOnly = true)
     @Override
     public SimulatorSavingDetailsResponseDTO findSavingDetails(Long userId) {
-        SimulatorUserDatesDTO userDates = this.mapper.findUserDates(userId);
-        if (userDates == null) {
-            throw BusinessException.notFound("유저 정보를 찾을 수 없습니다.", "SIMUL_001");
-        }
+        SimulatorUserDatesDTO userDates = this.findUserDatesOrThrow(userId);
+        // 유저가 가진 군적금 계좌 목록 조회 (SimulatorMapper.findAccountListByUserId, 계좌 여러 개 가능)
+        List<SimulatorSavingAccountDTO> accounts = this.findAccountsOrThrow(userId);
 
-        List<SimulatorSavingAccountDTO> accounts = this.mapper.findAccountListByUserId(userId);
-        if (accounts == null || accounts.isEmpty()) {
-            throw BusinessException.notFound("시뮬레이션을 위한 군적금 가입 내역을 찾을 수 없습니다.", "SIMUL_002");
-        }
-
-        LocalDate enlistDate = userDates.getEnlistDate() != null ? userDates.getEnlistDate() : LocalDate.now();
-        LocalDate dischargeDate = userDates.getDischargeDate() != null 
-                ? userDates.getDischargeDate() 
-                : LocalDate.now().plusMonths(18);
-        
-        // 1. 복무개월수 계산 (매칭지원금 최대 한도 용도)
-        int totalServiceMonths = (int) ChronoUnit.MONTHS.between(enlistDate.withDayOfMonth(1), dischargeDate.withDayOfMonth(1));
-        if (totalServiceMonths <= 0) totalServiceMonths = 1;
+        LocalDate dischargeDate = this.resolveDischargeDate(userDates);
+        int totalServiceMonths = this.resolveTotalServiceMonths(userDates, dischargeDate);
 
         long monthlySaveTotal = 0L;
         long currentPaidAmountTotal = 0L;
         int maxCurrentPaidMonths = 0;
         int maxJoinableMonths = 0;
-        
+
         long expectedPrincipalTotal = 0L;
         double expectedInterestTotal = 0.0;
         long expectedMatchingFundTotal = 0L;
 
-        double annualInterestRate = 0.05; // 5%
-        
+        // 계좌마다 은행(bankCode)이 다를 수 있어 계좌별로 따로 계산한 뒤 아래 total 변수들에 합산한다.
         for (SimulatorSavingAccountDTO account : accounts) {
             long monthlySave = account.getMonthlySave() != null ? account.getMonthlySave() : 0L;
             monthlySaveTotal += monthlySave;
-            
-            List<SimulatorSavingHistoryDTO> histories = 
+
+            List<SimulatorSavingHistoryDTO> histories =
                     this.mapper.findHistoryListByAccountId(account.getAccountId());
-            
+
+            MilitarySavingRateResolver rateResolver = new MilitarySavingRateResolver(
+                    this.militarySavingProductMapper, account.getBankCode());
             CalcResult calc = MilitarySavingsCalculator.calculateAccount(
                     account.getCreatedDate(),
                     monthlySave,
                     dischargeDate,
                     histories,
-                    annualInterestRate
+                    rateResolver
             );
-            
-            if (calc.totalMaturityMonths > maxJoinableMonths) {
-                maxJoinableMonths = calc.totalMaturityMonths;
+
+            if (calc.actualTotalMonths > maxJoinableMonths) {
+                maxJoinableMonths = calc.actualTotalMonths;
             }
             if (calc.maxCurrentPaidMonths > maxCurrentPaidMonths) {
                 maxCurrentPaidMonths = calc.maxCurrentPaidMonths;
             }
-            
+
             currentPaidAmountTotal += calc.pastPrincipal;
             expectedPrincipalTotal += calc.getTotalPrincipal();
             expectedInterestTotal += calc.getTotalInterest();
-            
+
             // 3. 계좌별 매칭지원금 및 최대 한도(복무개월수 * 월납입액) 제한 적용
-            long accountMatchingFund = (long) (calc.getTotalPrincipal() * 1.0);
-            long maxAccountMatchingFund = (long) totalServiceMonths * monthlySave;
-            if (accountMatchingFund > maxAccountMatchingFund) {
-                accountMatchingFund = maxAccountMatchingFund;
-            }
-            expectedMatchingFundTotal += accountMatchingFund;
+            expectedMatchingFundTotal += this.calculateMatchingFund(
+                    calc.getTotalPrincipal(), rateResolver.getGovMatchRate(),
+                    totalServiceMonths, monthlySave);
         }
-        
+
         long totalReceiptAmount = expectedPrincipalTotal + (long) expectedInterestTotal + expectedMatchingFundTotal;
         
         return SimulatorSavingDetailsResponseDTO.builder()
@@ -116,7 +108,69 @@ public class SimulatorServiceImpl implements SimulatorService {
                 .totalReceiptAmount(totalReceiptAmount)
                 .build();
     }
-    
+
+    @Transactional(readOnly = true)
+    @Override
+    public SimulatorSavingLossResponseDTO findSavingLoss(Long userId) {
+        SimulatorUserDatesDTO userDates = this.findUserDatesOrThrow(userId);
+        // 유저가 가진 군적금 계좌 목록 조회 (SimulatorMapper.findAccountListByUserId, 계좌 여러 개 가능)
+        List<SimulatorSavingAccountDTO> accounts = this.findAccountsOrThrow(userId);
+
+        LocalDate dischargeDate = this.resolveDischargeDate(userDates);
+        int totalServiceMonths = this.resolveTotalServiceMonths(userDates, dischargeDate);
+        LocalDate today = LocalDate.now();
+
+        if (!today.isBefore(dischargeDate)) {
+            throw BusinessException.badRequest("이미 전역하여 중도해지 대상이 아닙니다.", "SIMUL_008");
+        }
+
+        MilitarySavingWithdrawalCalculator withdrawalCalculator =
+                new MilitarySavingWithdrawalCalculator(this.militarySavingProductMapper);
+
+        long totalWithdrawalAmount = 0L;
+        long totalMaturityAmount = 0L;
+
+        // 계좌마다 은행(bankCode)이 다를 수 있어 계좌별로 따로 계산한 뒤 아래 total 변수들에 합산한다.
+        for (SimulatorSavingAccountDTO account : accounts) {
+            long monthlySave = account.getMonthlySave() != null ? account.getMonthlySave() : 0L;
+
+            List<SimulatorSavingHistoryDTO> histories =
+                    this.mapper.findHistoryListByAccountId(account.getAccountId());
+
+            MilitarySavingRateResolver rateResolver = new MilitarySavingRateResolver(
+                    this.militarySavingProductMapper, account.getBankCode());
+            CalcResult calc = MilitarySavingsCalculator.calculateAccount(
+                    account.getCreatedDate(),
+                    monthlySave,
+                    dischargeDate,
+                    histories,
+                    rateResolver
+            );
+
+            long accountMatchingFund = this.calculateMatchingFund(
+                    calc.getTotalPrincipal(), rateResolver.getGovMatchRate(),
+                    totalServiceMonths, monthlySave);
+            totalMaturityAmount +=
+                    calc.getTotalPrincipal() + (long) calc.getTotalInterest() + accountMatchingFund;
+
+            // 중도해지는 정부매칭지원금 없음. 이미 낸 회차(과거 이력)만 대상.
+            BigDecimal basicRate = rateResolver.getBasicRate();
+            totalWithdrawalAmount += withdrawalCalculator.calculateWithdrawalAmount(
+                    account.getBankCode(),
+                    basicRate,
+                    calc.totalMaturityMonths,
+                    calc.firstPayDate,
+                    calc.maturityDate,
+                    histories,
+                    today
+            );
+        }
+
+        long lossAmount = totalMaturityAmount - totalWithdrawalAmount;
+
+        return new SimulatorSavingLossResponseDTO(totalWithdrawalAmount, lossAmount);
+    }
+
     @Override
     public SimulatorCalculateResponseDTO calculateConstant(SimulatorConstantCalcRequestDTO request) {
         this.validateConstantRequest(request);
@@ -235,12 +289,54 @@ public class SimulatorServiceImpl implements SimulatorService {
         }
     }
     
+    // ------------------------- 조회 헬퍼 -------------------------
+
+    private SimulatorUserDatesDTO findUserDatesOrThrow(Long userId) {
+        SimulatorUserDatesDTO userDates = this.mapper.findUserDates(userId);
+        if (userDates == null) {
+            throw BusinessException.notFound("유저 정보를 찾을 수 없습니다.", "SIMUL_001");
+        }
+        return userDates;
+    }
+
+    private List<SimulatorSavingAccountDTO> findAccountsOrThrow(Long userId) {
+        List<SimulatorSavingAccountDTO> accounts = this.mapper.findAccountListByUserId(userId);
+        if (accounts == null || accounts.isEmpty()) {
+            throw BusinessException.notFound("시뮬레이션을 위한 군적금 가입 내역을 찾을 수 없습니다.", "SIMUL_002");
+        }
+        return accounts;
+    }
+
     // ------------------------- 계산 헬퍼 -------------------------
 
     private double calculateSimpleInterest(long amount, double annualRate, int investedMonths) {
         return amount * annualRate * (investedMonths / 12.0);
     }
-    
+
+    private LocalDate resolveDischargeDate(SimulatorUserDatesDTO userDates) {
+        return userDates.getDischargeDate() != null
+                ? userDates.getDischargeDate()
+                : LocalDate.now().plusMonths(18);
+    }
+
+    // 복무개월수 계산 (매칭지원금 최대 한도 용도)
+    private int resolveTotalServiceMonths(
+            SimulatorUserDatesDTO userDates, LocalDate dischargeDate) {
+        LocalDate enlistDate =
+                userDates.getEnlistDate() != null ? userDates.getEnlistDate() : LocalDate.now();
+        int totalServiceMonths = (int) ChronoUnit.MONTHS.between(
+                enlistDate.withDayOfMonth(1), dischargeDate.withDayOfMonth(1));
+        return totalServiceMonths > 0 ? totalServiceMonths : 1;
+    }
+
+    // 계좌별 정부매칭지원금 (복무개월수 * 월납입액 한도 적용)
+    private long calculateMatchingFund(
+            long totalPrincipal, double govMatchRate, int totalServiceMonths, long monthlySave) {
+        long matchingFund = (long) (totalPrincipal * govMatchRate);
+        long maxMatchingFund = (long) totalServiceMonths * monthlySave;
+        return Math.min(matchingFund, maxMatchingFund);
+    }
+
     private SimulatorCalculateResponseDTO buildSimulationResponse(long totalPrincipal, double totalInterest) {
         double governmentMatchingRate = 1.0;
         double matchingFund = totalPrincipal * governmentMatchingRate;

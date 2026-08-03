@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 @Builder
 public class SimulatorSavingAccountDTO {
     private Long accountId;
+    private String bankCode;
     private Long monthlySave;
     private LocalDate createdDate;
 }

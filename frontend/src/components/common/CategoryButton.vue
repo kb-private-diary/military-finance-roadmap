@@ -6,7 +6,7 @@ defineProps({
     default: 'oval-yellow',
   },
   active: { type: Boolean, required: false, default: false },
-  label: { type: String, required: true, default: '버튼' },
+  label: { type: String, required: true },
   icon: { type: String, required: false, default: '' },
 });
 const emit = defineEmits(['click']);
@@ -14,13 +14,13 @@ const emit = defineEmits(['click']);
 
 <template>
   <button
-      :class="[
+    :class="[
       'category-btn',
       `category-btn--${variant}`,
       { 'is-active': active },
     ]"
-      @click="emit('click')"
-      type="button"
+    @click="emit('click')"
+    type="button"
   >
     <span v-if="icon" class="category-btn__icon">{{ icon }}</span>
     <span class="category-btn__label">{{ label }}</span>
@@ -53,12 +53,12 @@ const emit = defineEmits(['click']);
   border-radius: 999px;
   font-size: clamp(14px, 3.8vw, 16px);
   font-weight: 500;
-  background-color: #f5f5f5;
-  color: #9e9e9e;
+  background-color: var(--gray-pale-bg);
+  color: var(--gray-mid);
 }
 .category-btn--oval-yellow.is-active {
-  background-color: #ffbc00; /* KB Yellow Positive */
-  color: #60584c; /* KB Gray */
+  background-color: var(--kb-yellow);
+  color: var(--kb-gray);
   font-weight: 600;
 }
 
@@ -67,12 +67,12 @@ const emit = defineEmits(['click']);
   padding: clamp(7px, 2vw, 9px) clamp(10px, 3vw, 16px);
   border-radius: 999px;
   font-size: clamp(14px, 3.8vw, 16px);
-  background-color: #f1ede1;
-  color: #8d6e52;
+  background-color: var(--brown-pale-bg);
+  color: var(--brown-text);
 }
 .category-btn--oval-brown.is-active {
-  background-color: #c9a97a;
-  color: #ffffff;
+  background-color: var(--brown-active-bg);
+  color: var(--surface-default);
   font-weight: 600;
 }
 
@@ -81,13 +81,13 @@ const emit = defineEmits(['click']);
   padding: clamp(8px, 2.5vw, 10px) clamp(12px, 4vw, 20px);
   border-radius: 999px;
   font-size: clamp(13px, 3.8vw, 15px);
-  background-color: #e2e8df;
-  color: #536548;
+  background-color: var(--military-green-light);
+  color: var(--military-green);
 }
 
 .category-btn--oval-green.is-active {
-  background-color: #536548;
-  color: #ffffff;
+  background-color: var(--military-green);
+  color: var(--surface-default);
   font-weight: 700;
 }
 
@@ -97,12 +97,12 @@ const emit = defineEmits(['click']);
   border-radius: 12px;
   font-size: clamp(14px, 3.8vw, 16px);
   font-weight: 500;
-  background-color: #f5f5f5;
-  color: #9e9e9e;
+  background-color: var(--gray-pale-bg);
+  color: var(--gray-mid);
 }
 .category-btn--square-yellow.is-active {
-  background-color: #ffbc00; /* KB Yellow Positive */
-  color: #60584c; /* KB Gray */
+  background-color: var(--kb-yellow);
+  color: var(--kb-gray);
   font-weight: 600;
 }
 
@@ -117,24 +117,24 @@ const emit = defineEmits(['click']);
   font-size: clamp(11px, 2.8vw, 14px);
   letter-spacing: -0.5px;
   font-weight: 600;
-  background-color: #c2c2c2;
-  color: #ffffff;
+  background-color: var(--pastel-inactive-bg);
+  color: var(--surface-default);
   border: none;
 }
 .category-btn--pastel-purple.is-active {
-  background-color: #e2b2fe;
+  background-color: var(--pastel-purple);
 }
 .category-btn--pastel-blue.is-active {
-  background-color: #5bc3ff;
+  background-color: var(--pastel-blue);
 }
 .category-btn--pastel-yellow.is-active {
-  background-color: #fbd55b;
+  background-color: var(--pastel-yellow);
 }
 .category-btn--pastel-green.is-active {
-  background-color: #9cd495;
+  background-color: var(--pastel-green);
 }
 .category-btn--pastel-pink.is-active {
-  background-color: #f8a5a5;
+  background-color: var(--pastel-pink);
 }
 
 .category-btn__icon {
