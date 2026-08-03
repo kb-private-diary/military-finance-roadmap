@@ -28,4 +28,12 @@ export default {
     });
     return data.data; // ApiResponse<SimulatorCalculateResponseDTO> 래핑 해제
   },
+
+  // 현재 납입금 기준 중도해지 수령액 및 손실금 조회 (SIM-API-04: GET /api/simulator/saving-loss)
+  async findSavingLoss(userId) {
+    const { data } = await instance.get(`${BASE_URL}/saving-loss`, {
+      params: { userId },
+    });
+    return data.data; // ApiResponse<SimulatorSavingLossResponseDTO> 래핑 해제
+  },
 };
