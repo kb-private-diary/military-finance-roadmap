@@ -68,4 +68,20 @@ export default {
       packageId,
     });
   },
+
+  findProducts(goalId) {
+    return api.get(`${BASE_URL}/goals/${goalId}/products`, {
+      timeout: DEFAULT_TIMEOUT,
+    });
+  },
+
+  updateProducts(goalId, products) {
+    return api.patch(`${BASE_URL}/goals/${goalId}/products`, {
+      products,
+    });
+  },
+
+  confirmGoal(goalId) {
+    return api.post(`${BASE_URL}/goals/${goalId}/confirm`);
+  },
 };
