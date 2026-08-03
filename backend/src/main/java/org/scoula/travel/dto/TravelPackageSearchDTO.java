@@ -16,6 +16,5 @@ public class TravelPackageSearchDTO {
     private String country;
     private String destination;
     private LocalDate departureDate;
-    private LocalDate arrivalDate;
     private Long maxPrice;
 }

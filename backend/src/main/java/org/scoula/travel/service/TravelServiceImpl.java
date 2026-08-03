@@ -455,14 +455,9 @@ public class TravelServiceImpl implements TravelService {
 
     @Transactional(readOnly = true)
     @Override
-    public TravelCostResponseDTO findCost(Long goalId) {
+    public TravelCostResponseDTO findCost(final Long goalId) {
         this.getGoalOrThrow(goalId);
-        TravelCostVO cost = this.mapper.findCostByGoalId(goalId);
-        if (cost == null) {
-            throw BusinessException.notFound(
-                    "산출된 예상 경비가 없습니다.", "TRAVEL_006");
-        }
-        return TravelCostResponseDTO.of(cost);
+        return TravelCostResponseDTO.of(this.findCostOrThrow(goalId));
     }
 
     @Transactional(readOnly = true)
@@ -543,35 +538,25 @@ public class TravelServiceImpl implements TravelService {
         final TravelGoalVO goal = this.getGoalOrThrow(goalId);
         final CityCostVO cityCost =
                 this.findCityCostOrThrow(goal.getDestination());
-        final TravelCostVO travelCost =
-                this.mapper.findCostByGoalId(goalId);
-        if (travelCost == null || travelCost.getTotalCost() == null) {
-            throw BusinessException.notFound(
-                    "산출된 예상 경비가 없습니다.",
-                    "TRAVEL_006");
-        }
+        final TravelCostVO travelCost = this.findCostOrThrow(goalId);
         final TravelPackageSearchDTO packageSearch =
                 this.createPackageSearch(
                         goal, cityCost, travelCost.getTotalCost());
 
         final String cacheKey = goal.getDestination()
                 + ":"
-                + goal.getStartDate()
-                + ":"
-                + goal.getEndDate();
+                + goal.getStartDate();
         if (!this.hasFreshPackageQuery(cacheKey)) {
             try {
                 final List<TravelPackageVO> crawledPackages =
                         this.yellowBalloonClient.searchPackages(
                                 cityCost.getCountry(),
                                 goal.getDestination(),
-                                goal.getStartDate(),
-                                goal.getEndDate());
+                                goal.getStartDate());
                 crawledPackages.stream()
                         .filter(travelPackage -> this.isAvailablePackage(
                                 travelPackage,
-                                goal.getStartDate(),
-                                goal.getEndDate()))
+                                goal.getStartDate()))
                         .forEach(this::savePackage);
                 this.packageQueryCache.put(
                         cacheKey, LocalDateTime.now());
@@ -591,8 +576,7 @@ public class TravelServiceImpl implements TravelService {
                         .stream()
                         .filter(travelPackage -> this.isAvailablePackage(
                                 travelPackage,
-                                goal.getStartDate(),
-                                goal.getEndDate()))
+                                goal.getStartDate()))
                         .filter(travelPackage -> selectedGoodsCodes.add(
                                 this.findOriginalGoodsCode(
                                         travelPackage.getGoodsCode())))
@@ -650,16 +634,14 @@ public class TravelServiceImpl implements TravelService {
                 .country(cityCost.getCountry())
                 .destination(goal.getDestination())
                 .departureDate(goal.getStartDate())
-                .arrivalDate(goal.getEndDate())
                 .maxPrice(maxPrice)
                 .build();
     }
 
     private boolean isAvailablePackage(
             final TravelPackageVO travelPackage,
-            final LocalDate startDate,
-            final LocalDate endDate) {
-        if (startDate == null || endDate == null
+            final LocalDate startDate) {
+        if (startDate == null
                 || travelPackage.getDeparturePeriod() == null) {
             return true;
         }
@@ -673,10 +655,7 @@ public class TravelServiceImpl implements TravelService {
         try {
             final LocalDate packageDepartureDate =
                     LocalDate.parse(period[0], PACKAGE_DATE_FORMAT);
-            final LocalDate packageArrivalDate =
-                    LocalDate.parse(period[1], PACKAGE_DATE_FORMAT);
-            return startDate.equals(packageDepartureDate)
-                    && endDate.equals(packageArrivalDate);
+            return startDate.equals(packageDepartureDate);
         } catch (final DateTimeParseException exception) {
             log.warn("패키지 출발기간 파싱 실패: goodsCode={}, period={}",
                     travelPackage.getGoodsCode(),
