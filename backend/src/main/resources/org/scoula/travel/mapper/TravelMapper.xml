@@ -224,10 +224,9 @@
         WHERE del_yn = 'N'
           AND is_active = TRUE
           AND region_name = #{destination}
-          AND departure_period = CONCAT(
+          AND departure_period LIKE CONCAT(
               DATE_FORMAT(#{departureDate}, '%Y.%m.%d'),
-              ' ~ ',
-              DATE_FORMAT(#{arrivalDate}, '%Y.%m.%d'))
+              ' ~ %')
           AND min_price &lt; #{maxPrice}
         ORDER BY
             min_price ASC,

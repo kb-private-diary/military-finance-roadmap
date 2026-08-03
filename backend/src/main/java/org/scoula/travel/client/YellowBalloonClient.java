@@ -1,13 +1,11 @@
 package org.scoula.travel.client;
 
 import java.io.IOException;
-import java.net.URI;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
 import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -46,6 +44,8 @@ public class YellowBalloonClient {
             "https://prdt.ybtour.co.kr/product/detailPackage?menu=PKG";
     private static final DateTimeFormatter API_DATE_FORMAT =
             DateTimeFormatter.BASIC_ISO_DATE;
+    private static final int CONNECT_TIMEOUT_MILLIS = 5_000;
+    private static final int READ_TIMEOUT_MILLIS = 10_000;
     private static final int MAX_RESULTS = 10;
     private static final Map<String, List<String>> CITY_ALIASES = Map.of(
             "호치민", List.of("호치민", "호찌민", "SGN"),
@@ -54,17 +54,12 @@ public class YellowBalloonClient {
             "교토", List.of("교토", "교토시", "KIX", "ITM"),
             "하롱베이", List.of("하롱베이", "하롱", "HPH", "HAN"));
 
-    private final HttpClient httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(5))
-            .followRedirects(HttpClient.Redirect.NORMAL)
-            .build();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public List<TravelPackageVO> searchPackages(
             final String country,
             final String destination,
-            final LocalDate departureDate,
-            final LocalDate arrivalDate) {
+            final LocalDate departureDate) {
         if (departureDate == null) {
             return List.of();
         }
@@ -77,8 +72,7 @@ public class YellowBalloonClient {
                 this.addDepartureCandidates(
                         candidates,
                         product,
-                        departureDate,
-                        arrivalDate);
+                        departureDate);
             }
             final List<TravelPackageVO> packages = this.toPackages(
                     candidates, country, destination);
@@ -89,9 +83,6 @@ public class YellowBalloonClient {
                         "TRAVEL_031");
             }
             return packages;
-        } catch (final InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw this.packageServiceUnavailable();
         } catch (final IOException | IllegalArgumentException exception) {
             log.warn("노랑풍선 검색 요청 오류: destination={}",
                     destination, exception);
@@ -102,7 +93,7 @@ public class YellowBalloonClient {
     private JsonNode searchProducts(
             final String destination,
             final LocalDate departureDate)
-            throws IOException, InterruptedException {
+            throws IOException {
         final String encodedDestination = URLEncoder.encode(
                 destination, StandardCharsets.UTF_8);
         final String requestUrl = SEARCH_URL
@@ -122,8 +113,7 @@ public class YellowBalloonClient {
     private void addDepartureCandidates(
             final List<PackageCandidate> candidates,
             final JsonNode product,
-            final LocalDate departureDate,
-            final LocalDate arrivalDate) {
+            final LocalDate departureDate) {
         final String goodsCode = this.text(product, "goodsCd");
         final String displayId = this.findDisplayId(product);
         if (goodsCode.isEmpty() || displayId.isEmpty()) {
@@ -147,8 +137,7 @@ public class YellowBalloonClient {
             }
 
             for (final JsonNode event : events) {
-                if (!this.isSameTravelPeriod(
-                        event, departureDate, arrivalDate)) {
+                if (!this.isSameDepartureDate(event, departureDate)) {
                     continue;
                 }
 
@@ -163,10 +152,7 @@ public class YellowBalloonClient {
                 candidates.add(new PackageCandidate(
                         product, event, displayId, price));
             }
-        } catch (final IOException | InterruptedException exception) {
-            if (exception instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
+        } catch (final IOException exception) {
             log.warn("노랑풍선 상품 일정 조회 실패: goodsCode={}, date={}",
                     goodsCode, departureDate, exception);
         }
@@ -175,7 +161,7 @@ public class YellowBalloonClient {
     private List<TravelPackageVO> toPackages(
             final List<PackageCandidate> candidates,
             final String country,
-            final String destination) throws InterruptedException {
+            final String destination) {
         final List<TravelPackageVO> packages = new ArrayList<>();
         final Set<String> selectedGoodsCodes = new HashSet<>();
         candidates.sort(Comparator.comparingLong(PackageCandidate::price));
@@ -223,7 +209,7 @@ public class YellowBalloonClient {
     private JsonNode findEventDetail(
             final String displayId,
             final String eventCode)
-            throws IOException, InterruptedException {
+            throws IOException {
         final String requestUrl = DETAIL_URL
                 + "&dspSid="
                 + URLEncoder.encode(displayId, StandardCharsets.UTF_8)
@@ -250,7 +236,7 @@ public class YellowBalloonClient {
 
     private JsonNode findEventDetailSafely(
             final String displayId,
-            final String eventCode) throws InterruptedException {
+            final String eventCode) {
         try {
             return this.findEventDetail(displayId, eventCode);
         } catch (final IOException exception) {
@@ -312,22 +298,13 @@ public class YellowBalloonClient {
                 .build();
     }
 
-    private boolean isSameTravelPeriod(
+    private boolean isSameDepartureDate(
             final JsonNode event,
-            final LocalDate departureDate,
-            final LocalDate arrivalDate) {
-        final boolean sameDepartureDate = departureDate.format(
-                API_DATE_FORMAT)
+            final LocalDate departureDate) {
+        return departureDate.format(API_DATE_FORMAT)
                 .equals(this.firstText(
                         event.path("outStartDt"),
                         event.path("evStartDt")));
-        if (!sameDepartureDate || arrivalDate == null) {
-            return sameDepartureDate;
-        }
-        return arrivalDate.format(API_DATE_FORMAT)
-                .equals(this.firstText(
-                        event.path("inArriveDt"),
-                        event.path("evArriveDt")));
     }
 
     private boolean includesDestination(
@@ -369,20 +346,20 @@ public class YellowBalloonClient {
     }
 
     private JsonNode requestJson(final String url)
-            throws IOException, InterruptedException {
+            throws IOException {
         return this.objectMapper.readTree(
                 this.request(url, "application/json"));
     }
 
     private JsonNode requestJson(
             final String url,
-            final String referer) throws IOException, InterruptedException {
+            final String referer) throws IOException {
         return this.objectMapper.readTree(
                 this.request(url, "application/json", referer));
     }
 
     private String request(final String url, final String accept)
-            throws IOException, InterruptedException {
+            throws IOException {
         return this.request(
                 url,
                 accept,
@@ -392,26 +369,39 @@ public class YellowBalloonClient {
     private String request(
             final String url,
             final String accept,
-            final String referer) throws IOException, InterruptedException {
-        final HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .timeout(Duration.ofSeconds(10))
-                .header("User-Agent", "Mozilla/5.0")
-                .header("Accept", accept)
-                .header("Accept-Language", "ko-KR,ko;q=0.9")
-                .header("X-Requested-With", "XMLHttpRequest")
-                .header("Referer", referer)
-                .GET()
-                .build();
-        final HttpResponse<String> response = this.httpClient.send(
-                request,
-                HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-        if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            throw new IOException(
-                    "Yellow Balloon response status: "
-                            + response.statusCode());
+            final String referer) throws IOException {
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection) new URL(url).openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(CONNECT_TIMEOUT_MILLIS);
+            connection.setReadTimeout(READ_TIMEOUT_MILLIS);
+            connection.setInstanceFollowRedirects(true);
+            connection.setRequestProperty("User-Agent", "Mozilla/5.0");
+            connection.setRequestProperty("Accept", accept);
+            connection.setRequestProperty(
+                    "Accept-Language", "ko-KR,ko;q=0.9");
+            connection.setRequestProperty(
+                    "X-Requested-With", "XMLHttpRequest");
+            connection.setRequestProperty("Referer", referer);
+
+            final int statusCode = connection.getResponseCode();
+            if (statusCode < HttpURLConnection.HTTP_OK
+                    || statusCode >= HttpURLConnection.HTTP_MULT_CHOICE) {
+                throw new IOException(
+                        "Yellow Balloon response status: " + statusCode);
+            }
+
+            try (InputStream inputStream = connection.getInputStream()) {
+                return new String(
+                        inputStream.readAllBytes(),
+                        StandardCharsets.UTF_8);
+            }
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
         }
-        return response.body();
     }
 
     private String text(final JsonNode node, final String field) {
