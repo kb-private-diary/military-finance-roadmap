@@ -906,9 +906,9 @@ VALUES
 (3, 1, 'REWARD', '특급전사 포상휴가', '2025-06-20', 4, FALSE, NOW(), 'seokyun', NULL, NULL, 'N'),
 
 -- 회원 2(육군)의 정기휴가(연가) 처리 시나리오
-(4, 2, 'REGULAR', '정기휴가 (총 부여일수)', '2025-01-01', 24, FALSE, NOW(), 'seokyun', NULL, NULL, 'N'),     -- 총 부여 휴가
-(5, 2, 'REGULAR', '1차 정기휴가 (사용 완료)', '2025-05-01', 4, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),     -- 4일 사용
-(6, 2, 'REGULAR', '2차 정기휴가 (사용 완료)', '2025-07-01', 5, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),     -- 5일 사용
+(4, 2, 'REGULAR', '정기휴가', '2025-01-01', 24, FALSE, NOW(), 'seokyun', NULL, NULL, 'N'),     -- 총 부여 휴가
+(5, 2, 'REGULAR', '1차 정기휴가', '2025-05-01', 4, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),     -- 4일 사용
+(6, 2, 'REGULAR', '2차 정기휴가', '2025-07-01', 5, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),     -- 5일 사용
 (7, 2, 'PETITION', '자격증시험', '2023-08-01', 2, TRUE, NOW(), 'seokyun', NULL, NULL, 'N');
 
 
