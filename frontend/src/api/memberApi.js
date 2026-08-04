@@ -51,4 +51,10 @@ export default {
   async withdraw(request) {
     await instance.delete(`${BASE_URL}/me`, { data: request });
   },
+
+  // 회원가입 - 군종 목록 조회 (MEM-API: GET /api/users/military-types)
+  async findMilitaryTypes() {
+    const { data } = await instance.get(`${BASE_URL}/military-types`);
+    return data.data; // [{ typeId, typeName }]
+  },
 };
