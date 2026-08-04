@@ -113,4 +113,13 @@
           AND del_yn = 'N'
     </update>
 
+    <update id="deleteVacation">
+        UPDATE vacation
+        SET del_yn        = 'Y',
+            modified_date = NOW(),
+            modified_nm   = #{modifiedNm}
+        WHERE vacation_id = #{vacationId}
+          AND del_yn = 'N'
+    </update>
+
 </mapper>

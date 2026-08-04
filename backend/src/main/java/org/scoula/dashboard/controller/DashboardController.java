@@ -5,6 +5,7 @@ import javax.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -107,6 +108,19 @@ public class DashboardController {
         Long userId = customUser.getMember().getId();
         log.info("Updating vacationId: {} for userId: {}", vacationId, userId);
         this.service.updateVacation(userId, vacationId, customUser.getUsername(), request);
+
+        return ResponseEntity.ok(ApiResponse.success());
+    }
+
+    // DASH-API-08: 휴가 삭제 (REGULAR 마스터 제외)
+    @DeleteMapping("/vacations/{vacationId}")
+    public ResponseEntity<ApiResponse<Void>> deleteVacation(
+            @AuthenticationPrincipal CustomUser customUser,
+            @PathVariable Long vacationId
+    ) {
+        Long userId = customUser.getMember().getId();
+        log.info("Deleting vacationId: {} for userId: {}", vacationId, userId);
+        this.service.deleteVacation(userId, vacationId, customUser.getUsername());
 
         return ResponseEntity.ok(ApiResponse.success());
     }

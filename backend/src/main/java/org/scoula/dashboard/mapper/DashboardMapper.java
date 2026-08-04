@@ -40,4 +40,8 @@ public interface DashboardMapper {
 
     // 휴가 수정 (DASH-API-07). vacationId 기준 UPDATE
     void updateVacation(VacationVO vo);
+
+    // 휴가 삭제 (DASH-API-08). 소프트 삭제(del_yn='Y')
+    void deleteVacation(
+            @Param("vacationId") Long vacationId, @Param("modifiedNm") String modifiedNm);
 }

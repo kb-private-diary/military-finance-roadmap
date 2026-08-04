@@ -306,6 +306,22 @@ public class DashboardServiceImpl implements DashboardService {
         this.mapper.updateVacation(vacation);
     }
 
+    @Override
+    @Transactional
+    public void deleteVacation(Long userId, Long vacationId, String modifiedNm) {
+        VacationVO vacation = this.mapper.findVacationById(vacationId, userId);
+        if (vacation == null) {
+            throw BusinessException.notFound("휴가 정보를 찾을 수 없습니다.", "DASH_003");
+        }
+        // REGULAR 마스터는 입대 시 고정 부여된 총량이라 삭제 대상이 아니다.
+        // REGULAR 사용내역은 등록 취소 목적으로 삭제를 허용한다.
+        if (this.isRegularMaster(vacation)) {
+            throw BusinessException.badRequest("정기휴가 마스터는 삭제할 수 없습니다.", "DASH_009");
+        }
+
+        this.mapper.deleteVacation(vacationId, modifiedNm);
+    }
+
     // 비REGULAR 카테고리는 name/acquiredDate/isUsed가 전부 필수다.
     // @Valid로 조건부 필수를 표현할 수 없어 여기서 직접 검증한다. (createVacation·updateVacation 공용)
     private void validateNonRegularFields(DashboardVacationCreateRequestDTO request) {

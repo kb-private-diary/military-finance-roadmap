@@ -26,4 +26,7 @@ public interface DashboardService {
     void updateVacation(
             Long userId, Long vacationId, String modifiedNm,
             DashboardVacationCreateRequestDTO request);
+
+    // DASH-API-08: 휴가 삭제 (REGULAR 마스터 제외, 소프트 삭제)
+    void deleteVacation(Long userId, Long vacationId, String modifiedNm);
 }
