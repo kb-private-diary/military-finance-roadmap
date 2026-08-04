@@ -1,6 +1,6 @@
 package org.scoula.openbanking.domain;
 
-import java.util.Date;
+import java.time.LocalDateTime;
 
 import org.scoula.common.domain.BaseVO;
 
@@ -24,5 +24,5 @@ public class OpenBankingLinkVO extends BaseVO {
     private String bankCode;         // bank_code         은행코드
     private Long accountId;          // account_id        연동된 군적금 계좌 (적금만, 입출금은 null)
     private String accountNumMasked; // account_num_masked 마스킹 계좌번호 (표시용)
-    private Date expiresAt;          // expires_at        토큰만료일시
+    private LocalDateTime expiresAt; // expires_at        토큰만료일시
 }

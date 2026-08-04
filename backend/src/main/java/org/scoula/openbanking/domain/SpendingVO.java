@@ -1,6 +1,6 @@
 package org.scoula.openbanking.domain;
 
-import java.util.Date;
+import java.time.LocalDateTime;
 
 import org.scoula.common.domain.BaseVO;
 
@@ -21,5 +21,5 @@ public class SpendingVO extends BaseVO {
     private String merchantName; // merchant_name  가맹점명
     private String category;     // category       카테고리 (merchant_category로 자동분류)
     private Long amount;         // amount         지출금액
-    private Date spentAt;        // spent_at       결제일시
+    private LocalDateTime spentAt; // spent_at       결제일시
 }

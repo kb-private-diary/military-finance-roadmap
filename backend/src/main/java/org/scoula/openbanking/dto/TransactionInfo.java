@@ -1,6 +1,6 @@
 package org.scoula.openbanking.dto;
 
-import java.util.Date;
+import java.time.LocalDateTime;
 
 import lombok.Data;
 
@@ -12,7 +12,7 @@ import lombok.Data;
 @Data
 public class TransactionInfo {
 
-    private Date txDateTime;     // 거래일시
+    private LocalDateTime txDateTime; // 거래일시
     private String merchantName; // 가맹점명 / 적요 (예 "배달의민족", "국군복지단 PX")
     private Long amount;         // 거래금액
     private String inoutType;    // 입출금구분: "OUT"(출금=지출) / "IN"(입금)
