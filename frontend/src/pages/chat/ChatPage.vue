@@ -4,6 +4,7 @@
 import { computed, nextTick, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import chatApi from '@/api/chatApi';
+import simulatorApi from '@/api/simulatorApi';
 import { useAuthStore } from '@/stores/auth';
 import { useToast } from '@/composables/useToast';
 import { formatDate } from '@/util/format';
@@ -36,10 +37,26 @@ const goHome = () => {
 /* 전역 준비 바로가기 - 챗봇 밖 다른 팀원 화면으로 이동. 각 로드맵의 1단계(목표 등록)로 연결한다
    (라우트정의서 기준, 2026-07-30) */
 const EXTERNAL_NAV = [
-  { label: '여행 계획 세우기', to: { name: 'TravelGoalCreate' } }, // 태석님
-  { label: '자취 준비하기', to: { name: 'RentGoalCreate' } }, // 수연님
-  { label: '진로 준비하기', to: { name: 'JobGoalCreate' } }, // 지원님
-  { label: '자차 준비하기', to: { name: 'CarGoalCreate' } }, // 호빈님
+  {
+    label: '여행 계획 세우기',
+    description: '여행 목표를 등록하고 예산에 맞는 여행 계획을 세울 수 있는 여행 준비 기능',
+    to: { name: 'TravelGoalCreate' },
+  }, // 태석님
+  {
+    label: '자취 준비하기',
+    description: '자취 목표를 등록하고 예산에 맞는 매물·금융상품을 추천받는 자취 준비 기능',
+    to: { name: 'RentGoalCreate' },
+  }, // 수연님
+  {
+    label: '진로 준비하기',
+    description: '진로 목표를 등록하고 준비 과정에 맞는 계획을 세울 수 있는 진로 준비 기능',
+    to: { name: 'JobGoalCreate' },
+  }, // 지원님
+  {
+    label: '자차 준비하기',
+    description: '자동차 목표를 등록하고 예산에 맞는 차량·금융상품을 추천받는 자차 준비 기능',
+    to: { name: 'CarGoalCreate' },
+  }, // 호빈님
 ];
 
 /* 하단 태그줄 - 자주 묻는 질문 빼곤 대부분 다른 페이지로 이동.
@@ -67,12 +84,20 @@ const PAGE_LINKS = [
   {
     keywords: ['계산기', '이자 계산', '목돈 계산', '얼마 모'],
     label: '군적금 계산기 페이지로 이동',
+    description: '군적금 납입 현황과 예상 만기 수령액을 계산해볼 수 있는 계산기 기능',
     to: { name: 'SimulatorCalc' },
   },
   {
     keywords: ['전세', '자취', '신혼', '매매', '집 마련'],
     label: '자취 준비 페이지로 이동',
+    description: '자취 목표를 등록하고 예산에 맞는 매물·금융상품을 추천받는 자취 준비 기능',
     to: { name: 'RentGoalCreate' },
+  },
+  {
+    keywords: ['자동차', '자차', '차량', '벤츠', '차 사'],
+    label: '자차 준비 페이지로 이동',
+    description: '자동차 목표를 등록하고 예산에 맞는 차량·금융상품을 추천받는 자차 준비 기능',
+    to: { name: 'CarGoalCreate' },
   },
 ];
 
@@ -98,34 +123,44 @@ const PRODUCT_QUESTIONS = {
   ],
 };
 
-/* 자주 묻는 질문 1단계 카테고리 - categoryId 기준(적금/청약은 실제 문서, 예금/투자는 준비중) */
-const FAQ_CATEGORY_PRODUCTS = {
-  savings: ['장병내일준비적금', '청년미래적금'],
-  subscription: ['청년주택드림청약통장'],
-  deposit: null,
-  investment: null,
+/* 상담(목적=투자 수익)에서 위험성향별 실시간 펀드를 추천할 때 쓰는 매핑.
+   펀드 API(fndTp)엔 보유기간 데이터가 없어 목표기간은 필터링엔 못 쓰고 안내 문구에만 참고로 반영한다.
+   변액보험은 보험 상품이라 중도해지 시 사업비·해지공제 손해 구조가 있어 추천 후보에서 제외한다. */
+const FUND_RISK_TYPE = {
+  단기금융: '안정추구형',
+  채권형: '안정추구형',
+  혼합채권형: '중립형',
+  혼합자산: '중립형',
+  재간접: '중립형',
+  주식형: '공격투자형',
+  파생상품: '공격투자형',
 };
 
-/* 목돈 상담 되묻기용 추천표 - 상담형 되묻기 API(WBS-6)가 아직 없어서 임시로 프론트에 유지 */
-const RECO_TABLE = {
-  '1년 이하_안정추구형': { product: '청년미래적금', note: '단기간 안전하게 모으기 좋은 조합이에요.' },
-  '1년 이하_중립형': { product: '청년미래적금', note: '단기라도 정부기여금 혜택을 챙길 수 있어요.' },
-  '1년 이하_공격투자형': {
-    product: null,
-    note: '1년 이하 단기에 공격적 투자는 리스크가 커요. 우선 예·적금으로 시작하는 걸 추천드려요.',
-  },
-  '1~3년_안정추구형': { product: '청년미래적금', note: '중기 목표에도 안전한 적금이 잘 맞아요.' },
-  '1~3년_중립형': { product: '청년주택드림청약통장', note: '중기 목표라면 주택청약도 함께 고려해보세요.' },
-  '1~3년_공격투자형': {
-    product: null,
-    note: '펀드·투자상품 데이터가 아직 준비 중이에요. 지금은 예·적금 조합을 우선 추천드려요.',
-  },
-  '3년 이상_안정추구형': { product: '청년주택드림청약통장', note: '장기 목표라면 청약통장으로 내 집 마련을 준비해보세요.' },
-  '3년 이상_중립형': { product: '청년주택드림청약통장', note: '장기 목표엔 청약통장이 좋은 시작점이에요.' },
-  '3년 이상_공격투자형': {
-    product: null,
-    note: '장기·공격투자 상품 데이터는 아직 준비 중이에요. 상담사 연결을 통해 자세히 안내받아보세요.',
-  },
+const COUNSEL_PERIOD_NOTE = {
+  '1년 이하': '단기 목표라 변동성이 큰 상품은 주의가 필요해요.',
+  '1~3년': '중기 목표시니 변동성을 어느 정도 감내할 수 있는 선에서 안내드려요.',
+  '3년 이상': '장기 목표라 단기 변동성보다는 성향에 맞는 상품 위주로 안내드려요.',
+};
+
+/* 상담 되묻기 1단계 - 목적 선택지 (value는 이후 분기 흐름 판별용) */
+const COUNSEL_GOALS = [
+  { label: '목돈 모으기', value: 'savings' },
+  { label: '내 집 마련(청약)', value: 'housing' },
+  { label: '투자 수익', value: 'investment' },
+  { label: '생활자금 관리', value: 'spending' },
+];
+
+/* 자유입력에 목적이 이미 드러나 있으면(예: "투자해보고싶어") 목적을 다시 묻지 않고
+   바로 해당 목적의 되묻기로 들어간다. 애매하면(매칭 없음) 그대로 목적부터 물어본다. */
+const COUNSEL_GOAL_KEYWORDS = [
+  { value: 'investment', keywords: ['투자'] },
+  { value: 'housing', keywords: ['청약', '내 집', '집 마련', '전세', '매매'] },
+  { value: 'spending', keywords: ['생활비', '소비', '용돈'] },
+];
+
+const detectCounselGoal = (text) => {
+  const found = COUNSEL_GOAL_KEYWORDS.find((g) => g.keywords.some((k) => text.includes(k)));
+  return found ? COUNSEL_GOALS.find((g) => g.value === found.value) : null;
 };
 
 /* 상담 만족도 3단계 - value는 백엔드 feedback 값(like/neutral/dislike)과 그대로 매칭 */
@@ -151,6 +186,9 @@ const input = ref('');
 const typing = ref(false);
 const panel = ref(null); // 'actions' (종료하기 버튼 노출)
 const inputRef = ref(null);
+
+// 상담 되묻기 중 숫자 등 자유입력 답변을 기다리는 상태 - 있으면 submitInput이 백엔드 대신 이 핸들러로 보낸다
+const counselInputHandler = ref(null);
 
 // 만족도 설문 모달 상태
 const feedbackModalOpen = ref(false);
@@ -200,12 +238,19 @@ const pushError = () => {
 };
 
 const backToGuide = () => {
+  counselInputHandler.value = null;
   pushBot(buildGuideMessage());
 };
 
 // 어떤 답변에서든 처음 가이드 화면으로 돌아갈 수 있게 하는 공통 메뉴 항목
 // (이름을 "메인으로"가 아니라 "처음으로"로 둔 이유: 앱 홈 화면(X 버튼)과 헷갈리지 않게)
 const FIRST_MENU_ITEM = { label: '처음으로', onClick: backToGuide };
+
+// 세션을 새로 여는 시점(오늘 첫 진입)에만 인사말+가이드를 함께 보여준다
+const buildGreetAndGuide = () => [
+  { id: 'greet', role: 'bot', time: formatBubbleTime(), text: `${userName.value}님, 안녕하세요! 어떤 내용이 궁금하세요?` },
+  { id: 'guide', role: 'bot', time: formatBubbleTime(), ...buildGuideMessage() },
+];
 
 /* 0단계 초기 화면: [군 적금 로드맵] 카드(외부 이동) + [무엇이든 물어보세요] 카드(챗봇 내 대화) + 하단 태그줄 */
 const buildGuideMessage = () => {
@@ -243,13 +288,100 @@ const showAllProducts = () => {
   setTimeout(() => {
     typing.value = false;
     pushBot({
-      text: '어떤 상품이 궁금하신가요?',
+      text: '어떤 카테고리가 궁금하신가요?',
       menu: [
-        ...Object.keys(PRODUCT_QUESTIONS).map((name) => ({ label: name, onClick: () => openDoc(name) })),
+        ...Object.entries(LIVE_CATEGORY_LABELS).map(([category, label]) => ({
+          label,
+          onClick: () => {
+            pushUser(label);
+            showProductCategoryList(category, label);
+          },
+        })),
         FIRST_MENU_ITEM,
       ],
     });
   }, 700);
+};
+
+/* 실시간 은행 상품(FSS 예적금/청약홈/펀드) - 카테고리별로 목록을 받아와서 최대 8개까지 보여준다.
+   장병내일준비적금 등 3개는 API로 못 받아오는 KB 군장병 전용 상품이라 텍스트로 직접 정리해둔 것뿐이고,
+   실제로는 해당 카테고리(적금/청약)의 "상품 중 하나"라 API 상품들과 같은 목록에 같이 보여준다. */
+const LIVE_CATEGORY_LABELS = { savings: '적금', deposit: '예금', subscription: '청약', investment: '투자' };
+const FIXED_PRODUCTS_BY_CATEGORY = {
+  savings: ['장병내일준비적금', '청년미래적금'],
+  subscription: ['청년주택드림청약통장'],
+  deposit: [],
+  investment: [],
+};
+const LIVE_ITEM_LABEL = {
+  savings: (p) => `${p.finPrdtNm} (${p.korCoNm} · 최고 ${p.maxRate}%)`,
+  deposit: (p) => `${p.finPrdtNm} (${p.korCoNm} · 최고 ${p.maxRate}%)`,
+  subscription: (p) => `${p.houseNm} (청약 ${p.rceptBgnde || '-'}~${p.rceptEndde || '-'})`,
+  investment: (p) => p.fndNm,
+};
+const LIVE_ITEM_NAME = {
+  savings: (p) => p.finPrdtNm,
+  deposit: (p) => p.finPrdtNm,
+  subscription: (p) => p.houseNm,
+  investment: (p) => p.fndNm,
+};
+
+const showProductCategoryList = async (category, categoryLabel) => {
+  panel.value = null;
+  typing.value = true;
+  try {
+    const { data: liveProducts } = await chatApi.listProducts(category);
+    typing.value = false;
+    const fixedNames = FIXED_PRODUCTS_BY_CATEGORY[category] || [];
+    if (!fixedNames.length && !liveProducts.length) {
+      pushBot({ text: `지금은 표시할 수 있는 ${categoryLabel} 상품이 없습니다.`, menu: [FIRST_MENU_ITEM] });
+      return;
+    }
+    const top = liveProducts.slice(0, 8);
+    pushBot({
+      text: `${categoryLabel} 상품이에요. 궁금한 상품을 골라주세요.`,
+      menu: [
+        ...fixedNames.map((name) => ({ label: name, onClick: () => openDoc(name) })),
+        ...top.map((p) => ({
+          label: LIVE_ITEM_LABEL[category](p),
+          onClick: () => showLiveProductDetail(LIVE_ITEM_NAME[category](p), category),
+        })),
+        FIRST_MENU_ITEM,
+      ],
+    });
+  } catch {
+    typing.value = false;
+    pushError();
+  }
+};
+
+const LIVE_DETAIL_TEXT = {
+  savings: (p) =>
+    `${p.korCoNm}에서 제공하는 상품입니다.\n가입 방법: ${p.joinWay}\n가입 대상: ${p.joinMember}\n우대조건: ${p.spclCnd}${p.etcNote ? `\n기타: ${p.etcNote}` : ''}`,
+  deposit: (p) =>
+    `${p.korCoNm}에서 제공하는 상품입니다.\n가입 방법: ${p.joinWay}\n가입 대상: ${p.joinMember}\n우대조건: ${p.spclCnd}${p.etcNote ? `\n기타: ${p.etcNote}` : ''}`,
+  subscription: (p) =>
+    `주소: ${p.hssplyAdres || '정보 없음'}\n청약 접수: ${p.rceptBgnde || '-'}~${p.rceptEndde || '-'}\n입주 예정: ${p.mvnPrearngeYm || '미정'}`,
+  investment: (p) => `분류: ${p.ctg || '정보 없음'}\n설정일: ${p.setpDt || '정보 없음'}\n유형: ${p.fndTp || '정보 없음'}`,
+};
+
+const showLiveProductDetail = async (name, category) => {
+  pushUser(name);
+  panel.value = null;
+  typing.value = true;
+  try {
+    const { data: p } = await chatApi.getProduct(name, category);
+    typing.value = false;
+    pushBot({
+      title: name,
+      text: LIVE_DETAIL_TEXT[category](p),
+      source: p.source,
+      menu: [FIRST_MENU_ITEM],
+    });
+  } catch {
+    typing.value = false;
+    pushError();
+  }
 };
 
 /* "군적금 활용하기" - 챗봇 밖 전체 기능 목록을 보여준다 */
@@ -320,23 +452,7 @@ const openFaqCategories = async () => {
 
 const openFaqCategory = (categoryId, label) => {
   pushUser(label);
-  panel.value = null;
-  typing.value = true;
-  setTimeout(() => {
-    typing.value = false;
-    const names = FAQ_CATEGORY_PRODUCTS[categoryId];
-    if (!names) {
-      pushBot({
-        text: `${label} 관련 데이터는 아직 준비 중이에요. 곧 추가될 예정이니, 우선 다른 상품부터 확인해보시겠어요?`,
-        menu: [FIRST_MENU_ITEM],
-      });
-      return;
-    }
-    pushBot({
-      text: '어떤 상품이 궁금하신가요?',
-      menu: [...names.map((name) => ({ label: name, onClick: () => openDoc(name) })), FIRST_MENU_ITEM],
-    });
-  }, 700);
+  showProductCategoryList(categoryId, label);
 };
 
 /* 상품 소개 후 자주 묻는 질문을 하나씩 골라 물어볼 수 있게 함 - 이미 물어본 질문은 다음 메뉴에서 빠진다 */
@@ -361,8 +477,9 @@ const freeform = () => {
   }, 600);
 };
 
-/* 목돈 상담 - 되묻기형(목표기간 -> 투자성향 -> 추천) */
+/* 목돈 상담 - 되묻기형(목적 -> 목적별 분기) */
 const openCounsel = () => {
+  counselInputHandler.value = null;
   pushUser('목돈 어떻게 쓸지 상담받기');
   panel.value = null;
   typing.value = true;
@@ -375,7 +492,194 @@ const openCounsel = () => {
 const startCounsel = () => {
   pushBot({
     title: '자금 상담',
-    text: '몇 가지만 여쭤볼게요.\n목표 기간이 어떻게 되세요?',
+    text: '몇 가지만 여쭤볼게요.\n어떤 목적으로 목돈을 활용하고 싶으세요?',
+    menu: COUNSEL_GOALS.map((g) => ({ label: g.label, onClick: () => askGoal(g) })),
+  });
+};
+
+const askGoal = (goal, { announce = true } = {}) => {
+  if (announce) pushUser(goal.label);
+  panel.value = null;
+
+  // 내 집 마련(청약): 되묻기 없이 바로 실시간 청약 상품 + 자취 준비 페이지 안내
+  if (goal.value === 'housing') {
+    typing.value = true;
+    setTimeout(async () => {
+      typing.value = false;
+      await showProductCategoryList('subscription', '청약');
+      const rentLink = PAGE_LINKS.find((p) => p.to.name === 'RentGoalCreate');
+      pushBot({
+        text: `저희 서비스에 ${rentLink.description}이 있는데, 확인해 보시겠습니까?`,
+        menu: [{ label: rentLink.label, onClick: () => goTo(rentLink.to) }, FIRST_MENU_ITEM],
+      });
+      panel.value = 'actions';
+    }, 700);
+    return;
+  }
+
+  // 생활자금 관리: 되묻기 없이 바로 시뮬레이터/후회소비 페이지 안내
+  if (goal.value === 'spending') {
+    typing.value = true;
+    setTimeout(() => {
+      typing.value = false;
+      pushBot({
+        text: '생활자금 관리는 자금 시뮬레이션이나 후회소비 회고 기능에서 도와드릴 수 있어요.',
+        menu: [
+          { label: '자금 시뮬레이션', onClick: () => goTo({ name: 'Simulator' }) },
+          { label: '후회소비 회고', onClick: () => goTo({ name: 'RegretReview' }) },
+          FIRST_MENU_ITEM,
+        ],
+      });
+      panel.value = 'actions';
+    }, 700);
+    return;
+  }
+
+  // 투자 수익: 목표기간 -> 투자성향으로 이어감
+  if (goal.value === 'investment') {
+    typing.value = true;
+    setTimeout(() => {
+      typing.value = false;
+      askPeriod();
+    }, 700);
+    return;
+  }
+
+  // 목돈 모으기: 상품을 바로 추천하지 않고, 방식(적금/투자)부터 되물어 실제 상담으로 이어간다
+  askSavingsMethod();
+};
+
+/* 목돈 모으기 - "어떤 방식으로" 되묻기. 적금은 실제 계산(월납입액/기간 직접입력 -> 계산기 API),
+   예금은 실시간 예금 상품 목록, 투자는 기존 투자 수익 흐름(기간->성향->실시간 펀드) 재사용,
+   목표부터 정하기는 상품이 아니라 기존 목표 로드맵 페이지(여행/자취/진로/자차)로 안내한다 */
+const askSavingsMethod = () => {
+  typing.value = true;
+  setTimeout(() => {
+    typing.value = false;
+    pushBot({
+      text: '어떤 방식으로 모으고 싶으세요?',
+      menu: [
+        { label: '적금', onClick: () => chooseSavingsMethod('적금') },
+        { label: '예금', onClick: () => chooseSavingsMethod('예금') },
+        { label: '투자', onClick: () => chooseSavingsMethod('투자') },
+        { label: '목표부터 정하기', onClick: () => chooseSavingsMethod('목표부터 정하기') },
+      ],
+    });
+  }, 700);
+};
+
+const chooseSavingsMethod = (method) => {
+  pushUser(method);
+  panel.value = null;
+  typing.value = true;
+
+  if (method === '투자') {
+    setTimeout(() => {
+      typing.value = false;
+      askPeriod();
+    }, 700);
+    return;
+  }
+
+  if (method === '예금') {
+    setTimeout(async () => {
+      typing.value = false;
+      await showProductCategoryList('deposit', '예금');
+      panel.value = 'actions';
+    }, 700);
+    return;
+  }
+
+  if (method === '목표부터 정하기') {
+    setTimeout(() => {
+      typing.value = false;
+      askGoalTarget();
+    }, 700);
+    return;
+  }
+
+  // 적금
+  setTimeout(() => {
+    typing.value = false;
+    pushBot({ text: '한 달에 얼마씩 저축하실 수 있으세요? 숫자로 입력해주세요. (예: 30만원, 300000)' });
+    counselInputHandler.value = handleMonthlyAmountInput;
+  }, 700);
+};
+
+const askGoalTarget = () => {
+  pushBot({
+    text: '어떤 목표를 준비 중이세요?',
+    menu: [...EXTERNAL_NAV.map((n) => ({ label: n.label, onClick: () => confirmGoalTarget(n) })), FIRST_MENU_ITEM],
+  });
+};
+
+const confirmGoalTarget = (navItem) => {
+  pushUser(navItem.label);
+  panel.value = null;
+  typing.value = true;
+  setTimeout(() => {
+    typing.value = false;
+    pushBot({
+      text: `저희 서비스에 ${navItem.description}이 있는데, 확인해 보시겠습니까?`,
+      menu: [{ label: navItem.label, onClick: () => goTo(navItem.to) }, FIRST_MENU_ITEM],
+    });
+    panel.value = 'actions';
+  }, 700);
+};
+
+// "30만원", "300000", "300,000원" 형태를 원 단위 숫자로 변환. 못 알아들으면 null.
+const parseKoreanAmount = (text) => {
+  const cleaned = text.replace(/[,원\s]/g, '');
+  const manMatch = cleaned.match(/^(\d+(?:\.\d+)?)만$/);
+  if (manMatch) return Math.round(parseFloat(manMatch[1]) * 10000);
+  if (/^\d+$/.test(cleaned)) return parseInt(cleaned, 10);
+  return null;
+};
+
+const handleMonthlyAmountInput = (text) => {
+  pushUser(text);
+  const amount = parseKoreanAmount(text);
+  if (!amount || amount <= 0) {
+    pushBot({ text: '금액을 다시 확인해주세요. 숫자로 입력해주세요. (예: 30만원, 300000)' });
+    counselInputHandler.value = handleMonthlyAmountInput;
+    return;
+  }
+  pushBot({ text: '몇 개월 동안 모으실 계획이세요? 숫자로 입력해주세요. (예: 24)' });
+  counselInputHandler.value = (t) => handleSaveMonthsInput(t, amount);
+};
+
+const handleSaveMonthsInput = async (text, monthlyAmount) => {
+  pushUser(text);
+  const months = parseInt(text.replace(/[^0-9]/g, ''), 10);
+  if (!months || months <= 0) {
+    pushBot({ text: '기간을 다시 확인해주세요. 숫자로 입력해주세요. (예: 24)' });
+    counselInputHandler.value = (t) => handleSaveMonthsInput(t, monthlyAmount);
+    return;
+  }
+  panel.value = null;
+  typing.value = true;
+  try {
+    const result = await simulatorApi.calculateConstant({ monthlySave: monthlyAmount, saveMonths: months });
+    typing.value = false;
+    const won = (n) => `${Number(n).toLocaleString('ko-KR')}원`;
+    pushBot({
+      title: '적금 상담 결과',
+      text:
+        `월 ${won(monthlyAmount)}씩 ${months}개월 납입하면\n` +
+        `원금 ${won(result.totalPrincipal)} + 이자 ${won(result.totalInterest)} + 정부기여금 ${won(result.totalMatchingFund)}\n` +
+        `= 총 ${won(result.totalReceiptAmount)}을 받으실 수 있습니다.`,
+      menu: [{ label: '장병내일준비적금 자세히 보기', onClick: () => openDoc('장병내일준비적금') }, FIRST_MENU_ITEM],
+    });
+    panel.value = 'actions';
+  } catch {
+    typing.value = false;
+    pushError();
+  }
+};
+
+const askPeriod = () => {
+  pushBot({
+    text: '목표 기간이 어떻게 되세요?',
     menu: ['1년 이하', '1~3년', '3년 이상'].map((p) => ({ label: p, onClick: () => askType(p) })),
   });
 };
@@ -396,32 +700,43 @@ const askType = (period) => {
   }, 700);
 };
 
-const finishCounsel = (period, type) => {
+const finishCounsel = async (period, type) => {
   pushUser(type);
   panel.value = null;
   typing.value = true;
-  setTimeout(() => {
+  try {
+    const { data: funds } = await chatApi.listProducts('investment');
     typing.value = false;
-    const reco = RECO_TABLE[`${period}_${type}`];
-    if (reco.product) {
+    const matched = funds.filter((f) => FUND_RISK_TYPE[f.fndTp] === type).slice(0, 5);
+    if (!matched.length) {
       pushBot({
         title: `${period} · ${type} 추천`,
-        text: reco.note,
-        menu: [{ label: `${reco.product} 자세히 보기`, onClick: () => openDoc(reco.product) }, FIRST_MENU_ITEM],
+        text: '지금은 조건에 맞는 펀드 상품이 없습니다.',
+        menu: [FIRST_MENU_ITEM],
       });
     } else {
       pushBot({
         title: `${period} · ${type} 추천`,
-        text: reco.note,
-        menu: [FIRST_MENU_ITEM],
+        text: `${COUNSEL_PERIOD_NOTE[period]}\n${type}에 맞는 펀드를 모아봤어요.`,
+        menu: [
+          ...matched.map((f) => ({
+            label: f.fndNm,
+            onClick: () => showLiveProductDetail(f.fndNm, 'investment'),
+          })),
+          FIRST_MENU_ITEM,
+        ],
       });
     }
     panel.value = 'actions';
-  }, 900);
+  } catch {
+    typing.value = false;
+    pushError();
+  }
 };
 
 /* 자유 입력 텍스트를 실제 백엔드(RAG/Gemini)로 보내고 답변을 받는다 */
 const askBackend = async (text, { title, extraMenu = [] } = {}) => {
+  counselInputHandler.value = null;
   pushUser(text);
   input.value = '';
   panel.value = null;
@@ -430,10 +745,45 @@ const askBackend = async (text, { title, extraMenu = [] } = {}) => {
     const { data: botMsg } = await chatApi.sendMessage(sessionId.value, text);
     typing.value = false;
 
+    // 백엔드가 자유입력을 상담(counsel)으로 분류하면, 일반 RAG 답변 대신
+    // 되묻기 플로우로 분기한다 (WBS-6) - 가이드 화면의 "목돈 상담받기" 버튼과 동일한 흐름 재사용.
+    // 텍스트에 목적이 이미 드러나 있으면(예: "투자해보고싶어") 목적 질문은 건너뛴다.
+    if (botMsg.intent === 'counsel') {
+      pushBot({ text: botMsg.content });
+      const matchedGoal = detectCounselGoal(text);
+      if (matchedGoal) {
+        askGoal(matchedGoal, { announce: false });
+      } else {
+        startCounsel();
+      }
+      return;
+    }
+
     const menu = [...extraMenu, FIRST_MENU_ITEM];
     const pageLink = PAGE_LINKS.find((p) => p.keywords.some((k) => text.includes(k)));
+    let answerText = botMsg.content;
     if (pageLink) {
       menu.unshift({ label: pageLink.label, onClick: () => goTo(pageLink.to) });
+      // 버튼만 툭 주지 않고, 어떤 기능인지 먼저 설명하고 이동을 제안한다
+      answerText += `\n\n저희 서비스에 ${pageLink.description}이 있는데, 확인해 보시겠습니까?`;
+    }
+
+    // 답변에서 특정 상품이 언급됐으면 "더 자세한 내용 확인해보기" 버튼을 붙인다.
+    // 고정된 FAQ를 다시 보여주는 게 아니라, 실제로 백엔드에 새 질문을 보내서
+    // (멀티턴 문맥 덕분에) 지금까지 대화 주제에 맞는 답변을 받아오게 한다.
+    // - 이미 그 상품의 되묻기 메뉴(extraMenu)가 붙어있으면(=이미 상품 Q&A 흐름 안) 중복이라 스킵
+    // - pageLink가 떴으면(=진짜 관련 있는 답을 못 찾아서 다른 기능으로 유도 중) 언급된 상품은
+    //   그냥 스쳐간 참고용이라 더 파고들면 오히려 엉뚱한 대화로 새서 같이 스킵
+    if (!extraMenu.length && !pageLink) {
+      const relatedProduct = Object.keys(PRODUCT_QUESTIONS).find(
+        (name) => botMsg.content.includes(name) || (botMsg.sourceDetail || '').includes(name),
+      );
+      if (relatedProduct) {
+        menu.unshift({
+          label: '더 자세한 내용 확인해보기',
+          onClick: () => askBackend('더 자세한 내용을 확인하고 싶어요'),
+        });
+      }
     }
 
     const bubble = {
@@ -441,7 +791,7 @@ const askBackend = async (text, { title, extraMenu = [] } = {}) => {
       role: 'bot',
       time: formatBubbleTime(botMsg.createdDate),
       title,
-      text: botMsg.content,
+      text: answerText,
       source: botMsg.source,
       sourceDetail: botMsg.sourceDetail,
       isAiGenerated: botMsg.isAiGenerated,
@@ -472,20 +822,18 @@ const askBackend = async (text, { title, extraMenu = [] } = {}) => {
 const submitInput = () => {
   const trimmed = input.value.trim();
   if (!trimmed) return;
+  input.value = '';
 
-  // 상담형 되묻기(WBS-6) API가 아직 없어 관련 키워드는 임시로 로컬 되묻기 흐름으로 유도
-  if (trimmed.includes('투자') || trimmed.includes('상담') || trimmed.includes('돈 관리')) {
-    pushUser(trimmed);
-    input.value = '';
-    panel.value = null;
-    typing.value = true;
-    setTimeout(() => {
-      typing.value = false;
-      startCounsel();
-    }, 700);
+  // 상담 되묻기 중 숫자 등 자유입력 답변을 기다리고 있으면, 백엔드로 보내지 않고 그 핸들러가 받는다
+  if (counselInputHandler.value) {
+    const handler = counselInputHandler.value;
+    counselInputHandler.value = null;
+    handler(trimmed);
     return;
   }
 
+  // 그 외엔 백엔드의 classify_intent("counsel") 분류 결과로 상담형 되묻기 진입 여부를 판단한다
+  // (askBackend 내부에서 botMsg.intent === 'counsel'이면 되묻기 플로우로 분기)
   askBackend(trimmed);
 };
 
@@ -540,19 +888,69 @@ const summarizeTitle = (historyMessages) => {
   return t.length > 14 ? `${t.slice(0, 14)}…` : t;
 };
 
-const toBubble = (m) => {
+// 히스토리를 다시 불러왔을 때도 그 시점에 있던 버튼(더 자세히/추천 이동 등)을 최대한 그대로 복원한다.
+// 실제로 눌렀던 버튼 자체가 저장되는 게 아니라서, 그 답변 직전 사용자 메시지를 보고 같은 로직으로 재계산한다.
+const findActiveProductBefore = (history, index) => {
+  for (let i = index - 1; i >= 0; i -= 1) {
+    const msg = history[i];
+    if (msg.role === 'user' && PRODUCT_QUESTIONS[msg.content]) {
+      return msg.content;
+    }
+  }
+  return null;
+};
+
+const deriveHistoryMenu = (history, index) => {
+  const m = history[index];
+  const prev = index > 0 ? history[index - 1] : null;
+  const precedingUserText = prev && prev.role === 'user' ? prev.content : null;
+
+  if (precedingUserText) {
+    if (PRODUCT_QUESTIONS[precedingUserText]) {
+      // 직전에 상품명 자체를 물어본 경우 -> 그 상품의 질문 목록을 보여준다
+      const name = precedingUserText;
+      return { menu: PRODUCT_QUESTIONS[name].map((q) => ({ label: q, onClick: () => askProductQuestion(name, q) })) };
+    }
+    const activeProduct = findActiveProductBefore(history, index);
+    if (activeProduct && PRODUCT_QUESTIONS[activeProduct].includes(precedingUserText)) {
+      // 그 상품에 대한 후속 질문 중 하나였던 경우 -> 방금 물어본 것만 빼고 다시 보여준다
+      const remaining = PRODUCT_QUESTIONS[activeProduct].filter((q) => q !== precedingUserText);
+      return { menu: remaining.map((q) => ({ label: q, onClick: () => askProductQuestion(activeProduct, q) })) };
+    }
+    const pageLink = PAGE_LINKS.find((p) => p.keywords.some((k) => precedingUserText.includes(k)));
+    if (pageLink) {
+      return {
+        menu: [{ label: pageLink.label, onClick: () => goTo(pageLink.to) }],
+        extraText: `\n\n저희 서비스에 ${pageLink.description}이 있는데, 확인해 보시겠습니까?`,
+      };
+    }
+  }
+
+  const relatedProduct = Object.keys(PRODUCT_QUESTIONS).find(
+    (name) => m.content.includes(name) || (m.sourceDetail || '').includes(name),
+  );
+  if (relatedProduct) {
+    return {
+      menu: [{ label: '더 자세한 내용 확인해보기', onClick: () => askBackend('더 자세한 내용을 확인하고 싶어요') }],
+    };
+  }
+  return { menu: [] };
+};
+
+const toBubble = (m, history, index) => {
   if (m.role === 'user') {
     return { id: `hist-${m.messageId}`, role: 'user', text: m.content, time: formatBubbleTime(m.createdDate) };
   }
+  const { menu, extraText } = deriveHistoryMenu(history, index);
   return {
     id: `hist-${m.messageId}`,
     role: 'bot',
     time: formatBubbleTime(m.createdDate),
-    text: m.content,
+    text: extraText ? `${m.content}${extraText}` : m.content,
     source: m.source,
     sourceDetail: m.sourceDetail,
     isAiGenerated: m.isAiGenerated,
-    menu: [FIRST_MENU_ITEM],
+    menu: [...menu, FIRST_MENU_ITEM],
   };
 };
 
@@ -603,7 +1001,10 @@ const resumeSession = async (targetSessionId) => {
   try {
     const { data: history } = await chatApi.getHistory(targetSessionId);
     sessionId.value = targetSessionId;
-    messages.value = history.map(toBubble);
+    messages.value = [
+      { id: 'guide', role: 'bot', time: formatBubbleTime(), ...buildGuideMessage() },
+      ...history.map((m, i) => toBubble(m, history, i)),
+    ];
     restorePanelFromHistory(history);
     scrollToBottom();
   } catch {
@@ -619,20 +1020,18 @@ onMounted(async () => {
     sessionId.value = session.sessionId;
 
     if (session.isNew) {
-      messages.value = [
-        { id: 'greet', role: 'bot', time: formatBubbleTime(), text: `${userName.value}님, 안녕하세요! 어떤 내용이 궁금하세요?` },
-        { id: 'guide', role: 'bot', time: formatBubbleTime(), ...buildGuideMessage() },
-      ];
+      messages.value = buildGreetAndGuide();
     } else {
       const { data: history } = await chatApi.getHistory(sessionId.value);
       if (history.length) {
-        messages.value = history.map(toBubble);
+        // 가이드 카드는 대화가 이어져도 계속 보여야 하는 진입점이라, 히스토리 앞에 항상 붙인다
+        messages.value = [
+          { id: 'guide', role: 'bot', time: formatBubbleTime(), ...buildGuideMessage() },
+          ...history.map((m, i) => toBubble(m, history, i)),
+        ];
         restorePanelFromHistory(history);
       } else {
-        messages.value = [
-          { id: 'greet', role: 'bot', time: formatBubbleTime(), text: `${userName.value}님, 안녕하세요! 어떤 내용이 궁금하세요?` },
-          { id: 'guide', role: 'bot', time: formatBubbleTime(), ...buildGuideMessage() },
-        ];
+        messages.value = buildGreetAndGuide();
       }
     }
     scrollToBottom();
@@ -719,7 +1118,7 @@ onMounted(async () => {
           <div v-else-if="msg.sections" class="bubble-row">
             <div class="bot-header">
               <img :src="mascotImg" alt="마스코트" class="mascot" width="22" height="22" />
-              <span class="bot-name">노이일병</span>
+              <span class="bot-name">노이병장</span>
               <span v-if="msg.time" class="bubble-time">{{ msg.time }}</span>
             </div>
             <div class="guide-card">
@@ -750,15 +1149,15 @@ onMounted(async () => {
           <div v-else class="bubble-row">
             <div class="bot-header">
               <img :src="mascotImg" alt="마스코트" class="mascot" width="22" height="22" />
-              <span class="bot-name">노이일병</span>
+              <span class="bot-name">노이병장</span>
               <span v-if="msg.time" class="bubble-time">{{ msg.time }}</span>
             </div>
             <div class="answer-card">
               <div class="bubble bubble--bot">
                 <div v-if="msg.title" class="answer-title">{{ msg.title }}</div>
                 <div class="answer-text">{{ msg.text }}</div>
-                <div v-if="msg.sourceDetail" class="answer-source">출처 · {{ msg.sourceDetail }}</div>
-                <div v-else-if="msg.source" class="answer-source">출처 · {{ msg.source }}</div>
+                <div v-if="msg.isAiGenerated && msg.sourceDetail" class="answer-source">출처 · {{ msg.sourceDetail }}</div>
+                <div v-else-if="msg.isAiGenerated && msg.source" class="answer-source">출처 · {{ msg.source }}</div>
                 <div v-if="msg.isAiGenerated" class="answer-ai-caption">AI가 생성한 답변이에요</div>
               </div>
 
@@ -787,7 +1186,7 @@ onMounted(async () => {
         <div v-if="typing" class="bubble-row">
           <div class="bot-header">
             <img :src="mascotImg" alt="마스코트" class="mascot" width="22" height="22" />
-            <span class="bot-name">노이일병</span>
+            <span class="bot-name">노이병장</span>
           </div>
           <div class="typing-dots">
             <span v-for="i in 3" :key="i" :style="{ animationDelay: `${(i - 1) * 0.15}s` }" />
@@ -856,7 +1255,7 @@ onMounted(async () => {
           ref="inputRef"
           v-model="input"
           type="text"
-          placeholder="궁금한 점을 물어보세요"
+          :placeholder="counselInputHandler ? '숫자로 입력해주세요' : '궁금한 점을 물어보세요'"
           class="composer-input"
           @keydown.enter.prevent="submitInput"
         />
@@ -919,6 +1318,9 @@ onMounted(async () => {
 
 /* 챗봇 전용 자체 헤더 - 공통 AppHeader 대신 사용 (팀 협의된 예외, AppLayout.vue 주석 참고) */
 .chat-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   display: flex;
   align-items: center;
   gap: 8px;
