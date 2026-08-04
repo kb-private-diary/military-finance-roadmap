@@ -44,4 +44,13 @@
         AND del_yn = 'N'
     </select>
 
+    <select id="selectBestPrepayDiscount" resultType="org.scoula.car.domain.CarTaxPrepayVO">
+        SELECT *
+        FROM car_tax_prepay
+        WHERE year = #{year}
+        AND del_yn = 'N'
+        ORDER BY discount_rate DESC
+        LIMIT 1
+    </select>
+
 </mapper>

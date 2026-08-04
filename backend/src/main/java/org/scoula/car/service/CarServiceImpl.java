@@ -15,6 +15,7 @@ import org.scoula.car.client.OpinetClient;
 import org.scoula.car.domain.CarGoalVO;
 import org.scoula.car.domain.CarInsuranceVO;
 import org.scoula.car.domain.CarModelVO;
+import org.scoula.car.domain.CarTaxPrepayVO;
 import org.scoula.car.domain.CarTaxVO;
 import org.scoula.car.dto.CarAcquisitionTaxResponseDTO;
 import org.scoula.car.dto.CarGoalCreateRequestDTO;
@@ -39,6 +40,18 @@ public class CarServiceImpl implements CarService {
             3, 10  // SUV
     );
     private static final int DEFAULT_FUEL_EFFICIENCY_KM_PER_LITER = 12;
+
+    // 전기차 평균 전비(km/kWh), 공용 충전 평균단가(원/kWh) 가정값
+    private static final double EV_EFFICIENCY_KM_PER_KWH = 5.5;
+    private static final long ELECTRICITY_PRICE_WON_PER_KWH = 250;
+
+    // 차종코드별 연간 자동차세 기준액(만원) 가정값
+    private static final Map<Integer, Long> ANNUAL_VEHICLE_TAX_BASE_MANWON = Map.of(
+            1, 10L, // 경차
+            2, 29L, // 준중형
+            3, 52L  // SUV
+    );
+    private static final long DEFAULT_ANNUAL_VEHICLE_TAX_BASE_MANWON = 29L;
 
     // 연차별 정률감가율 가정값
     private static final BigDecimal ANNUAL_RETENTION_RATE = BigDecimal.valueOf(0.8);
@@ -90,28 +103,57 @@ public class CarServiceImpl implements CarService {
             throw BusinessException.notFound("보험료 기준 정보를 찾을 수 없습니다", "CAR_006");
         }
 
-        String prodCode = this.resolveProdCode(model.getFuelType());
-        BigDecimal pricePerLiter = this.opinetClient.fetchAvgPricePerLiter(prodCode);
-        int fuelEfficiency = FUEL_EFFICIENCY_KM_PER_LITER.getOrDefault(
-                goal.getCarTypeCode(), DEFAULT_FUEL_EFFICIENCY_KM_PER_LITER);
+        boolean isElectric = "전기".equals(model.getFuelType());
+        long fuelPricePerUnit;
+        int fuelEfficiency;
+        long fuelCostAnnualManwon;
+        if (isElectric) {
+            fuelPricePerUnit = ELECTRICITY_PRICE_WON_PER_KWH;
+            fuelEfficiency = (int) Math.round(EV_EFFICIENCY_KM_PER_KWH);
+            double annualKwh = ANNUAL_MILEAGE_KM / EV_EFFICIENCY_KM_PER_KWH;
+            fuelCostAnnualManwon = Math.round(annualKwh * ELECTRICITY_PRICE_WON_PER_KWH / 10_000.0);
+        } else {
+            String prodCode = this.resolveProdCode(model.getFuelType());
+            BigDecimal pricePerLiter = this.opinetClient.fetchAvgPricePerLiter(prodCode);
+            fuelEfficiency = FUEL_EFFICIENCY_KM_PER_LITER.getOrDefault(
+                    goal.getCarTypeCode(), DEFAULT_FUEL_EFFICIENCY_KM_PER_LITER);
 
-        BigDecimal annualLiters = BigDecimal.valueOf(ANNUAL_MILEAGE_KM)
-                .divide(BigDecimal.valueOf(fuelEfficiency), 4, RoundingMode.HALF_UP);
-        long fuelCostAnnualWon = annualLiters.multiply(pricePerLiter)
-                .setScale(0, RoundingMode.HALF_UP).longValue();
-        long fuelCostAnnualManwon = Math.round(fuelCostAnnualWon / 10_000.0);
+            BigDecimal annualLiters = BigDecimal.valueOf(ANNUAL_MILEAGE_KM)
+                    .divide(BigDecimal.valueOf(fuelEfficiency), 4, RoundingMode.HALF_UP);
+            long fuelCostAnnualWon = annualLiters.multiply(pricePerLiter)
+                    .setScale(0, RoundingMode.HALF_UP).longValue();
+            fuelPricePerUnit = pricePerLiter.setScale(0, RoundingMode.HALF_UP).longValue();
+            fuelCostAnnualManwon = Math.round(fuelCostAnnualWon / 10_000.0);
+        }
+
+        long vehicleTaxBase = ANNUAL_VEHICLE_TAX_BASE_MANWON.getOrDefault(
+                goal.getCarTypeCode(), DEFAULT_ANNUAL_VEHICLE_TAX_BASE_MANWON);
+        CarTaxPrepayVO prepay = this.carMapper.selectBestPrepayDiscount(LocalDate.now().getYear());
+        BigDecimal prepayDiscountRate = prepay == null ? BigDecimal.ZERO : prepay.getDiscountRate();
+        long vehicleTaxAfterDiscount = BigDecimal.valueOf(vehicleTaxBase)
+                .multiply(BigDecimal.ONE.subtract(prepayDiscountRate.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)))
+                .setScale(0, RoundingMode.HALF_UP)
+                .longValue();
+
+        long totalMin = fuelCostAnnualManwon + vehicleTaxAfterDiscount + insurance.getEstimatedPremiumMin();
+        long totalMax = fuelCostAnnualManwon + vehicleTaxAfterDiscount + insurance.getEstimatedPremiumMax();
 
         return CarMaintenanceCostResponseDTO.builder()
                 .goalId(goalId)
                 .fuelType(model.getFuelType())
-                .fuelPricePerLiter(pricePerLiter.setScale(0, RoundingMode.HALF_UP).longValue())
+                .fuelPricePerLiter(fuelPricePerUnit)
                 .annualMileageKm(ANNUAL_MILEAGE_KM)
                 .fuelEfficiencyKmPerLiter(fuelEfficiency)
                 .estimatedFuelCostAnnual(fuelCostAnnualManwon)
+                .annualVehicleTaxBase(vehicleTaxBase)
+                .prepayDiscountRate(prepayDiscountRate)
+                .annualVehicleTaxAfterDiscount(vehicleTaxAfterDiscount)
                 .insurancePremiumMin(insurance.getEstimatedPremiumMin())
                 .insurancePremiumMax(insurance.getEstimatedPremiumMax())
-                .totalMaintenanceCostMin(fuelCostAnnualManwon + insurance.getEstimatedPremiumMin())
-                .totalMaintenanceCostMax(fuelCostAnnualManwon + insurance.getEstimatedPremiumMax())
+                .totalMaintenanceCostMin(totalMin)
+                .totalMaintenanceCostMax(totalMax)
+                .totalMaintenanceCost3YearMin(totalMin * 3)
+                .totalMaintenanceCost3YearMax(totalMax * 3)
                 .build();
     }
 

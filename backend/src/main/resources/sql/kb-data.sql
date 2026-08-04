@@ -198,7 +198,9 @@ INSERT INTO `car_model` (`model_id`, `manufacturer`, `model_name`, `car_type_cod
 (12, '현대', '코나', 3, '가솔린', 2360, NOW(), 'hobin', NULL, NULL, 'N'),
 (13, '현대', '베뉴', 3, '가솔린', 1620, NOW(), 'hobin', NULL, NULL, 'N'),
 (14, '쌍용', '티볼리', 3, '가솔린', 1872, NOW(), 'hobin', NULL, NULL, 'N'),
-(15, '쉐보레', '트랙스', 3, '가솔린', 1914, NOW(), 'hobin', NULL, NULL, 'N');
+(15, '쉐보레', '트랙스', 3, '가솔린', 1914, NOW(), 'hobin', NULL, NULL, 'N'),
+(16, '현대', '캐스퍼 일렉트릭', 1, '전기', 2787, NOW(), 'hobin', NULL, NULL, 'N'),
+(17, '기아', '레이 EV', 1, '전기', 2852, NOW(), 'hobin', NULL, NULL, 'N');
 
 
 -- --------------------------------------------------------------------
