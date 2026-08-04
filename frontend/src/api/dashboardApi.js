@@ -14,4 +14,15 @@ export default {
     const { data } = await instance.get(`${BASE_URL}/savings`);
     return data.data; // ApiResponse<DashboardSavingsResponseDTO> 래핑 해제
   },
+
+  // 휴가 목록(요약 + 카드 목록) 조회 (DASH-API-04: GET /api/dashboard/vacations, userId는 JWT에서 식별)
+  async findVacations() {
+    const { data } = await instance.get(`${BASE_URL}/vacations`);
+    return data.data; // ApiResponse<DashboardVacationListResponseDTO> 래핑 해제
+  },
+
+  // 휴가 수정 (DASH-API-07: PUT /api/dashboard/vacations/{vacationId}, REGULAR 제외)
+  async updateVacation(vacationId, payload) {
+    await instance.put(`${BASE_URL}/vacations/${vacationId}`, payload);
+  },
 };
