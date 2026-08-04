@@ -82,7 +82,7 @@ const deleteVacation = async () => {
     router.push({ name: 'Dashboard' });
   } catch (error) {
     console.error(error);
-    show('휴가 삭제에 실패했습니다.', 'error');
+    show(error.response?.data?.message ?? '휴가 삭제에 실패했습니다.', 'error');
   } finally {
     isSubmitting.value = false;
   }
@@ -110,7 +110,7 @@ const submit = async () => {
     router.push({ name: 'Dashboard' });
   } catch (error) {
     console.error(error);
-    show('휴가 저장에 실패했습니다.', 'error');
+    show(error.response?.data?.message ?? '휴가 저장에 실패했습니다.', 'error');
   } finally {
     isSubmitting.value = false;
   }
