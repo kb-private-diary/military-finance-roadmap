@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.scoula.rent.mapper.RentListingMapper">
+
+    <!-- 매물 저장 (배치/초기 적재) -->
+    <insert id="insertListing" parameterType="org.scoula.rent.domain.RentListingVO"
+            useGeneratedKeys="true" keyProperty="listingId">
+        INSERT INTO rent_listing (
+            estate_type, sigungu_code, region_code, umd_name, jibun,
+            building_name, built_year, floor, area_sqm, deposit, monthly_rent,
+            deal_date, latitude, longitude, base_date,
+            created_date, created_nm, del_yn
+        ) VALUES (
+            #{estateType}, #{sigunguCode}, #{regionCode}, #{umdName}, #{jibun},
+            #{buildingName}, #{builtYear}, #{floor}, #{areaSqm}, #{deposit}, #{monthlyRent},
+            #{dealDate}, #{latitude}, #{longitude}, #{baseDate},
+            NOW(), #{createdNm}, 'N'
+        )
+    </insert>
+
+    <!-- 조회 공통 컬럼 (JOIN 대비 l. 별칭) -->
+    <sql id="listingColumns">
+        l.listing_id, l.estate_type, l.sigungu_code, l.region_code, l.umd_name, l.jibun,
+        l.building_name, l.built_year, l.floor, l.area_sqm, l.deposit, l.monthly_rent,
+        l.deal_date, l.latitude, l.longitude, l.base_date
+    </sql>
+
+    <!-- REGION 모드: 희망 지역(법정동코드 IN) + 월세 예산 이하 -->
+    <select id="findListingsByRegions" resultType="org.scoula.rent.domain.RentListingVO">
+        SELECT <include refid="listingColumns"/>
+          FROM rent_listing l
+         WHERE l.region_code IN
+        <foreach collection="regionCodes" item="code" open="(" separator="," close=")">
+            #{code}
+        </foreach>
+           AND l.monthly_rent &lt;= #{maxMonthly}
+           AND l.del_yn = 'N'
+         ORDER BY l.deal_date DESC
+    </select>
+
+    <!--
+      SCHOOL 모드: 학교 좌표 기준 반경(km) 내 매물, 가까운 순
+      ST_Distance_Sphere(POINT(경도,위도), POINT(경도,위도)) = 두 좌표 사이 실제 거리(미터)
+      radiusKm * 1000 으로 km를 m로 환산해 비교 (좌표 없는 매물은 제외)
+    -->
+    <select id="findListingsBySchool" resultType="org.scoula.rent.domain.RentListingVO">
+        SELECT <include refid="listingColumns"/>
+          FROM rent_listing l
+          JOIN school s ON s.school_id = #{schoolId} AND s.del_yn = 'N'
+         WHERE l.del_yn = 'N'
+           AND l.monthly_rent &lt;= #{maxMonthly}
+           AND l.latitude IS NOT NULL AND l.longitude IS NOT NULL
+           AND ST_Distance_Sphere(POINT(l.longitude, l.latitude), POINT(s.longitude, s.latitude))
+               &lt;= #{radiusKm} * 1000
+         ORDER BY ST_Distance_Sphere(POINT(l.longitude, l.latitude), POINT(s.longitude, s.latitude))
+    </select>
+
+    <!-- 매물 단건 조회 (Step3 상세) -->
+    <select id="findById" parameterType="long" resultType="org.scoula.rent.domain.RentListingVO">
+        SELECT <include refid="listingColumns"/>
+          FROM rent_listing l
+         WHERE l.listing_id = #{listingId}
+           AND l.del_yn = 'N'
+    </select>
+
+</mapper>

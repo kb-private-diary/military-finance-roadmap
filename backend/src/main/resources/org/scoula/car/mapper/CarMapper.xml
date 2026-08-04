@@ -15,4 +15,33 @@
         )
     </insert>
 
+    <select id="selectCarGoalById" resultType="org.scoula.car.domain.CarGoalVO">
+        SELECT *
+        FROM car_goal
+        WHERE goal_id = #{goalId}
+        AND del_yn = 'N'
+    </select>
+
+    <select id="selectCarModelById" resultType="org.scoula.car.domain.CarModelVO">
+        SELECT *
+        FROM car_model
+        WHERE model_id = #{modelId}
+        AND del_yn = 'N'
+    </select>
+
+    <select id="selectInsuranceByTypeAndBracket" resultType="org.scoula.car.domain.CarInsuranceVO">
+        SELECT *
+        FROM car_insurance
+        WHERE car_type_code = #{carTypeCode}
+        AND experience_bracket = #{experienceBracket}
+        AND del_yn = 'N'
+    </select>
+
+    <select id="selectTaxByTypeCode" resultType="org.scoula.car.domain.CarTaxVO">
+        SELECT *
+        FROM car_tax
+        WHERE car_type_code = #{carTypeCode}
+        AND del_yn = 'N'
+    </select>
+
 </mapper>
