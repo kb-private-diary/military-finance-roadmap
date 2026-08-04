@@ -838,7 +838,7 @@ public class TravelServiceImpl implements TravelService {
                     || product.getName().trim().isEmpty()) {
                 throw BusinessException.badRequest(
                         "관심 금융상품 정보를 확인해주세요.",
-                        "TRAVEL_036");
+                        "TRAVEL_037");
             }
         }
     }
@@ -851,7 +851,7 @@ public class TravelServiceImpl implements TravelService {
         if (goal.getProducts() == null) {
             throw BusinessException.badRequest(
                     "관심 금융상품 저장을 먼저 완료해주세요.",
-                    "TRAVEL_036");
+                    "TRAVEL_038");
         }
 
         goal.setModifiedNm(LOGIN_USER_NAME);
