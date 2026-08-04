@@ -21,4 +21,9 @@ public interface DashboardService {
 
     // DASH-API-06: 휴가 등록 (생성된 vacationId 반환)
     Long createVacation(Long userId, String createdNm, DashboardVacationCreateRequestDTO request);
+
+    // DASH-API-07: 휴가 수정 (REGULAR 제외)
+    void updateVacation(
+            Long userId, Long vacationId, String modifiedNm,
+            DashboardVacationCreateRequestDTO request);
 }

@@ -37,4 +37,7 @@ public interface DashboardMapper {
 
     // 휴가 등록 (DASH-API-06). insert 후 vo.vacationId에 생성된 id가 채워진다
     void insertVacation(VacationVO vo);
+
+    // 휴가 수정 (DASH-API-07). vacationId 기준 UPDATE
+    void updateVacation(VacationVO vo);
 }

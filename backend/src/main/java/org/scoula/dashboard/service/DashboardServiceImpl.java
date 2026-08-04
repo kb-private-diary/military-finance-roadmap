@@ -5,6 +5,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +38,10 @@ import org.scoula.dashboard.mapper.DashboardMapper;
 public class DashboardServiceImpl implements DashboardService {
     // 정기휴가(연가) 카테고리 코드. 마스터(부여) 행 하나 + 사용내역 행 여러 개로 관리된다.
     private static final String CATEGORY_REGULAR = "REGULAR";
+
+    // 허용되는 휴가 카테고리 전체 목록. REGULAR은 등록(사용내역 추가) 전용이며 수정 대상에서는 제외된다.
+    private static final Set<String> VALID_CATEGORIES =
+            Set.of(CATEGORY_REGULAR, "REWARD", "CONSOLATION", "PETITION", "ETC");
 
     // DashboardSavingAccountDTO account -> SavingAccountVO account 교체
     // VO getter 가 같은지 확인 필요(getCreatedDate(), getMonthlySave() 등)
@@ -233,6 +238,9 @@ public class DashboardServiceImpl implements DashboardService {
     @Transactional
     public Long createVacation(
             Long userId, String createdNm, DashboardVacationCreateRequestDTO request) {
+        if (!VALID_CATEGORIES.contains(request.getCategory())) {
+            throw BusinessException.badRequest("유효하지 않은 휴가 카테고리입니다.", "DASH_007");
+        }
         boolean isRegular = CATEGORY_REGULAR.equals(request.getCategory());
 
         String name;
@@ -247,13 +255,7 @@ public class DashboardServiceImpl implements DashboardService {
             acquiredDate = LocalDate.now();
             isUsed = true;
         } else {
-            // @Valid로 조건부 필수를 표현할 수 없어 여기서 직접 검증한다.
-            if (request.getName() == null || request.getName().isBlank()
-                    || request.getAcquiredDate() == null
-                    || request.getIsUsed() == null) {
-                throw BusinessException.badRequest(
-                        "이름·획득일·사용여부는 필수입니다.", "DASH_006");
-            }
+            this.validateNonRegularFields(request);
             name = request.getName();
             acquiredDate = request.getAcquiredDate();
             isUsed = Boolean.TRUE.equals(request.getIsUsed());
@@ -272,6 +274,46 @@ public class DashboardServiceImpl implements DashboardService {
         this.mapper.insertVacation(vacation);
 
         return vacation.getVacationId();
+    }
+
+    @Override
+    @Transactional
+    public void updateVacation(
+            Long userId, Long vacationId, String modifiedNm,
+            DashboardVacationCreateRequestDTO request) {
+        VacationVO vacation = this.mapper.findVacationById(vacationId, userId);
+        if (vacation == null) {
+            throw BusinessException.notFound("휴가 정보를 찾을 수 없습니다.", "DASH_003");
+        }
+        // REGULAR(마스터/사용내역)는 등록·삭제로만 관리되며 이 API로 수정할 수 없다.
+        if (this.isRegularMaster(vacation) || this.isRegularUsage(vacation)) {
+            throw BusinessException.badRequest("정기휴가는 이 API로 수정할 수 없습니다.", "DASH_008");
+        }
+
+        String category = request.getCategory();
+        if (!VALID_CATEGORIES.contains(category) || CATEGORY_REGULAR.equals(category)) {
+            throw BusinessException.badRequest("유효하지 않은 휴가 카테고리입니다.", "DASH_007");
+        }
+        this.validateNonRegularFields(request);
+
+        vacation.setVacationCate(category);
+        vacation.setVacationName(request.getName());
+        vacation.setVacationGet(request.getAcquiredDate());
+        vacation.setVacationDay(request.getDays());
+        vacation.setVacationState(Boolean.TRUE.equals(request.getIsUsed()));
+        vacation.setModifiedNm(modifiedNm);
+
+        this.mapper.updateVacation(vacation);
+    }
+
+    // 비REGULAR 카테고리는 name/acquiredDate/isUsed가 전부 필수다.
+    // @Valid로 조건부 필수를 표현할 수 없어 여기서 직접 검증한다. (createVacation·updateVacation 공용)
+    private void validateNonRegularFields(DashboardVacationCreateRequestDTO request) {
+        if (request.getName() == null || request.getName().isBlank()
+                || request.getAcquiredDate() == null
+                || request.getIsUsed() == null) {
+            throw BusinessException.badRequest("이름·획득일·사용여부는 필수입니다.", "DASH_006");
+        }
     }
 
     // REGULAR 사용내역 등록 검증(잔여일수 초과 확인) + 기존 사용내역 개수(차수 이름용) 반환

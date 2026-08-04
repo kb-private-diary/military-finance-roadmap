@@ -100,4 +100,17 @@
         )
     </insert>
 
+    <update id="updateVacation" parameterType="org.scoula.dashboard.domain.VacationVO">
+        UPDATE vacation
+        SET vacation_cate  = #{vacationCate},
+            vacation_name  = #{vacationName},
+            vacation_get   = #{vacationGet},
+            vacation_day   = #{vacationDay},
+            vacation_state = #{vacationState},
+            modified_date  = NOW(),
+            modified_nm    = #{modifiedNm}
+        WHERE vacation_id = #{vacationId}
+          AND del_yn = 'N'
+    </update>
+
 </mapper>

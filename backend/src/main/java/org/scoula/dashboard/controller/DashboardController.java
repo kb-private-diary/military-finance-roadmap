@@ -8,6 +8,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -94,5 +95,19 @@ public class DashboardController {
         Long vacationId = this.service.createVacation(userId, customUser.getUsername(), request);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(vacationId));
+    }
+
+    // DASH-API-07: 휴가 수정 (REGULAR 제외)
+    @PutMapping("/vacations/{vacationId}")
+    public ResponseEntity<ApiResponse<Void>> updateVacation(
+            @AuthenticationPrincipal CustomUser customUser,
+            @PathVariable Long vacationId,
+            @Valid @RequestBody DashboardVacationCreateRequestDTO request
+    ) {
+        Long userId = customUser.getMember().getId();
+        log.info("Updating vacationId: {} for userId: {}", vacationId, userId);
+        this.service.updateVacation(userId, vacationId, customUser.getUsername(), request);
+
+        return ResponseEntity.ok(ApiResponse.success());
     }
 }
