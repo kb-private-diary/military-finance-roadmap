@@ -21,8 +21,25 @@ export default {
     return data.data; // ApiResponse<DashboardVacationListResponseDTO> 래핑 해제
   },
 
+  // 휴가 상세 조회 (DASH-API-05: GET /api/dashboard/vacations/{vacationId})
+  async findVacationDetail(vacationId) {
+    const { data } = await instance.get(`${BASE_URL}/vacations/${vacationId}`);
+    return data.data; // ApiResponse<DashboardVacationDetailResponseDTO> 래핑 해제
+  },
+
+  // 휴가 등록 (DASH-API-06: POST /api/dashboard/vacations)
+  async createVacation(payload) {
+    const { data } = await instance.post(`${BASE_URL}/vacations`, payload);
+    return data.data; // ApiResponse<Long> 래핑 해제 (생성된 vacationId)
+  },
+
   // 휴가 수정 (DASH-API-07: PUT /api/dashboard/vacations/{vacationId}, REGULAR 제외)
   async updateVacation(vacationId, payload) {
     await instance.put(`${BASE_URL}/vacations/${vacationId}`, payload);
+  },
+
+  // 휴가 삭제 (DASH-API-08: DELETE /api/dashboard/vacations/{vacationId}, REGULAR 마스터 제외)
+  async deleteVacation(vacationId) {
+    await instance.delete(`${BASE_URL}/vacations/${vacationId}`);
   },
 };
