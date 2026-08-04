@@ -10,7 +10,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 - 여행 목표: travel_goal, travel_cost, city_cost, hotel_cost, flight_cost, travel_package, travel_insurance
 - 진로 목표: job_goal, job_code, prep_item_criteria, job_plan, service_criteria, service_selection
 - 자동차 목표: car_goal, car_model, car_type, car_insurance, car_ev, car_tax_prepay, car_tax
-- 자취/부동산 목표: rent_goal, rent_goal_region, school, rent_progress, region_code, rent_listing, region_fee_stat, rent_recommend, housing_loan, loan_recommend
+- 자취/부동산 목표: rent_goal, rent_goal_region, school, region_code, rent_listing, region_fee_stat, rent_recommend, housing_loan, loan_recommend
 - 마이데이터/소비: openbanking_link, spending, spending_review, merchant_category, saving_challenge
 - 챗봇/알림: chat_session, chat_message, chat_feedback, kakao_token, notification
 */
@@ -674,21 +674,6 @@ CREATE TABLE `school` (
   `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
 );
 
-DROP TABLE IF EXISTS `rent_progress`;
-CREATE TABLE `rent_progress` (
-  `progress_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '진행단계번호',
-  `goal_id` BIGINT NOT NULL COMMENT '목표번호',
-  `step_code` VARCHAR(30) NOT NULL COMMENT '단계코드 SAVE_GOAL/CHECK_PRODUCT/LOAN_INQUIRY/POLICY_APPLY/MOVING_BOOK',
-  `is_completed` CHAR(1) NOT NULL COMMENT '완료여부 Y/N',
-  `completed_date` DATETIME COMMENT '완료일시',
-  `created_date` DATETIME NOT NULL COMMENT '생성일시',
-  `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
-  `modified_date` DATETIME COMMENT '수정일시',
-  `modified_nm` VARCHAR(50) COMMENT '수정자',
-  `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부',
-  UNIQUE KEY `uk_goal_step` (`goal_id`, `step_code`)
-);
-
 DROP TABLE IF EXISTS `region_code`;
 CREATE TABLE `region_code` (
   `region_code` VARCHAR(10) PRIMARY KEY NOT NULL COMMENT '법정동코드',
@@ -1021,8 +1006,6 @@ ALTER TABLE `rent_goal_region` COMMENT = '목표별 희망 지역(읍·면·동)
 
 ALTER TABLE `school` COMMENT = '통학 반경 매물 검색을 위한 학교 마스터';
 
-ALTER TABLE `rent_progress` COMMENT = '자취 준비 단계별 진행률(체크리스트)';
-
 ALTER TABLE `region_code` COMMENT = '지역 선택 및 매물 조회에 사용하는 법정동 코드 마스터';
 
 ALTER TABLE `rent_listing` COMMENT = '월세 실거래 매물 정보';
@@ -1120,8 +1103,6 @@ ALTER TABLE `car_tax` ADD FOREIGN KEY (`car_type_code`) REFERENCES `car_type` (`
 ALTER TABLE `rent_goal` ADD FOREIGN KEY (`user_id`) REFERENCES `user` (`id`);
 
 ALTER TABLE `rent_goal` ADD FOREIGN KEY (`school_id`) REFERENCES `school` (`school_id`);
-
-ALTER TABLE `rent_progress` ADD FOREIGN KEY (`goal_id`) REFERENCES `rent_goal` (`goal_id`);
 
 ALTER TABLE `rent_goal_region` ADD FOREIGN KEY (`goal_id`) REFERENCES `rent_goal` (`goal_id`);
 

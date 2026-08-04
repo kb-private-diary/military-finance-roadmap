@@ -59,4 +59,34 @@
         ORDER BY pay_round ASC
     </select>
 
+    <select id="findVacationListByUserId" resultType="org.scoula.dashboard.domain.VacationVO">
+        SELECT
+            vacation_id     AS vacationId,
+            user_id         AS userId,
+            vacation_cate   AS vacationCate,
+            vacation_name   AS vacationName,
+            vacation_get    AS vacationGet,
+            vacation_day    AS vacationDay,
+            vacation_state  AS vacationState
+        FROM vacation
+        WHERE user_id = #{userId}
+          AND del_yn = 'N'
+        ORDER BY vacation_get DESC
+    </select>
+
+    <select id="findVacationById" resultType="org.scoula.dashboard.domain.VacationVO">
+        SELECT
+            vacation_id     AS vacationId,
+            user_id         AS userId,
+            vacation_cate   AS vacationCate,
+            vacation_name   AS vacationName,
+            vacation_get    AS vacationGet,
+            vacation_day    AS vacationDay,
+            vacation_state  AS vacationState
+        FROM vacation
+        WHERE vacation_id = #{vacationId}
+          AND user_id = #{userId}
+          AND del_yn = 'N'
+    </select>
+
 </mapper>

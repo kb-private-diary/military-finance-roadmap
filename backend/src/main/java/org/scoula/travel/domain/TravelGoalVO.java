@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 import org.scoula.common.domain.BaseVO;
 
 // travel_goal 테이블 매핑 VO
-// places, benefits는 DB상 JSON 타입이지만 MyBatis에 JSON용 타입핸들러가 없음.
+// places와 products(DB 컬럼명: benefits)는 JSON 타입이지만 MyBatis에 JSON용 타입핸들러가 없음.
 // 대신 MySQL JDBC 드라이버가 JSON 컬럼을 String으로 돌려줌. 그래서 VO에서 String으로 다룸.
 @Data
 @NoArgsConstructor
@@ -27,7 +27,7 @@ public class TravelGoalVO extends BaseVO {
     private LocalDate endDate;
     private Long totalBudget;
     private String places;
-    private String benefits;
+    private String products;
     private Long packageId;
     private String status;
 }

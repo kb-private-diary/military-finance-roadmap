@@ -35,7 +35,7 @@
 
     <!--
       useGeneratedKeys 로 AUTO_INCREMENT 된 goal_id 를 VO에 반환
-      step1 시점에는 places / benefits / package_id 가 없으므로 컬럼에서 제외
+      step1 시점에는 places / products(DB 컬럼명: benefits) / package_id가 없으므로 컬럼에서 제외
     -->
     <insert id="insertGoal"
             parameterType="org.scoula.travel.domain.TravelGoalVO"
@@ -60,7 +60,8 @@
 
     <sql id="travelGoalColumns">
         goal_id, user_id, title, departure, destination, is_domestic, style,
-        start_date, end_date, total_budget, places, benefits, package_id, status,
+        start_date, end_date, total_budget, places,
+        benefits AS products, package_id, status,
         created_date, created_nm, modified_date, modified_nm, del_yn
     </sql>
 
@@ -274,6 +275,89 @@
             modified_date = NOW(),
             modified_nm = #{modifiedNm}
         WHERE goal_id = #{goalId}
+          AND status = 'DRAFT'
+          AND del_yn = 'N'
+    </update>
+
+    <!-- 여행 금융상품 및 로드맵 저장 -->
+
+    <select id="findTravelInsuranceList"
+            resultType="org.scoula.travel.domain.TravelInsuranceVO">
+        SELECT
+            insurance_id, title, insurance_inf, insurance_period,
+            insurance_url,
+            created_date, created_nm, modified_date, modified_nm, del_yn
+        FROM travel_insurance
+        WHERE del_yn = 'N'
+        ORDER BY insurance_id
+    </select>
+
+    <select id="findTravelSavingProductList"
+            resultType="org.scoula.product.domain.SavingProductVO">
+        SELECT
+            saving_id AS savingId,
+            product_type AS productType,
+            is_active AS isActive,
+            fin_prdt_cd AS finPrdtCd,
+            kor_co_nm AS korCoNm,
+            product_name AS productName,
+            join_member AS joinMember,
+            min_limit AS minLimit,
+            max_limit AS maxLimit,
+            save_trm AS saveTrm,
+            basic_rate AS basicRate,
+            max_rate AS maxRate,
+            is_tax_exempt AS isTaxExempt,
+            gov_match_rate AS govMatchRate,
+            product_link AS productLink
+        FROM (
+            SELECT
+                saving_product.*,
+                ROW_NUMBER() OVER (
+                    PARTITION BY fin_prdt_cd
+                    ORDER BY max_rate DESC, save_trm DESC
+                ) AS rowNumber
+            FROM saving_product
+            WHERE fin_prdt_cd LIKE CONCAT(#{codePrefix}, '%')
+              AND product_type = 'SAVING'
+              AND is_active = TRUE
+              AND del_yn = 'N'
+        ) ranked
+        WHERE rowNumber = 1
+        ORDER BY max_rate DESC, product_name
+    </select>
+
+    <update id="updateGoalProducts"
+            parameterType="org.scoula.travel.domain.TravelGoalVO">
+        UPDATE travel_goal
+        SET benefits = CAST(#{products} AS JSON),
+            modified_date = NOW(),
+            modified_nm = #{modifiedNm}
+        WHERE goal_id = #{goalId}
+          AND user_id = #{userId}
+          AND status = 'DRAFT'
+          AND del_yn = 'N'
+    </update>
+
+    <update id="archiveConfirmedGoalByUserId"
+            parameterType="org.scoula.travel.domain.TravelGoalVO">
+        UPDATE travel_goal
+        SET status = 'ARCHIVED',
+            modified_date = NOW(),
+            modified_nm = #{modifiedNm}
+        WHERE user_id = #{userId}
+          AND status = 'CONFIRMED'
+          AND del_yn = 'N'
+    </update>
+
+    <update id="confirmGoal"
+            parameterType="org.scoula.travel.domain.TravelGoalVO">
+        UPDATE travel_goal
+        SET status = 'CONFIRMED',
+            modified_date = NOW(),
+            modified_nm = #{modifiedNm}
+        WHERE goal_id = #{goalId}
+          AND user_id = #{userId}
           AND status = 'DRAFT'
           AND del_yn = 'N'
     </update>
