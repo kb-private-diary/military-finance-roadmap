@@ -6,6 +6,7 @@ import org.scoula.job.dto.JobGoalCreateResponseDTO;
 import org.scoula.job.dto.JobPlanCreateRequestDTO;
 import org.scoula.job.dto.JobPlanCreateResponseDTO;
 import org.scoula.job.dto.PrepItemRecommendResponseDTO;
+import org.scoula.job.dto.ServiceRecommendResponseDTO;
 
 import java.util.List;
 
@@ -21,4 +22,7 @@ public interface JobService {
 
     // goalId 목표에 선택한 준비항목들을 job_plan에 스냅샷 저장 후 항목별 내역과 총액 반환
     JobPlanCreateResponseDTO createJobPlans(Long goalId, JobPlanCreateRequestDTO requestDTO);
+
+    // goalId 기준 관련 정책과 금융상품 추천 조회
+    ServiceRecommendResponseDTO findServiceRecommend(Long goalId);
 }

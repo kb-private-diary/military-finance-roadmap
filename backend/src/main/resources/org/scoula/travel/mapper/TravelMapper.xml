@@ -72,6 +72,45 @@
         AND goal_id = #{goalId}
     </select>
 
+    <select id="findDraftGoalByUserId"
+            resultType="org.scoula.travel.domain.TravelGoalVO">
+        SELECT
+        <include refid="travelGoalColumns"/>
+        FROM travel_goal
+        WHERE user_id = #{userId}
+          AND status = 'DRAFT'
+          AND del_yn = 'N'
+        ORDER BY goal_id DESC
+        LIMIT 1
+    </select>
+
+    <update id="updateGoal"
+            parameterType="org.scoula.travel.domain.TravelGoalVO">
+        UPDATE travel_goal
+        SET places = CASE
+                WHEN destination &lt;&gt; #{destination} THEN NULL
+                ELSE places
+            END,
+            package_id = CASE
+                WHEN destination &lt;&gt; #{destination} THEN NULL
+                ELSE package_id
+            END,
+            title = #{title},
+            departure = #{departure},
+            destination = #{destination},
+            is_domestic = #{isDomestic},
+            style = #{style},
+            start_date = #{startDate},
+            end_date = #{endDate},
+            total_budget = #{totalBudget},
+            modified_date = NOW(),
+            modified_nm = #{modifiedNm}
+        WHERE goal_id = #{goalId}
+          AND user_id = #{userId}
+          AND status = 'DRAFT'
+          AND del_yn = 'N'
+    </update>
+
     <update id="updateGoalPlaces">
         UPDATE travel_goal
         SET places = CAST(#{places} AS JSON),
@@ -102,6 +141,21 @@
              NOW(), #{createdNm}, 'N')
     </insert>
 
+    <update id="updateCost"
+            parameterType="org.scoula.travel.domain.TravelCostVO">
+        UPDATE travel_cost
+        SET flight_cost = #{flightCost},
+            hotel_cost = #{hotelCost},
+            living_cost = #{livingCost},
+            total_cost = #{totalCost},
+            remaining_budget = #{remainingBudget},
+            modified_date = NOW(),
+            modified_nm = #{modifiedNm}
+        WHERE cost_id = #{costId}
+          AND goal_id = #{goalId}
+          AND del_yn = 'N'
+    </update>
+
     <select id="findCostByGoalId" resultType="org.scoula.travel.domain.TravelCostVO">
         SELECT
         <include refid="travelCostColumns"/>
@@ -112,14 +166,116 @@
         LIMIT 1
     </select>
 
-    <!-- 재계산 시 기존 행을 소프트 삭제. 삭제자·일시는 수정 컬럼에 기록 -->
-    <update id="deleteCostByGoalId">
-        UPDATE travel_cost
-        SET del_yn = 'Y',
+    <select id="findFlightCostByQuarter"
+            parameterType="org.scoula.travel.dto.TravelQuarterCostSearchDTO"
+            resultType="java.lang.Long">
+        SELECT CASE #{quarter}
+                   WHEN 1 THEN q1_cost
+                   WHEN 2 THEN q2_cost
+                   WHEN 3 THEN q3_cost
+                   WHEN 4 THEN q4_cost
+               END
+        FROM flight_cost
+        WHERE city_cost_id = #{cityCostId}
+          AND del_yn = 'N'
+        LIMIT 1
+    </select>
+
+    <select id="findHotelCostByQuarter"
+            parameterType="org.scoula.travel.dto.TravelQuarterCostSearchDTO"
+            resultType="java.lang.Long">
+        SELECT CASE #{quarter}
+                   WHEN 1 THEN q1_cost
+                   WHEN 2 THEN q2_cost
+                   WHEN 3 THEN q3_cost
+                   WHEN 4 THEN q4_cost
+               END
+        FROM hotel_cost
+        WHERE city_cost_id = #{cityCostId}
+          AND del_yn = 'N'
+        LIMIT 1
+    </select>
+
+    <!-- 여행 패키지 상품 -->
+
+    <sql id="travelPackageColumns">
+        package_id, goods_code, country, region_name, name, image_url,
+        description, min_price, departure_period, crawled_at, is_active,
+        detail_url, created_date, created_nm, modified_date, modified_nm, del_yn
+    </sql>
+
+    <select id="findPackageByGoodsCode"
+            resultType="org.scoula.travel.domain.TravelPackageVO">
+        SELECT
+        <include refid="travelPackageColumns"/>
+        FROM travel_package
+        WHERE goods_code = #{goodsCode}
+          AND del_yn = 'N'
+        ORDER BY package_id DESC
+        LIMIT 1
+    </select>
+
+    <select id="findPackagesByDestination"
+            parameterType="org.scoula.travel.dto.TravelPackageSearchDTO"
+            resultType="org.scoula.travel.domain.TravelPackageVO">
+        SELECT
+        <include refid="travelPackageColumns"/>
+        FROM travel_package
+        WHERE del_yn = 'N'
+          AND is_active = TRUE
+          AND region_name = #{destination}
+          AND departure_period LIKE CONCAT(
+              DATE_FORMAT(#{departureDate}, '%Y.%m.%d'),
+              ' ~ %')
+          AND min_price &lt; #{maxPrice}
+        ORDER BY
+            min_price ASC,
+            crawled_at DESC
+        LIMIT 100
+    </select>
+
+    <insert id="insertPackage"
+            parameterType="org.scoula.travel.domain.TravelPackageVO"
+            useGeneratedKeys="true"
+            keyProperty="packageId"
+            keyColumn="package_id">
+        INSERT INTO travel_package
+        (goods_code, country, region_name, name, image_url, description,
+         min_price, departure_period, crawled_at, is_active, detail_url,
+         created_date, created_nm, del_yn)
+        VALUES
+        (#{goodsCode}, #{country}, #{regionName}, #{name}, #{imageUrl},
+         #{description}, #{minPrice}, #{departurePeriod}, NOW(), TRUE,
+         #{detailUrl}, NOW(), #{createdNm}, 'N')
+    </insert>
+
+    <update id="updatePackage"
+            parameterType="org.scoula.travel.domain.TravelPackageVO">
+        UPDATE travel_package
+        SET country = #{country},
+            region_name = #{regionName},
+            name = #{name},
+            image_url = #{imageUrl},
+            description = #{description},
+            min_price = #{minPrice},
+            departure_period = #{departurePeriod},
+            crawled_at = NOW(),
+            is_active = TRUE,
+            detail_url = #{detailUrl},
             modified_date = NOW(),
             modified_nm = #{modifiedNm}
-        WHERE del_yn = 'N'
-          AND goal_id = #{goalId}
+        WHERE package_id = #{packageId}
+          AND del_yn = 'N'
+    </update>
+
+    <update id="updateGoalPackage">
+        UPDATE travel_goal
+        SET package_id = #{packageId},
+            modified_date = NOW(),
+            modified_nm = #{modifiedNm}
+        WHERE goal_id = #{goalId}
+          AND status = 'DRAFT'
+          AND del_yn = 'N'
     </update>
 
 </mapper>

@@ -21,12 +21,14 @@ import lombok.extern.log4j.Log4j2;
 
 import org.scoula.common.response.ApiResponse;
 import org.scoula.travel.dto.CityCostResponseDTO;
-import org.scoula.travel.dto.TravelCostCreateRequestDTO;
 import org.scoula.travel.dto.TravelCostResponseDTO;
 import org.scoula.travel.dto.TravelGoalCreateRequestDTO;
+import org.scoula.travel.dto.TravelGoalDraftResponseDTO;
 import org.scoula.travel.dto.TravelPlaceResponseDTO;
 import org.scoula.travel.dto.TravelPlaceSelectionDTO;
 import org.scoula.travel.dto.TravelPlacesUpdateRequestDTO;
+import org.scoula.travel.dto.TravelPackageResponseDTO;
+import org.scoula.travel.dto.TravelPackageUpdateRequestDTO;
 import org.scoula.travel.service.TravelService;
 
 // 여행 로드맵 REST 컨트롤러
@@ -58,14 +60,34 @@ public class TravelController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(goalId));
     }
 
+    @GetMapping("/goals/current")
+    @ApiOperation(
+            value = "현재 작성 중인 여행 목표 조회",
+            notes = "DRAFT 상태의 여행 목표가 있으면 이어쓰기 정보를 반환한다.")
+    public ResponseEntity<ApiResponse<TravelGoalDraftResponseDTO>>
+            findCurrentDraft() {
+        return ResponseEntity.ok(
+                ApiResponse.success(this.service.findCurrentDraft()));
+    }
+
+    @PatchMapping("/goals/{goalId}")
+    @ApiOperation(
+            value = "작성 중인 여행 목표 수정",
+            notes = "Step 1에서 변경한 DRAFT 여행 목표 정보를 갱신한다.")
+    public ResponseEntity<ApiResponse<Void>> updateGoal(
+            @PathVariable final Long goalId,
+            @RequestBody final TravelGoalCreateRequestDTO request) {
+        this.service.updateGoal(goalId, request);
+        return ResponseEntity.ok(ApiResponse.success());
+    }
+
     @PostMapping("/goals/{goalId}/costs")
     @ApiOperation(value = "예상 경비 산출",
             notes = "저장된 목표 기준으로 계산해 travel_cost 에 적재하고 costId 를 반환한다. "
-                    + "재호출 시 기존 결과를 소프트 삭제하고 새로 적재한다.")
+                    + "재호출 시 기존 결과를 갱신한다.")
     public ResponseEntity<ApiResponse<Long>> createCost(
-            @PathVariable Long goalId,
-            @RequestBody(required = false) TravelCostCreateRequestDTO request) {
-        Long costId = this.service.createCost(goalId, request);
+            @PathVariable final Long goalId) {
+        final Long costId = this.service.createCost(goalId);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(costId));
     }
 
@@ -108,6 +130,28 @@ public class TravelController {
             getSelectedPlaces(@PathVariable final Long goalId) {
         return ResponseEntity.ok(ApiResponse.success(
                 this.service.getSelectedPlaces(goalId)));
+    }
+
+    @GetMapping("/goals/{goalId}/packages")
+    @ApiOperation(
+            value = "여행 패키지 상품 추천",
+            notes = "목표의 도착지를 기준으로 노랑풍선 패키지 상품을 추천한다. "
+                    + "외부 조회 실패 시 저장된 상품을 제공한다.")
+    public ResponseEntity<ApiResponse<List<TravelPackageResponseDTO>>>
+            findPackages(@PathVariable final Long goalId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                this.service.findPackages(goalId)));
+    }
+
+    @PatchMapping("/goals/{goalId}/package")
+    @ApiOperation(
+            value = "여행 패키지 상품 선택",
+            notes = "추천 목록에서 선택한 상품을 여행 목표에 저장한다.")
+    public ResponseEntity<ApiResponse<Void>> updatePackage(
+            @PathVariable final Long goalId,
+            @RequestBody final TravelPackageUpdateRequestDTO request) {
+        this.service.updatePackage(goalId, request);
+        return ResponseEntity.ok(ApiResponse.success());
     }
 
 }

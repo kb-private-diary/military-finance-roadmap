@@ -5,6 +5,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import productApi from '@/api/productApi';
 import simulatorApi from '@/api/simulatorApi';
+import { formatWon } from '@/util/format';
 import BaseBottomSheet from '@/components/common/BaseBottomSheet.vue';
 import BaseCard from '@/components/common/BaseCard.vue';
 import BaseInput from '@/components/common/BaseInput.vue';
@@ -13,16 +14,16 @@ import CategoryButton from '@/components/common/CategoryButton.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import SavingsBreakdown from '@/components/common/SavingsBreakdown.vue';
 
-// TODO: JWT 연동 후 SecurityContext(authStore)에서 userId 추출
-// 백엔드가 아직 @RequestParam Long userId 임시 방식이라 프론트도 임시 고정값 사용
-const TEMP_USER_ID = 1;
-
 const route = useRoute();
 const router = useRouter();
 
 const details = ref(null);
 const isLoading = ref(true);
 const hasNoAccount = ref(false);
+
+const savingLoss = ref(null);
+const today = new Date();
+const todayLabel = `${today.getMonth() + 1}월 ${today.getDate()}일`;
 
 // 'real' = 실제 계좌 기준 상세내역 / 'simulated' = 모의 계산 결과로 대체된 상세내역
 const viewMode = ref('real');
@@ -38,10 +39,10 @@ const periods = ref([{ range: ['', ''], amount: '' }]);
 
 const isCalcFormValid = computed(() => {
   if (calcMode.value === 'constant') {
-    return monthlySave.value !== '' && saveMonths.value !== '';
+    return Number(monthlySave.value) > 0 && saveMonths.value !== '';
   }
   return periods.value.every(
-    (period) => period.range[0] && period.range[1] && period.amount !== '',
+    (period) => period.range[0] && period.range[1] && Number(period.amount) > 0,
   );
 });
 
@@ -65,13 +66,26 @@ const fetchSavingDetails = async () => {
   hasNoAccount.value = false;
   viewMode.value = 'real';
   try {
-    details.value = await simulatorApi.findSavingDetails(TEMP_USER_ID);
+    details.value = await simulatorApi.findSavingDetails();
   } catch (error) {
     // 군적금 미가입(SIMUL_002) 등은 빈 상태로 처리
     details.value = null;
     hasNoAccount.value = true;
   } finally {
     isLoading.value = false;
+  }
+};
+
+const fetchSavingLoss = async () => {
+  try {
+    savingLoss.value = await simulatorApi.findSavingLoss();
+  } catch (error) {
+    const code = error.response?.data?.code;
+    // 군적금 미가입(SIMUL_002)·이미 전역(SIMUL_008)은 카드 자체를 숨긴다
+    if (code !== 'SIMUL_002' && code !== 'SIMUL_008') {
+      console.error(error);
+    }
+    savingLoss.value = null;
   }
 };
 
@@ -134,7 +148,7 @@ const runCalculation = async () => {
     viewMode.value = 'simulated';
     simulateError.value = '';
   } catch (error) {
-    console.error(error)
+    console.error(error);
     simulateError.value =
       error.response?.data?.message ?? '계산에 실패했습니다.';
   }
@@ -202,7 +216,7 @@ const fetchProducts = async () => {
     savingProducts.value = savings;
     policyProducts.value = policies;
   } catch (error) {
-    console.error(error)
+    console.error(error);
     productError.value = '상품 정보를 불러오지 못했습니다.';
   } finally {
     isProductLoading.value = false;
@@ -224,7 +238,7 @@ const fetchDepositProducts = async () => {
   try {
     depositProducts.value = await productApi.findSavingProductList('deposits');
   } catch (error) {
-    console.error(error)
+    console.error(error);
     depositError.value = '예금 상품을 불러오지 못했습니다.';
   } finally {
     isDepositLoading.value = false;
@@ -249,6 +263,7 @@ const goToProductDetail = (item) => {
 
 onMounted(() => {
   fetchSavingDetails();
+  fetchSavingLoss();
   fetchProducts();
   fetchDepositProducts();
 });
@@ -351,7 +366,7 @@ onMounted(() => {
       <div v-if="calcMode === 'constant'" class="calc-sheet__form">
         <BaseInput
           v-model="monthlySave"
-          type="number"
+          type="amount"
           label="월 납입액"
           suffix="원"
           placeholder="최대 550,000"
@@ -394,7 +409,7 @@ onMounted(() => {
             @update:model-value="period.range = $event"
           />
           <BaseInput
-            type="number"
+            type="amount"
             label="월 납입액"
             suffix="원"
             placeholder="최대 550,000"
@@ -408,6 +423,27 @@ onMounted(() => {
         </button>
       </div>
     </BaseBottomSheet>
+
+    <BaseCard v-if="savingLoss" class="loss-card">
+      <p class="loss-card__eyebrow">
+        {{ todayLabel }}, 만약
+        <span class="loss-card__highlight">중도 해지</span>를 한다면?
+      </p>
+      <h3 class="loss-card__title">예상 수령액 및 손실금</h3>
+
+      <div class="loss-card__stat">
+        <span class="loss-card__stat-label">해지 시, 수령 액은?</span>
+        <span class="loss-card__stat-value">{{
+          formatWon(savingLoss.withdrawalAmount)
+        }}</span>
+      </div>
+      <div class="loss-card__stat">
+        <span class="loss-card__stat-label">해지 시, 손실 액은?</span>
+        <span class="loss-card__stat-value loss-card__stat-value--danger"
+          >-{{ formatWon(savingLoss.lossAmount) }}</span
+        >
+      </div>
+    </BaseCard>
 
     <div class="product-section">
       <p class="product-section__eyebrow">모으고 또 모으자</p>
@@ -692,6 +728,55 @@ onMounted(() => {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+}
+
+/* ── 중도해지 수령액·손실금 카드 ── */
+.loss-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.loss-card__eyebrow {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-hint);
+}
+
+.loss-card__highlight {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.loss-card__title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.loss-card__stat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background-color: var(--military-green-light);
+  border-radius: 14px;
+}
+
+.loss-card__stat-label {
+  font-size: 14px;
+  color: var(--text-body);
+}
+
+.loss-card__stat-value {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.loss-card__stat-value--danger {
+  color: var(--danger);
 }
 
 /* ── 적금/정책 추천 목록 ── */

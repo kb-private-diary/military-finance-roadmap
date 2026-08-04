@@ -1,16 +1,16 @@
 SET FOREIGN_KEY_CHECKS = 0;
 
 /*
-총 테이블 갯수: 55개
+총 테이블 갯수: 59개
 
 [테이블 구분]
-- 회원/공통: user, military_types, military_rank, badge, user_badge, terms, terms_agreement, vacation
-- 예적금/금융: bank_category, saving_product, card_product, saving_account, saving_history, policy_product
+- 회원/공통: user, military_types, military_unit, military_rank, badge, user_badge, terms, terms_agreement, vacation
+- 예적금/금융: bank_category, saving_product, military_saving_product, card_product, saving_account, saving_history, policy_product
 - 목표/로드맵 공통: roadmap_category, user_bookmark
 - 여행 목표: travel_goal, travel_cost, city_cost, hotel_cost, flight_cost, travel_package, travel_insurance
 - 진로 목표: job_goal, job_code, prep_item_criteria, job_plan, service_criteria, service_selection
 - 자동차 목표: car_goal, car_model, car_type, car_insurance, car_ev, car_tax_prepay, car_tax
-- 자취/부동산 목표: rent_goal, rent_goal_region, region_code, rent_listing, region_fee_stat, rent_recommend, housing_loan, loan_recommend
+- 자취/부동산 목표: rent_goal, rent_goal_region, school, rent_progress, region_code, rent_listing, region_fee_stat, rent_recommend, housing_loan, loan_recommend
 - 마이데이터/소비: openbanking_link, spending, spending_review, merchant_category, saving_challenge
 - 챗봇/알림: chat_session, chat_message, chat_feedback, kakao_token, notification
 */
@@ -19,6 +19,18 @@ DROP TABLE IF EXISTS `military_types`;
 CREATE TABLE `military_types` (
   `type_id` INT PRIMARY KEY NOT NULL COMMENT '군종ID',
   `type_name` VARCHAR(20) NOT NULL COMMENT '군종명',
+  `created_date` DATETIME NOT NULL COMMENT '생성일시',
+  `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+  `modified_date` DATETIME COMMENT '수정일시',
+  `modified_nm` VARCHAR(50) COMMENT '수정자',
+  `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
+);
+
+DROP TABLE IF EXISTS `military_unit`;
+CREATE TABLE `military_unit` (
+  `unit_code` VARCHAR(10) PRIMARY KEY NOT NULL COMMENT '부대코드',
+  `unit_name` VARCHAR(50) NOT NULL COMMENT '부대명',
+  `type_id` INT NOT NULL COMMENT '군종ID',
   `created_date` DATETIME NOT NULL COMMENT '생성일시',
   `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
   `modified_date` DATETIME COMMENT '수정일시',
@@ -271,6 +283,30 @@ CREATE TABLE `policy_product` (
   `created_date` DATETIME NOT NULL COMMENT '생성날짜',
   `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
   `modified_date` DATETIME COMMENT '수정날짜',
+  `modified_nm` VARCHAR(50) COMMENT '수정자',
+  `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
+);
+
+DROP TABLE IF EXISTS `military_saving_product`;
+CREATE TABLE `military_saving_product` (
+  `military_saving_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '군적금상품ID',
+  `bank_code` CHAR(3) NOT NULL COMMENT '취급은행코드',
+  `product_name` VARCHAR(100) NOT NULL COMMENT '상품명',
+  `min_limit` BIGINT COMMENT '월 최소납입한도',
+  `max_limit` BIGINT COMMENT '월 최대납입한도',
+  `max_join_month` INT COMMENT '최대 가입가능 개월수 (예: 24)',
+  `gov_match_rate` DECIMAL(5,2) COMMENT '정부매칭 기여금 비율',
+  `rate_type` VARCHAR(10) NOT NULL COMMENT '금리구간 유형: MATURITY(만기) | WITHDRAWAL(중도해지)',
+  `value_unit` VARCHAR(10) NOT NULL DEFAULT 'MONTH' COMMENT '구간 단위: MONTH(경과개월) | RATIO(납입기간 경과비율%)',
+  `min_value` DECIMAL(6,2) COMMENT '구간 시작값(포함), NULL이면 0',
+  `max_value` DECIMAL(6,2) COMMENT '구간 끝값(미포함), NULL이면 상한 없음',
+  `basic_rate` DECIMAL(4,2) COMMENT '기본금리 (MATURITY 전용)',
+  `max_rate` DECIMAL(4,2) COMMENT '최고우대금리 (MATURITY 전용)',
+  `rate_ratio` DECIMAL(4,2) COMMENT '기본이율 대비 배율% (WITHDRAWAL 전용, NULL이면 floor_rate를 그대로 적용)',
+  `floor_rate` DECIMAL(4,2) COMMENT '최저 보장금리 (WITHDRAWAL 전용)',
+  `created_date` DATETIME NOT NULL COMMENT '생성일시',
+  `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+  `modified_date` DATETIME COMMENT '수정일시',
   `modified_nm` VARCHAR(50) COMMENT '수정자',
   `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
 );
@@ -593,17 +629,14 @@ DROP TABLE IF EXISTS `rent_goal`;
 CREATE TABLE `rent_goal` (
   `goal_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '목표번호',
   `user_id` BIGINT NOT NULL COMMENT '회원고유번호',
-  `title` VARCHAR(50) COMMENT '목표이름',
-  `trade_type` VARCHAR(10) NOT NULL COMMENT '거래유형',
-  `estate_type` VARCHAR(15) COMMENT '매물종류',
-  `max_deposit` BIGINT NOT NULL COMMENT '보증금한도',
-  `max_monthly` BIGINT NOT NULL COMMENT '월세한도',
-  `room_count` VARCHAR(10) COMMENT '방개수조건',
-  `expected_fee` BIGINT COMMENT '예상관리비',
-  `residence_term` VARCHAR(5) NOT NULL COMMENT '거주기간',
-  `current_asset` BIGINT COMMENT '현재자산',
-  `target_date` DATE COMMENT '입주목표시기',
-  `status` VARCHAR(12) NOT NULL COMMENT '진행상태',
+  `title` VARCHAR(50) COMMENT '목표이름(선택)',
+  `selection_mode` VARCHAR(10) NOT NULL COMMENT '위치모드 SCHOOL/REGION',
+  `school_id` BIGINT COMMENT '학교ID(SCHOOL 모드)',
+  `commute_radius_km` INT COMMENT '통학반경km(SCHOOL 모드)',
+  `monthly_budget` BIGINT NOT NULL COMMENT '월예산(월세+관리비 합)',
+  `residence_preset` VARCHAR(10) NOT NULL COMMENT '거주기간프리셋 SEMESTER/YEAR/GRADUATE',
+  `residence_months` INT NOT NULL COMMENT '거주개월수 6/12/24',
+  `status` VARCHAR(12) NOT NULL COMMENT '진행상태 DRAFT/CONFIRMED/ARCHIVED',
   `created_date` DATETIME NOT NULL COMMENT '생성일시',
   `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
   `modified_date` DATETIME COMMENT '수정일시',
@@ -621,6 +654,38 @@ CREATE TABLE `rent_goal_region` (
   `modified_date` DATETIME COMMENT '수정일시',
   `modified_nm` VARCHAR(50) COMMENT '수정자',
   `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
+);
+
+DROP TABLE IF EXISTS `school`;
+CREATE TABLE `school` (
+  `school_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '학교고유번호',
+  `school_name` VARCHAR(100) NOT NULL COMMENT '학교명',
+  `school_type` VARCHAR(20) COMMENT '학교유형 UNIVERSITY/COLLEGE/GRADUATE',
+  `address` VARCHAR(200) COMMENT '주소',
+  `sigungu_code` VARCHAR(5) COMMENT '시군구코드(매물 조인용)',
+  `region_code` VARCHAR(10) COMMENT '법정동코드',
+  `latitude` DECIMAL(10,7) NOT NULL COMMENT '위도',
+  `longitude` DECIMAL(10,7) NOT NULL COMMENT '경도',
+  `created_date` DATETIME NOT NULL COMMENT '생성일시',
+  `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+  `modified_date` DATETIME COMMENT '수정일시',
+  `modified_nm` VARCHAR(50) COMMENT '수정자',
+  `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
+);
+
+DROP TABLE IF EXISTS `rent_progress`;
+CREATE TABLE `rent_progress` (
+  `progress_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '진행단계번호',
+  `goal_id` BIGINT NOT NULL COMMENT '목표번호',
+  `step_code` VARCHAR(30) NOT NULL COMMENT '단계코드 SAVE_GOAL/CHECK_PRODUCT/LOAN_INQUIRY/POLICY_APPLY/MOVING_BOOK',
+  `is_completed` CHAR(1) NOT NULL COMMENT '완료여부 Y/N',
+  `completed_date` DATETIME COMMENT '완료일시',
+  `created_date` DATETIME NOT NULL COMMENT '생성일시',
+  `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+  `modified_date` DATETIME COMMENT '수정일시',
+  `modified_nm` VARCHAR(50) COMMENT '수정자',
+  `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부',
+  UNIQUE KEY `uk_goal_step` (`goal_id`, `step_code`)
 );
 
 DROP TABLE IF EXISTS `region_code`;
@@ -883,6 +948,8 @@ CREATE UNIQUE INDEX `car_ev_index_0` ON `car_ev` (`region`, `base_year`);
 
 ALTER TABLE `military_types` COMMENT = '군종(육군/해군/공군 등) 공통 코드';
 
+ALTER TABLE `military_unit` COMMENT = '군종별 부대 목록 마스터 (회원가입 부대 선택 드롭다운용)';
+
 ALTER TABLE `car_type` COMMENT = '경차/준중형/SUV 등 차종 구분 공통 코드 테이블';
 
 ALTER TABLE `badge` COMMENT = '업적뱃지';
@@ -904,6 +971,8 @@ ALTER TABLE `terms_agreement` COMMENT = '회원이 언제 약관에 동의하였
 ALTER TABLE `user` COMMENT = '서비스에 가입한 이용자(장병/전역예비역) 정보';
 
 ALTER TABLE `saving_account` COMMENT = '회원의 군적금 계좌 및 납입 현황';
+
+ALTER TABLE `military_saving_product` COMMENT = '군적금(장병내일준비적금) 상품별 만기이율·중도해지이율 구간 데이터';
 
 ALTER TABLE `travel_goal` COMMENT = '회원이 등록한 여행 목표 정보';
 
@@ -949,6 +1018,10 @@ ALTER TABLE `rent_goal` COMMENT = '전역 후 월세(자취) 주거에 대한 �
 
 ALTER TABLE `rent_goal_region` COMMENT = '목표별 희망 지역(읍·면·동) 정보';
 
+ALTER TABLE `school` COMMENT = '통학 반경 매물 검색을 위한 학교 마스터';
+
+ALTER TABLE `rent_progress` COMMENT = '자취 준비 단계별 진행률(체크리스트)';
+
 ALTER TABLE `region_code` COMMENT = '지역 선택 및 매물 조회에 사용하는 법정동 코드 마스터';
 
 ALTER TABLE `rent_listing` COMMENT = '월세 실거래 매물 정보';
@@ -993,11 +1066,15 @@ ALTER TABLE `terms_agreement` ADD FOREIGN KEY (`terms_id`) REFERENCES `terms` (`
 
 ALTER TABLE `user` ADD FOREIGN KEY (`type_id`) REFERENCES `military_types` (`type_id`);
 
+ALTER TABLE `military_unit` ADD FOREIGN KEY (`type_id`) REFERENCES `military_types` (`type_id`);
+
 ALTER TABLE `saving_account` ADD FOREIGN KEY (`user_id`) REFERENCES `user` (`id`);
 
 ALTER TABLE `saving_account` ADD FOREIGN KEY (`bank_code`) REFERENCES `bank_category` (`bank_code`);
 
 ALTER TABLE `saving_history` ADD FOREIGN KEY (`account_id`) REFERENCES `saving_account` (`account_id`);
+
+ALTER TABLE `military_saving_product` ADD FOREIGN KEY (`bank_code`) REFERENCES `bank_category` (`bank_code`);
 
 ALTER TABLE `vacation` ADD FOREIGN KEY (`user_id`) REFERENCES `user` (`id`);
 
@@ -1040,6 +1117,10 @@ ALTER TABLE `car_insurance` ADD FOREIGN KEY (`car_type_code`) REFERENCES `car_ty
 ALTER TABLE `car_tax` ADD FOREIGN KEY (`car_type_code`) REFERENCES `car_type` (`code`);
 
 ALTER TABLE `rent_goal` ADD FOREIGN KEY (`user_id`) REFERENCES `user` (`id`);
+
+ALTER TABLE `rent_goal` ADD FOREIGN KEY (`school_id`) REFERENCES `school` (`school_id`);
+
+ALTER TABLE `rent_progress` ADD FOREIGN KEY (`goal_id`) REFERENCES `rent_goal` (`goal_id`);
 
 ALTER TABLE `rent_goal_region` ADD FOREIGN KEY (`goal_id`) REFERENCES `rent_goal` (`goal_id`);
 

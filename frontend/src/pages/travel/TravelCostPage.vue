@@ -3,7 +3,12 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import travelApi from '@/api/travelApi';
+import BaseCard from '@/components/common/BaseCard.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
+import DonutChart from '@/components/common/DonutChart.vue';
+import ProgressBar from '@/components/common/ProgressBar.vue';
+import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
+import { formatWon } from '@/util/format';
 
 const route = useRoute();
 const router = useRouter();
@@ -30,17 +35,17 @@ const costItems = computed(() => [
   {
     label: '숙소비',
     value: toAmount(cost.value?.hotelCost),
-    color: '#6e5f52',
+    color: 'var(--chart-1)',
   },
   {
     label: '관광비',
     value: toAmount(cost.value?.livingCost),
-    color: '#d8bd76',
+    color: 'var(--chart-3)',
   },
   {
     label: '교통비',
     value: toAmount(cost.value?.flightCost),
-    color: '#ffebba',
+    color: 'var(--chart-4)',
   },
 ]);
 
@@ -48,48 +53,37 @@ const chartTotal = computed(() =>
   costItems.value.reduce((sum, item) => sum + item.value, 0),
 );
 
-const segments = computed(() => {
-  if (!chartTotal.value) return [];
-
-  let accumulated = 0;
-  return costItems.value.map((item) => {
-    const start = (accumulated / chartTotal.value) * 100;
-    accumulated += item.value;
-    const end = (accumulated / chartTotal.value) * 100;
-    return `${item.color} ${start}% ${end}%`;
-  });
-});
-
-const donutStyle = computed(() => ({
-  background: segments.value.length
-    ? `conic-gradient(${segments.value.join(', ')})`
-    : '#ececec',
-}));
-
 const percentOf = (value) => {
   if (!chartTotal.value) return 0;
   return Math.round((toAmount(value) / chartTotal.value) * 100);
 };
-
-const formatWon = (value) =>
-  `${toAmount(value).toLocaleString('ko-KR')}원`;
 
 onMounted(async () => {
   scrollContainer = document.querySelector('.app-content');
   scrollContainer?.classList.add('travel-scrollbar-hidden');
 
   try {
-    try {
-      const response = await travelApi.findCost(goalId);
-      cost.value = unwrap(response);
-    } catch (error) {
-      if (error.response?.data?.code !== 'TRAVEL_006') {
-        throw error;
-      }
-
+    if (route.query.recalculate === 'true') {
       await travelApi.createCost(goalId);
       const response = await travelApi.findCost(goalId);
       cost.value = unwrap(response);
+      await router.replace({
+        name: 'TravelCost',
+        params: { goalId },
+      });
+    } else {
+      try {
+        const response = await travelApi.findCost(goalId);
+        cost.value = unwrap(response);
+      } catch (error) {
+        if (error.response?.data?.code !== 'TRAVEL_006') {
+          throw error;
+        }
+
+        await travelApi.createCost(goalId);
+        const response = await travelApi.findCost(goalId);
+        cost.value = unwrap(response);
+      }
     }
   } catch (error) {
     loadError.value = readErrorMessage(
@@ -112,15 +106,7 @@ const goNext = () =>
 
 <template>
   <div class="travel-cost">
-    <section class="roadmap-step" aria-label="여행 로드맵 2단계">
-      <p class="roadmap-step__label text-overline">여행 로드맵</p>
-      <div class="roadmap-step__progress">
-        <span class="roadmap-step__number">2</span>
-        <span class="roadmap-step__line">
-          <span class="roadmap-step__line-fill" />
-        </span>
-      </div>
-    </section>
+    <RoadmapCharacterSlider :progress="34" label="여행 로드맵" />
 
     <div v-if="loading" class="status-box text-caption" role="status">
       예상 비용을 계산하고 있습니다.
@@ -141,16 +127,18 @@ const goNext = () =>
       </h2>
       <p class="travel-cost__total">{{ formatWon(cost.totalCost) }}</p>
 
-      <section class="cost-card" aria-label="여행 비용 상세">
+      <BaseCard
+        class="cost-card"
+        padding="29px 22px 31px"
+        aria-label="여행 비용 상세"
+      >
         <div class="chart-area">
-          <div
-            class="donut-chart"
-            :style="donutStyle"
-            role="img"
-            aria-label="숙소비, 식비, 교통비 비율을 나타내는 도넛 차트"
-          >
-            <span class="donut-chart__hole" />
-          </div>
+          <DonutChart
+            :items="costItems"
+            :size="174"
+            :thickness="38"
+            chart-label="숙소비, 관광비, 교통비 비율"
+          />
 
           <ul class="legend">
             <li v-for="item in costItems" :key="item.label">
@@ -166,19 +154,16 @@ const goNext = () =>
         <ul class="breakdown">
           <li v-for="item in costItems" :key="item.label">
             <span class="breakdown__label text-caption">{{ item.label }}</span>
-            <span class="breakdown__bar">
-              <span
-                class="breakdown__fill"
-                :style="{
-                  width: `${percentOf(item.value)}%`,
-                  backgroundColor: item.color,
-                }"
-              />
-            </span>
+            <ProgressBar
+              :value="item.value"
+              :total="chartTotal"
+              :color="item.color"
+              :height="6"
+            />
             <strong>{{ percentOf(item.value) }}%</strong>
           </li>
         </ul>
-      </section>
+      </BaseCard>
     </template>
 
     <BottomButtonBar
@@ -195,55 +180,11 @@ const goNext = () =>
 .travel-cost {
   min-height: 100%;
   padding: 18px 0 88px;
-  color: #111;
+  color: var(--text-strong);
 }
 
-.roadmap-step {
-  margin-bottom: 34px;
-}
-
-.roadmap-step__label {
-  margin: 0 0 15px;
-}
-
-.roadmap-step__progress {
-  position: relative;
-  display: flex;
-  align-items: center;
-  height: 22px;
-}
-
-.roadmap-step__number {
-  position: relative;
-  z-index: 2;
-  display: grid;
-  width: 22px;
-  height: 22px;
-  margin-left: 33.3333%;
-  place-items: center;
-  border: 2px solid #657052;
-  border-radius: 50%;
-  background: #fff;
-  color: #293020;
-  font-size: 12px;
-  font-weight: 700;
-  transform: translateX(-50%);
-}
-
-.roadmap-step__line {
-  position: absolute;
-  right: 10px;
-  left: 10px;
-  height: 4px;
-  overflow: hidden;
-  background: #dedede;
-}
-
-.roadmap-step__line-fill {
-  display: block;
-  width: 33.3333%;
-  height: 100%;
-  background: #657052;
+.travel-cost :deep(.character-slider) {
+  margin-bottom: 28px;
 }
 
 .travel-cost__title {
@@ -254,7 +195,7 @@ const goNext = () =>
 
 .travel-cost__total {
   margin: 0 0 18px;
-  color: #74695c;
+  color: var(--kb-gray);
   font-size: 27px;
   font-weight: 500;
   line-height: 1.25;
@@ -262,8 +203,6 @@ const goNext = () =>
 }
 
 .cost-card {
-  padding: 29px 22px 31px;
-  border: 1px solid #cfcfcf;
   border-radius: 13px;
 }
 
@@ -273,24 +212,6 @@ const goNext = () =>
   justify-content: center;
   gap: 23px;
   margin-bottom: 36px;
-}
-
-.donut-chart {
-  position: relative;
-  display: grid;
-  width: 174px;
-  height: 174px;
-  flex: 0 0 174px;
-  place-items: center;
-  border-radius: 50%;
-  transform: rotate(-8deg);
-}
-
-.donut-chart__hole {
-  width: 82px;
-  height: 82px;
-  border-radius: 50%;
-  background: #fff;
 }
 
 .legend,
@@ -310,7 +231,7 @@ const goNext = () =>
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #4f4b45;
+  color: var(--text-body);
   font-size: 11px;
   white-space: nowrap;
 }
@@ -332,7 +253,7 @@ const goNext = () =>
   grid-template-columns: 49px minmax(0, 1fr) 38px;
   align-items: center;
   gap: 9px;
-  color: #58534c;
+  color: var(--kb-gray);
   font-size: 12px;
 }
 
@@ -340,22 +261,8 @@ const goNext = () =>
   font-weight: 500;
 }
 
-.breakdown__bar {
-  height: 6px;
-  overflow: hidden;
-  border-top: 1px solid #ddd;
-  border-bottom: 1px solid #ddd;
-  background: #fff;
-}
-
-.breakdown__fill {
-  display: block;
-  height: 100%;
-  min-width: 0;
-}
-
 .breakdown strong {
-  color: #333;
+  color: var(--text-body);
   font-size: 12px;
   font-weight: 600;
   text-align: right;
@@ -363,12 +270,12 @@ const goNext = () =>
 
 .status-box {
   margin-top: 80px;
-  color: #666;
+  color: var(--text-muted);
   text-align: center;
 }
 
 .status-box--error {
-  color: #d34b4b;
+  color: var(--danger);
 }
 
 .status-box p {
@@ -378,8 +285,8 @@ const goNext = () =>
 .status-box button {
   padding: 9px 16px;
   border: 0;
-  background: #657052;
-  color: #fff;
+  background: var(--travel-primary);
+  color: var(--surface-default);
   font-family: inherit;
   font-size: 12px;
 }
@@ -396,16 +303,16 @@ const goNext = () =>
 }
 
 .travel-cost :deep(.bottom-button-bar) {
-  background: #fff;
+  background: var(--surface-default);
 }
 
 .travel-cost :deep(.bottom-button-bar .bar-button.secondary) {
-  background: #e8e8e8;
-  color: #333;
+  background: var(--kb-gray-pale);
+  color: var(--text-body);
 }
 
 .travel-cost :deep(.bottom-button-bar .bar-button.primary) {
-  background: #ffcc00;
-  color: #111;
+  background: var(--kb-yellow);
+  color: var(--text-strong);
 }
 </style>

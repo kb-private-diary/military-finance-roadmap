@@ -18,6 +18,103 @@ INSERT INTO `military_types` (`type_id`, `type_name`, `created_date`, `created_n
 
 
 -- --------------------------------------------------------------------
+--  [석윤] 공통/ 부대정보(military_unit)
+--  테이블: military_unit
+-- --------------------------------------------------------------------
+INSERT INTO `military_unit` (`unit_code`, `unit_name`, `type_id`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`) VALUES
+-- 육군 (type_id=1)
+('AD01', '제1보병사단', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AD09', '제9보병사단', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AD25', '제25보병사단', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AD07', '제7보병사단', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AD15', '제15보병사단', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AD12', '제12보병사단', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AD21', '제21보병사단', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AD22', '제22보병사단', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AD03', '제3보병사단', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AD05', '제5보병사단', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AD06', '제6보병사단', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AD17', '제17보병사단', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AD90', '수도기계화보병사단', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AD08', '제8기동사단', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AD11', '제11기동사단', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AD02', '제2신속대응사단', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AD36', '제36보병사단', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AD51', '제51보병사단', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AD55', '제55보병사단', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AD31', '제31보병사단', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AD32', '제32보병사단', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AD35', '제35보병사단', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AD37', '제37보병사단', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AD39', '제39보병사단', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AD50', '제50보병사단', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AD53', '제53보병사단', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AD52', '제52보병사단', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AD56', '제56보병사단', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AC01', '수도방위사령부', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AC02', '육군특수전사령부', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AC03', '육군항공사령부', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AC04', '육군미사일전략사령부', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AC05', '육군동원전력사령부', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AC06', '육군교육사령부', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('AC07', '육군군수사령부/인사사령부', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+-- 해군 (type_id=2)
+('NF01', '제1함대', 2, NOW(), 'seokyun', NULL, NULL, 'N'),
+('NF02', '제2함대', 2, NOW(), 'seokyun', NULL, NULL, 'N'),
+('NF03', '제3함대', 2, NOW(), 'seokyun', NULL, NULL, 'N'),
+('NF90', '기동함대', 2, NOW(), 'seokyun', NULL, NULL, 'N'),
+('NC01', '잠수함사령부', 2, NOW(), 'seokyun', NULL, NULL, 'N'),
+('NC02', '해군항공사령부', 2, NOW(), 'seokyun', NULL, NULL, 'N'),
+('NC03', '인천해역방어사령부', 2, NOW(), 'seokyun', NULL, NULL, 'N'),
+('NC04', '진해기지사령부', 2, NOW(), 'seokyun', NULL, NULL, 'N'),
+('NC05', '해군작전사령부', 2, NOW(), 'seokyun', NULL, NULL, 'N'),
+('NC06', '해군교육사령부', 2, NOW(), 'seokyun', NULL, NULL, 'N'),
+('NC07', '해군군수사령부', 2, NOW(), 'seokyun', NULL, NULL, 'N'),
+('NC08', '해군본부 및 직할', 2, NOW(), 'seokyun', NULL, NULL, 'N'),
+-- 공군 (type_id=3)
+('FW01', '제1전투비행단', 3, NOW(), 'seokyun', NULL, NULL, 'N'),
+('FW08', '제8전투비행단', 3, NOW(), 'seokyun', NULL, NULL, 'N'),
+('FW10', '제10전투비행단', 3, NOW(), 'seokyun', NULL, NULL, 'N'),
+('FW11', '제11전투비행단', 3, NOW(), 'seokyun', NULL, NULL, 'N'),
+('FW16', '제16전투비행단', 3, NOW(), 'seokyun', NULL, NULL, 'N'),
+('FW17', '제17전투비행단', 3, NOW(), 'seokyun', NULL, NULL, 'N'),
+('FW18', '제18전투비행단', 3, NOW(), 'seokyun', NULL, NULL, 'N'),
+('FW19', '제19전투비행단', 3, NOW(), 'seokyun', NULL, NULL, 'N'),
+('FW20', '제20전투비행단', 3, NOW(), 'seokyun', NULL, NULL, 'N'),
+('FG38', '제38전투비행전대', 3, NOW(), 'seokyun', NULL, NULL, 'N'),
+('FW03', '제3훈련비행단', 3, NOW(), 'seokyun', NULL, NULL, 'N'),
+('FW05', '제5공중기동비행단', 3, NOW(), 'seokyun', NULL, NULL, 'N'),
+('FW15', '제15특수임무비행단', 3, NOW(), 'seokyun', NULL, NULL, 'N'),
+('FW39', '제39정찰비행단', 3, NOW(), 'seokyun', NULL, NULL, 'N'),
+('FG06', '제6탐색구조비행전대', 3, NOW(), 'seokyun', NULL, NULL, 'N'),
+('FC01', '공군작전사령부', 3, NOW(), 'seokyun', NULL, NULL, 'N'),
+('FC02', '방공관제사령부', 3, NOW(), 'seokyun', NULL, NULL, 'N'),
+('FC03', '공군미사일방어사령부', 3, NOW(), 'seokyun', NULL, NULL, 'N'),
+('FC04', '공군교육사령부', 3, NOW(), 'seokyun', NULL, NULL, 'N'),
+('FC05', '공군군수사령부', 3, NOW(), 'seokyun', NULL, NULL, 'N'),
+('FC06', '공군본부 및 직할', 3, NOW(), 'seokyun', NULL, NULL, 'N'),
+-- 해병대 (type_id=4)
+('MD01', '해병대 제1사단', 4, NOW(), 'seokyun', NULL, NULL, 'N'),
+('MD02', '해병대 제2사단', 4, NOW(), 'seokyun', NULL, NULL, 'N'),
+('MB06', '제6해병여단', 4, NOW(), 'seokyun', NULL, NULL, 'N'),
+('MB09', '제9해병여단', 4, NOW(), 'seokyun', NULL, NULL, 'N'),
+('MB90', '연평부대', 4, NOW(), 'seokyun', NULL, NULL, 'N'),
+('MC01', '해병대사령부', 4, NOW(), 'seokyun', NULL, NULL, 'N'),
+('MC02', '해병대교육훈련단/군수단', 4, NOW(), 'seokyun', NULL, NULL, 'N');
+
+-- 군종별 "기타" 캐치올 부대 (엑셀 원본 목록에는 없음, 별도 추가)
+-- 목적: 목록에 없는 부대 소속 사용자도 unit_code 값을 갖게 해서 부대별 통계(GROUP BY unit_code)가 가능하도록 함.
+--       unit_name은 화면에서 사용자가 직접 입력한 값으로 덮어써서 보여주고, unit_code만 이 값으로 고정.
+INSERT INTO `military_unit` (`unit_code`, `unit_name`, `type_id`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`) VALUES
+('AETC', '기타', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+('NETC', '기타', 2, NOW(), 'seokyun', NULL, NULL, 'N'),
+('FETC', '기타', 3, NOW(), 'seokyun', NULL, NULL, 'N'),
+('METC', '기타', 4, NOW(), 'seokyun', NULL, NULL, 'N'),
+('OETC', '기타', 5, NOW(), 'seokyun', NULL, NULL, 'N'),
+('EETC', '기타', 6, NOW(), 'seokyun', NULL, NULL, 'N');
+
+
+-- --------------------------------------------------------------------
 --  [석윤] 공통/ 계급(military_rank)
 --  테이블: military_rank
 -- --------------------------------------------------------------------
@@ -70,6 +167,16 @@ INSERT INTO `roadmap_category` (`category_id`, `category_name`, `created_date`, 
 (2, '진로', NOW(), 'seokyun', NULL, NULL, 'N'),
 (3, '자동차', NOW(), 'seokyun', NULL, NULL, 'N'),
 (4, '자취', NOW(), 'seokyun', NULL, NULL, 'N');
+
+
+-- --------------------------------------------------------------------
+--  [호빈] 차량 종류
+--  테이블: car_type
+-- --------------------------------------------------------------------
+INSERT INTO `car_type` (`code`, `name`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`) VALUES
+(1, '경차', NOW(), 'hobin', NULL, NULL, 'N'),
+(2, '준중형', NOW(), 'hobin', NULL, NULL, 'N'),
+(3, 'SUV', NOW(), 'hobin', NULL, NULL, 'N');
 
 
 -- --------------------------------------------------------------------
@@ -181,6 +288,57 @@ INSERT INTO `saving_product`
 (18, 'SAVING', TRUE, '010200100104', '국민은행', 'KB 특★한 적금', '실명의 개인', 1000, 300000, '개인사업자, 임의단체 및\n공동명의 가입 불가\n(1인 최대 3계좌)', 'S', 'F', 3, '항목별 적용 조건 충족시, 최고 연 4.0%p\n① 목표달성 축하 우대이율: 최고 연 1.0%p\n    50만원 이하: 연 0.5%p, 50만원 초과: 연 1.0%p \n② 별 모으기 우대이율 : 최고 연 1.0%p\n    10개: 연 0.5%p, 20개: 연 1.0%p\n③ 함께해요 우대이율: 최고 연 2.0%p', 2.0, 6.0, FALSE, 0.0, 'https://obank.kbstar.com/quics?page=C016613&cc=b061496:b061645&isNew=N&prcode=DP01001566', NOW(), 'seokyun', NULL, NULL, 'N'),
 (19, 'SAVING', TRUE, '010200100104', '국민은행', 'KB 특★한 적금', '실명의 개인', 1000, 300000, '개인사업자, 임의단체 및\n공동명의 가입 불가\n(1인 최대 3계좌)', 'S', 'F', 6, '항목별 적용 조건 충족시, 최고 연 4.0%p\n① 목표달성 축하 우대이율: 최고 연 1.0%p\n    50만원 이하: 연 0.5%p, 50만원 초과: 연 1.0%p \n② 별 모으기 우대이율 : 최고 연 1.0%p\n    10개: 연 0.5%p, 20개: 연 1.0%p\n③ 함께해요 우대이율: 최고 연 2.0%p', 2.0, 6.0, FALSE, 0.0, 'https://obank.kbstar.com/quics?page=C016613&cc=b061496:b061645&isNew=N&prcode=DP01001566', NOW(), 'seokyun', NULL, NULL, 'N'),
 (20, 'SAVING', TRUE, '미확인', '국민은행', 'KB두근두근여행적금', '실명의 개인', 50000, 1000000, '노랑풍선 제휴 상품\n① 1회차 납입 시: 패키지여행 1만원 할인쿠폰 (20만원 이상 결제)\n② 4회차 납입 시: 할인 쿠폰팩 4종\n   - 패키지여행 4% 할인\n   - 호텔 1만원 (15만원 이상)\n   - 항공 5천원 (20만원 이상, 해외 전용)\n   - 액티비티 5천원 (10만원 이상)\n※ 쿠폰 등록기간: 제공일로부터 1개월, 사용기간 최대 2년', 'S', 'S', 6, '① 여행친구 우대이율: 최고 연 0.6%p\n    - 인증번호 제공: 연 0.6%p\n    - 인증번호 입력: 연 0.4%p\n② 오픈뱅킹 우대이율: 연 0.3%p\n③ 자동이체저축 우대이율: 연 0.1%p', 2.65, 3.65, FALSE, 0.0, 'https://obank.kbstar.com/quics?page=C016613&cc=b061496:b061645&isNew=N&prcode=DP01001495', NOW(), 'jotaeseok', NULL, NULL, 'N');
+
+
+-- --------------------------------------------------------------------
+--  [석윤] 공통/ 군적금 상품 만기·중도해지이율(military_saving_product)
+--  테이블: military_saving_product
+--  출처(KB): KB장병내일준비적금 상품설명서(PDF, 준법감시인 심의필 제2026-3282호, 2026.07.21 현재 세전) — 전부 확인, 스크린샷 기반 기존 데이터와 100% 일치
+--  출처(IBK): IBK장병내일준비적금 상품설명서(PDF, 준법감시인 심의필 제2025-8992호, 2026.1.5 현재 세전) — 기본이자율/우대이자율/중도해지이자율(가계우대정기적금 준용) 전부 확인
+--  출처(신한): 신한 장병내일준비적금 상품설명서(PDF, 준법감시인 사전심사필 제2026-13556-1호, 2026.07.24 현재 세전) — 계약기간 4구간(1~6/6~12/12~15/15~24개월), 1~6개월 구간은 우대이율 미적용
+--    ※ gov_match_rate는 PDF에 "3:1 매칭지원금"이라고만 표기(표 없음) — 병역법 시행령상 국가 공통 정책으로 보고 KB/IBK와 동일하게 100 적용, 확인 필요
+--  출처(하나): 하나 장병내일준비적금 상품설명서(PDF, 준법감시인 심의필 제2026-설명서-027호, 2026.03.03 현재 세전) — 중도해지금리가 1~6개월 구간은 고정값(0.10/0.15/0.20%), 6개월 이상만 산식 적용
+-- --------------------------------------------------------------------
+INSERT INTO `military_saving_product`
+(`military_saving_id`, `bank_code`, `product_name`, `min_limit`, `max_limit`, `max_join_month`, `gov_match_rate`, `rate_type`, `value_unit`, `min_value`, `max_value`, `basic_rate`, `max_rate`, `rate_ratio`, `floor_rate`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`) VALUES
+(1, '004', '장병내일준비적금', 1000, 300000, 24, 100.00, 'MATURITY', 'MONTH', 1, 12, 4.0, 9.5, NULL, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
+(2, '004', '장병내일준비적금', 1000, 300000, 24, 100.00, 'MATURITY', 'MONTH', 12, 15, 4.5, 10.0, NULL, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
+(3, '004', '장병내일준비적금', 1000, 300000, 24, 100.00, 'MATURITY', 'MONTH', 15, 24, 5.0, 10.5, NULL, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
+(4, '004', '장병내일준비적금', 1000, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', NULL, 1, NULL, NULL, NULL, 0.1, NOW(), 'seokyun', NULL, NULL, 'N'),
+(5, '004', '장병내일준비적금', 1000, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 1, 3, NULL, NULL, 50, 0.1, NOW(), 'seokyun', NULL, NULL, 'N'),
+(6, '004', '장병내일준비적금', 1000, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 3, 6, NULL, NULL, 50, 0.1, NOW(), 'seokyun', NULL, NULL, 'N'),
+(7, '004', '장병내일준비적금', 1000, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 6, 8, NULL, NULL, 60, 0.2, NOW(), 'seokyun', NULL, NULL, 'N'),
+(8, '004', '장병내일준비적금', 1000, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 8, 10, NULL, NULL, 70, 0.2, NOW(), 'seokyun', NULL, NULL, 'N'),
+(9, '004', '장병내일준비적금', 1000, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 10, 11, NULL, NULL, 80, 0.2, NOW(), 'seokyun', NULL, NULL, 'N'),
+(10, '004', '장병내일준비적금', 1000, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 11, NULL, NULL, NULL, 90, 0.2, NOW(), 'seokyun', NULL, NULL, 'N'),
+(11, '003', '장병내일준비적금', 1000, 300000, 24, 100.00, 'WITHDRAWAL', 'RATIO', NULL, 10, NULL, NULL, 5, 0.1, NOW(), 'seokyun', NULL, NULL, 'N'),
+(12, '003', '장병내일준비적금', 1000, 300000, 24, 100.00, 'WITHDRAWAL', 'RATIO', 10, 20, NULL, NULL, 10, 0.1, NOW(), 'seokyun', NULL, NULL, 'N'),
+(13, '003', '장병내일준비적금', 1000, 300000, 24, 100.00, 'WITHDRAWAL', 'RATIO', 20, 40, NULL, NULL, 20, 0.1, NOW(), 'seokyun', NULL, NULL, 'N'),
+(14, '003', '장병내일준비적금', 1000, 300000, 24, 100.00, 'WITHDRAWAL', 'RATIO', 40, 60, NULL, NULL, 40, 0.1, NOW(), 'seokyun', NULL, NULL, 'N'),
+(15, '003', '장병내일준비적금', 1000, 300000, 24, 100.00, 'WITHDRAWAL', 'RATIO', 60, 80, NULL, NULL, 60, 0.1, NOW(), 'seokyun', NULL, NULL, 'N'),
+(16, '003', '장병내일준비적금', 1000, 300000, 24, 100.00, 'WITHDRAWAL', 'RATIO', 80, NULL, NULL, NULL, 80, 0.1, NOW(), 'seokyun', NULL, NULL, 'N'),
+(17, '003', '장병내일준비적금', 1000, 300000, 24, 100.00, 'MATURITY', 'MONTH', 1, 12, 4.0, 9.2, NULL, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
+(18, '003', '장병내일준비적금', 1000, 300000, 24, 100.00, 'MATURITY', 'MONTH', 12, 15, 4.5, 9.7, NULL, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
+(19, '003', '장병내일준비적금', 1000, 300000, 24, 100.00, 'MATURITY', 'MONTH', 15, 24, 5.0, 10.2, NULL, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
+(20, '088', '장병내일준비적금', NULL, 300000, 24, 100.00, 'MATURITY', 'MONTH', 1, 6, 3.50, 3.50, NULL, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
+(21, '088', '장병내일준비적금', NULL, 300000, 24, 100.00, 'MATURITY', 'MONTH', 6, 12, 4.00, 9.50, NULL, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
+(22, '088', '장병내일준비적금', NULL, 300000, 24, 100.00, 'MATURITY', 'MONTH', 12, 15, 4.50, 10.00, NULL, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
+(23, '088', '장병내일준비적금', NULL, 300000, 24, 100.00, 'MATURITY', 'MONTH', 15, 24, 5.00, 10.50, NULL, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
+(24, '088', '장병내일준비적금', NULL, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', NULL, 1, NULL, NULL, NULL, 0.10, NOW(), 'seokyun', NULL, NULL, 'N'),
+(25, '088', '장병내일준비적금', NULL, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 1, 3, NULL, NULL, 20, 0.10, NOW(), 'seokyun', NULL, NULL, 'N'),
+(26, '088', '장병내일준비적금', NULL, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 3, 6, NULL, NULL, 30, 0.10, NOW(), 'seokyun', NULL, NULL, 'N'),
+(27, '088', '장병내일준비적금', NULL, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 6, 9, NULL, NULL, 70, 0.10, NOW(), 'seokyun', NULL, NULL, 'N'),
+(28, '088', '장병내일준비적금', NULL, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 9, 11, NULL, NULL, 80, 0.10, NOW(), 'seokyun', NULL, NULL, 'N'),
+(29, '088', '장병내일준비적금', NULL, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 11, NULL, NULL, NULL, 90, 0.10, NOW(), 'seokyun', NULL, NULL, 'N'),
+(30, '081', '장병내일준비적금', 10, 300000, 24, 100.00, 'MATURITY', 'MONTH', 1, 12, 3.50, 8.70, NULL, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
+(31, '081', '장병내일준비적금', 10, 300000, 24, 100.00, 'MATURITY', 'MONTH', 12, 15, 4.60, 9.80, NULL, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
+(32, '081', '장병내일준비적금', 10, 300000, 24, 100.00, 'MATURITY', 'MONTH', 15, 24, 5.00, 10.20, NULL, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
+(33, '081', '장병내일준비적금', 10, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', NULL, 1, NULL, NULL, NULL, 0.10, NOW(), 'seokyun', NULL, NULL, 'N'),
+(34, '081', '장병내일준비적금', 10, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 1, 3, NULL, NULL, NULL, 0.15, NOW(), 'seokyun', NULL, NULL, 'N'),
+(35, '081', '장병내일준비적금', 10, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 3, 6, NULL, NULL, NULL, 0.20, NOW(), 'seokyun', NULL, NULL, 'N'),
+(36, '081', '장병내일준비적금', 10, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 6, 9, NULL, NULL, 60, 0.20, NOW(), 'seokyun', NULL, NULL, 'N'),
+(37, '081', '장병내일준비적금', 10, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 9, 11, NULL, NULL, 70, 0.20, NOW(), 'seokyun', NULL, NULL, 'N'),
+(38, '081', '장병내일준비적금', 10, 300000, 24, 100.00, 'WITHDRAWAL', 'MONTH', 11, NULL, NULL, NULL, 90, 0.20, NOW(), 'seokyun', NULL, NULL, 'N');
 
 
 -- --------------------------------------------------------------------
@@ -586,9 +744,8 @@ INSERT INTO prep_item_criteria (prep_crit_id, goal_type, item_type, job_code_id,
 -- --------------------------------------------------------------------
 -- ===== 5. service_criteria (정부 정책 + KB 서비스, 카드 제외) =====
 INSERT INTO service_criteria (svc_crit_id, goal_type, service_type, service_name, service_desc, use_time, info_url, created_date, created_nm, del_yn) VALUES
-(1, 'J01', 'G02', 'KB Pay', '복무 중에도 간편결제로 이용 가능', 'S01', NULL, NOW(), 'jiwon', 'N'),
-(2, 'J01', 'G01', '국민내일배움카드', '직업훈련비 지원', 'S02', NULL, NOW(), 'jiwon', 'N'),
-(3, 'J02', 'G01', '공무원연금 대출제도', '재직 공무원 대상 저리 생활안정자금 대출', 'U02', NULL, NOW(), 'jiwon', 'N'),
+(1, 'J01', 'G02', 'KB Pay', '복무 중에도 간편결제로 이용 가능', 'U01', NULL, NOW(), 'jiwon', 'N'),
+(2, 'J01', 'G01', '국민내일배움카드', '직업훈련비 지원', 'U02', NULL, NOW(), 'jiwon', 'N'),
 (4, 'J02', 'G02', 'KB Pay', '복무 중에도 간편결제로 이용 가능', 'U01', NULL, NOW(), 'jiwon', 'N'),
 (5, 'J03', 'G01', '국가장학금(편입생 대상)', '소득분위별 등록금 지원', 'U03', NULL, NOW(), 'jiwon', 'N'),
 (6, 'J03', 'G02', 'KB Pay', '복무 중에도 간편결제로 이용 가능', 'U01', NULL, NOW(), 'jiwon', 'N');
@@ -848,12 +1005,18 @@ VALUES
 
 -- --------------------------------------------------------------------
 --  [수연] 자취/로드맵 추천 (2명)
---  테이블: rent_goal, rent_goal_region, rent_recommend, loan_recommend
+--  테이블: school, rent_goal, rent_goal_region, rent_recommend, loan_recommend
 -- --------------------------------------------------------------------
+--  학교 마스터 (Mock: 대학알리미 API 전환 전 임시 3건)
+INSERT INTO school (school_id, school_name, school_type, address, sigungu_code, region_code, latitude, longitude, created_date, created_nm, del_yn) VALUES
+(1, '부산대학교', 'UNIVERSITY', '부산광역시 금정구 부산대학로63번길 2', '26410', '2641010100', 35.2339000, 129.0806000, NOW(), 'suyeon', 'N'),
+(2, '부경대학교', 'UNIVERSITY', '부산광역시 남구 용소로 45',        '26290', '2629010100', 35.1336000, 129.1058000, NOW(), 'suyeon', 'N'),
+(3, '서울대학교', 'UNIVERSITY', '서울특별시 관악구 관악로 1',       '11620', '1162010100', 37.4599000, 126.9520000, NOW(), 'suyeon', 'N');
+
 --  월세 목표
-INSERT INTO rent_goal (goal_id, user_id, title, trade_type, estate_type, max_deposit, max_monthly, room_count, expected_fee, residence_term, current_asset, target_date, status, created_date, created_nm, del_yn) VALUES
-(1, 1, '전역 후 부산 자취',   'MONTHLY', 'OFFICETEL', 10000000, 600000, 'ONE', 100000, 'Y1', 20150000, '2026-11-01', 'CONFIRMED', NOW(), 'suyeon', 'N'),
-(2, 2, '전역 후 서울 자취',   'MONTHLY', 'OFFICETEL', 20000000, 900000, 'ONE', 100000, 'Y1', 18800000, '2027-01-01', 'DRAFT',     NOW(), 'suyeon', 'N');
+INSERT INTO rent_goal (goal_id, user_id, title, selection_mode, school_id, commute_radius_km, monthly_budget, residence_preset, residence_months, status, created_date, created_nm, del_yn) VALUES
+(1, 1, '전역 후 부산 자취', 'REGION', NULL, NULL, 700000,  'YEAR', 12, 'CONFIRMED', NOW(), 'suyeon', 'N'),
+(2, 2, '전역 후 서울 자취', 'REGION', NULL, NULL, 1000000, 'YEAR', 12, 'DRAFT',     NOW(), 'suyeon', 'N');
 
 -- 목표별 희망 지역
 INSERT INTO rent_goal_region (region_id, goal_id, region_code, created_date, created_nm, del_yn) VALUES
@@ -1111,19 +1274,5 @@ INSERT INTO job_plan (plan_id, goal_id, item_type, item_name, apply_url, amount,
 (5, 4, 'P01', '토익', 'https://www.ybmnet.co.kr', 26250, NOW(), 'jiwon', 'N'),
 (6, 4, 'P02', '편입경영학 전공 종합반 인강', 'https://www.pmg2000.co.kr', 350000, NOW(), 'jiwon', 'N');
 
-
--- --------------------------------------------------------------------
---  [지원] 진로/정책서비스선택저장(service_selection)
---  테이블: service_selection
--- --------------------------------------------------------------------
--- ===== service_selection 전체 테스트 데이터 (card_id 컬럼 반영) =====
-INSERT INTO service_selection (selection_id, goal_id, svc_crit_id, card_id, created_date, created_nm, modified_date, modified_nm, del_yn) VALUES
-(1, 1, 1,    NULL, NOW(), 'jiwon', NULL, NULL, 'N'),  -- KB Pay (복무 중 이용)
-(2, 1, 2,    NULL, NOW(), 'jiwon', NULL, NULL, 'N'),  -- 국민내일배움카드 (전역 후 신청)
-(3, 3, 3,    NULL, NOW(), 'jiwon', NULL, NULL, 'N'),  -- 공무원연금 대출제도
-(4, 3, 4,    NULL, NOW(), 'jiwon', NULL, NULL, 'N'),  -- KB Pay (J02)
-(5, 4, 5,    NULL, NOW(), 'jiwon', NULL, NULL, 'N'),  -- 국가장학금(편입생 대상)
-(6, 4, 6,    NULL, NOW(), 'jiwon', NULL, NULL, 'N'),  -- KB Pay (J03)
-(7, 1, NULL, 1,    NOW(), 'jiwon', NULL, NULL, 'N');  -- 히어로즈체크카드 선택
 
 SET FOREIGN_KEY_CHECKS = 1;

@@ -34,25 +34,25 @@ defineProps({
 
 /* 진한 국방색 (버튼 활성화 상태와 동일) */
 .base-tag--green {
-  background-color: #536349;
-  color: #ffffff;
+  background-color: var(--military-green);
+  color: var(--surface-default);
 }
 
 /* 연한 국방색 (버튼 비활성화 상태와 동일) */
 .base-tag--green-light {
-  background-color: #e0e6dc;
-  color: #536349;
+  background-color: var(--military-green-light);
+  color: var(--military-green);
 }
 
 /* 옐로우 포인트 컬러 배지용 */
 .base-tag--yellow {
-  background-color: #ffbc00;
-  color: #60584c;
+  background-color: var(--kb-yellow-deep);
+  color: var(--kb-gray);
 }
 
 /* 회색 바탕 배지용 */
 .base-tag--gray {
-  background-color: #f5f5f5;
-  color: #9e9e9e;
+  background-color: var(--gray-pale-bg);
+  color: var(--gray-mid);
 }
 </style>

@@ -16,10 +16,20 @@ export default {
     return api.post(`${BASE_URL}/goals`, request);
   },
 
+  findCurrentGoal() {
+    return api.get(`${BASE_URL}/goals/current`, {
+      timeout: DEFAULT_TIMEOUT,
+    });
+  },
+
+  updateGoal(goalId, request) {
+    return api.patch(`${BASE_URL}/goals/${goalId}`, request);
+  },
+
   createCost(goalId) {
     return api.post(
       `${BASE_URL}/goals/${goalId}/costs`,
-      {},
+      null,
       { timeout: COST_CALCULATION_TIMEOUT },
     );
   },
@@ -44,6 +54,18 @@ export default {
   getSelectedPlaces(goalId) {
     return api.get(`${BASE_URL}/goals/${goalId}/places/selected`, {
       timeout: DEFAULT_TIMEOUT,
+    });
+  },
+
+  findPackages(goalId) {
+    return api.get(`${BASE_URL}/goals/${goalId}/packages`, {
+      timeout: DEFAULT_TIMEOUT,
+    });
+  },
+
+  updatePackage(goalId, packageId) {
+    return api.patch(`${BASE_URL}/goals/${goalId}/package`, {
+      packageId,
     });
   },
 };

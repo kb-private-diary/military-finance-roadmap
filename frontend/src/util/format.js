@@ -10,6 +10,21 @@ export const formatWon = (amount) => `${(amount ?? 0).toLocaleString('ko-KR')}�
 export const formatManwon = (amount) =>
   `${Math.round((amount ?? 0) / 10000).toLocaleString('ko-KR')}만원`;
 
+// ── 금액 입력창 (실시간 콤마 포맷) ──────────────────────────────
+// 타이핑 중 표시용: 숫자 아닌 문자 제거 + 3자리 콤마  →  formatAmountInput('1200000') === "1,200,000"
+// input type="text"에 v-model로 바로 물릴 표시값을 만들 때 사용 (숫자/커서 관리는 BaseInput의 amount 타입이 담당).
+export const formatAmountInput = (value) => {
+  const digitsOnly = String(value ?? '').replace(/[^0-9]/g, '');
+  if (!digitsOnly) return '';
+  return Number(digitsOnly).toLocaleString('ko-KR');
+};
+
+// 저장/전송용: 콤마 섞인 표시값 → 순수 숫자  →  parseAmountInput('1,200,000') === 1200000
+export const parseAmountInput = (value) => {
+  const digitsOnly = String(value ?? '').replace(/[^0-9]/g, '');
+  return digitsOnly ? Number(digitsOnly) : 0;
+};
+
 // ── 날짜 ──────────────────────────────────────────────────────
 // 화면 표시용: 점 구분  →  formatDate('2026-07-23') === "2026.07.23"
 // (데이터/전송은 ISO 'YYYY-MM-DD' 그대로 두고, 보여줄 때만 이걸로 변환)

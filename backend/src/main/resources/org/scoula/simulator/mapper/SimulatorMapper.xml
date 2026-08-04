@@ -9,7 +9,7 @@
     </select>
 
     <select id="findAccountListByUserId" resultType="org.scoula.simulator.dto.SimulatorSavingAccountDTO">
-        SELECT account_id, monthly_save, created_date
+        SELECT account_id, bank_code, monthly_save, created_date
         FROM saving_account
         WHERE user_id = #{userId} AND del_yn = 'N'
     </select>

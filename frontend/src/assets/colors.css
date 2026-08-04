@@ -22,6 +22,14 @@
   --line: #e0e0e0;
   --line-strong: #d0d0d0;
 
+  /* 여행 로드맵 */
+  --travel-primary: #657052;
+  --travel-primary-dark: #293020;
+  --travel-accent-line: #bdaf8d;
+  --surface-default: #ffffff;
+  --surface-subtle: #f7f7f8;
+  --surface-muted: #ececec;
+
   /* 차트 4색. 도넛과 프로그래스 바가 같은 순서로 쓴다. */
   --chart-1: #6e5f52;
   --chart-2: #b39d89;
@@ -32,4 +40,38 @@
   --surface-cream: #fbf8ee;
   /* 챗봇 만족도 설문(만족) 강조색 - 긍정 상태 전용, danger(부정)와 대응 */
   --mood-positive: #4caf7d;
+
+  /* KB 골드 (BaseInput underline/dropdown 밑줄, 강조 텍스트) */
+  --kb-gold: #85714d; /* KB Gold (Pantone 872 C) */
+  --kb-yellow-pale: #fff9e6; /* KB 연한 노란색 — 드롭다운 hover/selected 배경 */
+  --brand-gold: #a9895a; /* 브랜드 골드 톤 — 예상 수령액 등 강조 텍스트 */
+
+  /* 국방색 (BaseTag 활성 배지) */
+  --military-green: #536349;
+  --military-green-light: #e0e6dc;
+
+  /* 회색 계열 (비활성 배경·보조 텍스트) */
+  --gray-pale-bg: #f5f5f5; /* 비활성 배경 (CategoryButton·BaseTag 등) */
+  --gray-mid: #9e9e9e; /* 보조 텍스트·아이콘·비활성 텍스트 */
+  --gray-track: #d9d9d9; /* ToggleSwitch 비활성 트랙 */
+  --gray-track-light: #e5e5e5; /* ToggleSwitch inner 트랙 배경 */
+  --placeholder: #bdbdbd; /* 인풋 placeholder */
+  --dropdown-border: #eeeeee;
+
+  /* 포커스 링 · 그림자 */
+  --focus-ring-yellow: rgba(255, 179, 0, 0.15);
+  --focus-ring-yellow-strong: rgba(255, 179, 0, 0.4);
+  --shadow-thumb: rgba(0, 0, 0, 0.2);
+  --shadow-dropdown: rgba(0, 0, 0, 0.08);
+
+  /* CategoryButton 파스텔 계열 (variant별 고유 색) */
+  --brown-pale-bg: #f1ede1;
+  --brown-text: #8d6e52;
+  --brown-active-bg: #c9a97a;
+  --pastel-inactive-bg: #c2c2c2;
+  --pastel-purple: #e2b2fe;
+  --pastel-blue: #5bc3ff;
+  --pastel-yellow: #fbd55b;
+  --pastel-green: #9cd495;
+  --pastel-pink: #f8a5a5;
 }
