@@ -1,8 +1,8 @@
 package org.scoula.openbanking.service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -93,7 +93,7 @@ public class OpenBankingServiceImpl implements OpenBankingService {
         List<AccountInfo> allAccounts = client.getAccounts(token.getAccessToken(), token.getUserSeqNo());
 
         // 토큰 만료일시 = 현재 + expiresIn(초)
-        Date expiresAt = new Date(System.currentTimeMillis() + token.getExpiresIn() * 1000L);
+        LocalDateTime expiresAt = LocalDateTime.now().plusSeconds(token.getExpiresIn());
         String actor = String.valueOf(userId);
 
         // 3. 선택된 계좌만 연동 저장
