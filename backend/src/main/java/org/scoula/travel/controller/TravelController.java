@@ -29,6 +29,8 @@ import org.scoula.travel.dto.TravelPlaceSelectionDTO;
 import org.scoula.travel.dto.TravelPlacesUpdateRequestDTO;
 import org.scoula.travel.dto.TravelPackageResponseDTO;
 import org.scoula.travel.dto.TravelPackageUpdateRequestDTO;
+import org.scoula.travel.dto.TravelProductRecommendationResponseDTO;
+import org.scoula.travel.dto.TravelProductsUpdateRequestDTO;
 import org.scoula.travel.service.TravelService;
 
 // 여행 로드맵 REST 컨트롤러
@@ -53,7 +55,7 @@ public class TravelController {
     @PostMapping("/goals")
     @ApiOperation(value = "여행 목표 등록",
             notes = "여행 조건(기간·스타일·예산)만 저장하고 생성된 goalId 를 반환한다. "
-                    + "places 는 step3, benefits 는 step4 에서 갱신한다.")
+                    + "places 는 step3, products 는 step4 에서 갱신한다.")
     public ResponseEntity<ApiResponse<Long>> createGoal(
             @RequestBody TravelGoalCreateRequestDTO request) {
         Long goalId = this.service.createGoal(request);
@@ -151,6 +153,39 @@ public class TravelController {
             @PathVariable final Long goalId,
             @RequestBody final TravelPackageUpdateRequestDTO request) {
         this.service.updatePackage(goalId, request);
+        return ResponseEntity.ok(ApiResponse.success());
+    }
+
+    @GetMapping("/goals/{goalId}/products")
+    @ApiOperation(
+            value = "여행 금융상품 추천 조회",
+            notes = "여행 카테고리 카드, 판매 중인 적금, 여행자보험을 "
+                    + "조회하고 기존 관심 상품 선택 상태를 함께 반환한다.")
+    public ResponseEntity<ApiResponse<
+            TravelProductRecommendationResponseDTO>> findProducts(
+            @PathVariable final Long goalId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                this.service.findProducts(goalId)));
+    }
+
+    @PatchMapping("/goals/{goalId}/products")
+    @ApiOperation(
+            value = "관심 금융상품 저장",
+            notes = "사용자가 선택한 금융상품을 여행 목표의 JSON 목록으로 저장한다.")
+    public ResponseEntity<ApiResponse<Void>> updateProducts(
+            @PathVariable final Long goalId,
+            @RequestBody final TravelProductsUpdateRequestDTO request) {
+        this.service.updateProducts(goalId, request);
+        return ResponseEntity.ok(ApiResponse.success());
+    }
+
+    @PostMapping("/goals/{goalId}/confirm")
+    @ApiOperation(
+            value = "여행 로드맵 저장",
+            notes = "관심 금융상품 저장을 마친 목표를 DRAFT에서 CONFIRMED로 전환한다.")
+    public ResponseEntity<ApiResponse<Void>> confirmGoal(
+            @PathVariable final Long goalId) {
+        this.service.confirmGoal(goalId);
         return ResponseEntity.ok(ApiResponse.success());
     }
 
