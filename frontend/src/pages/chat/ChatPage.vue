@@ -200,6 +200,9 @@ const feedbackSubmitting = ref(false);
 const MIN_LANDING_MS = 500;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// 봇 응답 전 "타이핑 중" 딜레이 - 되묻기 흐름 곳곳에서 반복 사용
+const TYPING_DELAY_MS = 700;
+
 const todayLabel = () => {
   const d = new Date();
   const weekday = ['일', '월', '화', '수', '목', '금', '토'][d.getDay()];
@@ -300,7 +303,7 @@ const showAllProducts = () => {
         FIRST_MENU_ITEM,
       ],
     });
-  }, 700);
+  }, TYPING_DELAY_MS);
 };
 
 /* 실시간 은행 상품(FSS 예적금/청약홈/펀드) - 카테고리별로 목록을 받아와서 최대 8개까지 보여준다.
@@ -395,7 +398,7 @@ const showAllFeatures = () => {
       text: '어떤 기능을 살펴보고 싶으신가요?',
       menu: [...ALL_FEATURES.map((f) => ({ label: f.label, onClick: () => goTo(f.to) })), FIRST_MENU_ITEM],
     });
-  }, 700);
+  }, TYPING_DELAY_MS);
 };
 
 const openGlossary = async () => {
@@ -486,7 +489,7 @@ const openCounsel = () => {
   setTimeout(() => {
     typing.value = false;
     startCounsel();
-  }, 700);
+  }, TYPING_DELAY_MS);
 };
 
 const startCounsel = () => {
@@ -513,7 +516,7 @@ const askGoal = (goal, { announce = true } = {}) => {
         menu: [{ label: rentLink.label, onClick: () => goTo(rentLink.to) }, FIRST_MENU_ITEM],
       });
       panel.value = 'actions';
-    }, 700);
+    }, TYPING_DELAY_MS);
     return;
   }
 
@@ -531,7 +534,7 @@ const askGoal = (goal, { announce = true } = {}) => {
         ],
       });
       panel.value = 'actions';
-    }, 700);
+    }, TYPING_DELAY_MS);
     return;
   }
 
@@ -541,7 +544,7 @@ const askGoal = (goal, { announce = true } = {}) => {
     setTimeout(() => {
       typing.value = false;
       askPeriod();
-    }, 700);
+    }, TYPING_DELAY_MS);
     return;
   }
 
@@ -565,7 +568,7 @@ const askSavingsMethod = () => {
         { label: '목표부터 정하기', onClick: () => chooseSavingsMethod('목표부터 정하기') },
       ],
     });
-  }, 700);
+  }, TYPING_DELAY_MS);
 };
 
 const chooseSavingsMethod = (method) => {
@@ -577,7 +580,7 @@ const chooseSavingsMethod = (method) => {
     setTimeout(() => {
       typing.value = false;
       askPeriod();
-    }, 700);
+    }, TYPING_DELAY_MS);
     return;
   }
 
@@ -586,7 +589,7 @@ const chooseSavingsMethod = (method) => {
       typing.value = false;
       await showProductCategoryList('deposit', '예금');
       panel.value = 'actions';
-    }, 700);
+    }, TYPING_DELAY_MS);
     return;
   }
 
@@ -594,7 +597,7 @@ const chooseSavingsMethod = (method) => {
     setTimeout(() => {
       typing.value = false;
       askGoalTarget();
-    }, 700);
+    }, TYPING_DELAY_MS);
     return;
   }
 
@@ -603,7 +606,7 @@ const chooseSavingsMethod = (method) => {
     typing.value = false;
     pushBot({ text: '한 달에 얼마씩 저축하실 수 있으세요? 숫자로 입력해주세요. (예: 30만원, 300000)' });
     counselInputHandler.value = handleMonthlyAmountInput;
-  }, 700);
+  }, TYPING_DELAY_MS);
 };
 
 const askGoalTarget = () => {
@@ -624,7 +627,7 @@ const confirmGoalTarget = (navItem) => {
       menu: [{ label: navItem.label, onClick: () => goTo(navItem.to) }, FIRST_MENU_ITEM],
     });
     panel.value = 'actions';
-  }, 700);
+  }, TYPING_DELAY_MS);
 };
 
 // "30만원", "300000", "300,000원" 형태를 원 단위 숫자로 변환. 못 알아들으면 null.
@@ -697,7 +700,7 @@ const askType = (period) => {
         onClick: () => finishCounsel(period, t),
       })),
     });
-  }, 700);
+  }, TYPING_DELAY_MS);
 };
 
 const finishCounsel = async (period, type) => {
