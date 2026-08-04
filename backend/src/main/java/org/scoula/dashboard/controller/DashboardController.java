@@ -1,10 +1,14 @@
 package org.scoula.dashboard.controller;
 
+import javax.validation.Valid;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -14,6 +18,7 @@ import lombok.extern.log4j.Log4j2;
 import org.scoula.common.response.ApiResponse;
 import org.scoula.dashboard.dto.DashboardBasicResponseDTO;
 import org.scoula.dashboard.dto.DashboardSavingsResponseDTO;
+import org.scoula.dashboard.dto.DashboardVacationCreateRequestDTO;
 import org.scoula.dashboard.dto.DashboardVacationDetailResponseDTO;
 import org.scoula.dashboard.dto.DashboardVacationListResponseDTO;
 import org.scoula.dashboard.service.DashboardService;
@@ -76,5 +81,18 @@ public class DashboardController {
                 this.service.findVacationDetail(userId, vacationId);
 
         return ResponseEntity.ok(ApiResponse.success(dto));
+    }
+
+    // DASH-API-06: 휴가 등록
+    @PostMapping("/vacations")
+    public ResponseEntity<ApiResponse<Long>> createVacation(
+            @AuthenticationPrincipal CustomUser customUser,
+            @Valid @RequestBody DashboardVacationCreateRequestDTO request
+    ) {
+        Long userId = customUser.getMember().getId();
+        log.info("Creating vacation for userId: {}", userId);
+        Long vacationId = this.service.createVacation(userId, customUser.getUsername(), request);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(vacationId));
     }
 }

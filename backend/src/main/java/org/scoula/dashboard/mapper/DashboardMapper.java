@@ -34,4 +34,7 @@ public interface DashboardMapper {
 
     // 휴가 단건 조회 (DASH-API-05). userId로 소유권까지 같이 검증
     VacationVO findVacationById(@Param("vacationId") Long vacationId, @Param("userId") Long userId);
+
+    // 휴가 등록 (DASH-API-06). insert 후 vo.vacationId에 생성된 id가 채워진다
+    void insertVacation(VacationVO vo);
 }
