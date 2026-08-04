@@ -9,7 +9,7 @@ import javax.validation.constraints.Positive;
 import lombok.Data;
 
 /**
- * 자취 목표 등록 요청 DTO. 화면(step1)에서 보내는 값만 담는다.
+ * 자취 목표 등록 요청 DTO - 화면(step1)에서 보내는 값만 담음
  * (goalId·status·residenceMonths·감사컬럼 등은 서버가 채우므로 여기 없음)
  *
  * <p>검증 역할 분담:
