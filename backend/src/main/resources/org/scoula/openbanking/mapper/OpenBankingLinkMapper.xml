@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.scoula.openbanking.mapper.OpenBankingLinkMapper">
+
+    <!-- 회원 입대일 조회 (신규회원 적금 개설일 보정용) user 테이블은 member/석윤 소유, 조회만 함 -->
+    <select id="findEnlistDateByUserId" parameterType="long" resultType="java.time.LocalDate">
+        SELECT enlist_date
+          FROM `user`
+         WHERE id = #{userId}
+           AND del_yn = 'N'
+    </select>
+
+    <!--
+      연동 1건 저장 (선택된 계좌마다) fintech_use_num이 UNIQUE라, 예전에 연동 해제(del_yn='Y')됐던
+      계좌를 다시 연동하면 INSERT가 UNIQUE 충돌을 냄, 그래서 UPSERT(ON DUPLICATE KEY UPDATE)로
+      "있으면 되살린다"(del_yn='N' + 토큰 갱신) 처리
+      (활성 연동 중복은 Service의 countByFintechUseNum 체크가 먼저 409로 막으므로 여기 도달 안 함)
+    -->
+    <insert id="insertLink" parameterType="org.scoula.openbanking.domain.OpenBankingLinkVO"
+            useGeneratedKeys="true" keyProperty="linkId">
+        INSERT INTO openbanking_link
+            (user_id, access_token, refresh_token, fintech_use_num, bank_code,
+             account_id, account_num_masked, expires_at,
+             created_date, created_nm, del_yn)
+        VALUES
+            (#{userId}, #{accessToken}, #{refreshToken}, #{fintechUseNum}, #{bankCode},
+             #{accountId}, #{accountNumMasked}, #{expiresAt},
+             NOW(), #{createdNm}, 'N')
+        ON DUPLICATE KEY UPDATE
+            user_id            = VALUES(user_id),
+            access_token       = VALUES(access_token),
+            refresh_token      = VALUES(refresh_token),
+            bank_code          = VALUES(bank_code),
+            account_id         = VALUES(account_id),
+            account_num_masked = VALUES(account_num_masked),
+            expires_at         = VALUES(expires_at),
+            modified_date      = NOW(),
+            modified_nm        = VALUES(created_nm),
+            del_yn             = 'N'
+    </insert>
+
+    <!-- 회원의 유효한 연동 목록 (snake_case ↔ camelCase 자동 매핑) -->
+    <select id="findByUserId" parameterType="long"
+            resultType="org.scoula.openbanking.domain.OpenBankingLinkVO">
+        SELECT link_id, user_id, access_token, refresh_token, fintech_use_num, bank_code,
+               account_id, account_num_masked, expires_at,
+               created_date, created_nm, modified_date, modified_nm, del_yn
+          FROM openbanking_link
+         WHERE user_id = #{userId}
+           AND del_yn = 'N'
+         ORDER BY link_id
+    </select>
+
+    <!-- 온보딩 체크: 회원의 유효 연동 건수 (0이면 미연동) -->
+    <select id="countByUserId" parameterType="long" resultType="int">
+        SELECT COUNT(*)
+          FROM openbanking_link
+         WHERE user_id = #{userId}
+           AND del_yn = 'N'
+    </select>
+
+    <!-- 중복 연동 방지: 핀테크이용번호 유효 건수 (0이면 신규) -->
+    <select id="countByFintechUseNum" parameterType="string" resultType="int">
+        SELECT COUNT(*)
+          FROM openbanking_link
+         WHERE fintech_use_num = #{fintechUseNum}
+           AND del_yn = 'N'
+    </select>
+
+    <!-- 회원의 모든 연동 소프트 삭제 (del_yn='Y', 삭제자·삭제일시 기록) -->
+    <update id="softDeleteByUserId">
+        UPDATE openbanking_link
+           SET del_yn = 'Y',
+               modified_date = NOW(),
+               modified_nm = #{actor}
+         WHERE user_id = #{userId}
+           AND del_yn = 'N'
+    </update>
+
+</mapper>
