@@ -30,6 +30,7 @@ class MessageItem(CamelModel):
     source: Optional[str]
     source_detail: Optional[str] = None
     is_ai_generated: bool = False
+    intent: Optional[str] = None
     created_date: datetime
 
 

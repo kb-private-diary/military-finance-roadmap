@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.scoula.openbanking.mapper.SpendingMapper">
+
+    <!-- 가맹점명이 keyword를 포함하면 그 카테고리 반환, 여러 개면 priority 높은 것 1개 -->
+    <select id="findCategoryByMerchant" parameterType="string" resultType="string">
+        SELECT category
+          FROM merchant_category
+         WHERE #{merchantName} LIKE CONCAT('%', keyword, '%')
+           AND del_yn = 'N'
+         ORDER BY priority DESC
+         LIMIT 1
+    </select>
+
+    <!-- 지출 여러 건 일괄 INSERT (거래내역 동기화 결과) -->
+    <insert id="insertSpendings" parameterType="list">
+        INSERT INTO spending
+            (user_id, merchant_name, category, amount, spent_at,
+             created_date, created_nm, del_yn)
+        VALUES
+        <foreach collection="list" item="s" separator=",">
+            (#{s.userId}, #{s.merchantName}, #{s.category}, #{s.amount}, #{s.spentAt},
+             NOW(), #{s.createdNm}, 'N')
+        </foreach>
+    </insert>
+
+</mapper>

@@ -40,4 +40,14 @@ export default {
   getRecommendations(messageId) {
     return api.get(`${BASE_URL}/messages/${messageId}/recommendations`);
   },
+
+  listProducts(category) {
+    return api.get(`${BASE_URL}/products`, { params: category ? { category } : undefined });
+  },
+
+  getProduct(name, category) {
+    return api.get(`${BASE_URL}/products/${encodeURIComponent(name)}`, {
+      params: category ? { category } : undefined,
+    });
+  },
 };
