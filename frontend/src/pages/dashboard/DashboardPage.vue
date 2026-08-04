@@ -89,7 +89,10 @@ const goAddVacation = () => router.push({ name: 'VacationEdit' });
 
 const goVacationDetail = (item) => {
   if (item.category === 'REGULAR') {
-    router.push({ name: 'VacationRegular' });
+    router.push({
+      name: 'VacationRegular',
+      query: { vacationId: item.vacationId },
+    });
   } else {
     router.push({
       name: 'VacationEdit',
@@ -102,7 +105,10 @@ const goVacationDetail = (item) => {
 // 원클릭 토글이 아니라 VacationRegularPage로 보낸다. 그 외 카테고리만 즉시 isUsed 처리.
 const toggleVacationUsed = async (item) => {
   if (item.category === 'REGULAR') {
-    router.push({ name: 'VacationRegular' });
+    router.push({
+      name: 'VacationRegular',
+      query: { vacationId: item.vacationId },
+    });
     return;
   }
   try {
