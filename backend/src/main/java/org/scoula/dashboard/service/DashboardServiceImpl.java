@@ -225,8 +225,12 @@ public class DashboardServiceImpl implements DashboardService {
         for (VacationVO usage : groups.regularUsages) {
             usages.add(DashboardVacationUsageDTO.of(usage));
         }
-        // "1차/2차..." 이름 순서와 맞도록 사용내역은 획득일 오름차순(오래된 것부터)으로 보여준다.
+        // 획득일 오름차순(오래된 것부터)으로 정렬 후, 그 순서를 기준으로 "N차"를 매 조회마다
+        // 새로 매긴다. 저장된 이름을 그대로 쓰면 중간 차수를 삭제했을 때 번호가 중복될 수 있다.
         usages.sort(Comparator.comparing(DashboardVacationUsageDTO::getAcquiredDate));
+        for (int i = 0; i < usages.size(); i++) {
+            usages.get(i).setName((i + 1) + "차 정기휴가");
+        }
 
         int usedDays = this.sumDays(groups.regularUsages);
         int remainingDays = this.dayCountOf(vacation) - usedDays;
@@ -250,8 +254,9 @@ public class DashboardServiceImpl implements DashboardService {
         if (isRegular) {
             // REGULAR로 등록하는 건 전부 사용내역이다 (마스터는 이미 시드로 존재, 여기선 안 만듦).
             // name/acquiredDate/isUsed는 프론트가 안 보내므로 서버가 자동으로 채운다.
-            int usageCount = this.validateAndCountRegularUsage(userId, request.getDays());
-            name = (usageCount + 1) + "차 정기휴가";
+            // 저장되는 이름 자체는 의미 없다 - 상세 조회 시 정렬 순서 기준으로 "N차"를 동적으로 매긴다.
+            this.validateRegularUsage(userId, request.getDays());
+            name = "정기휴가 사용";
             acquiredDate = LocalDate.now();
             isUsed = true;
         } else {
@@ -332,8 +337,8 @@ public class DashboardServiceImpl implements DashboardService {
         }
     }
 
-    // REGULAR 사용내역 등록 검증(잔여일수 초과 확인) + 기존 사용내역 개수(차수 이름용) 반환
-    private int validateAndCountRegularUsage(Long userId, Integer requestedDays) {
+    // REGULAR 사용내역 등록 검증(잔여일수 초과 확인)
+    private void validateRegularUsage(Long userId, Integer requestedDays) {
         List<VacationVO> vacations = this.mapper.findVacationListByUserId(userId);
         VacationGroups groups = this.groupVacations(vacations);
 
@@ -346,8 +351,6 @@ public class DashboardServiceImpl implements DashboardService {
         if (requestedDays > remainingDays) {
             throw BusinessException.badRequest("정기휴가 잔여일수를 초과했습니다.", "DASH_005");
         }
-
-        return groups.regularUsages.size();
     }
 
     // vacations를 REGULAR 마스터/REGULAR 사용내역/그 외 카테고리로 분류한다.
