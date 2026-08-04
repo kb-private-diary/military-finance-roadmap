@@ -87,6 +87,9 @@ dependencies {
     implementation 'io.springfox:springfox-swagger2:2.9.2'
     implementation 'io.springfox:springfox-swagger-ui:2.9.2'
 
+    // 웹푸시 (VAPID 서명/암호화 처리)
+    implementation 'nl.martijndwars:web-push:5.1.1'
+
 
 // 테스트
     testImplementation "org.springframework:spring-test:${springVersion}"
