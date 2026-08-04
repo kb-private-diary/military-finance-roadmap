@@ -63,25 +63,6 @@
         LIMIT 20
     </select>
 
-    <!-- 진행률 단계 UPSERT: 같은 (goal_id, step_code) 가 있으면 UPDATE, 없으면 INSERT -->
-    <insert id="upsertProgress">
-        INSERT INTO rent_progress (goal_id, step_code, is_completed, completed_date, created_date, created_nm, del_yn)
-        VALUES (#{goalId}, #{stepCode}, #{isCompleted}, #{completedDate}, NOW(), #{createdNm}, 'N')
-        ON DUPLICATE KEY UPDATE
-            is_completed  = #{isCompleted},
-            completed_date = #{completedDate},
-            modified_date = NOW(),
-            modified_nm   = #{createdNm}
-    </insert>
-
-    <!-- 목표의 진행 단계 목록 (진행률 계산·표시용) -->
-    <select id="findProgressListByGoalId" resultType="org.scoula.rent.domain.RentProgressVO">
-        SELECT progress_id, goal_id, step_code, is_completed, completed_date
-        FROM rent_progress
-        WHERE goal_id = #{goalId}
-          AND del_yn = 'N'
-    </select>
-
     <!-- 목표 단건 조회 (상세) -->
     <select id="findGoalById" resultType="org.scoula.rent.domain.RentGoalVO">
         SELECT goal_id, user_id, title, selection_mode, school_id, commute_radius_km,
@@ -101,21 +82,22 @@
           AND del_yn = 'N'
     </update>
 
-    <!-- 목표 상태 변경 (로드맵 저장: DRAFT → CONFIRMED) -->
-    <update id="updateGoalStatus">
-        UPDATE rent_goal
-        SET status = #{status}, modified_date = NOW(), modified_nm = #{modifiedNm}
-        WHERE goal_id = #{goalId}
-          AND del_yn = 'N'
-    </update>
+    <!-- 목표의 희망 지역 법정동코드 목록 (REGION 모드 매물 조회용) -->
+    <select id="findRegionCodesByGoalId" parameterType="long" resultType="string">
+        SELECT region_code
+          FROM rent_goal_region
+         WHERE goal_id = #{goalId}
+           AND del_yn = 'N'
+    </select>
 
-    <!-- 기존 CONFIRMED 목표를 ARCHIVED 로 보관 (회원당 CONFIRMED 1건 유지) -->
-    <update id="archiveConfirmedGoalByUserId">
-        UPDATE rent_goal
-        SET status = 'ARCHIVED', modified_date = NOW(), modified_nm = #{modifiedNm}
-        WHERE user_id = #{userId}
-          AND status = 'CONFIRMED'
-          AND del_yn = 'N'
-    </update>
+    <!-- 시군구코드 + 법정동명 → 법정동코드 (매물 적재 시 region_code 채우기) -->
+    <select id="findRegionCodeBySigunguAndUmd" resultType="string">
+        SELECT region_code
+          FROM region_code
+         WHERE sigungu_code = #{sigunguCode}
+           AND umd_name = #{umdName}
+           AND del_yn = 'N'
+         LIMIT 1
+    </select>
 
 </mapper>

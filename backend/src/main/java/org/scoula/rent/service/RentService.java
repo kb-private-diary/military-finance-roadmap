@@ -3,8 +3,9 @@ package org.scoula.rent.service;
 import org.scoula.rent.dto.RegionResponseDTO;
 import org.scoula.rent.dto.RentGoalCreateRequestDTO;
 import org.scoula.rent.dto.SchoolSearchResponseDTO;
-import org.scoula.rent.dto.ProgressUpdateRequestDTO;
 import org.scoula.rent.dto.RentGoalDetailResponseDTO;
+import org.scoula.rent.dto.RentListingResponseDTO;
+import org.scoula.rent.dto.RentListingDetailResponseDTO;
 import java.util.List;
 
 public interface RentService {
@@ -16,12 +17,12 @@ public interface RentService {
     // 학교 검색 (자동완성)
     List<SchoolSearchResponseDTO> findSchools(String keyword);
 
-    // 진행률 단계 수정 (UPSERT) → 갱신된 진행률(%) 반환
-    int updateProgress(Long goalId, ProgressUpdateRequestDTO request, Long userId);
-
-    // 목표 상세 조회 (목표 정보 + 진행률 5단계)
+    // 목표 상세 조회 (목표 정보)
     RentGoalDetailResponseDTO findGoal(Long goalId);
 
-    // 로드맵 저장 (DRAFT → CONFIRMED + SAVE_GOAL 자동 완료)
-    void confirmGoal(Long goalId, Long userId);
+    // 조건 매칭 매물 리스트 (Step2)
+    List<RentListingResponseDTO> findListings(Long goalId);
+
+    // 매물 상세 (Step3)
+    RentListingDetailResponseDTO findListingDetail(Long listingId);
 }
