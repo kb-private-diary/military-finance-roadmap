@@ -2,6 +2,8 @@ package org.scoula.dashboard.service;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -16,17 +18,25 @@ import org.scoula.saving.util.MilitarySavingRateResolver;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 
+import org.scoula.dashboard.domain.VacationVO;
 import org.scoula.dashboard.dto.DashboardBasicResponseDTO;
 // openbanking 패키지에서 VO 객체 import (향후 교체)
 import org.scoula.dashboard.dto.DashboardSavingAccountDTO;
 import org.scoula.dashboard.dto.DashboardSavingHistoryDTO;
 import org.scoula.dashboard.dto.DashboardSavingsResponseDTO;
+import org.scoula.dashboard.dto.DashboardVacationDetailResponseDTO;
+import org.scoula.dashboard.dto.DashboardVacationItemDTO;
+import org.scoula.dashboard.dto.DashboardVacationListResponseDTO;
+import org.scoula.dashboard.dto.DashboardVacationUsageDTO;
 import org.scoula.dashboard.mapper.DashboardMapper;
 
 @Service
 @RequiredArgsConstructor
 @Log4j2
 public class DashboardServiceImpl implements DashboardService {
+    // 정기휴가(연가) 카테고리 코드. 마스터(부여) 행 하나 + 사용내역 행 여러 개로 관리된다.
+    private static final String CATEGORY_REGULAR = "REGULAR";
+
     // DashboardSavingAccountDTO account -> SavingAccountVO account 교체
     // VO getter 가 같은지 확인 필요(getCreatedDate(), getMonthlySave() 등)
     private final DashboardMapper mapper;
@@ -148,5 +158,97 @@ public class DashboardServiceImpl implements DashboardService {
         }
         
         return new DashboardSavingsResponseDTO(currentTotalSavings, expectedMaturityTotal);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public DashboardVacationListResponseDTO findVacations(Long userId) {
+        List<VacationVO> vacations = this.mapper.findVacationListByUserId(userId);
+
+        VacationVO regularMaster = null;
+        int regularUsedDays = 0;
+        int totalDays = 0;
+        int usedDays = 0;
+        List<DashboardVacationItemDTO> items = new ArrayList<>();
+
+        for (VacationVO vacation : vacations) {
+            int days = this.dayCountOf(vacation);
+            if (this.isRegularUsage(vacation)) {
+                // REGULAR 사용내역은 마스터의 days 안에 이미 포함된 몫이라 totalDays엔 더하지 않는다.
+                regularUsedDays += days;
+                usedDays += days;
+            } else if (this.isRegularMaster(vacation)) {
+                regularMaster = vacation;
+                totalDays += days;
+            } else {
+                totalDays += days;
+                if (Boolean.TRUE.equals(vacation.getVacationState())) {
+                    usedDays += days;
+                }
+                items.add(DashboardVacationItemDTO.of(vacation));
+            }
+        }
+
+        // 사용완료(isUsed=true) 카드는 뒤로. 안정정렬이라 같은 isUsed 안에서는 위에서 쌓인
+        // 획득일 최신순이 그대로 유지된다.
+        items.sort(Comparator.comparing(DashboardVacationItemDTO::getIsUsed));
+
+        int regularRemainingDays = regularMaster != null
+                ? regularMaster.getVacationDay() - regularUsedDays
+                : 0;
+        if (regularMaster != null) {
+            items.add(0,
+                    DashboardVacationItemDTO.ofRegularMaster(regularMaster, regularRemainingDays));
+        }
+
+        return DashboardVacationListResponseDTO.builder()
+                .totalDays(totalDays)
+                .usedDays(usedDays)
+                .remainingDays(totalDays - usedDays)
+                .vacations(items)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public DashboardVacationDetailResponseDTO findVacationDetail(Long userId, Long vacationId) {
+        VacationVO vacation = this.mapper.findVacationById(vacationId, userId);
+        if (vacation == null) {
+            throw BusinessException.notFound("휴가 정보를 찾을 수 없습니다.", "DASH_003");
+        }
+
+        if (!this.isRegularMaster(vacation)) {
+            return DashboardVacationDetailResponseDTO.of(vacation, null, null);
+        }
+
+        // REGULAR 마스터 상세는 사용내역 목록(1차/2차...)까지 같이 내려줘야 등록·삭제 화면을 그릴 수 있다.
+        List<VacationVO> vacations = this.mapper.findVacationListByUserId(userId);
+        List<DashboardVacationUsageDTO> usages = new ArrayList<>();
+        int usedDays = 0;
+        for (VacationVO v : vacations) {
+            if (this.isRegularUsage(v)) {
+                usedDays += this.dayCountOf(v);
+                usages.add(DashboardVacationUsageDTO.of(v));
+            }
+        }
+        // "1차/2차..." 이름 순서와 맞도록 사용내역은 획득일 오름차순(오래된 것부터)으로 보여준다.
+        usages.sort(Comparator.comparing(DashboardVacationUsageDTO::getAcquiredDate));
+        int remainingDays = this.dayCountOf(vacation) - usedDays;
+
+        return DashboardVacationDetailResponseDTO.of(vacation, remainingDays, usages);
+    }
+
+    private boolean isRegularMaster(VacationVO vacation) {
+        return CATEGORY_REGULAR.equals(vacation.getVacationCate())
+                && !Boolean.TRUE.equals(vacation.getVacationState());
+    }
+
+    private boolean isRegularUsage(VacationVO vacation) {
+        return CATEGORY_REGULAR.equals(vacation.getVacationCate())
+                && Boolean.TRUE.equals(vacation.getVacationState());
+    }
+
+    private int dayCountOf(VacationVO vacation) {
+        return vacation.getVacationDay() != null ? vacation.getVacationDay() : 0;
     }
 }
