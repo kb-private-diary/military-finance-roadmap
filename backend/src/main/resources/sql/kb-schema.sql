@@ -543,6 +543,7 @@ CREATE TABLE `car_goal` (
   `budget` BIGINT COMMENT '예산',
   `car_type_code` INT COMMENT '차종선호',
   `is_new` BOOLEAN COMMENT '신차중고구분',
+  `experience_years` INT COMMENT '운전경력(년)',
   `target_date` DATE COMMENT '목표구매시기',
   `region` VARCHAR(20) COMMENT '거주지역',
   `selected_model_id` BIGINT COMMENT '선택차량ID',

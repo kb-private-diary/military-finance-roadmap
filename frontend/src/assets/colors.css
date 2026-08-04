@@ -50,6 +50,10 @@
   --military-green: #536349;
   --military-green-light: #e0e6dc;
 
+  /* 로드맵 진행 단계 (RoadmapProgress) */
+  --roadmap-active: #f0ad2e; /* 완료/활성 단계 마커·커넥터·배지 강조색 */
+  --roadmap-stage-bg: #f5e9cf; /* 비활성 단계 버튼 배경 */
+
   /* 회색 계열 (비활성 배경·보조 텍스트) */
   --gray-pale-bg: #f5f5f5; /* 비활성 배경 (CategoryButton·BaseTag 등) */
   --gray-mid: #9e9e9e; /* 보조 텍스트·아이콘·비활성 텍스트 */

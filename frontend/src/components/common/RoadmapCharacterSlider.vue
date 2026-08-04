@@ -1,6 +1,5 @@
 <script setup>
 // 공통 컴포넌트: 로드맵 진행도 - 캐릭터 슬라이더 (담당: 호빈)
-// 목표 진행률(0~100)에 따라 트랙 위 캐릭터의 위치와 포즈가 바뀐다.
 import { computed } from 'vue';
 import lyingImg from '@/assets/images/lying.png';
 import sitdownImg from '@/assets/images/sitdown.png';
@@ -20,7 +19,6 @@ const props = defineProps({
 
 const clampedProgress = computed(() => Math.min(100, Math.max(0, props.progress)));
 
-// 진행률 구간별 캐릭터 포즈: 25%(누움) → 50%(앉음) → 75%(뜀) → 100%(경례) 4단계
 const characterImg = computed(() => {
   if (clampedProgress.value >= 100) return saluteImg;
   if (clampedProgress.value >= 75) return runImg;
@@ -36,10 +34,9 @@ const characterSize = computed(() => {
   return CHARACTER_BASE_SIZE * 1.2; // 누움
 });
 
-
 const characterStyle = computed(() => ({
   left: `${clampedProgress.value}%`,
-  bottom: `calc(100% - 4px)`, 
+  bottom: `calc(100% - 4px)`,
   width: `${characterSize.value}px`,
 }));
 </script>
@@ -74,7 +71,6 @@ const characterStyle = computed(() => ({
 .character-slider__track {
   position: relative;
   height: 6px;
-  
   margin-top: 90px;
   border-radius: 999px;
   background-color: var(--kb-gray-pale);
@@ -83,7 +79,7 @@ const characterStyle = computed(() => ({
 .character-slider__fill {
   height: 100%;
   border-radius: 999px;
-  background-color: #536349; 
+  background-color: var(--military-green);
   transition: width 0.25s ease;
 }
 
@@ -99,7 +95,7 @@ const characterStyle = computed(() => ({
   margin-top: 0.5rem;
   font-size: 0.8rem;
   font-weight: 600;
-  color: #a9895a;
+  color: var(--brand-gold);
   text-align: right;
 }
 </style>

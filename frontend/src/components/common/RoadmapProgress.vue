@@ -1,7 +1,5 @@
 <script setup>
 // 공통 컴포넌트: 로드맵 진행도 (담당: 호빈)
-// 상단 - 완료/추가/예정 단계를 잇는 체크·+ 스텝 표시줄
-// 하단 - 단계(목표)별 이동 버튼 목록. 현재 진행 중인 단계만 강조된다.
 const props = defineProps({
   steps: {
     // status: 'done' | 'addable' | 'upcoming'
@@ -89,7 +87,7 @@ const emit = defineEmits(['add-step', 'select-stage']);
   height: 2rem;
   border-radius: 50%;
   border: 2px solid var(--bs-border-color);
-  background-color: #fff;
+  background-color: var(--surface-default);
   color: var(--bs-secondary-color);
   font-weight: 700;
   flex-shrink: 0;
@@ -97,19 +95,19 @@ const emit = defineEmits(['add-step', 'select-stage']);
 }
 
 .roadmap-progress__step.is-done .roadmap-progress__marker {
-  border-color: #f0ad2e;
-  background-color: #f0ad2e;
-  color: #fff;
+  border-color: var(--roadmap-active);
+  background-color: var(--roadmap-active);
+  color: var(--surface-default);
 }
 
 .roadmap-progress__step.is-addable .roadmap-progress__marker {
-  border-color: #f0ad2e;
-  color: #f0ad2e;
+  border-color: var(--roadmap-active);
+  color: var(--roadmap-active);
   cursor: pointer;
 }
 
 .roadmap-progress__step.is-addable .roadmap-progress__marker:hover {
-  background-color: #fff8e6;
+  background-color: var(--kb-yellow-pale);
 }
 
 .roadmap-progress__label {
@@ -128,7 +126,7 @@ const emit = defineEmits(['add-step', 'select-stage']);
 }
 
 .roadmap-progress__connector.is-filled {
-  background-color: #f0ad2e;
+  background-color: var(--roadmap-active);
 }
 
 .roadmap-progress__stages {
@@ -141,14 +139,14 @@ const emit = defineEmits(['add-step', 'select-stage']);
   border: none;
   border-radius: 0.5rem;
   padding: 0.6rem 0.5rem;
-  background-color: #f5e9cf;
-  color: #a9895a;
+  background-color: var(--roadmap-stage-bg);
+  color: var(--brand-gold);
   font-weight: 600;
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .roadmap-progress__stage-btn.is-active {
-  background-color: #f0ad2e;
-  color: #fff;
+  background-color: var(--roadmap-active);
+  color: var(--surface-default);
 }
 </style>
