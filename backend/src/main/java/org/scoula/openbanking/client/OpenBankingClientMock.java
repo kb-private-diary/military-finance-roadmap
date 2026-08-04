@@ -27,7 +27,7 @@ import org.springframework.stereotype.Component;
  * 적금 데이터는 석윤 saving_account, 입출금 출금(지출)은 후회소비(spending)가 사용</p>
  */
 @Component
-@Profile("dev")
+@Profile("!prod")
 public class OpenBankingClientMock implements OpenBankingClient {
 
     private static final String TOKEN_PREFIX = "MOCK_ACCESS_";
