@@ -1,8 +1,7 @@
 package org.scoula.openbanking.client;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
 import java.util.List;
 import java.util.Random;
 
@@ -229,12 +228,8 @@ public class OpenBankingClientMock implements OpenBankingClient {
 
     private TransactionInfo createTx(int year, int month, int day, int hour, int min,
                                      String merchantName, Long amount, String inoutType) {
-        Calendar c = Calendar.getInstance();
-        c.set(year, month - 1, day, hour, min, 0); // Calendar month는 0부터라 -1
-        c.set(Calendar.MILLISECOND, 0);
-
         TransactionInfo t = new TransactionInfo();
-        t.setTxDateTime(new Date(c.getTimeInMillis()));
+        t.setTxDateTime(LocalDateTime.of(year, month, day, hour, min)); // month 1-12 그대로 (Calendar 불필요)
         t.setMerchantName(merchantName);
         t.setAmount(amount);
         t.setInoutType(inoutType); // "OUT"(지출) / "IN"(입금·납입)
