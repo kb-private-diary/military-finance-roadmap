@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 
+import org.scoula.rent.client.KakaoGeocodingClient;
 import org.scoula.rent.domain.RentListingVO;
 import org.scoula.rent.mapper.RentListingMapper;
 import org.scoula.rent.mapper.RentMapper;
@@ -38,6 +39,7 @@ public class RentListingLoadService {
 
     private final RentListingMapper listingMapper;
     private final RentMapper rentMapper;
+    private final KakaoGeocodingClient geocodingClient; // 주소→좌표 (SCHOOL 반경검색용)
     private final RestTemplate rest = new RestTemplate();
     private final ObjectMapper om = new ObjectMapper();
 
@@ -117,7 +119,16 @@ public class RentListingLoadService {
         vo.setSigunguCode(sigunguCode);
         vo.setRegionCode(rentMapper.findRegionCodeBySigunguAndUmd(sigunguCode, umdName)); // 코드 매핑 (없으면 null)
         vo.setUmdName(umdName);
-        vo.setJibun(text(item, "jibun"));
+        String jibun = text(item, "jibun");
+        vo.setJibun(jibun);
+
+        // 카카오 지오코딩: "부산 법정동명 지번" 주소로 좌표 획득 (실패 시 null, 매물은 그대로 저장)
+        // 현재 데이터가 부산 한정이라 시도명 하드코딩 (전국 확장 시 region_code 에서 시도·시군구명 조회로 대체)
+        BigDecimal[] coords = geocodingClient.geocode("부산 " + umdName + " " + (jibun == null ? "" : jibun));
+        if (coords != null) {
+            vo.setLatitude(coords[0]);  // 위도
+            vo.setLongitude(coords[1]); // 경도
+        }
         vo.setBuildingName(text(item, nameField)); // 오피스텔=offiNm / 빌라=mhouseNm
         vo.setBuiltYear(intOf(text(item, "buildYear")));
         vo.setFloor(intOf(text(item, "floor")));
