@@ -4,9 +4,11 @@ import java.util.List;
 
 import org.apache.ibatis.annotations.Param;
 
+import org.scoula.product.domain.SavingProductVO;
 import org.scoula.travel.domain.CityCostVO;
 import org.scoula.travel.domain.TravelCostVO;
 import org.scoula.travel.domain.TravelGoalVO;
+import org.scoula.travel.domain.TravelInsuranceVO;
 import org.scoula.travel.domain.TravelPackageVO;
 import org.scoula.travel.dto.TravelQuarterCostSearchDTO;
 import org.scoula.travel.dto.TravelPackageSearchDTO;
@@ -62,5 +64,16 @@ public interface TravelMapper {
     int updateGoalPackage(@Param("goalId") final Long goalId,
                           @Param("packageId") final Long packageId,
                           @Param("modifiedNm") final String modifiedNm);
+
+    List<TravelInsuranceVO> findTravelInsuranceList();
+
+    List<SavingProductVO> findTravelSavingProductList(
+            @Param("codePrefix") final String codePrefix);
+
+    int updateGoalProducts(final TravelGoalVO goal);
+
+    int archiveConfirmedGoalByUserId(final TravelGoalVO goal);
+
+    int confirmGoal(final TravelGoalVO goal);
 
 }

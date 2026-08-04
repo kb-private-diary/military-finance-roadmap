@@ -9,7 +9,7 @@ export default [
     meta: { requiresAuth: false, showTabNav: true },
   },
   {
-    path: '/travel/goals/:goalId/cost',
+    path: '/travel/goals/:goalId/costs',
     name: 'TravelCost',   // step2) 여행 비용 계산
     component: () => import('@/pages/travel/TravelCostPage.vue'),
     meta: { requiresAuth: false, showTabNav: true },
@@ -28,7 +28,7 @@ export default [
   },
   {
     path: '/travel/goals/:goalId/products',
-    name: 'TravelProducts',   // step4) 여행 금융상품 혜택 추천
+    name: 'TravelProducts',   // step4) 여행 금융상품 추천
     component: () => import('@/pages/travel/TravelProductsPage.vue'),
     meta: { requiresAuth: false, showTabNav: true },
   },
