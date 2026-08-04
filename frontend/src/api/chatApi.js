@@ -3,14 +3,13 @@ import api from '@/api';
 const BASE_URL = '/api/chat';
 
 export default {
-  createSession(userId, title) {
-    return api.post(`${BASE_URL}/sessions`, { userId, title });
+  createSession(title) {
+    // userId는 더 이상 안 보냄 - 백엔드가 JWT(Authorization 헤더, axios 인터셉터가 자동으로 붙임)에서 추출
+    return api.post(`${BASE_URL}/sessions`, { title });
   },
 
-  listSessions(userId) {
-    // GET /sessions는 Pydantic 모델이 아니라 순수 쿼리 파라미터(user_id)라서
-    // CamelModel의 camelCase 자동 변환이 적용되지 않는다 - 백엔드 파라미터명 그대로 보낸다.
-    return api.get(`${BASE_URL}/sessions`, { params: { user_id: userId } });
+  listSessions() {
+    return api.get(`${BASE_URL}/sessions`);
   },
 
   getHistory(sessionId) {

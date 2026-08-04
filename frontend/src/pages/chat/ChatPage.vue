@@ -17,7 +17,6 @@ const router = useRouter();
 const auth = useAuthStore();
 const { show: showToast } = useToast();
 
-const userId = computed(() => auth.state.user.id);
 const userName = computed(() => auth.state.user.name || '고객');
 
 // 페이지 이동은 항상 이 함수를 거침. router.push는 문자열 경로/{name} 객체를 모두 받으므로
@@ -959,7 +958,7 @@ const toBubble = (m, history, index) => {
 
 const openHistory = async () => {
   try {
-    const { data: sessions } = await chatApi.listSessions(userId.value);
+    const { data: sessions } = await chatApi.listSessions();
     if (!sessions.length) {
       pushBot({
         title: '최근 이전 대화',
@@ -1019,7 +1018,7 @@ onMounted(async () => {
   loading.value = true;
   const landingStartedAt = Date.now();
   try {
-    const { data: session } = await chatApi.createSession(userId.value);
+    const { data: session } = await chatApi.createSession();
     sessionId.value = session.sessionId;
 
     if (session.isNew) {
