@@ -3,9 +3,9 @@
 export default [
   {
     path: '/',
-    name: 'Welcome',   // 미니앱 진입
+    name: 'Welcome',   // 미니앱 진입 (로그인 전 진입 페이지 - 공통 헤더 대신 전용 최소 헤더)
     component: () => import('@/pages/main/WelcomePage.vue'),
-    meta: { requiresAuth: false },
+    meta: { requiresAuth: false, hideHeader: true },
   },
   {
     path: '/home',
