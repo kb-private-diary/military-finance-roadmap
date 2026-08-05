@@ -89,6 +89,8 @@ dependencies {
 
     // 웹푸시 (VAPID 서명/암호화 처리)
     implementation 'nl.martijndwars:web-push:5.1.1'
+    // web-push가 내부적으로 EC 키 파싱에 씀 (pom엔 optional로 빠져있어 명시 필요, 직접 실행해서 확인함)
+    implementation 'org.bouncycastle:bcprov-jdk15on:1.70'
 
 
 // 테스트
