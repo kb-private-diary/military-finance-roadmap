@@ -12,25 +12,23 @@ import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 const router = useRouter();
 const signupStore = useSignupStore();
 
-// TODO: 군종목록조회/계급조회 API 나오면 아래 하드코딩된 목록을 API 조회로 교체
-// serviceMonths는 병역 정책 문서 기준 복무기간(육군·해병대 18개월 / 해군 20개월 / 공군·공익 21개월 / 기타 24개월)
-const MILITARY_TYPES = [
-  { typeId: 1, name: '육군', serviceMonths: 18 },
-  { typeId: 2, name: '해군', serviceMonths: 20 },
-  { typeId: 3, name: '공군', serviceMonths: 21 },
-  { typeId: 4, name: '해병대', serviceMonths: 18 },
-  { typeId: 5, name: '공익', serviceMonths: 21 },
-  { typeId: 6, name: '기타', serviceMonths: 24 },
-];
+// TODO: 계급조회 API 나오면 아래 하드코딩된 목록을 API 조회로 교체
 const MILITARY_RANKS = [
   { rankId: 1, name: '이병' },
   { rankId: 2, name: '일병' },
   { rankId: 3, name: '상병' },
   { rankId: 4, name: '병장' },
 ];
-
-const typeOptions = MILITARY_TYPES.map((t) => ({ label: t.name, value: t.typeId }));
 const rankOptions = MILITARY_RANKS.map((r) => ({ label: r.name, value: r.rankId }));
+
+// 복무기간(월). 군종 API 응답엔 없는 값이라 별도 유지 (병역 정책 문서 기준: 육군·해병대 18 / 해군 20 / 공군·공익 21 / 기타 24)
+const SERVICE_MONTHS_BY_TYPE_ID = { 1: 18, 2: 20, 3: 21, 4: 18, 5: 21, 6: 24 };
+
+const typeOptions = ref([]);
+const loadMilitaryTypes = async () => {
+  const types = await memberApi.findMilitaryTypes();
+  typeOptions.value = types.map((t) => ({ label: t.typeName, value: t.typeId }));
+};
 
 const form = reactive({
   typeId: null,
@@ -60,7 +58,7 @@ watch(
   () => [form.typeId, form.enlistDate],
   ([typeId, enlistDate]) => {
     if (!typeId || !enlistDate) return;
-    const months = MILITARY_TYPES.find((t) => t.typeId === typeId)?.serviceMonths;
+    const months = SERVICE_MONTHS_BY_TYPE_ID[typeId];
     if (!months) return;
     const discharge = new Date(enlistDate);
     discharge.setMonth(discharge.getMonth() + months);
@@ -94,7 +92,9 @@ const submit = async () => {
 onMounted(() => {
   if (!signupStore.basic) {
     router.replace({ name: 'SignupInfo' });
+    return;
   }
+  loadMilitaryTypes();
 });
 </script>
 

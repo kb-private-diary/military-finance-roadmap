@@ -276,8 +276,8 @@ onBeforeUnmount(() => {
 }
 
 .package-card.is-selected {
-  border-color: var(--travel-primary);
-  box-shadow: 0 0 0 1px var(--travel-primary);
+  border-color: var(--kb-yellow-deep);
+  box-shadow: 0 0 0 1px var(--kb-yellow-deep);
 }
 
 .package-card__select {
@@ -352,7 +352,7 @@ onBeforeUnmount(() => {
   width: 16px;
   height: 16px;
   margin: 0;
-  accent-color: var(--travel-primary);
+  accent-color: var(--kb-yellow-deep);
 }
 
 .package-card__external {
