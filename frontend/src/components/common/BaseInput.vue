@@ -29,12 +29,33 @@ const props = defineProps({
 });
 const emit = defineEmits(['update:modelValue']);
 
+const rangeInputType = computed(() =>
+  props.type === 'month-range' ? 'month' : 'date',
+);
+
 const updateRange = (index, value) => {
   const newVal = Array.isArray(props.modelValue)
     ? [...props.modelValue]
     : ['', ''];
   newVal[index] = value;
   emit('update:modelValue', newVal);
+};
+
+// ==========================================
+// select-range 전용 로직 (예: 시작 개월차 ~ 종료 개월차)
+// 종료 드롭다운은 시작에서 고른 값 이상만 보여줘서, 시작이 종료보다 늦게
+// 선택되는 경우 자체를 UI에서 막는다.
+// ==========================================
+const endRangeOptions = computed(() => {
+  const start = Array.isArray(props.modelValue) ? props.modelValue[0] : '';
+  if (start === '') return props.options;
+  return props.options.filter((opt) => Number(opt.value) >= Number(start));
+});
+
+const updateRangeStart = (value) => {
+  const currentEnd = Array.isArray(props.modelValue) ? props.modelValue[1] : '';
+  const stillValid = currentEnd !== '' && Number(currentEnd) >= Number(value);
+  emit('update:modelValue', [value, stillValid ? currentEnd : '']);
 };
 
 // ==========================================
@@ -159,7 +180,7 @@ const handleAmountInput = (event) => {
       <template v-else-if="type === 'month-range' || type === 'date-range'">
         <div class="base-input__range">
           <input
-            :type="type === 'month-range' ? 'month' : 'date'"
+            :type="rangeInputType"
             class="base-input__field"
             :class="{ 'is-error': error }"
             :value="Array.isArray(modelValue) ? modelValue[0] : ''"
@@ -167,12 +188,46 @@ const handleAmountInput = (event) => {
           />
           <span class="base-input__range-sep">~</span>
           <input
-            :type="type === 'month-range' ? 'month' : 'date'"
+            :type="rangeInputType"
             class="base-input__field"
             :class="{ 'is-error': error }"
             :value="Array.isArray(modelValue) ? modelValue[1] : ''"
             @input="updateRange(1, $event.target.value)"
           />
+        </div>
+      </template>
+
+      <!-- SELECT RANGE (예: 시작 개월차 ~ 종료 개월차, 종료 옵션은 시작값 이상만) -->
+      <template v-else-if="type === 'select-range'">
+        <div class="base-input__range">
+          <select
+            class="base-input__field base-input__select"
+            :class="{ 'is-error': error }"
+            :value="Array.isArray(modelValue) ? modelValue[0] : ''"
+            @change="updateRangeStart($event.target.value)"
+          >
+            <option value="" disabled>선택</option>
+            <option v-for="opt in options" :key="opt.value" :value="opt.value">
+              {{ opt.label }}
+            </option>
+          </select>
+          <span class="base-input__range-sep">~</span>
+          <select
+            class="base-input__field base-input__select"
+            :class="{ 'is-error': error }"
+            :value="Array.isArray(modelValue) ? modelValue[1] : ''"
+            :disabled="!Array.isArray(modelValue) || modelValue[0] === ''"
+            @change="updateRange(1, $event.target.value)"
+          >
+            <option value="" disabled>선택</option>
+            <option
+              v-for="opt in endRangeOptions"
+              :key="opt.value"
+              :value="opt.value"
+            >
+              {{ opt.label }}
+            </option>
+          </select>
         </div>
       </template>
 
@@ -286,6 +341,18 @@ const handleAmountInput = (event) => {
   color: var(--gray-mid);
   font-weight: 500;
   flex-shrink: 0;
+}
+
+.base-input__select {
+  appearance: none;
+  background-color: var(--surface-default);
+  text-align: center;
+  cursor: pointer;
+}
+.base-input__select:disabled {
+  background-color: var(--surface-muted);
+  color: var(--text-hint);
+  cursor: not-allowed;
 }
 
 .has-icon {
