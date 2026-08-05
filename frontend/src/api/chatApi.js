@@ -16,12 +16,8 @@ export default {
     return api.get(`${BASE_URL}/history/${sessionId}`);
   },
 
-  sendMessage(sessionId, content) {
-    return api.post(`${BASE_URL}/messages`, { sessionId, content });
-  },
-
-  getFaqCategories() {
-    return api.get(`${BASE_URL}/faq-categories`);
+  sendMessage(sessionId, content, forceInfo = false) {
+    return api.post(`${BASE_URL}/messages`, { sessionId, content, forceInfo });
   },
 
   listGlossary() {

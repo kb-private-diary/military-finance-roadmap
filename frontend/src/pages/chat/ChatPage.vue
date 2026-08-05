@@ -432,29 +432,30 @@ const openTerm = async (term) => {
   }
 };
 
-const openFaqCategories = async () => {
+/* 자주 묻는 질문 - "적금·청약 상품이 궁금해요"(상품 하나 깊게 탐색)와 겹치지 않게,
+   여러 상품 중 뭘 고를지 비교·선택을 도와주는 질문으로 구성. 실제 백엔드(RAG)로 물어봐서
+   여러 상품 문서를 종합한 답변을 받는다 */
+const FAQ_QUESTIONS = [
+  '적금이랑 예금 중에 뭐가 더 좋아요?',
+  '장병내일준비적금이랑 청년미래적금 차이가 뭐예요?',
+  '청약통장은 꼭 만들어야 해요?',
+  '목돈 모으기엔 적금이 나아요, 청약이 나아요?',
+];
+
+const openFaqCategories = () => {
   pushUser('자주 묻는 질문');
   panel.value = null;
   typing.value = true;
-  try {
-    const { data: categories } = await chatApi.getFaqCategories();
+  setTimeout(() => {
     typing.value = false;
     pushBot({
-      text: '어떤 카테고리가 궁금하신가요?',
+      text: '어떤 게 궁금하신가요?',
       menu: [
-        ...categories.map((c) => ({ label: c.label, onClick: () => openFaqCategory(c.categoryId, c.label) })),
+        ...FAQ_QUESTIONS.map((q) => ({ label: q, onClick: () => askBackend(q, { forceInfo: true }) })),
         FIRST_MENU_ITEM,
       ],
     });
-  } catch {
-    typing.value = false;
-    pushError();
-  }
-};
-
-const openFaqCategory = (categoryId, label) => {
-  pushUser(label);
-  showProductCategoryList(categoryId, label);
+  }, TYPING_DELAY_MS);
 };
 
 /* 상품 소개 후 자주 묻는 질문을 하나씩 골라 물어볼 수 있게 함 - 이미 물어본 질문은 다음 메뉴에서 빠진다 */
@@ -737,14 +738,14 @@ const finishCounsel = async (period, type) => {
 };
 
 /* 자유 입력 텍스트를 실제 백엔드(RAG/Gemini)로 보내고 답변을 받는다 */
-const askBackend = async (text, { title, extraMenu = [] } = {}) => {
+const askBackend = async (text, { title, extraMenu = [], forceInfo = false } = {}) => {
   counselInputHandler.value = null;
   pushUser(text);
   input.value = '';
   panel.value = null;
   typing.value = true;
   try {
-    const { data: botMsg } = await chatApi.sendMessage(sessionId.value, text);
+    const { data: botMsg } = await chatApi.sendMessage(sessionId.value, text, forceInfo);
     typing.value = false;
 
     // 백엔드가 자유입력을 상담(counsel)으로 분류하면, 일반 RAG 답변 대신
@@ -822,6 +823,10 @@ const askBackend = async (text, { title, extraMenu = [] } = {}) => {
 };
 
 const submitInput = () => {
+  // 이전 질문 답변을 기다리는 중이면 새 질문을 못 보내게 막는다 - 안 막으면 답변 순서가
+  // 실제 도착 순서대로 뒤섞여 보이는 문제가 생긴다(질문1→질문2→답변1→답변2처럼).
+  if (typing.value) return;
+
   const trimmed = input.value.trim();
   if (!trimmed) return;
   input.value = '';
@@ -1264,7 +1269,7 @@ onMounted(async () => {
         <button
           type="button"
           class="composer-send"
-          :disabled="!input.trim()"
+          :disabled="!input.trim() || typing"
           aria-label="전송"
           @click="submitInput"
         >

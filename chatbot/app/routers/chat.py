@@ -13,7 +13,6 @@ from app.core.db import get_db
 from app.core.exceptions import BusinessException
 from app.models.chat import ChatFeedback, ChatMessage, ChatSession
 from app.schemas.chat import (
-    FaqCategoryItem,
     FeedbackCreateRequest,
     FeedbackItem,
     GlossaryDetail,
@@ -52,14 +51,6 @@ TOPICS = [
     TopicItem(topic_id="policy_terms", label="정책용어"),
     TopicItem(topic_id="free_input", label="자유입력"),
 ]
-
-FAQ_CATEGORIES = [
-    FaqCategoryItem(category_id="savings", label="적금"),
-    FaqCategoryItem(category_id="subscription", label="청약"),
-    FaqCategoryItem(category_id="deposit", label="예금"),
-    FaqCategoryItem(category_id="investment", label="투자"),
-]
-
 
 # CHAT-002: 대화 세션 관리 API
 @router.post("/sessions", response_model=SessionResponse)
@@ -185,7 +176,9 @@ def send_message(
     db.commit()
 
     try:
-        reply, source, source_detail, is_ai_generated, intent = gemini.generate_reply(content, history=history)
+        reply, source, source_detail, is_ai_generated, intent = gemini.generate_reply(
+            content, history=history, force_intent="info" if payload.force_info else None
+        )
     except Exception:
         logger.exception("Gemini 응답 생성 실패 (session_id=%s)", payload.session_id)
         reply, source, source_detail, is_ai_generated, intent = GEMINI_FAILURE_MESSAGE, "오류 안내", None, False, "info"
@@ -212,11 +205,6 @@ def send_message(
 @router.get("/topics", response_model=List[TopicItem])
 def get_topics():
     return TOPICS
-
-
-@router.get("/faq-categories", response_model=List[FaqCategoryItem])
-def get_faq_categories():
-    return FAQ_CATEGORIES
 
 
 ALL_CATEGORIES = ["savings", "deposit", "subscription", "investment"]
