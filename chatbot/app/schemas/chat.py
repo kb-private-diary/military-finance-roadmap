@@ -5,7 +5,6 @@ from app.schemas.base import CamelModel
 
 
 class SessionCreateRequest(CamelModel):
-    user_id: int  # TODO: JWT 연동 후 토큰에서 추출하는 방식으로 교체, 그 전까지는 임시로 body에서 받음
     title: Optional[str] = None
 
 
