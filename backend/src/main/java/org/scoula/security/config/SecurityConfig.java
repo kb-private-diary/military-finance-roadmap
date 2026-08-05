@@ -125,7 +125,8 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 .antMatchers(HttpMethod.GET, "/api/users/terms", "/api/users/military-types",
                         "/api/users/military-units").permitAll()
                 .antMatchers("/api/users/me", "/api/users/password").authenticated()
-                .antMatchers("/api/simulator/**", "/api/dashboard/**").authenticated()
+                .antMatchers(
+                        "/api/simulator/**", "/api/dashboard/**", "/api/saving/**").authenticated()
                 .anyRequest().permitAll();
     }
 
