@@ -17,7 +17,7 @@ export default [
     path: '/job/goals/:goalId/cost',
     name: 'JobCost', // step3) 진로 비용 계산
     component: () => import('@/pages/job/JobCostPage.vue'),
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true }, 
   },
   {
     path: '/job/goals/:goalId/products',
