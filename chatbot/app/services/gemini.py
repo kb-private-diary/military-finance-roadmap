@@ -35,11 +35,12 @@ _DOC_AS_OF = "2026년 3월 기준"
 
 
 def _build_source_detail(doc_name: Optional[str]) -> Optional[str]:
-    if not doc_name:
+    """특정 상품 문서(장병내일준비적금 등)에서 나온 답변만 출처 캡션을 붙인다.
+    정책용어사전은 특정 상품 설명이 아니라 일반 용어 정의라, "출처 · 정책용어사전"처럼
+    표시해봤자 의미 있는 출처가 아니라서 아예 안 붙인다(프론트에서 출처 줄 자체가 숨겨짐)."""
+    if not doc_name or doc_name == "정책용어사전":
         return None
     org = _DOC_SOURCE_ORG.get(doc_name, doc_name)
-    if doc_name == "정책용어사전":
-        return org
     return f"{org} · {doc_name} ({_DOC_AS_OF})"
 
 
@@ -102,6 +103,7 @@ class ChatState(TypedDict, total=False):
     doc_names: List[str]  # RAG 검색결과 top_k의 doc_name (유사도 순), 실시간 데이터면 빈 리스트
     source_detail: Optional[str]  # 사람이 읽는 출처 캡션 (RAG 답변만 해당, 없으면 None)
     is_ai_generated: bool  # 프론트에 "AI가 생성한 답변입니다" 문구를 보여줄지 여부
+    is_comparison: bool  # 상품 2개 이상을 비교하는 질문인지 (프롬프트에서 비교 지시 추가용)
     answer: str
 
 
@@ -113,6 +115,11 @@ def _format_history(history: List[Tuple[str, str]]) -> str:
 
 
 def _classify_intent_node(state: ChatState) -> ChatState:
+    # intent가 이미 정해져 있으면(자주 묻는 질문처럼 미리 정보성으로 확정된 질문) 재분류하지 않는다.
+    # "청약통장은 꼭 만들어야 해요?" 같은 문장은 LLM이 상담(counsel)으로 분류할 때도 있어서,
+    # 큐레이션된 FAQ 질문이 매번 다르게(때로는 상담 흐름으로 튀어) 나오는 걸 막기 위함이다.
+    if state.get("intent"):
+        return {}
     history_block = _format_history(state.get("history") or [])
     return {"intent": classify_intent(state["question"], history_block=history_block)}
 
@@ -122,6 +129,28 @@ def _classify_category_node(state: ChatState) -> ChatState:
 
 
 _SPECIFIC_DOC_NAMES = ("장병내일준비적금", "청년미래적금", "청년주택드림청약통장")
+
+# 상품명을 정확히 안 쓰고 "적금이 나아요, 청약이 나아요?"처럼 일반 단어로만 물어봤을 때 쓸 대표 상품.
+# 카테고리(적금)에 해당 상품이 여러 개(장병내일준비적금·청년미래적금)라도 대표로 1개만 써서,
+# 검색·프롬프트 크기가 상품 수만큼 불어나 응답이 느려지는(실측 3개 비교 시 50초+) 걸 막는다.
+_GENERIC_CATEGORY_DOC = {
+    "적금": "장병내일준비적금",
+    "청약": "청년주택드림청약통장",
+}
+
+
+def _mentioned_doc_names(question: str) -> List[str]:
+    # 상품명을 정확히 썼으면 그것만 본다. "장병내일준비적금 가입 조건"처럼 특정 상품 하나를
+    # 콕 집어 물었는데도, 그 이름 안에 "적금"이 들어있다는 이유로 청년미래적금까지 딸려오면 안 된다.
+    # 상품명을 정확히 하나도 안 썼을 때만("적금이 나아요, 청약이 나아요?") 일반 단어로 넓혀서 본다.
+    exact = [name for name in _SPECIFIC_DOC_NAMES if name in question]
+    if exact:
+        return exact
+    mentioned = []
+    for keyword, doc_name in _GENERIC_CATEGORY_DOC.items():
+        if keyword in question and doc_name not in mentioned:
+            mentioned.append(doc_name)
+    return mentioned
 
 
 def _pick_doc_name(answer: str, doc_names: List[str]) -> Optional[str]:
@@ -156,11 +185,43 @@ def _build_context_node(state: ChatState) -> ChatState:
         if last_user_question:
             search_query = f"{last_user_question} {search_query}"
 
-    results = vectorstore.search_with_metadata(search_query, top_k=_TOP_K)
+    # 비교형 질문("장병내일준비적금이랑 청년미래적금 차이가 뭐예요?")은 검색어 하나로 top_k만 뽑으면
+    # 의미상 가장 비슷한 한쪽 상품으로 결과가 쏠려서 다른 쪽 자료가 아예 안 딸려온다.
+    # 2개 이상 상품이 감지되면 상품별로 따로 검색해서 균형 있게 문서를 모은다.
+    mentioned_docs = _mentioned_doc_names(state["question"])
+    if len(mentioned_docs) >= 2:
+        results = []
+        seen_texts = set()
+        for name in mentioned_docs:
+            for text, meta in vectorstore.search_with_metadata(f"{name} {search_query}", top_k=4):
+                if text not in seen_texts:
+                    seen_texts.add(text)
+                    results.append((text, meta))
+    else:
+        results = vectorstore.search_with_metadata(search_query, top_k=_TOP_K)
+
     context = "\n\n".join(text for text, _ in results)
     source = RAG_SOURCE_LABEL
     doc_names = [meta.get("doc_name") for _, meta in results if meta.get("doc_name")]
-    return {"context": context, "source": source, "doc_names": doc_names, "is_ai_generated": True}
+    return {
+        "context": context,
+        "source": source,
+        "doc_names": doc_names,
+        "is_ai_generated": True,
+        "is_comparison": len(mentioned_docs) >= 2,
+    }
+
+
+# 비교형 질문은 [참고 정책 문서]에 "차이는 무엇이다"라는 문장이 그대로 있는 경우가 거의 없다.
+# 기본 SYSTEM_INSTRUCTION("자료에 없으면 모른다고 답한다")만 따르면, 각 상품 설명이 따로
+# 있어도 "비교한 문장이 없다"며 답을 거부해버린다. 그래서 비교 질문일 때만, 자료에 있는
+# 개별 사실들을 직접 견주어 답하라고 명시적으로 지시를 추가한다.
+_COMPARISON_INSTRUCTION = (
+    "\n\n[안내] 위 자료에 여러 상품 각각에 대한 정보가 들어있습니다. "
+    "자료에 '차이는 무엇이다'처럼 비교를 직접 서술한 문장이 없더라도, "
+    "각 상품 설명에 나온 개별 사실(가입조건·금리·한도 등)을 근거로 직접 비교해서 답하십시오. "
+    "다만 비교에 필요한 항목 자체가 자료에 전혀 없으면 그 부분만 모른다고 솔직히 답하십시오."
+)
 
 
 def _generate_node(state: ChatState) -> ChatState:
@@ -169,15 +230,24 @@ def _generate_node(state: ChatState) -> ChatState:
     if category:
         prompt = f"{history_block}[실시간 상품 데이터 - {category}]\n{state['context']}\n\n[질문]\n{state['question']}"
     else:
-        prompt = f"{history_block}[참고 정책 문서]\n{state['context']}\n\n[질문]\n{state['question']}"
+        comparison_note = _COMPARISON_INSTRUCTION if state.get("is_comparison") else ""
+        prompt = f"{history_block}[참고 정책 문서]\n{state['context']}{comparison_note}\n\n[질문]\n{state['question']}"
     answer = gemini_client.generate_content(prompt, system_instruction=SYSTEM_INSTRUCTION)
 
     source_detail = None
+    hide_source = False
     if not category:
         doc_name = _pick_doc_name(answer, state.get("doc_names") or [])
         source_detail = _build_source_detail(doc_name)
+        hide_source = source_detail is None
 
-    return {"answer": answer, "source_detail": source_detail}
+    result = {"answer": answer, "source_detail": source_detail}
+    if hide_source:
+        # 특정 상품 문서가 아니면(정책용어사전 등) 출처 자체를 안 보여준다 -
+        # _build_context_node가 채워둔 일반 RAG_SOURCE_LABEL도 같이 지워야
+        # 프론트가 그걸로 대신 "출처 · Gemini AI (정책 문서 기반 생성)"를 보여주지 않는다.
+        result["source"] = None
+    return result
 
 
 def _irrelevant_node(state: ChatState) -> ChatState:
@@ -236,7 +306,9 @@ _compiled_graph = _graph.compile()
 
 
 def generate_reply(
-    question: str, history: Optional[List[Tuple[str, str]]] = None
+    question: str,
+    history: Optional[List[Tuple[str, str]]] = None,
+    force_intent: Optional[str] = None,
 ) -> Tuple[str, str, Optional[str], bool, str]:
     """반환값: (답변, source 라벨, source_detail 캡션, is_ai_generated, intent).
     LangGraph로 의도분류 → (분기) → 컨텍스트 구성 → 답변 생성을 수행한다.
@@ -244,8 +316,14 @@ def generate_reply(
     history: 같은 세션의 이전 메시지들 [(role, content), ...] (오래된 순, 현재 질문은 미포함).
     답변 생성 시 문맥으로 활용해 멀티턴 대화를 지원한다.
     intent는 프론트가 "counsel"일 때 되묻기 플로우로 분기할 수 있도록 그대로 반환한다.
+
+    force_intent: 지정하면 classify_intent를 건너뛰고 이 값을 그대로 쓴다. 자주 묻는 질문처럼
+    미리 정보성으로 큐레이션된 질문이 LLM 의도분류에 따라 매번 다르게(상담 등으로) 튀지 않게 한다.
     """
-    result = _compiled_graph.invoke({"question": question, "history": history or []})
+    initial_state = {"question": question, "history": history or []}
+    if force_intent:
+        initial_state["intent"] = force_intent
+    result = _compiled_graph.invoke(initial_state)
     return (
         result["answer"],
         result["source"],
