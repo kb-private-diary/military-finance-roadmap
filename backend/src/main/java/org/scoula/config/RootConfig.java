@@ -46,7 +46,8 @@ import javax.sql.DataSource;
         "org.scoula.regret.mapper",
         "org.scoula.openbanking.mapper",
         "org.scoula.social.mapper",
-        "org.scoula.bookmark.mapper"
+        "org.scoula.bookmark.mapper",
+        "org.scoula.push.mapper"
 })
 @ComponentScan(basePackages = {
         "org.scoula.member.service",
@@ -67,7 +68,9 @@ import javax.sql.DataSource;
         "org.scoula.openbanking.service",
         "org.scoula.openbanking.client",
         "org.scoula.social.service",
-        "org.scoula.bookmark.service"
+        "org.scoula.bookmark.service",
+        "org.scoula.push.service",
+        "org.scoula.push.client"
 })
 // application-secret.properties 는 API 키 등 비밀값 (gitignore 대상).
 // 파일이 없어도 서버가 뜨도록 ignoreResourceNotFound = true
