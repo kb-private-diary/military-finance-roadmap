@@ -5,6 +5,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -63,24 +64,28 @@ public class CarServiceImpl implements CarService {
 
     // 연차별 정률감가율 가정값
     private static final BigDecimal ANNUAL_RETENTION_RATE = BigDecimal.valueOf(0.8);
-    // 연식 미선택 시 가정 연차(추천 단계 등 아직 특정 연식을 고르기 전)
+    private static final double ANNUAL_RETENTION_RATE_DOUBLE = 0.8;
+    // 연식 미선택 시 가정 연차(목표에 예산이 없는 등 추정 불가한 경우의 기본값)
     private static final int DEFAULT_ASSUMED_AGE_YEARS = 3;
+    // 예산 맞춤 연식 추정 시 허용하는 최대 연차
+    // 실제 중고차는 아무리 오래돼도 신차가 대비 일정 비율(약 40%) 밑으로는 잘 안 떨어지므로,
+    // 그 이상 연차를 가정해도 의미가 없다고 보고 상한을 4년으로 제한한다 (0.8^4 ≈ 41%)
+    private static final int MAX_ASSUMED_AGE_YEARS = 4;
 
     private final CarMapper carMapper;
     private final OpinetClient opinetClient;
 
     @Override
     @Transactional
-    public CarGoalCreateResponseDTO createCarGoal(CarGoalCreateRequestDTO requestDTO) {
+    public CarGoalCreateResponseDTO createCarGoal(Long userId, CarGoalCreateRequestDTO requestDTO) {
         Long budget = requestDTO.getBudget();
         if (budget == null || budget <= 0) {
             throw BusinessException.badRequest("예산은 0보다 커야 합니다", "CAR_001");
         }
 
         CarGoalVO carGoalVO = new CarGoalVO();
-        carGoalVO.setUserId(requestDTO.getUserId());
+        carGoalVO.setUserId(userId);
         carGoalVO.setBudget(requestDTO.getBudget());
-        carGoalVO.setCarTypeCode(requestDTO.getCarTypeCode());
         carGoalVO.setIsNew(requestDTO.getIsNew());
         carGoalVO.setExperienceYears(requestDTO.getExperienceYears());
         carGoalVO.setTargetDate(requestDTO.getTargetDate());
@@ -97,8 +102,8 @@ public class CarServiceImpl implements CarService {
     }
 
     @Override
-    public CarGoalResponseDTO findCarGoalDetail(Long goalId) {
-        CarGoalResponseDTO goal = this.carMapper.selectCarGoalDetailById(goalId);
+    public CarGoalResponseDTO findCarGoalDetail(Long goalId, Long userId) {
+        CarGoalResponseDTO goal = this.carMapper.selectCarGoalDetailById(goalId, userId);
         if (goal == null) {
             throw BusinessException.notFound("목표를 찾을 수 없습니다", "CAR_003");
         }
@@ -106,28 +111,40 @@ public class CarServiceImpl implements CarService {
     }
 
     @Override
-    public List<CarRecommendationResponseDTO> recommendCars(Long goalId) {
-        CarGoalVO goal = this.carMapper.selectCarGoalById(goalId);
+    public List<CarRecommendationResponseDTO> recommendCars(Long goalId, Long userId) {
+        CarGoalVO goal = this.carMapper.selectCarGoalById(goalId, userId);
         if (goal == null) {
             throw BusinessException.notFound("목표를 찾을 수 없습니다", "CAR_003");
         }
 
-        CarTaxVO tax = this.carMapper.selectTaxByTypeCode(goal.getCarTypeCode());
-        if (tax == null) {
-            throw BusinessException.notFound("취득세 기준 정보를 찾을 수 없습니다", "CAR_007");
-        }
-
-        List<CarModelVO> candidates = this.carMapper.selectCarModelsByTypeCode(goal.getCarTypeCode());
+        // 목표 단계에서는 차종을 특정하지 않으므로 경차/준중형/SUV 전체 후보를 반환한다.
+        // (차종별 취득세율이 달라 후보마다 자기 차종 기준으로 계산해야 함)
+        List<CarModelVO> candidates = this.carMapper.selectAllCarModels();
+        Map<Integer, CarTaxVO> taxByType = new HashMap<>();
         boolean isNew = Boolean.TRUE.equals(goal.getIsNew());
+        int currentYear = LocalDate.now().getYear();
 
         List<CarRecommendationResponseDTO> recommendations = new ArrayList<>();
         for (CarModelVO model : candidates) {
-            long estimatedPrice = isNew
-                    ? model.getBasePrice()
-                    : BigDecimal.valueOf(model.getBasePrice())
-                            .multiply(ANNUAL_RETENTION_RATE.pow(DEFAULT_ASSUMED_AGE_YEARS))
-                            .setScale(0, RoundingMode.HALF_UP)
-                            .longValue();
+            CarTaxVO tax = taxByType.computeIfAbsent(
+                    model.getCarTypeCode(), this.carMapper::selectTaxByTypeCode);
+            if (tax == null) {
+                throw BusinessException.notFound("취득세 기준 정보를 찾을 수 없습니다", "CAR_007");
+            }
+
+            Integer assumedYear = null;
+            long estimatedPrice;
+            if (isNew) {
+                estimatedPrice = model.getBasePrice();
+            } else {
+                int age = this.estimateAgeFittingBudget(
+                        model.getBasePrice(), tax.getAcquisitionTaxRate(), goal.getBudget());
+                assumedYear = currentYear - age;
+                estimatedPrice = BigDecimal.valueOf(model.getBasePrice())
+                        .multiply(ANNUAL_RETENTION_RATE.pow(age))
+                        .setScale(0, RoundingMode.HALF_UP)
+                        .longValue();
+            }
             long acquisitionTaxAmount = BigDecimal.valueOf(estimatedPrice)
                     .multiply(tax.getAcquisitionTaxRate())
                     .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP)
@@ -138,8 +155,10 @@ public class CarServiceImpl implements CarService {
                     .modelId(model.getModelId())
                     .manufacturer(model.getManufacturer())
                     .modelName(model.getModelName())
+                    .carTypeCode(model.getCarTypeCode())
                     .fuelType(model.getFuelType())
                     .baseNewPrice(model.getBasePrice())
+                    .assumedYear(assumedYear)
                     .estimatedPrice(estimatedPrice)
                     .acquisitionTaxAmount(acquisitionTaxAmount)
                     .totalPrice(totalPrice)
@@ -153,8 +172,8 @@ public class CarServiceImpl implements CarService {
 
     @Override
     @Transactional
-    public CarGoalResponseDTO selectCarModel(Long goalId, CarModelSelectRequestDTO requestDTO) {
-        CarGoalVO goal = this.carMapper.selectCarGoalById(goalId);
+    public CarGoalResponseDTO selectCarModel(Long goalId, Long userId, CarModelSelectRequestDTO requestDTO) {
+        CarGoalVO goal = this.carMapper.selectCarGoalById(goalId, userId);
         if (goal == null) {
             throw BusinessException.notFound("목표를 찾을 수 없습니다", "CAR_003");
         }
@@ -166,22 +185,21 @@ public class CarServiceImpl implements CarService {
         if (model == null) {
             throw BusinessException.notFound("선택한 차량 모델을 찾을 수 없습니다", "CAR_009");
         }
-        if (!model.getCarTypeCode().equals(goal.getCarTypeCode())) {
-            throw BusinessException.badRequest("선택한 차량이 목표 차종과 일치하지 않습니다", "CAR_010");
-        }
 
+        // 목표 단계에서는 차종을 특정하지 않으므로, 실제 선택한 차량의 차종을 목표에 반영한다.
+        goal.setCarTypeCode(model.getCarTypeCode());
         goal.setSelectedModelId(model.getModelId());
         goal.setSelectedYear(requestDTO.getSelectedYear());
         goal.setStatus("SELECTED");
 
         this.carMapper.updateSelectedModel(goal);
 
-        return this.findCarGoalDetail(goalId);
+        return this.findCarGoalDetail(goalId, userId);
     }
 
     @Override
-    public CarMaintenanceCostResponseDTO calculateMaintenanceCost(Long goalId) {
-        CarGoalVO goal = this.carMapper.selectCarGoalById(goalId);
+    public CarMaintenanceCostResponseDTO calculateMaintenanceCost(Long goalId, Long userId) {
+        CarGoalVO goal = this.carMapper.selectCarGoalById(goalId, userId);
         if (goal == null) {
             throw BusinessException.notFound("목표를 찾을 수 없습니다", "CAR_003");
         }
@@ -255,8 +273,8 @@ public class CarServiceImpl implements CarService {
     }
 
     @Override
-    public CarAcquisitionTaxResponseDTO calculateAcquisitionTax(Long goalId) {
-        CarGoalVO goal = this.carMapper.selectCarGoalById(goalId);
+    public CarAcquisitionTaxResponseDTO calculateAcquisitionTax(Long goalId, Long userId) {
+        CarGoalVO goal = this.carMapper.selectCarGoalById(goalId, userId);
         if (goal == null) {
             throw BusinessException.notFound("목표를 찾을 수 없습니다", "CAR_003");
         }
@@ -289,8 +307,8 @@ public class CarServiceImpl implements CarService {
     }
 
     @Override
-    public CarUsedPriceResponseDTO calculateUsedPrice(Long goalId) {
-        CarGoalVO goal = this.carMapper.selectCarGoalById(goalId);
+    public CarUsedPriceResponseDTO calculateUsedPrice(Long goalId, Long userId) {
+        CarGoalVO goal = this.carMapper.selectCarGoalById(goalId, userId);
         if (goal == null) {
             throw BusinessException.notFound("목표를 찾을 수 없습니다", "CAR_003");
         }
@@ -329,8 +347,8 @@ public class CarServiceImpl implements CarService {
     }
 
     @Override
-    public CarEvSubsidyResponseDTO calculateEvSubsidy(Long goalId) {
-        CarGoalVO goal = this.carMapper.selectCarGoalById(goalId);
+    public CarEvSubsidyResponseDTO calculateEvSubsidy(Long goalId, Long userId) {
+        CarGoalVO goal = this.carMapper.selectCarGoalById(goalId, userId);
         if (goal == null) {
             throw BusinessException.notFound("목표를 찾을 수 없습니다", "CAR_003");
         }
@@ -361,6 +379,23 @@ public class CarServiceImpl implements CarService {
                 .baseYear(ev.getBaseYear())
                 .finalPrice(Math.max(0, model.getBasePrice() - totalSubsidy))
                 .build();
+    }
+
+    // 예산 안에서 가장 최신 연식(연차가 가장 적은)을 추정 — 신차가가 이미 예산 이내면 0년(연식 그대로)
+    private int estimateAgeFittingBudget(long basePrice, BigDecimal acquisitionTaxRate, Long budget) {
+        if (budget == null) {
+            return DEFAULT_ASSUMED_AGE_YEARS;
+        }
+
+        double taxMultiplier = 1 + acquisitionTaxRate.doubleValue() / 100.0;
+        double targetPrice = budget / taxMultiplier;
+        double ratio = targetPrice / basePrice;
+        if (ratio >= 1.0) {
+            return 0;
+        }
+
+        int age = (int) Math.ceil(Math.log(ratio) / Math.log(ANNUAL_RETENTION_RATE_DOUBLE));
+        return Math.max(0, Math.min(MAX_ASSUMED_AGE_YEARS, age));
     }
 
     // 운전경력(년) → car_insurance.experience_bracket 구간 문자열 변환

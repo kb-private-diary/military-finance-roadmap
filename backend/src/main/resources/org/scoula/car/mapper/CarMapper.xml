@@ -3,9 +3,6 @@
 <mapper namespace="org.scoula.car.mapper.CarMapper">
 
     <insert id="createCarGoal" parameterType="org.scoula.car.domain.CarGoalVO" useGeneratedKeys="true" keyProperty="goalId">
-        <!--
-            임시로 userId를 문자열로 기록함. 추후 JWT 연동 시 실제 사용자명으로 교체 예정.
-        -->
         INSERT INTO car_goal (
             user_id, budget, car_type_code, is_new, experience_years, target_date, region, status,
             created_date, created_nm, del_yn
@@ -17,12 +14,14 @@
 
     <update id="updateSelectedModel" parameterType="org.scoula.car.domain.CarGoalVO">
         UPDATE car_goal
-        SET selected_model_id = #{selectedModelId},
+        SET car_type_code = #{carTypeCode},
+            selected_model_id = #{selectedModelId},
             selected_year = #{selectedYear},
             status = #{status},
             modified_date = NOW(),
             modified_nm = #{userId}
         WHERE goal_id = #{goalId}
+        AND user_id = #{userId}
         AND del_yn = 'N'
     </update>
 
@@ -30,6 +29,7 @@
         SELECT *
         FROM car_goal
         WHERE goal_id = #{goalId}
+        AND user_id = #{userId}
         AND del_yn = 'N'
     </select>
 
@@ -40,12 +40,11 @@
         AND del_yn = 'N'
     </select>
 
-    <select id="selectCarModelsByTypeCode" resultType="org.scoula.car.domain.CarModelVO">
+    <select id="selectAllCarModels" resultType="org.scoula.car.domain.CarModelVO">
         SELECT *
         FROM car_model
-        WHERE car_type_code = #{carTypeCode}
-        AND del_yn = 'N'
-        ORDER BY base_price ASC
+        WHERE del_yn = 'N'
+        ORDER BY car_type_code ASC, base_price ASC
     </select>
 
     <select id="selectInsuranceByTypeAndBracket" resultType="org.scoula.car.domain.CarInsuranceVO">
@@ -103,6 +102,7 @@
         FROM car_goal g
         LEFT JOIN car_model m ON g.selected_model_id = m.model_id
         WHERE g.goal_id = #{goalId}
+        AND g.user_id = #{userId}
         AND g.del_yn = 'N'
     </select>
 
