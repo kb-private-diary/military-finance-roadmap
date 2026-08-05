@@ -1,5 +1,31 @@
 // travel 라우트 (담당: 태석)
 // 화면 파일 위치: @/pages/travel/
+const validateDraftGoal = async (to) => {
+  try {
+    const { default: travelApi } = await import('@/api/travelApi');
+    const response = await travelApi.findCurrentGoal();
+    const draft = response.data?.data;
+
+    if (
+      !draft ||
+      String(draft.goalId) !== String(to.params.goalId)
+    ) {
+      return {
+        name: 'TravelGoalCreate',
+        replace: true,
+      };
+    }
+
+    return true;
+  } catch {
+    return {
+      name: 'TravelGoalCreate',
+      query: { draftCheckFailed: 'true' },
+      replace: true,
+    };
+  }
+};
+
 export default [
   {
     path: '/travel/goals/new',
@@ -12,24 +38,28 @@ export default [
     path: '/travel/goals/:goalId/costs',
     name: 'TravelCost',   // step2) 여행 비용 계산
     component: () => import('@/pages/travel/TravelCostPage.vue'),
+    beforeEnter: validateDraftGoal,
     meta: { requiresAuth: false, showTabNav: true },
   },
   {
     path: '/travel/goals/:goalId/places',
     name: 'TravelPlaces',   // step3) 여행지 정보 추천
     component: () => import('@/pages/travel/TravelPlacesPage.vue'),
+    beforeEnter: validateDraftGoal,
     meta: { requiresAuth: false, showTabNav: true },
   },
   {
     path: '/travel/goals/:goalId/packages',
     name: 'TravelPackages',   // step3) 여행 패키지 추천
     component: () => import('@/pages/travel/TravelPackagesPage.vue'),
+    beforeEnter: validateDraftGoal,
     meta: { requiresAuth: false, showTabNav: true },
   },
   {
     path: '/travel/goals/:goalId/products',
     name: 'TravelProducts',   // step4) 여행 금융상품 추천
     component: () => import('@/pages/travel/TravelProductsPage.vue'),
+    beforeEnter: validateDraftGoal,
     meta: { requiresAuth: false, showTabNav: true },
   },
   {

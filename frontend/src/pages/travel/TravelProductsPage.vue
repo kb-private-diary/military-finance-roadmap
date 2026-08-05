@@ -348,8 +348,8 @@ onBeforeUnmount(() => {
 }
 
 .product-card.is-selected {
-  border-color: var(--travel-primary);
-  box-shadow: 0 0 0 1px var(--travel-primary);
+  border-color: var(--kb-yellow-deep);
+  box-shadow: 0 0 0 1px var(--kb-yellow-deep);
 }
 
 .product-card__checkbox {
@@ -360,7 +360,7 @@ onBeforeUnmount(() => {
   width: 16px;
   height: 16px;
   margin: 0;
-  accent-color: var(--travel-primary);
+  accent-color: var(--kb-yellow-deep);
 }
 
 .product-card__content {

@@ -4,6 +4,7 @@ import org.apache.ibatis.annotations.Param;
 import org.scoula.car.domain.CarGoalVO;
 import org.scoula.car.domain.CarInsuranceVO;
 import org.scoula.car.domain.CarModelVO;
+import org.scoula.car.domain.CarTaxPrepayVO;
 import org.scoula.car.domain.CarTaxVO;
 
 public interface CarMapper {
@@ -23,4 +24,7 @@ public interface CarMapper {
 
     // 차종 기준 취득세율/공채면제기준 조회
     CarTaxVO selectTaxByTypeCode(@Param("carTypeCode") Integer carTypeCode);
+
+    // 연도 기준 최대 연납할인율 조회
+    CarTaxPrepayVO selectBestPrepayDiscount(@Param("year") Integer year);
 }
