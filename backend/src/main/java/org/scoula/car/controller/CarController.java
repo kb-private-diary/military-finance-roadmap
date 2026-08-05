@@ -5,16 +5,20 @@ import lombok.extern.log4j.Log4j2;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import java.util.List;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import org.scoula.car.dto.CarAcquisitionTaxResponseDTO;
 import org.scoula.car.dto.CarGoalCreateRequestDTO;
 import org.scoula.car.dto.CarGoalCreateResponseDTO;
+import org.scoula.car.dto.CarGoalResponseDTO;
 import org.scoula.car.dto.CarMaintenanceCostResponseDTO;
 import org.scoula.car.dto.CarUsedPriceResponseDTO;
 import org.scoula.car.service.CarService;
@@ -35,6 +39,24 @@ public class CarController {
         log.info("Creating car goal for userId: {}", requestDTO.getUserId());
         CarGoalCreateResponseDTO responseDTO = this.carService.createCarGoal(requestDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(responseDTO));
+    }
+
+    // CAR-API-03: 자동차 목표 목록 조회
+    @GetMapping("/goals")
+    public ResponseEntity<ApiResponse<List<CarGoalResponseDTO>>> getCarGoals(
+            @RequestParam Long userId) {
+        log.info("Fetching car goals for userId: {}", userId);
+        List<CarGoalResponseDTO> responseDTO = this.carService.findCarGoals(userId);
+        return ResponseEntity.ok(ApiResponse.success(responseDTO));
+    }
+
+    // CAR-API-04: 자동차 목표 상세 조회
+    @GetMapping("/goals/{goalId}")
+    public ResponseEntity<ApiResponse<CarGoalResponseDTO>> getCarGoalDetail(
+            @PathVariable Long goalId) {
+        log.info("Fetching car goal detail for goalId: {}", goalId);
+        CarGoalResponseDTO responseDTO = this.carService.findCarGoalDetail(goalId);
+        return ResponseEntity.ok(ApiResponse.success(responseDTO));
     }
 
     // CAR-API-09: 오피넷 유가 연동 기반 연간 유지비(연료비+보험료) 조회

@@ -1,11 +1,14 @@
 package org.scoula.car.mapper;
 
+import java.util.List;
+
 import org.apache.ibatis.annotations.Param;
 import org.scoula.car.domain.CarGoalVO;
 import org.scoula.car.domain.CarInsuranceVO;
 import org.scoula.car.domain.CarModelVO;
 import org.scoula.car.domain.CarTaxPrepayVO;
 import org.scoula.car.domain.CarTaxVO;
+import org.scoula.car.dto.CarGoalResponseDTO;
 
 public interface CarMapper {
     // 자동차 목표 신규 등록
@@ -27,4 +30,10 @@ public interface CarMapper {
 
     // 연도 기준 최대 연납할인율 조회
     CarTaxPrepayVO selectBestPrepayDiscount(@Param("year") Integer year);
+
+    // 유저의 자동차 목표 목록 조회 (CAR-API-03)
+    List<CarGoalResponseDTO> selectCarGoalsByUserId(@Param("userId") Long userId);
+
+    // 자동차 목표 상세 조회, 선택차량명 포함 (CAR-API-04)
+    CarGoalResponseDTO selectCarGoalDetailById(@Param("goalId") Long goalId);
 }
