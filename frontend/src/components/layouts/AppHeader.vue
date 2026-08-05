@@ -9,7 +9,7 @@
 import { useRouter } from 'vue-router';
 
 // 앱 타이틀 고정값
-const APP_NAME = '텅장일병일기';
+const APP_NAME = '텅장일병구하기';
 
 const router = useRouter();
 
