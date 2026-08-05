@@ -1,15 +1,341 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="org.scoula.job.mapper.JobMapper">
-    <select id="findJobCodeListByGoalType" parameterType="String" resultType="org.scoula.job.domain.JobCodeVO">
+    <select id="findCategoryListByGoalType"
+            parameterType="String"
+            resultType="org.scoula.job.domain.JobCategoryVO">
+
         SELECT
-            job_code_id AS jobCodeId,
-            goal_type   AS goalType,
-            code_name   AS codeName,
-            info_url    AS infoUrl
-        FROM job_code
+            category_id,
+            parent_id,
+            goal_type,
+            category_name,
+            category_level,
+            created_date,
+            created_nm,
+            modified_date,
+            modified_nm,
+            del_yn
+        FROM job_category
         WHERE goal_type = #{goalType}
-        ORDER BY job_code_id
+          AND del_yn = 'N'
+        ORDER BY category_level, category_name
+
+    </select>
+
+    <select id="findTransferUniversityList"
+            resultType="org.scoula.job.domain.JobTransferUniversityVO">
+
+        SELECT
+            univ_id,
+            univ_name,
+            created_date,
+            created_nm,
+            modified_date,
+            modified_nm,
+            del_yn
+        FROM job_transfer_university
+        WHERE del_yn = 'N'
+        ORDER BY univ_name
+
+    </select>
+
+    <select id="findTransferMajorListByUnivId" parameterType="Long" resultType="org.scoula.job.domain.JobTransferMajorVO">
+        SELECT tm.major_id, tm.univ_id, tm.major_code, tmc.major_name, tm.admission_year, tm.created_date, tm.created_nm, tm.modified_date, tm.modified_nm, tm.del_yn
+        FROM job_transfer_major tm
+                 JOIN job_transfer_major_category tmc ON tmc.major_code = tm.major_code AND tmc.del_yn = 'N'
+        WHERE tm.univ_id = #{univId}
+          AND tm.del_yn = 'N'
+        ORDER BY tmc.major_name
+    </select>
+
+    <select id="findQualificationListByCategoryId"
+            parameterType="Long"
+            resultType="org.scoula.job.domain.JobQualificationVO">
+
+        SELECT
+            q.qual_id,
+            q.qual_type,
+            q.external_code,
+            q.data_source,
+            q.qual_name,
+            q.qual_summary,
+            q.organization_name,
+            q.written_fee,
+            q.practical_fee,
+            q.military_fee,
+            q.detail_url,
+            q.last_synced_date,
+
+            schedule.exam_year,
+            schedule.exam_round,
+            schedule.written_reg_start_date,
+            schedule.written_reg_end_date,
+            schedule.written_exam_start_date,
+            schedule.written_exam_end_date,
+            schedule.written_result_date,
+            schedule.practical_reg_start_date,
+            schedule.practical_reg_end_date,
+            schedule.practical_exam_start_date,
+            schedule.practical_exam_end_date,
+            schedule.practical_result_date,
+
+            q.created_date,
+            q.created_nm,
+            q.modified_date,
+            q.modified_nm,
+            q.del_yn
+
+        FROM job_category_qualification cq
+
+                 JOIN job_qualification q
+                      ON q.qual_id = cq.qual_id
+                          AND q.del_yn = 'N'
+
+                 LEFT JOIN job_qualification_schedule schedule
+                           ON schedule.schedule_id = (
+                               SELECT s.schedule_id
+                               FROM job_qualification_schedule s
+                               WHERE s.qual_id = q.qual_id
+                                 AND s.del_yn = 'N'
+                                 AND (
+                                   s.written_reg_end_date >= CURDATE()
+                                       OR s.written_exam_end_date >= CURDATE()
+                                       OR s.practical_reg_end_date >= CURDATE()
+                                       OR s.practical_exam_end_date >= CURDATE()
+                                   )
+                               ORDER BY
+                                   s.exam_year,
+                                   s.schedule_id
+            LIMIT 1
+            )
+
+        WHERE cq.category_id = #{categoryId}
+          AND cq.del_yn = 'N'
+
+        ORDER BY
+            q.qual_type,
+            q.qual_id
+
+    </select>
+
+    <select id="findQualificationListByMajorId"
+            parameterType="Long"
+            resultType="org.scoula.job.domain.JobQualificationVO">
+
+        SELECT
+            q.qual_id,
+            q.qual_type,
+            q.external_code,
+            q.data_source,
+            q.qual_name,
+            q.qual_summary,
+            q.organization_name,
+            q.written_fee,
+            q.practical_fee,
+            q.military_fee,
+            q.detail_url,
+            q.last_synced_date,
+
+            schedule.exam_year,
+            schedule.exam_round,
+            schedule.written_reg_start_date,
+            schedule.written_reg_end_date,
+            schedule.written_exam_start_date,
+            schedule.written_exam_end_date,
+            schedule.written_result_date,
+            schedule.practical_reg_start_date,
+            schedule.practical_reg_end_date,
+            schedule.practical_exam_start_date,
+            schedule.practical_exam_end_date,
+            schedule.practical_result_date,
+
+            q.created_date,
+            q.created_nm,
+            q.modified_date,
+            q.modified_nm,
+            q.del_yn
+
+        FROM job_transfer_major tm
+
+                 JOIN job_transfer_major_qualification mq
+                      ON mq.major_code = tm.major_code
+                          AND mq.del_yn = 'N'
+
+                 JOIN job_qualification q
+                      ON q.qual_id = mq.qual_id
+                          AND q.del_yn = 'N'
+
+                 LEFT JOIN job_qualification_schedule schedule
+                           ON schedule.schedule_id = (
+                               SELECT s.schedule_id
+                               FROM job_qualification_schedule s
+                               WHERE s.qual_id = q.qual_id
+                                 AND s.del_yn = 'N'
+                                 AND (
+                                   s.written_reg_end_date >= CURDATE()
+                                       OR s.written_exam_end_date >= CURDATE()
+                                       OR s.practical_reg_end_date >= CURDATE()
+                                       OR s.practical_exam_end_date >= CURDATE()
+                                   )
+                               ORDER BY
+                                   s.exam_year,
+                                   s.schedule_id
+            LIMIT 1
+            )
+
+        WHERE tm.major_id = #{majorId}
+          AND tm.del_yn = 'N'
+
+        ORDER BY
+            q.qual_type,
+            q.qual_id
+
+    </select>
+
+    <select id="findQualificationListByIds"
+            resultType="org.scoula.job.domain.JobQualificationVO">
+        SELECT *
+        FROM job_qualification
+        WHERE qual_id IN
+        <foreach collection="qualIds" item="qualId" open="(" separator="," close=")">
+            #{qualId}
+        </foreach>
+        AND del_yn = 'N'
+    </select>
+
+    <select id="findCourseListByIds"
+            resultType="org.scoula.job.domain.JobCourseVO">
+        SELECT *
+        FROM job_course
+        WHERE course_id IN
+        <foreach collection="courseIds" item="courseId" open="(" separator="," close=")">
+            #{courseId}
+        </foreach>
+        AND del_yn = 'N'
+    </select>
+
+    <select id="findCourseListByQualificationIds"
+            resultType="org.scoula.job.domain.JobCourseVO">
+
+        SELECT DISTINCT
+        qc.qual_id,
+        c.course_id,
+        c.course_type,
+        c.provider_name,
+        c.course_name,
+        c.original_price,
+        c.discount_price,
+        c.military_price,
+        c.benefit_detail,
+        c.detail_url,
+        c.created_date,
+        c.created_nm,
+        c.modified_date,
+        c.modified_nm,
+        c.del_yn
+        FROM job_qualification_course qc
+        JOIN job_course c
+        ON c.course_id = qc.course_id
+        AND c.del_yn = 'N'
+        WHERE qc.qual_id IN
+        <foreach collection="qualIds" item="qualId" open="(" separator="," close=")">
+            #{qualId}
+        </foreach>
+        AND qc.del_yn='N'
+        ORDER BY c.course_name
+
+    </select>
+
+    <select id="findCourseListByCategoryId"
+            parameterType="Long"
+            resultType="org.scoula.job.domain.JobCourseVO">
+
+        SELECT
+            c.course_id,
+            c.course_type,
+            c.provider_name,
+            c.course_name,
+            c.original_price,
+            c.discount_price,
+            c.military_price,
+            c.benefit_detail,
+            c.detail_url,
+            c.created_date,
+            c.created_nm,
+            c.modified_date,
+            c.modified_nm,
+            c.del_yn
+        FROM job_category_course cc
+                 JOIN job_course c
+                      ON c.course_id = cc.course_id
+        WHERE cc.category_id = #{categoryId}
+          AND cc.del_yn='N'
+          AND c.del_yn='N'
+        ORDER BY c.course_name
+
+    </select>
+
+    <select id="findCourseListByMajorId"
+            parameterType="Long"
+            resultType="org.scoula.job.domain.JobCourseVO">
+
+        SELECT
+            c.course_id,
+            c.course_type,
+            c.provider_name,
+            c.course_name,
+            c.original_price,
+            c.discount_price,
+            c.military_price,
+            c.benefit_detail,
+            c.detail_url,
+            c.created_date,
+            c.created_nm,
+            c.modified_date,
+            c.modified_nm,
+            c.del_yn
+        FROM job_transfer_major tm
+                 JOIN job_transfer_major_course mc
+                      ON mc.major_code = tm.major_code
+                 JOIN job_course c
+                      ON c.course_id = mc.course_id
+        WHERE tm.major_id = #{majorId}
+          AND tm.del_yn='N'
+          AND mc.del_yn='N'
+          AND c.del_yn='N'
+        ORDER BY c.course_name
+
+    </select>
+
+    <select id="findRecommendServiceListByGoalType"
+            parameterType="String"
+            resultType="org.scoula.job.domain.JobRecommendServiceVO">
+
+        SELECT
+            service_id,
+            service_type,
+            goal_type,
+            service_name,
+            service_qual,
+            service_desc,
+            service_url,
+            external_code,
+            last_synced_date,
+            sort_order,
+            created_date,
+            created_nm,
+            modified_date,
+            modified_nm,
+            del_yn
+        FROM job_recommend_service
+        WHERE del_yn = 'N'
+          AND (
+            goal_type = #{goalType}
+                OR goal_type IS NULL
+            )
+        ORDER BY service_type, sort_order, service_id
+
     </select>
 
     <insert id="insertJobGoal" parameterType="org.scoula.job.domain.JobGoalVO" useGeneratedKeys="true" keyProperty="goalId">
@@ -21,138 +347,194 @@
             TODO: created_nm은 원래 사용자 이름을 기록해야 하나, JWT 미연동으로 이름 정보를 알 수 없어
             임시로 userId를 문자열로 기록함. 추후 JWT 연동 시 실제 사용자명으로 교체 예정.
         -->
-        INSERT INTO job_goal (
-        user_id, goal_type, job_code_id, expected_date, status,
-        created_date, created_nm, del_yn
-        ) VALUES (
-        #{userId}, #{goalType}, #{jobCodeId}, #{expectedDate}, 'DRAFT',
-        NOW(), #{userId}, 'N'
-        )
+        INSERT INTO job_goal (user_id,goal_type,category_id,univ_id,major_id,expected_date,
+                            status,created_date,created_nm,del_yn)
+        VALUES (#{userId}, #{goalType}, #{categoryId}, #{univId}, #{majorId}, #{expectedDate},
+        'DRAFT', NOW(), #{createdNm},'N')
+
     </insert>
 
-    <insert id="insertJobInterestedType" parameterType="org.scoula.job.domain.JobInterestedTypeVO">
-        <!--
-            TODO: created_nm은 job_goal insert와 동일하게 JWT 미연동으로 인해
-            임시로 userId를 문자열로 기록함. 추후 JWT 연동 시 실제 사용자명으로 교체 예정.
-        -->
-        INSERT INTO job_interested_type (
-        goal_id, item_type,
-        created_date, created_nm, del_yn
-        ) VALUES (
-        #{goalId}, #{itemType},
-        NOW(), #{createdNm}, 'N'
+    <update id="deleteGoalQualificationByGoalId">
+        UPDATE job_goal_qualification
+        SET del_yn = 'Y',
+            modified_date = NOW(),
+            modified_nm = #{modifiedNm}
+        WHERE goal_id = #{goalId}
+          AND del_yn = 'N'
+    </update>
+
+    <update id="deleteGoalCourseByGoalId">
+        UPDATE job_goal_course
+        SET del_yn = 'Y',
+            modified_date = NOW(),
+            modified_nm = #{modifiedNm}
+        WHERE goal_id = #{goalId}
+          AND del_yn = 'N'
+    </update>
+
+    <insert id="insertGoalCourseList">
+        INSERT INTO job_goal_course (goal_id, course_id, selected_cost, created_date, created_nm, del_yn)
+        SELECT #{goalId}, c.course_id, COALESCE(c.military_price, c.discount_price, c.original_price, 0), NOW(), #{createdNm}, 'N'
+        FROM job_course c
+        WHERE c.course_id IN
+        <foreach collection="courseIds" item="courseId" open="(" separator="," close=")">
+            #{courseId}
+        </foreach>
+        AND c.del_yn = 'N'
+        ON DUPLICATE KEY UPDATE selected_cost = VALUES(selected_cost), modified_date = NOW(), modified_nm = VALUES(created_nm), del_yn = 'N'
+    </insert>
+
+    <insert id="insertGoalQualificationList">
+        INSERT INTO job_goal_qualification (
+        goal_id,
+        qual_id,
+        selected_cost,
+        created_date,
+        created_nm,
+        del_yn
         )
+        SELECT
+        #{goalId},
+        q.qual_id,
+        COALESCE(
+        q.military_fee,
+        COALESCE(q.written_fee, 0) + COALESCE(q.practical_fee, 0)
+        ),
+        NOW(),
+        #{createdNm},
+        'N'
+        FROM job_qualification q
+        WHERE q.qual_id IN
+        <foreach collection="qualIds" item="qualId" open="(" separator="," close=")">
+            #{qualId}
+        </foreach>
+        AND q.del_yn = 'N'
+        ON DUPLICATE KEY UPDATE
+        selected_cost = VALUES(selected_cost),
+        modified_date = NOW(),
+        modified_nm = VALUES(created_nm),
+        del_yn = 'N'
     </insert>
 
     <select id="findJobGoal" parameterType="Long" resultType="org.scoula.job.domain.JobGoalVO">
-        SELECT
-            goal_id        AS goalId,
-            user_id        AS userId,
-            goal_type      AS goalType,
-            job_code_id    AS jobCodeId,
-            expected_date  AS expectedDate,
-            status         AS status
+        SELECT goal_id,
+               user_id,
+               goal_type,
+               category_id,
+               univ_id,
+               major_id,
+               expected_date,
+               status,
+               created_date,
+               created_nm,
+               modified_date,
+               modified_nm,
+               del_yn
         FROM job_goal
         WHERE goal_id = #{goalId}
           AND del_yn = 'N'
     </select>
 
-    <select id="findInterestedItemTypeList" parameterType="Long" resultType="String">
-        SELECT item_type
-        FROM job_interested_type
-        WHERE goal_id = #{goalId}
-          AND del_yn = 'N'
-        ORDER BY item_type
+    <select id="findSelectedQualificationListByGoalId"
+            parameterType="Long"
+            resultType="org.scoula.job.domain.JobQualificationVO">
+        SELECT
+            q.qual_id,
+            q.qual_type,
+            q.external_code,
+            q.data_source,
+            q.qual_name,
+            q.qual_summary,
+            q.organization_name,
+            q.written_fee,
+            q.practical_fee,
+            q.military_fee,
+            gq.selected_cost,
+            q.detail_url,
+            q.last_synced_date,
+            q.created_date,
+            q.created_nm,
+            q.modified_date,
+            q.modified_nm,
+            q.del_yn
+        FROM job_goal_qualification gq
+                 JOIN job_qualification q
+                      ON q.qual_id = gq.qual_id
+                          AND q.del_yn = 'N'
+        WHERE gq.goal_id = #{goalId}
+          AND gq.del_yn = 'N'
+        ORDER BY gq.goal_qual_id
     </select>
 
-    <select id="findPrepItemCriteriaList" resultType="org.scoula.job.domain.PrepItemCriteriaVO">
-        <!--
-            job_code_id가 NULL인 행은 직무 무관 공통 항목(어학 등)이므로 함께 조회한다.
-            AND가 OR보다 우선순위가 높아 괄호가 없으면 다른 목표유형의 공통 항목까지 조회되므로 괄호 필수.
-        -->
+    <select id="findSelectedCourseListByGoalId"
+            parameterType="Long"
+            resultType="org.scoula.job.domain.JobCourseVO">
         SELECT
-        prep_crit_id   AS prepCritId,
-        goal_type      AS goalType,
-        item_type      AS itemType,
-        job_code_id    AS jobCodeId,
-        item_name      AS itemName,
-        info_url       AS infoUrl,
-        apply_url      AS applyUrl,
-        amount         AS amount,
-        amount_source  AS amountSource,
-        fee_detail     AS feeDetail,
-        external_code  AS externalCode
-        FROM prep_item_criteria
-        WHERE goal_type = #{goalType}
-        AND (job_code_id = #{jobCodeId} OR job_code_id IS NULL)
-        AND del_yn = 'N'
-        AND item_type IN
-        <foreach collection="itemTypes" item="itemType" open="(" separator="," close=")">
-            #{itemType}
-        </foreach>
-        ORDER BY item_type, prep_crit_id
+            c.course_id,
+            c.course_type,
+            c.provider_name,
+            c.course_name,
+            c.original_price,
+            c.discount_price,
+            c.military_price,
+            gc.selected_cost,
+            c.benefit_detail,
+            c.detail_url,
+            c.created_date,
+            c.created_nm,
+            c.modified_date,
+            c.modified_nm,
+            c.del_yn
+        FROM job_goal_course gc
+                 JOIN job_course c
+                      ON c.course_id = gc.course_id
+                          AND c.del_yn = 'N'
+        WHERE gc.goal_id = #{goalId}
+          AND gc.del_yn = 'N'
+        ORDER BY gc.goal_course_id
     </select>
 
-    <select id="findPrepItemCriteriaListByIds" resultType="org.scoula.job.domain.PrepItemCriteriaVO">
+    <select id="findJobGoalDetail"
+            parameterType="Long"
+            resultType="org.scoula.job.dto.JobGoalDetailResponseDTO">
+
         SELECT
-        prep_crit_id   AS prepCritId,
-        goal_type      AS goalType,
-        item_type      AS itemType,
-        job_code_id    AS jobCodeId,
-        item_name      AS itemName,
-        info_url       AS infoUrl,
-        apply_url      AS applyUrl,
-        amount         AS amount,
-        amount_source  AS amountSource
-        FROM prep_item_criteria
-        WHERE del_yn = 'N'
-        AND prep_crit_id IN
-        <foreach collection="prepCritIds" item="id" open="(" separator="," close=")">
-            #{id}
-        </foreach>
-        ORDER BY prep_crit_id
-    </select>
+            g.goal_id,
+            g.goal_type,
 
-    <insert id="insertJobPlanList">
-        <!--
-            job_plan은 스냅샷 저장이라 prep_crit_id FK 없이 값만 복사해서 저장함.
-            createdNm은 job_goal insert와 동일하게 JWT 미연동으로 userId를 임시로 기록.
-        -->
-        INSERT INTO job_plan (
-        goal_id, item_type, item_name, info_url, apply_url, amount,
-        created_date, created_nm, del_yn
-        ) VALUES
-        <foreach collection="plans" item="plan" separator=",">
-            (
-            #{plan.goalId}, #{plan.itemType}, #{plan.itemName}, #{plan.infoUrl}, #{plan.applyUrl}, #{plan.amount},
-            NOW(), #{createdNm}, 'N'
-            )
-        </foreach>
-    </insert>
+            g.category_id,
+            c.category_name,
 
-    <update id="deleteJobPlanListByGoalId">
-        <!-- job_plan은 스냅샷이므로 재선택 시 기존 행을 소프트 삭제 후 재저장 -->
-        UPDATE job_plan
-        SET del_yn = 'Y',
-        modified_date = NOW(),
-        modified_nm = #{modifiedNm}
-        WHERE goal_id = #{goalId}
-        AND del_yn = 'N'
-    </update>
+            g.univ_id,
+            u.univ_name,
 
-    <select id="findServiceCriteriaListByGoalType" parameterType="String" resultType="org.scoula.job.domain.ServiceCriteriaVO">
-        SELECT
-            svc_crit_id  AS svcCritId,
-            goal_type    AS goalType,
-            service_type AS serviceType,
-            service_name AS serviceName,
-            service_desc AS serviceDesc,
-            use_time     AS useTime,
-            info_url     AS infoUrl
-        FROM service_criteria
-        WHERE goal_type = #{goalType}
-          AND del_yn = 'N'
-        ORDER BY service_type, svc_crit_id
+            g.major_id,
+            mc.major_name,
+
+            g.expected_date,
+            g.status
+
+        FROM job_goal g
+
+                 LEFT JOIN job_category c
+                           ON c.category_id = g.category_id
+                               AND c.del_yn = 'N'
+
+                 LEFT JOIN job_transfer_university u
+                           ON u.univ_id = g.univ_id
+                               AND u.del_yn = 'N'
+
+                 LEFT JOIN job_transfer_major tm
+                           ON tm.major_id = g.major_id
+                               AND tm.del_yn = 'N'
+
+                 LEFT JOIN job_transfer_major_category mc
+                           ON mc.major_code = tm.major_code
+                               AND mc.del_yn = 'N'
+
+        WHERE g.goal_id = #{goalId}
+          AND g.del_yn = 'N'
+
     </select>
 
 </mapper>

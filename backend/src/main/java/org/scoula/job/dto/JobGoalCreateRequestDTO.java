@@ -13,9 +13,17 @@ import java.util.List;
 @Builder
 public class JobGoalCreateRequestDTO {
     private Long userId;
+
+    // J01: 취업, J02: 공무원, J03: 편입
     private String goalType;
-    private Long jobCodeId;
+
+    // 취업 / 공무원
+    private Long categoryId;
+
+    // 편입
+    private Long univId;
+    private Long majorId;
+
+    // YYYY-MM
     private String expectedDate;
-    // 준비 항목 복수 선택값 (P01/P02/P03), job_interested_type에 각 한 줄씩 저장
-    private List<String> itemTypes;
 }
