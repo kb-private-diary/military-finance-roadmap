@@ -89,4 +89,37 @@
           AND del_yn = 'N'
     </select>
 
+    <insert id="insertVacation" parameterType="org.scoula.dashboard.domain.VacationVO"
+            useGeneratedKeys="true" keyProperty="vacationId">
+        INSERT INTO vacation (
+            user_id, vacation_cate, vacation_name, vacation_get, vacation_day, vacation_state,
+            created_date, created_nm, del_yn
+        ) VALUES (
+            #{userId}, #{vacationCate}, #{vacationName}, #{vacationGet},
+            #{vacationDay}, #{vacationState}, NOW(), #{createdNm}, 'N'
+        )
+    </insert>
+
+    <update id="updateVacation" parameterType="org.scoula.dashboard.domain.VacationVO">
+        UPDATE vacation
+        SET vacation_cate  = #{vacationCate},
+            vacation_name  = #{vacationName},
+            vacation_get   = #{vacationGet},
+            vacation_day   = #{vacationDay},
+            vacation_state = #{vacationState},
+            modified_date  = NOW(),
+            modified_nm    = #{modifiedNm}
+        WHERE vacation_id = #{vacationId}
+          AND del_yn = 'N'
+    </update>
+
+    <update id="deleteVacation">
+        UPDATE vacation
+        SET del_yn        = 'Y',
+            modified_date = NOW(),
+            modified_nm   = #{modifiedNm}
+        WHERE vacation_id = #{vacationId}
+          AND del_yn = 'N'
+    </update>
+
 </mapper>

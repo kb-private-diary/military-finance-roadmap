@@ -13,6 +13,11 @@ import java.util.List;
 @AllArgsConstructor
 public class ServiceRecommendResponseDTO {
     private Long goalId;
+
+    // 정책(P01)
     private List<JobProductDTO> policies;
+
+    // KB서비스(P02)
     private List<JobProductDTO> financialProducts;
 }
+

@@ -17,7 +17,6 @@ const router = useRouter();
 const auth = useAuthStore();
 const { show: showToast } = useToast();
 
-const userId = computed(() => auth.state.user.id);
 const userName = computed(() => auth.state.user.name || '고객');
 
 // 페이지 이동은 항상 이 함수를 거침. router.push는 문자열 경로/{name} 객체를 모두 받으므로
@@ -181,6 +180,7 @@ const TITLE_ALIASES = {
 const loading = ref(true);
 const loadError = ref('');
 const sessionId = ref(null);
+const todaySessionId = ref(null); // "이전 기록"에서 지난 세션을 보다가 다시 오늘 세션으로 돌아오기 위한 기준값
 const messages = ref([]);
 const input = ref('');
 const typing = ref(false);
@@ -225,6 +225,7 @@ const genId = () => `${Date.now()}-${Math.random()}`;
 
 const pushBot = (msg) => {
   messages.value.push({ id: genId(), role: 'bot', time: formatBubbleTime(), ...msg });
+  panel.value = 'actions'; // 봇 답변이 나오면 항상 "종료하기"를 보여준다 (개별 함수마다 챙기지 않아도 되게)
   scrollToBottom();
 };
 const pushUser = (text) => {
@@ -240,8 +241,17 @@ const pushError = () => {
   scrollToBottom();
 };
 
-const backToGuide = () => {
+// "이전 기록"에서 지난 세션을 보고 있는 도중이면, 오늘 세션으로 먼저 돌아온 뒤 새 메시지를 보낸다.
+// (안 그러면 sessionId가 계속 예전 세션을 가리켜서, 이후 대화가 오늘 기록이 아니라 그 지난 세션에 쌓여버림)
+const ensureTodaySession = async () => {
+  if (todaySessionId.value && sessionId.value !== todaySessionId.value) {
+    await resumeSession(todaySessionId.value);
+  }
+};
+
+const backToGuide = async () => {
   counselInputHandler.value = null;
+  await ensureTodaySession();
   pushBot(buildGuideMessage());
 };
 
@@ -297,7 +307,7 @@ const showAllProducts = () => {
           label,
           onClick: () => {
             pushUser(label);
-            showProductCategoryList(category, label);
+            showProductCategoryList(category, label, { includeListings: category !== 'subscription' });
           },
         })),
         FIRST_MENU_ITEM,
@@ -329,11 +339,17 @@ const LIVE_ITEM_NAME = {
   investment: (p) => p.fndNm,
 };
 
-const showProductCategoryList = async (category, categoryLabel) => {
+// includeListings: false면 실시간 청약홈 "매물" 목록은 빼고 고정 상품만 보여준다.
+// 청약은 "내 집 마련(청약)" 상담(askGoal → housing)에서만 매물을 같이 보여주고,
+// 카테고리 목록(적금/예금/청약/투자) 탐색에서는 매물이 상품처럼 섞여 나오면 안 되니 뺀다.
+const showProductCategoryList = async (category, categoryLabel, { includeListings = true } = {}) => {
   panel.value = null;
   typing.value = true;
   try {
-    const { data: liveProducts } = await chatApi.listProducts(category);
+    const shouldFetchLive = includeListings || category !== 'subscription';
+    const { data: liveProducts } = shouldFetchLive
+      ? await chatApi.listProducts(category)
+      : { data: [] };
     typing.value = false;
     const fixedNames = FIXED_PRODUCTS_BY_CATEGORY[category] || [];
     if (!fixedNames.length && !liveProducts.length) {
@@ -433,29 +449,30 @@ const openTerm = async (term) => {
   }
 };
 
-const openFaqCategories = async () => {
+/* 자주 묻는 질문 - "적금·청약 상품이 궁금해요"(상품 하나 깊게 탐색)와 겹치지 않게,
+   여러 상품 중 뭘 고를지 비교·선택을 도와주는 질문으로 구성. 실제 백엔드(RAG)로 물어봐서
+   여러 상품 문서를 종합한 답변을 받는다 */
+const FAQ_QUESTIONS = [
+  '적금이랑 예금 중에 뭐가 더 좋아요?',
+  '장병내일준비적금이랑 청년미래적금 차이가 뭐예요?',
+  '청약통장은 꼭 만들어야 해요?',
+  '목돈 모으기엔 적금이 나아요, 청약이 나아요?',
+];
+
+const openFaqCategories = () => {
   pushUser('자주 묻는 질문');
   panel.value = null;
   typing.value = true;
-  try {
-    const { data: categories } = await chatApi.getFaqCategories();
+  setTimeout(() => {
     typing.value = false;
     pushBot({
-      text: '어떤 카테고리가 궁금하신가요?',
+      text: '어떤 게 궁금하신가요?',
       menu: [
-        ...categories.map((c) => ({ label: c.label, onClick: () => openFaqCategory(c.categoryId, c.label) })),
+        ...FAQ_QUESTIONS.map((q) => ({ label: q, onClick: () => askBackend(q, { forceInfo: true }) })),
         FIRST_MENU_ITEM,
       ],
     });
-  } catch {
-    typing.value = false;
-    pushError();
-  }
-};
-
-const openFaqCategory = (categoryId, label) => {
-  pushUser(label);
-  showProductCategoryList(categoryId, label);
+  }, TYPING_DELAY_MS);
 };
 
 /* 상품 소개 후 자주 묻는 질문을 하나씩 골라 물어볼 수 있게 함 - 이미 물어본 질문은 다음 메뉴에서 빠진다 */
@@ -513,9 +530,9 @@ const askGoal = (goal, { announce = true } = {}) => {
       const rentLink = PAGE_LINKS.find((p) => p.to.name === 'RentGoalCreate');
       pushBot({
         text: `저희 서비스에 ${rentLink.description}이 있는데, 확인해 보시겠습니까?`,
-        menu: [{ label: rentLink.label, onClick: () => goTo(rentLink.to) }, FIRST_MENU_ITEM],
+        // 이 안내는 자취 준비 페이지로 보내는 게 목적이라 "처음으로"는 넣지 않는다
+        menu: [{ label: rentLink.label, onClick: () => goTo(rentLink.to) }],
       });
-      panel.value = 'actions';
     }, TYPING_DELAY_MS);
     return;
   }
@@ -738,14 +755,15 @@ const finishCounsel = async (period, type) => {
 };
 
 /* 자유 입력 텍스트를 실제 백엔드(RAG/Gemini)로 보내고 답변을 받는다 */
-const askBackend = async (text, { title, extraMenu = [] } = {}) => {
+const askBackend = async (text, { title, extraMenu = [], forceInfo = false } = {}) => {
   counselInputHandler.value = null;
+  await ensureTodaySession();
   pushUser(text);
   input.value = '';
   panel.value = null;
   typing.value = true;
   try {
-    const { data: botMsg } = await chatApi.sendMessage(sessionId.value, text);
+    const { data: botMsg } = await chatApi.sendMessage(sessionId.value, text, forceInfo);
     typing.value = false;
 
     // 백엔드가 자유입력을 상담(counsel)으로 분류하면, 일반 RAG 답변 대신
@@ -823,6 +841,10 @@ const askBackend = async (text, { title, extraMenu = [] } = {}) => {
 };
 
 const submitInput = () => {
+  // 이전 질문 답변을 기다리는 중이면 새 질문을 못 보내게 막는다 - 안 막으면 답변 순서가
+  // 실제 도착 순서대로 뒤섞여 보이는 문제가 생긴다(질문1→질문2→답변1→답변2처럼).
+  if (typing.value) return;
+
   const trimmed = input.value.trim();
   if (!trimmed) return;
   input.value = '';
@@ -959,7 +981,7 @@ const toBubble = (m, history, index) => {
 
 const openHistory = async () => {
   try {
-    const { data: sessions } = await chatApi.listSessions(userId.value);
+    const { data: sessions } = await chatApi.listSessions();
     if (!sessions.length) {
       pushBot({
         title: '최근 이전 대화',
@@ -1019,8 +1041,9 @@ onMounted(async () => {
   loading.value = true;
   const landingStartedAt = Date.now();
   try {
-    const { data: session } = await chatApi.createSession(userId.value);
+    const { data: session } = await chatApi.createSession();
     sessionId.value = session.sessionId;
+    todaySessionId.value = session.sessionId;
 
     if (session.isNew) {
       messages.value = buildGreetAndGuide();
@@ -1265,7 +1288,7 @@ onMounted(async () => {
         <button
           type="button"
           class="composer-send"
-          :disabled="!input.trim()"
+          :disabled="!input.trim() || typing"
           aria-label="전송"
           @click="submitInput"
         >

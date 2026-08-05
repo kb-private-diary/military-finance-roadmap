@@ -35,15 +35,34 @@ const isCalcSheetOpen = ref(false);
 const calcMode = ref('constant');
 const monthlySave = ref('');
 const saveMonths = ref('');
-const periods = ref([{ range: ['', ''], amount: '' }]);
+// 등록 완료된 구간 목록. 각 항목은 { startMonthOffset, endMonthOffset, amount }.
+const periods = ref([]);
+// 구간별 금액 모드에서 "등록" 누르기 전까지의 입력 중인 구간.
+const periodDraft = ref({ range: ['', ''], amount: '' });
+
+// 기간 설정 드롭다운 선택지 (최대 가입기간 24개월, SIMUL_005와 동일한 한도)
+const monthOptions = computed(() =>
+  Array.from({ length: 24 }, (_, i) => ({
+    value: i + 1,
+    label: `${i + 1}개월`,
+  })),
+);
+
+const isDraftValid = computed(() => {
+  const [start, end] = periodDraft.value.range;
+  return (
+    start !== '' &&
+    end !== '' &&
+    Number(start) <= Number(end) &&
+    Number(periodDraft.value.amount) > 0
+  );
+});
 
 const isCalcFormValid = computed(() => {
   if (calcMode.value === 'constant') {
     return Number(monthlySave.value) > 0 && saveMonths.value !== '';
   }
-  return periods.value.every(
-    (period) => period.range[0] && period.range[1] && Number(period.amount) > 0,
-  );
+  return periods.value.length > 0;
 });
 
 // 상세내역 카드에 실제로 보여줄 값 (실제 계좌 vs 모의 계산 결과)
@@ -54,12 +73,9 @@ const activeDetails = computed(() =>
 const formatManwon = (amount) =>
   `${Math.round((amount ?? 0) / 10000).toLocaleString('ko-KR')}만원`;
 
-// "yyyy-MM" ~ "yyyy-MM" 구간의 개월 수 (양 끝 포함)
-const monthDiff = (startMonth, endMonth) => {
-  const [startYear, startM] = startMonth.split('-').map(Number);
-  const [endYear, endM] = endMonth.split('-').map(Number);
-  return (endYear - startYear) * 12 + (endM - startM) + 1;
-};
+// 개월차 구간의 개월 수 (양 끝 포함)
+const monthDiff = (startMonthOffset, endMonthOffset) =>
+  endMonthOffset - startMonthOffset + 1;
 
 const fetchSavingDetails = async () => {
   isLoading.value = true;
@@ -94,12 +110,20 @@ const openCalcSheet = () => {
   isCalcSheetOpen.value = true;
 };
 
-const addPeriod = () => {
-  periods.value.push({ range: ['', ''], amount: '' });
+const registerPeriod = () => {
+  if (!isDraftValid.value) return;
+  periods.value.push({
+    startMonthOffset: Number(periodDraft.value.range[0]),
+    endMonthOffset: Number(periodDraft.value.range[1]),
+    amount: Number(periodDraft.value.amount),
+  });
+  periodDraft.value = { range: ['', ''], amount: '' };
 };
 
-const removePeriod = (index) => {
-  periods.value.splice(index, 1);
+// 등록된 구간 전체 + 입력 중인 구간을 함께 초기화한다.
+const resetPeriods = () => {
+  periods.value = [];
+  periodDraft.value = { range: ['', ''], amount: '' };
 };
 
 const runCalculation = async () => {
@@ -124,13 +148,14 @@ const runCalculation = async () => {
       };
     } else {
       const payload = periods.value.map((period) => ({
-        startMonth: period.range[0],
-        endMonth: period.range[1],
-        amount: Number(period.amount),
+        startMonthOffset: period.startMonthOffset,
+        endMonthOffset: period.endMonthOffset,
+        amount: period.amount,
       }));
       const apiResult = await simulatorApi.calculateVariable(payload);
       const totalMonths = periods.value.reduce(
-        (sum, period) => sum + monthDiff(period.range[0], period.range[1]),
+        (sum, period) =>
+          sum + monthDiff(period.startMonthOffset, period.endMonthOffset),
         0,
       );
       simulatedResult.value = {
@@ -385,42 +410,58 @@ onMounted(() => {
           구간마다 다른 금액을 납입한다고 가정하고 계산해요.
         </p>
 
-        <div
-          v-for="(period, index) in periods"
-          :key="index"
-          class="calc-sheet__period"
-        >
-          <div class="calc-sheet__period-header">
-            <span class="calc-sheet__period-label">구간 {{ index + 1 }}</span>
-            <button
-              v-if="periods.length > 1"
-              type="button"
-              class="calc-sheet__period-remove"
-              aria-label="구간 삭제"
-              @click="removePeriod(index)"
-            >
-              ×
-            </button>
+        <div v-if="periods.length" class="calc-sheet__period-list">
+          <div
+            v-for="(period, index) in periods"
+            :key="index"
+            class="calc-sheet__period-row"
+          >
+            <span class="calc-sheet__period-row-label">
+              {{ index + 1 }}구간 ({{ period.startMonthOffset }}개월~{{
+                period.endMonthOffset
+              }}개월)
+            </span>
+            <span class="calc-sheet__period-row-amount">
+              {{ formatWon(period.amount) }}
+            </span>
           </div>
-          <BaseInput
-            type="month-range"
-            label="납입 기간"
-            :model-value="period.range"
-            @update:model-value="period.range = $event"
-          />
-          <BaseInput
-            type="amount"
-            label="월 납입액"
-            suffix="원"
-            placeholder="최대 550,000"
-            :model-value="period.amount"
-            @update:model-value="period.amount = $event"
-          />
         </div>
 
-        <button type="button" class="calc-sheet__add-period" @click="addPeriod">
-          + 구간 추가
-        </button>
+        <BaseInput
+          type="select-range"
+          label="기간 설정"
+          :options="monthOptions"
+          :model-value="periodDraft.range"
+          @update:model-value="periodDraft.range = $event"
+        />
+
+        <div class="calc-sheet__amount-row">
+          <BaseInput
+            type="amount"
+            label="금액 설정"
+            suffix="원"
+            placeholder="최대 550,000"
+            :model-value="periodDraft.amount"
+            @update:model-value="periodDraft.amount = $event"
+          />
+          <div class="calc-sheet__amount-actions">
+            <button
+              type="button"
+              class="calc-sheet__reset-btn"
+              @click="resetPeriods"
+            >
+              초기화
+            </button>
+            <button
+              type="button"
+              class="calc-sheet__register-btn"
+              :disabled="!isDraftValid"
+              @click="registerPeriod"
+            >
+              등록
+            </button>
+          </div>
+        </div>
       </div>
     </BaseBottomSheet>
 
@@ -684,50 +725,78 @@ onMounted(() => {
   color: var(--text-hint, #999999);
 }
 
-.calc-sheet__period {
+.calc-sheet__period-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--line, #e0e0e0);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 4px 16px;
 }
 
-.calc-sheet__period:last-of-type {
-  padding-bottom: 0;
-  border-bottom: none;
-}
-
-.calc-sheet__period-header {
+.calc-sheet__period-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 0;
 }
 
-.calc-sheet__period-label {
+.calc-sheet__period-row + .calc-sheet__period-row {
+  border-top: 1px solid var(--line);
+}
+
+.calc-sheet__period-row-label {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-body);
+}
+
+.calc-sheet__period-row-amount {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.calc-sheet__amount-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.calc-sheet__amount-row :deep(.base-input) {
+  flex: 1;
+}
+
+.calc-sheet__amount-actions {
+  display: flex;
+  gap: 6px;
+  padding-bottom: 2px;
+}
+
+.calc-sheet__reset-btn,
+.calc-sheet__register-btn {
+  padding: 14px 14px;
+  border: none;
+  border-radius: 12px;
   font-size: 13px;
   font-weight: 700;
-  color: var(--text-body, #545045);
+  cursor: pointer;
+  white-space: nowrap;
 }
 
-.calc-sheet__period-remove {
-  width: 22px;
-  height: 22px;
-  border: none;
-  background: none;
-  color: var(--text-hint, #999999);
-  font-size: 16px;
-  cursor: pointer;
+.calc-sheet__reset-btn {
+  background-color: var(--surface-muted);
+  color: var(--text-body);
 }
 
-.calc-sheet__add-period {
-  padding: 10px;
-  border: 1px dashed var(--line-strong, #d0d0d0);
-  border-radius: 12px;
-  background: none;
-  color: var(--text-body, #545045);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
+.calc-sheet__register-btn {
+  background-color: var(--kb-yellow-deep);
+  color: var(--text-strong);
+}
+
+.calc-sheet__register-btn:disabled {
+  background-color: var(--surface-muted);
+  color: var(--text-hint);
+  cursor: not-allowed;
 }
 
 /* ── 중도해지 수령액·손실금 카드 ── */

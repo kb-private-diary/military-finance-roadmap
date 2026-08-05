@@ -2,6 +2,7 @@ package org.scoula.dashboard.service;
 
 import org.scoula.dashboard.dto.DashboardBasicResponseDTO;
 import org.scoula.dashboard.dto.DashboardSavingsResponseDTO;
+import org.scoula.dashboard.dto.DashboardVacationCreateRequestDTO;
 import org.scoula.dashboard.dto.DashboardVacationDetailResponseDTO;
 import org.scoula.dashboard.dto.DashboardVacationListResponseDTO;
 
@@ -17,4 +18,15 @@ public interface DashboardService {
 
     // DASH-API-05: 휴가 상세 조회
     DashboardVacationDetailResponseDTO findVacationDetail(Long userId, Long vacationId);
+
+    // DASH-API-06: 휴가 등록 (생성된 vacationId 반환)
+    Long createVacation(Long userId, String createdNm, DashboardVacationCreateRequestDTO request);
+
+    // DASH-API-07: 휴가 수정 (REGULAR 제외)
+    void updateVacation(
+            Long userId, Long vacationId, String modifiedNm,
+            DashboardVacationCreateRequestDTO request);
+
+    // DASH-API-08: 휴가 삭제 (REGULAR 마스터 제외, 소프트 삭제)
+    void deleteVacation(Long userId, Long vacationId, String modifiedNm);
 }

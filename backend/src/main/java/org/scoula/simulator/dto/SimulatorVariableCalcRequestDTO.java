@@ -9,9 +9,9 @@ public class SimulatorVariableCalcRequestDTO {
 
     @Data
     public static class Period {
-        // "yyyy-MM" 형식 (예: "2024-01")
-        private String startMonth;
-        private String endMonth;
+        // 가입 개월차 (1부터 시작). 예: 1~5개월차, 6~18개월차
+        private Integer startMonthOffset;
+        private Integer endMonthOffset;
         private Long amount;
     }
 }

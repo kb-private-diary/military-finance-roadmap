@@ -8,6 +8,7 @@ import org.scoula.rent.dto.SchoolSearchResponseDTO;
 import org.scoula.rent.dto.RentGoalDetailResponseDTO;
 import org.scoula.rent.dto.RentListingResponseDTO;
 import org.scoula.rent.dto.RentListingDetailResponseDTO;
+import org.scoula.rent.dto.RentCostResponseDTO;
 import org.scoula.rent.service.RentService;
 import org.scoula.rent.service.RentListingLoadService;
 import org.springframework.http.HttpStatus;
@@ -71,6 +72,14 @@ public class RentController {
     @GetMapping("/listings/{listingId}")
     public ResponseEntity<ApiResponse<RentListingDetailResponseDTO>> findListingDetail(@PathVariable Long listingId) {
         return ResponseEntity.ok(ApiResponse.success(service.findListingDetail(listingId)));
+    }
+
+    // GET /api/rent/listings/{listingId}/cost?months=12 → 총 필요자금 (보증금 + 월세×거주개월)
+    @GetMapping("/listings/{listingId}/cost")
+    public ResponseEntity<ApiResponse<RentCostResponseDTO>> calculateCost(
+            @PathVariable Long listingId,
+            @RequestParam int months) {
+        return ResponseEntity.ok(ApiResponse.success(service.calculateCost(listingId, months)));
     }
 
     // POST /api/rent/listings/load?dealYm=202605 → 국토부 실거래가 매물 적재 (개발용, 대상 시군구 3개)
