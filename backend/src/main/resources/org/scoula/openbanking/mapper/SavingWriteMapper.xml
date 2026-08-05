@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.scoula.openbanking.mapper.SavingWriteMapper">
+
+    <!-- 적금 계좌 저장 (오픈뱅킹 연동 시, account_id 생성) -->
+    <insert id="insertSavingAccount" parameterType="org.scoula.openbanking.domain.SavingAccountVO"
+            useGeneratedKeys="true" keyProperty="accountId">
+        INSERT INTO saving_account (
+            user_id, bank_code, monthly_save, monthly_count, curr_amount, account_status,
+            created_date, created_nm, del_yn
+        ) VALUES (
+            #{userId}, #{bankCode}, #{monthlySave}, #{monthlyCount}, #{currAmount}, #{accountStatus},
+            NOW(), #{createdNm}, 'N'
+        )
+    </insert>
+
+    <!-- 적금 납입내역 저장 (회차별) -->
+    <insert id="insertSavingHistory" parameterType="org.scoula.openbanking.domain.SavingHistoryVO">
+        INSERT INTO saving_history (
+            account_id, pay_round, pay_amount, created_date, created_nm, del_yn
+        ) VALUES (
+            #{accountId}, #{payRound}, #{payAmount}, NOW(), #{createdNm}, 'N'
+        )
+    </insert>
+
+</mapper>
