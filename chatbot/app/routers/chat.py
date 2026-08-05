@@ -8,12 +8,11 @@ from fastapi import APIRouter, Depends, Path, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.core.auth import get_current_admin_user_id, get_current_user_id
 from app.core.db import get_db
 from app.core.exceptions import BusinessException
 from app.models.chat import ChatFeedback, ChatMessage, ChatSession
-from app.models.user import User
 from app.schemas.chat import (
-    FaqCategoryItem,
     FeedbackCreateRequest,
     FeedbackItem,
     GlossaryDetail,
@@ -53,21 +52,17 @@ TOPICS = [
     TopicItem(topic_id="free_input", label="자유입력"),
 ]
 
-FAQ_CATEGORIES = [
-    FaqCategoryItem(category_id="savings", label="적금"),
-    FaqCategoryItem(category_id="subscription", label="청약"),
-    FaqCategoryItem(category_id="deposit", label="예금"),
-    FaqCategoryItem(category_id="investment", label="투자"),
-]
-
-
 # CHAT-002: 대화 세션 관리 API
 @router.post("/sessions", response_model=SessionResponse)
-def create_session(payload: SessionCreateRequest, db: Session = Depends(get_db)):
+def create_session(
+    payload: SessionCreateRequest,
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
     today_session = (
         db.query(ChatSession)
         .filter(
-            ChatSession.user_id == payload.user_id,
+            ChatSession.user_id == current_user_id,
             ChatSession.del_yn == "N",
             func.date(ChatSession.created_date) == date.today(),
         )
@@ -84,10 +79,10 @@ def create_session(payload: SessionCreateRequest, db: Session = Depends(get_db))
         )
 
     new_session = ChatSession(
-        user_id=payload.user_id,
+        user_id=current_user_id,
         title=payload.title,
         created_date=datetime.now(),
-        created_nm=str(payload.user_id),
+        created_nm=str(current_user_id),
     )
     db.add(new_session)
     db.commit()
@@ -103,10 +98,10 @@ def create_session(payload: SessionCreateRequest, db: Session = Depends(get_db))
 
 # CHAT-003: 대화 히스토리 저장/조회 API
 @router.get("/sessions", response_model=List[SessionListItem])
-def list_sessions(user_id: int, db: Session = Depends(get_db)):  # TODO: JWT 연동 후 query param 대신 토큰에서 추출
+def list_sessions(current_user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)):
     sessions = (
         db.query(ChatSession)
-        .filter(ChatSession.user_id == user_id, ChatSession.del_yn == "N")
+        .filter(ChatSession.user_id == current_user_id, ChatSession.del_yn == "N")
         .order_by(ChatSession.created_date.desc())
         .all()
     )
@@ -114,7 +109,11 @@ def list_sessions(user_id: int, db: Session = Depends(get_db)):  # TODO: JWT 연
 
 
 @router.get("/history/{sessionId}", response_model=List[MessageItem])
-def get_history(session_id: int = Path(..., alias="sessionId"), db: Session = Depends(get_db)):
+def get_history(
+    session_id: int = Path(..., alias="sessionId"),
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
     session = (
         db.query(ChatSession)
         .filter(ChatSession.session_id == session_id, ChatSession.del_yn == "N")
@@ -122,6 +121,8 @@ def get_history(session_id: int = Path(..., alias="sessionId"), db: Session = De
     )
     if not session:
         raise BusinessException("세션을 찾을 수 없습니다", 404, "CHAT_001")
+    if session.user_id != current_user_id:
+        raise BusinessException("본인의 세션만 조회할 수 있습니다", 403, "AUTH_004")
 
     messages = (
         db.query(ChatMessage)
@@ -134,7 +135,11 @@ def get_history(session_id: int = Path(..., alias="sessionId"), db: Session = De
 
 # CHAT-004: 사용자 질문 입력 처리
 @router.post("/messages", response_model=MessageItem)
-def send_message(payload: MessageCreateRequest, db: Session = Depends(get_db)):
+def send_message(
+    payload: MessageCreateRequest,
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
     content = payload.content.strip()
     if not content:
         raise BusinessException("질문을 입력해주세요", 400, "CHAT_002")
@@ -148,6 +153,8 @@ def send_message(payload: MessageCreateRequest, db: Session = Depends(get_db)):
     )
     if not session:
         raise BusinessException("세션을 찾을 수 없습니다", 404, "CHAT_001")
+    if session.user_id != current_user_id:
+        raise BusinessException("본인의 세션에만 질문할 수 있습니다", 403, "AUTH_004")
 
     recent_messages = (
         db.query(ChatMessage)
@@ -169,7 +176,9 @@ def send_message(payload: MessageCreateRequest, db: Session = Depends(get_db)):
     db.commit()
 
     try:
-        reply, source, source_detail, is_ai_generated, intent = gemini.generate_reply(content, history=history)
+        reply, source, source_detail, is_ai_generated, intent = gemini.generate_reply(
+            content, history=history, force_intent="info" if payload.force_info else None
+        )
     except Exception:
         logger.exception("Gemini 응답 생성 실패 (session_id=%s)", payload.session_id)
         reply, source, source_detail, is_ai_generated, intent = GEMINI_FAILURE_MESSAGE, "오류 안내", None, False, "info"
@@ -196,11 +205,6 @@ def send_message(payload: MessageCreateRequest, db: Session = Depends(get_db)):
 @router.get("/topics", response_model=List[TopicItem])
 def get_topics():
     return TOPICS
-
-
-@router.get("/faq-categories", response_model=List[FaqCategoryItem])
-def get_faq_categories():
-    return FAQ_CATEGORIES
 
 
 ALL_CATEGORIES = ["savings", "deposit", "subscription", "investment"]
@@ -336,7 +340,11 @@ def get_glossary_term(term: str):
 
 # CHAT-006: 답변 만족도 피드백 저장 API
 @router.post("/feedback", response_model=FeedbackItem)
-def create_feedback(payload: FeedbackCreateRequest, db: Session = Depends(get_db)):
+def create_feedback(
+    payload: FeedbackCreateRequest,
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
     session = (
         db.query(ChatSession)
         .filter(ChatSession.session_id == payload.session_id, ChatSession.del_yn == "N")
@@ -344,6 +352,8 @@ def create_feedback(payload: FeedbackCreateRequest, db: Session = Depends(get_db
     )
     if not session:
         raise BusinessException("세션을 찾을 수 없습니다", 404, "CHAT_001")
+    if session.user_id != current_user_id:
+        raise BusinessException("본인의 세션에만 피드백을 남길 수 있습니다", 403, "AUTH_004")
 
     if payload.feedback not in FEEDBACK_VALUES:
         raise BusinessException("feedback 값은 like, neutral, dislike 중 하나여야 합니다", 400, "CHAT_007")
@@ -378,7 +388,11 @@ def create_feedback(payload: FeedbackCreateRequest, db: Session = Depends(get_db
 
 # RAG-009: 답변 관련 콘텐츠 추천
 @router.get("/messages/{messageId}/recommendations", response_model=List[RecommendationItem])
-def get_recommendation(message_id: int = Path(..., alias="messageId"), db: Session = Depends(get_db)):
+def get_recommendation(
+    message_id: int = Path(..., alias="messageId"),
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
     message = (
         db.query(ChatMessage)
         .filter(ChatMessage.message_id == message_id, ChatMessage.del_yn == "N")
@@ -386,16 +400,20 @@ def get_recommendation(message_id: int = Path(..., alias="messageId"), db: Sessi
     )
     if not message:
         raise BusinessException("메시지를 찾을 수 없습니다", 404, "CHAT_009")
+
+    session = (
+        db.query(ChatSession)
+        .filter(ChatSession.session_id == message.session_id, ChatSession.del_yn == "N")
+        .first()
+    )
+    if not session or session.user_id != current_user_id:
+        raise BusinessException("본인의 세션 메시지만 조회할 수 있습니다", 403, "AUTH_004")
+
     return gemini.get_recommendation(message.source)
 
 
 # 관리자 전용: 정책 문서 재인덱싱 트리거
-# TODO: JWT 연동 후 SecurityContext에서 role 추출하는 방식으로 교체, 그 전까지는 임시로 query param에서 받음
 @router.post("/admin/reindex", response_model=ReindexResponse)
-def reindex_policy_docs(user_id: int = Query(...), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user or user.role != "ADMIN":
-        raise BusinessException("관리자만 접근할 수 있습니다", 403, "CHAT_010")
-
+def reindex_policy_docs(current_admin_user_id: int = Depends(get_current_admin_user_id)):
     count = vectorstore.build_index(force=True)
     return ReindexResponse(reindexed_chunks=count)

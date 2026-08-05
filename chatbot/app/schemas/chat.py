@@ -5,7 +5,6 @@ from app.schemas.base import CamelModel
 
 
 class SessionCreateRequest(CamelModel):
-    user_id: int  # TODO: JWT 연동 후 토큰에서 추출하는 방식으로 교체, 그 전까지는 임시로 body에서 받음
     title: Optional[str] = None
 
 
@@ -37,15 +36,13 @@ class MessageItem(CamelModel):
 class MessageCreateRequest(CamelModel):
     session_id: int
     content: str
+    # true면 의도분류(classify_intent)를 건너뛰고 무조건 정보성 질문으로 처리한다.
+    # 자주 묻는 질문처럼 미리 큐레이션된 질문이 상담 등으로 잘못 튀지 않게 할 때 사용.
+    force_info: bool = False
 
 
 class TopicItem(CamelModel):
     topic_id: str
-    label: str
-
-
-class FaqCategoryItem(CamelModel):
-    category_id: str
     label: str
 
 
