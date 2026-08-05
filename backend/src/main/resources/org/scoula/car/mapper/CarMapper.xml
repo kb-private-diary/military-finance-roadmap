@@ -53,4 +53,29 @@
         LIMIT 1
     </select>
 
+    <sql id="carGoalDetailColumns">
+        g.goal_id, g.budget, g.car_type_code, g.is_new, g.experience_years,
+        g.target_date, g.region, g.selected_model_id, m.model_name AS selectedModelName,
+        g.selected_year, g.status
+    </sql>
+
+    <select id="selectCarGoalsByUserId" resultType="org.scoula.car.dto.CarGoalResponseDTO">
+        SELECT
+        <include refid="carGoalDetailColumns"/>
+        FROM car_goal g
+        LEFT JOIN car_model m ON g.selected_model_id = m.model_id
+        WHERE g.user_id = #{userId}
+        AND g.del_yn = 'N'
+        ORDER BY g.created_date DESC
+    </select>
+
+    <select id="selectCarGoalDetailById" resultType="org.scoula.car.dto.CarGoalResponseDTO">
+        SELECT
+        <include refid="carGoalDetailColumns"/>
+        FROM car_goal g
+        LEFT JOIN car_model m ON g.selected_model_id = m.model_id
+        WHERE g.goal_id = #{goalId}
+        AND g.del_yn = 'N'
+    </select>
+
 </mapper>

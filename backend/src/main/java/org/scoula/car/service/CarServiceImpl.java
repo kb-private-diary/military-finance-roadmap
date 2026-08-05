@@ -3,6 +3,7 @@ package org.scoula.car.service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ import org.scoula.car.domain.CarTaxVO;
 import org.scoula.car.dto.CarAcquisitionTaxResponseDTO;
 import org.scoula.car.dto.CarGoalCreateRequestDTO;
 import org.scoula.car.dto.CarGoalCreateResponseDTO;
+import org.scoula.car.dto.CarGoalResponseDTO;
 import org.scoula.car.dto.CarMaintenanceCostResponseDTO;
 import org.scoula.car.dto.CarUsedPriceResponseDTO;
 import org.scoula.car.mapper.CarMapper;
@@ -80,6 +82,20 @@ public class CarServiceImpl implements CarService {
         this.carMapper.createCarGoal(carGoalVO);
 
         return new CarGoalCreateResponseDTO(carGoalVO.getGoalId());
+    }
+
+    @Override
+    public List<CarGoalResponseDTO> findCarGoals(Long userId) {
+        return this.carMapper.selectCarGoalsByUserId(userId);
+    }
+
+    @Override
+    public CarGoalResponseDTO findCarGoalDetail(Long goalId) {
+        CarGoalResponseDTO goal = this.carMapper.selectCarGoalDetailById(goalId);
+        if (goal == null) {
+            throw BusinessException.notFound("목표를 찾을 수 없습니다", "CAR_003");
+        }
+        return goal;
     }
 
     @Override

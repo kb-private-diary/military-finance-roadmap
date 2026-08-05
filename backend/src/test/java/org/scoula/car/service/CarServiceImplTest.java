@@ -1,28 +1,33 @@
 package org.scoula.car.service;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.scoula.car.dto.CarAcquisitionTaxResponseDTO;
 import org.scoula.car.dto.CarGoalCreateRequestDTO;
 import org.scoula.car.dto.CarGoalCreateResponseDTO;
+import org.scoula.car.dto.CarGoalResponseDTO;
 import org.scoula.car.dto.CarUsedPriceResponseDTO;
 import org.scoula.common.exception.BusinessException;
 import org.scoula.config.RootConfig;
 import org.scoula.security.config.SecurityConfig;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = { RootConfig.class, SecurityConfig.class })
+@ActiveProfiles("dev")
 @Transactional
 class CarServiceImplTest {
 
@@ -60,6 +65,35 @@ class CarServiceImplTest {
     @Test
     void createCarGoal_withNegativeBudget_throws() {
         assertThrows(BusinessException.class, () -> this.service.createCarGoal(requestDto(-1_000_000L)));
+    }
+
+    @Test
+    void findCarGoals_withSeededUser_returnsNonEmptyList() {
+        // 시드데이터 userId=1은 goal_id=1,2,7을 보유
+        List<CarGoalResponseDTO> result = this.service.findCarGoals(1L);
+
+        assertFalse(result.isEmpty());
+    }
+
+    @Test
+    void findCarGoals_withUnknownUser_returnsEmptyList() {
+        List<CarGoalResponseDTO> result = this.service.findCarGoals(9_999_999L);
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void findCarGoalDetail_withUnknownGoalId_throws() {
+        assertThrows(BusinessException.class, () -> this.service.findCarGoalDetail(9_999_999L));
+    }
+
+    @Test
+    void findCarGoalDetail_withSeededGoal_includesSelectedModelName() {
+        // goal_id=1 시드데이터: selected_model_id=3(캐스퍼)
+        CarGoalResponseDTO result = this.service.findCarGoalDetail(1L);
+
+        assertEquals(2000L, result.getBudget());
+        assertEquals("캐스퍼", result.getSelectedModelName());
     }
 
     @Test
