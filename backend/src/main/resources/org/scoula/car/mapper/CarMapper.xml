@@ -3,22 +3,33 @@
 <mapper namespace="org.scoula.car.mapper.CarMapper">
 
     <insert id="createCarGoal" parameterType="org.scoula.car.domain.CarGoalVO" useGeneratedKeys="true" keyProperty="goalId">
-        <!--
-            임시로 userId를 문자열로 기록함. 추후 JWT 연동 시 실제 사용자명으로 교체 예정.
-        -->
         INSERT INTO car_goal (
-            user_id, budget, car_type_code, is_new, target_date, region, status,
+            user_id, budget, car_type_code, is_new, experience_years, target_date, region, status,
             created_date, created_nm, del_yn
         ) VALUES (
-            #{userId}, #{budget}, #{carTypeCode}, #{isNew}, #{targetDate}, #{region}, 'DRAFT',
+            #{userId}, #{budget}, #{carTypeCode}, #{isNew}, #{experienceYears}, #{targetDate}, #{region}, 'DRAFT',
             NOW(), #{userId}, 'N'
         )
     </insert>
+
+    <update id="updateSelectedModel" parameterType="org.scoula.car.domain.CarGoalVO">
+        UPDATE car_goal
+        SET car_type_code = #{carTypeCode},
+            selected_model_id = #{selectedModelId},
+            selected_year = #{selectedYear},
+            status = #{status},
+            modified_date = NOW(),
+            modified_nm = #{userId}
+        WHERE goal_id = #{goalId}
+        AND user_id = #{userId}
+        AND del_yn = 'N'
+    </update>
 
     <select id="selectCarGoalById" resultType="org.scoula.car.domain.CarGoalVO">
         SELECT *
         FROM car_goal
         WHERE goal_id = #{goalId}
+        AND user_id = #{userId}
         AND del_yn = 'N'
     </select>
 
@@ -27,6 +38,13 @@
         FROM car_model
         WHERE model_id = #{modelId}
         AND del_yn = 'N'
+    </select>
+
+    <select id="selectAllCarModels" resultType="org.scoula.car.domain.CarModelVO">
+        SELECT *
+        FROM car_model
+        WHERE del_yn = 'N'
+        ORDER BY car_type_code ASC, base_price ASC
     </select>
 
     <select id="selectInsuranceByTypeAndBracket" resultType="org.scoula.car.domain.CarInsuranceVO">
@@ -44,6 +62,15 @@
         AND del_yn = 'N'
     </select>
 
+    <select id="selectEvSubsidyByRegion" resultType="org.scoula.car.domain.CarEvVO">
+        SELECT *
+        FROM car_ev
+        WHERE region = #{region}
+        AND del_yn = 'N'
+        ORDER BY base_year DESC
+        LIMIT 1
+    </select>
+
     <select id="selectBestPrepayDiscount" resultType="org.scoula.car.domain.CarTaxPrepayVO">
         SELECT *
         FROM car_tax_prepay
@@ -51,6 +78,32 @@
         AND del_yn = 'N'
         ORDER BY discount_rate DESC
         LIMIT 1
+    </select>
+
+    <sql id="carGoalDetailColumns">
+        g.goal_id, g.budget, g.car_type_code, g.is_new, g.experience_years,
+        g.target_date, g.region, g.selected_model_id, m.model_name AS selectedModelName,
+        g.selected_year, g.status
+    </sql>
+
+    <select id="selectCarGoalsByUserId" resultType="org.scoula.car.dto.CarGoalResponseDTO">
+        SELECT
+        <include refid="carGoalDetailColumns"/>
+        FROM car_goal g
+        LEFT JOIN car_model m ON g.selected_model_id = m.model_id
+        WHERE g.user_id = #{userId}
+        AND g.del_yn = 'N'
+        ORDER BY g.created_date DESC
+    </select>
+
+    <select id="selectCarGoalDetailById" resultType="org.scoula.car.dto.CarGoalResponseDTO">
+        SELECT
+        <include refid="carGoalDetailColumns"/>
+        FROM car_goal g
+        LEFT JOIN car_model m ON g.selected_model_id = m.model_id
+        WHERE g.goal_id = #{goalId}
+        AND g.user_id = #{userId}
+        AND g.del_yn = 'N'
     </select>
 
 </mapper>

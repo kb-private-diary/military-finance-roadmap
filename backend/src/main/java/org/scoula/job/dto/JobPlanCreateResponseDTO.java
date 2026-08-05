@@ -13,6 +13,6 @@ import java.util.List;
 @AllArgsConstructor
 public class JobPlanCreateResponseDTO {
     private Long goalId;
-    private long totalAmount;
-    private List<JobPlanItemDTO> items;
+    private List<JobQualificationDTO> qualifications;
+    private List<JobCourseDTO> courses;
 }

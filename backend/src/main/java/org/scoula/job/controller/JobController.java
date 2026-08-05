@@ -3,7 +3,10 @@ package org.scoula.job.controller;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.scoula.common.response.ApiResponse;
-import org.scoula.job.dto.JobCodeDTO;
+import org.scoula.job.dto.JobCategoryDTO;
+import org.scoula.job.dto.JobGoalDetailResponseDTO;
+import org.scoula.job.dto.JobTransferMajorDTO;
+import org.scoula.job.dto.JobTransferUniversityDTO;
 import org.scoula.job.dto.JobGoalCreateRequestDTO;
 import org.scoula.job.dto.JobGoalCreateResponseDTO;
 import org.scoula.job.dto.JobPlanCreateRequestDTO;
@@ -21,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.validation.Valid;
 import java.util.List;
 
 @RestController
@@ -31,47 +35,67 @@ public class JobController {
 
     private final JobService jobService;
 
-    //JOB-API-01: 직무·직렬·학과 코드 조회(goalType별)
-    @GetMapping("/codes")
-    public ResponseEntity<ApiResponse<List<JobCodeDTO>>> findJobCodes(@RequestParam String goalType) {
-        log.info("Fetching job codes for goalType: {}", goalType);
-        return ResponseEntity.ok(ApiResponse.success(jobService.findJobCodes(goalType)));
+    @GetMapping("/categories")
+    public ResponseEntity<ApiResponse<List<JobCategoryDTO>>> findCategoryList(
+            @RequestParam String goalType) {
+        return ResponseEntity.ok(
+                ApiResponse.success(this.jobService.findCategoryList(goalType))
+        );
     }
 
-    //JOB-API-02: 진로 목표 신규 등록
+    @GetMapping("/transfer-universities")
+    public ResponseEntity<ApiResponse<List<JobTransferUniversityDTO>>> findTransferUniversityList() {
+        return ResponseEntity.ok(
+                ApiResponse.success(this.jobService.findTransferUniversityList())
+        );
+    }
+
+    @GetMapping("/transfer-universities/{univId}/majors")
+    public ResponseEntity<ApiResponse<List<JobTransferMajorDTO>>> findTransferMajorList(
+            @PathVariable Long univId) {
+        return ResponseEntity.ok(
+                ApiResponse.success(this.jobService.findTransferMajorList(univId))
+        );
+    }
+
+    // POST /api/job/goals  → 진로 목표 등록
     @PostMapping("/goals")
     public ResponseEntity<ApiResponse<JobGoalCreateResponseDTO>> createJobGoal(
             // TODO: 실제 구현에서는 JWT 기반 보안(SecurityContext)에서 userId(=user.id)를 가져와야 합니다.
             // 개발 편의를 위해 임시로 요청 body에 포함해서 받도록 설정합니다.
-            @RequestBody JobGoalCreateRequestDTO requestDTO) {
-        log.info("Creating job goal for userId: {}", requestDTO.getUserId());
+            @Valid @RequestBody JobGoalCreateRequestDTO requestDTO) {
         JobGoalCreateResponseDTO responseDTO = jobService.createJobGoal(requestDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(responseDTO));
     }
 
-    //JOB-API-04: 준비항목 추천 조회
+    // GET /api/job/goals/{goalId}/prep-items  → 준비항목 추천 조회
     @GetMapping("/goals/{goalId}/prep-items")
     public ResponseEntity<ApiResponse<PrepItemRecommendResponseDTO>> findPrepItemRecommend(@PathVariable Long goalId) {
-        log.info("Fetching job recommend for goalId: {}", goalId);
         return ResponseEntity.ok(ApiResponse.success(jobService.findPrepItemRecommend(goalId)));
     }
 
-    //JOB-API-05: 준비항목 선택 저장 (저장 후 항목별 내역 + 총액 반환)
+    // GET /api/job/goals/{goalId}/plans → 준비항목 선택 저장
     @PostMapping("/goals/{goalId}/plans")
     public ResponseEntity<ApiResponse<JobPlanCreateResponseDTO>> createJobPlans(
             @PathVariable Long goalId,
             @RequestBody JobPlanCreateRequestDTO requestDTO) {
-        log.info("Creating job plans for goalId: {}", goalId);
         JobPlanCreateResponseDTO responseDTO = this.jobService.createJobPlans(goalId, requestDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(responseDTO));
     }
 
-    //JOB-API-07: 정책·서비스 추천 조회
+    // GET /api/job/goals/{goalId}/services → 정책·서비스 추천 조회
     @GetMapping("/goals/{goalId}/services")
     public ResponseEntity<ApiResponse<ServiceRecommendResponseDTO>> findServiceRecommend(
             @PathVariable Long goalId) {
-
-        log.info("Fetching job services for goalId: {}", goalId);
         return ResponseEntity.ok(ApiResponse.success(this.jobService.findServiceRecommend(goalId)));
+    }
+
+    // GET /api/job/goals/{goalId} → 목표 상세
+    @GetMapping("/goals/{goalId}")
+    public ResponseEntity<ApiResponse<JobGoalDetailResponseDTO>> findJobGoalDetail(
+            @PathVariable Long goalId) {
+        return ResponseEntity.ok(
+                ApiResponse.success(this.jobService.findJobGoalDetail(goalId))
+        );
     }
 }

@@ -3,8 +3,8 @@ package org.scoula.simulator.service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
-import java.time.YearMonth;
-import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 import org.scoula.common.exception.BusinessException;
@@ -40,6 +40,10 @@ public class SimulatorServiceImpl implements SimulatorService {
     // (교체 후 getter 메서드명이 동일한지 확인 필요 - 예: getCreatedDate(), getMonthlySave() 등)
     private final SimulatorMapper mapper;
     private final MilitarySavingProductMapper militarySavingProductMapper;
+
+    // 가입 전 시뮬레이터(calculate/variable)는 아직 은행을 선택하기 전 단계라 특정 계좌가 없다.
+    // KB국민(004) 금리를 기준으로 계산한다.
+    private static final String SIMULATION_BANK_CODE = "004";
 
     @Transactional(readOnly = true)
     @Override
@@ -177,78 +181,61 @@ public class SimulatorServiceImpl implements SimulatorService {
         
         long amount = request.getMonthlySave();
         int totalMonths = request.getSaveMonths();
-        
+
+        MilitarySavingRateResolver rateResolver = new MilitarySavingRateResolver(
+                this.militarySavingProductMapper, SIMULATION_BANK_CODE);
+        double annualInterestRate = rateResolver.apply(totalMonths);
+
         long totalPrincipal = 0L;
         double totalInterest = 0.0;
-        double annualInterestRate = 0.05;
-        double governmentMatchingRate = 1.0;
-        
+
         for (int i = 1; i <= totalMonths; i++) {
             totalPrincipal += amount;
             int investedMonths = totalMonths - i + 1;
             totalInterest += this.calculateSimpleInterest(amount, annualInterestRate, investedMonths);
         }
-        
-        return this.buildSimulationResponse(totalPrincipal, totalInterest);
+
+        return this.buildSimulationResponse(
+                totalPrincipal, totalInterest, rateResolver.getGovMatchRate());
     }
     
     @Override
     public SimulatorCalculateResponseDTO calculateVariable(SimulatorVariableCalcRequestDTO request) {
         this.validateVariableRequest(request);
-        
+
+        int minStart = Integer.MAX_VALUE;
+        int maxEnd = Integer.MIN_VALUE;
+        for (SimulatorVariableCalcRequestDTO.Period period : request.getPeriods()) {
+            minStart = Math.min(minStart, period.getStartMonthOffset());
+            maxEnd = Math.max(maxEnd, period.getEndMonthOffset());
+        }
+
+        long totalDurationMonths = maxEnd - minStart + 1;
+        this.validateTotalMonths(totalDurationMonths);
+
+        MilitarySavingRateResolver rateResolver = new MilitarySavingRateResolver(
+                this.militarySavingProductMapper, SIMULATION_BANK_CODE);
+        double annualInterestRate = rateResolver.apply((int) totalDurationMonths);
+
         long totalPrincipal = 0L;
         double totalInterest = 0.0;
-        double annualInterestRate = 0.05;
-        
-        YearMonth minStart = null;
-        YearMonth maxEnd = null;
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM");
-        
-        try {
-            // 1. 모든 구간 유효성 검사 및 최소 시작일/최대 종료일 계산
-            for (SimulatorVariableCalcRequestDTO.Period period : request.getPeriods()) {
-                YearMonth start = YearMonth.parse(period.getStartMonth(), formatter);
-                YearMonth end = YearMonth.parse(period.getEndMonth(), formatter);
-                
-                this.validatePeriodOrder(start, end);
-                
-                if (minStart == null || start.isBefore(minStart)) {
-                    minStart = start;
-                }
-                if (maxEnd == null || end.isAfter(maxEnd)) {
-                    maxEnd = end;
-                }
+
+        for (SimulatorVariableCalcRequestDTO.Period period : request.getPeriods()) {
+            long amount = period.getAmount();
+            int startMonth = period.getStartMonthOffset();
+            int endMonth = period.getEndMonthOffset();
+            for (int month = startMonth; month <= endMonth; month++) {
+                totalPrincipal += amount;
+                int investedMonths = maxEnd - month + 1;
+                totalInterest += this.calculateSimpleInterest(
+                        amount, annualInterestRate, investedMonths);
             }
-            
-            if (minStart == null || maxEnd == null || minStart.isAfter(maxEnd)) {
-                throw BusinessException.badRequest("잘못된 입력값입니다.", "SIMUL_003");
-            }
-            
-            long totalDurationMonths = ChronoUnit.MONTHS.between(minStart, maxEnd) + 1;
-            this.validateTotalMonths(totalDurationMonths);
-            
-            // 2. 각 구간별 이자 계산
-            for (SimulatorVariableCalcRequestDTO.Period period : request.getPeriods()) {
-                YearMonth start = YearMonth.parse(period.getStartMonth(), formatter);
-                YearMonth end = YearMonth.parse(period.getEndMonth(), formatter);
-                long amount = period.getAmount();
-                
-                YearMonth current = start;
-                while (!current.isAfter(end)) {
-                    totalPrincipal += amount;
-                    int investedMonths = (int) ChronoUnit.MONTHS.between(current, maxEnd) + 1;
-                    totalInterest += this.calculateSimpleInterest(amount, annualInterestRate, investedMonths);
-                    current = current.plusMonths(1);
-                }
-            }
-        } catch (java.time.format.DateTimeParseException e) {
-            // 날짜 포맷 에러 (예: "2025-1", "가나다라") 발생 시 400 Bad Request 유도
-            throw BusinessException.badRequest("날짜 포맷이 올바르지 않습니다.", "SIMUL_007");
         }
-        
-        return this.buildSimulationResponse(totalPrincipal, totalInterest);
+
+        return this.buildSimulationResponse(
+                totalPrincipal, totalInterest, rateResolver.getGovMatchRate());
     }
-    
+
     // ------------------------- 유효성 검증 헬퍼 -------------------------
 
     private void validateConstantRequest(SimulatorConstantCalcRequestDTO request) {
@@ -264,11 +251,17 @@ public class SimulatorServiceImpl implements SimulatorService {
             throw BusinessException.badRequest("잘못된 입력값입니다.", "SIMUL_003");
         }
         for (SimulatorVariableCalcRequestDTO.Period period : request.getPeriods()) {
-            if (period.getStartMonth() == null || period.getEndMonth() == null || period.getAmount() == null) {
+            if (period.getStartMonthOffset() == null || period.getEndMonthOffset() == null
+                    || period.getAmount() == null) {
                 throw BusinessException.badRequest("잘못된 입력값입니다.", "SIMUL_003");
             }
+            if (period.getStartMonthOffset() < 1) {
+                throw BusinessException.badRequest("가입 개월차는 1 이상이어야 합니다.", "SIMUL_009");
+            }
+            this.validatePeriodOrder(period.getStartMonthOffset(), period.getEndMonthOffset());
             this.validateSaveAmount(period.getAmount());
         }
+        this.validateNoOverlap(request.getPeriods());
     }
     
     private void validateSaveAmount(long amount) {
@@ -283,9 +276,24 @@ public class SimulatorServiceImpl implements SimulatorService {
         }
     }
     
-    private void validatePeriodOrder(YearMonth start, YearMonth end) {
-        if (start.isAfter(end)) {
-            throw BusinessException.badRequest("시작일이 종료일보다 늦을 수 없습니다.", "SIMUL_006");
+    private void validatePeriodOrder(int startMonthOffset, int endMonthOffset) {
+        if (startMonthOffset > endMonthOffset) {
+            throw BusinessException.badRequest("시작월차가 종료월차보다 늦을 수 없습니다.", "SIMUL_006");
+        }
+    }
+
+    // 구간끼리 겹치면 해당 개월이 이중으로 계산되므로 겹침을 금지한다.
+    private void validateNoOverlap(List<SimulatorVariableCalcRequestDTO.Period> periods) {
+        List<SimulatorVariableCalcRequestDTO.Period> sorted = new ArrayList<>(periods);
+        sorted.sort(Comparator.comparing(
+                SimulatorVariableCalcRequestDTO.Period::getStartMonthOffset));
+
+        for (int i = 1; i < sorted.size(); i++) {
+            int prevEnd = sorted.get(i - 1).getEndMonthOffset();
+            int currentStart = sorted.get(i).getStartMonthOffset();
+            if (currentStart <= prevEnd) {
+                throw BusinessException.badRequest("납입 구간이 겹칠 수 없습니다.", "SIMUL_010");
+            }
         }
     }
     
@@ -337,8 +345,8 @@ public class SimulatorServiceImpl implements SimulatorService {
         return Math.min(matchingFund, maxMatchingFund);
     }
 
-    private SimulatorCalculateResponseDTO buildSimulationResponse(long totalPrincipal, double totalInterest) {
-        double governmentMatchingRate = 1.0;
+    private SimulatorCalculateResponseDTO buildSimulationResponse(
+            long totalPrincipal, double totalInterest, double governmentMatchingRate) {
         double matchingFund = totalPrincipal * governmentMatchingRate;
         long receiptAmount = totalPrincipal + (long) totalInterest + (long) matchingFund;
         
