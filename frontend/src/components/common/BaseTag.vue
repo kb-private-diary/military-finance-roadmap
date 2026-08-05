@@ -41,18 +41,36 @@ defineProps({
 /* 연한 국방색 (버튼 비활성화 상태와 동일) */
 .base-tag--green-light {
   background-color: var(--military-green-light);
-  color: var(--military-green);
+  color: var(--text-strong);
 }
 
 /* 옐로우 포인트 컬러 배지용 */
 .base-tag--yellow {
   background-color: var(--kb-yellow-deep);
-  color: var(--kb-gray);
+  color: var(--text-strong);
 }
 
 /* 회색 바탕 배지용 */
 .base-tag--gray {
   background-color: var(--gray-pale-bg);
-  color: var(--gray-mid);
+  color: var(--text-strong);
+}
+
+/* 파랑 포인트 컬러 배지용 (휴가 카테고리 CONSOLATION 등) */
+.base-tag--blue {
+  background-color: var(--pastel-blue);
+  color: var(--text-strong);
+}
+
+/* 보라 포인트 컬러 배지용 (휴가 카테고리 PETITION 등) */
+.base-tag--purple {
+  background-color: var(--pastel-purple);
+  color: var(--text-strong);
+}
+
+/* 브라운 포인트 컬러 배지용 (휴가 카테고리 ETC 등) */
+.base-tag--brown {
+  background-color: var(--brown-active-bg);
+  color: var(--text-strong);
 }
 </style>

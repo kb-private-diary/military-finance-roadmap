@@ -67,6 +67,8 @@
   --focus-ring-yellow-strong: rgba(255, 179, 0, 0.4);
   --shadow-thumb: rgba(0, 0, 0, 0.2);
   --shadow-dropdown: rgba(0, 0, 0, 0.08);
+  /* 진한 배경 위 ProgressBar 트랙 대비용 */
+  --overlay-white-30: rgba(255, 255, 255, 0.3);
 
   /* CategoryButton 파스텔 계열 (variant별 고유 색) */
   --brown-pale-bg: #f1ede1;
