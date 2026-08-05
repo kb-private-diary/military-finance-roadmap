@@ -3,9 +3,9 @@
 export default [
   {
     path: '/onboarding',
-    name: 'Onboarding',   // 웰컴 온보딩 (오픈뱅킹 필수 연동)
+    name: 'Onboarding',   // 웰컴 온보딩 (오픈뱅킹 필수 연동) - 헤더(텅장일병구하기)는 유지, 탭 메뉴만 숨김
     component: () => import('@/pages/openbanking/OnboardingPage.vue'),
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, showTabNav: false },
   },
   {
     path: '/regret/link',
