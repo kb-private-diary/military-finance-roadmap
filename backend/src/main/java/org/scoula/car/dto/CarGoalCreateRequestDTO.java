@@ -16,6 +16,7 @@ public class CarGoalCreateRequestDTO {
     private Long budget;
     private Integer carTypeCode;
     private Boolean isNew;
+    private Integer experienceYears;
     private LocalDate targetDate;
     private String region;
 }

@@ -7,13 +7,24 @@
             임시로 userId를 문자열로 기록함. 추후 JWT 연동 시 실제 사용자명으로 교체 예정.
         -->
         INSERT INTO car_goal (
-            user_id, budget, car_type_code, is_new, target_date, region, status,
+            user_id, budget, car_type_code, is_new, experience_years, target_date, region, status,
             created_date, created_nm, del_yn
         ) VALUES (
-            #{userId}, #{budget}, #{carTypeCode}, #{isNew}, #{targetDate}, #{region}, 'DRAFT',
+            #{userId}, #{budget}, #{carTypeCode}, #{isNew}, #{experienceYears}, #{targetDate}, #{region}, 'DRAFT',
             NOW(), #{userId}, 'N'
         )
     </insert>
+
+    <update id="updateSelectedModel" parameterType="org.scoula.car.domain.CarGoalVO">
+        UPDATE car_goal
+        SET selected_model_id = #{selectedModelId},
+            selected_year = #{selectedYear},
+            status = #{status},
+            modified_date = NOW(),
+            modified_nm = #{userId}
+        WHERE goal_id = #{goalId}
+        AND del_yn = 'N'
+    </update>
 
     <select id="selectCarGoalById" resultType="org.scoula.car.domain.CarGoalVO">
         SELECT *
@@ -29,6 +40,14 @@
         AND del_yn = 'N'
     </select>
 
+    <select id="selectCarModelsByTypeCode" resultType="org.scoula.car.domain.CarModelVO">
+        SELECT *
+        FROM car_model
+        WHERE car_type_code = #{carTypeCode}
+        AND del_yn = 'N'
+        ORDER BY base_price ASC
+    </select>
+
     <select id="selectInsuranceByTypeAndBracket" resultType="org.scoula.car.domain.CarInsuranceVO">
         SELECT *
         FROM car_insurance
@@ -42,6 +61,15 @@
         FROM car_tax
         WHERE car_type_code = #{carTypeCode}
         AND del_yn = 'N'
+    </select>
+
+    <select id="selectEvSubsidyByRegion" resultType="org.scoula.car.domain.CarEvVO">
+        SELECT *
+        FROM car_ev
+        WHERE region = #{region}
+        AND del_yn = 'N'
+        ORDER BY base_year DESC
+        LIMIT 1
     </select>
 
     <select id="selectBestPrepayDiscount" resultType="org.scoula.car.domain.CarTaxPrepayVO">

@@ -3,6 +3,8 @@ package org.scoula.car.service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -13,16 +15,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import org.scoula.car.client.OpinetClient;
+import org.scoula.car.domain.CarEvVO;
 import org.scoula.car.domain.CarGoalVO;
 import org.scoula.car.domain.CarInsuranceVO;
 import org.scoula.car.domain.CarModelVO;
 import org.scoula.car.domain.CarTaxPrepayVO;
 import org.scoula.car.domain.CarTaxVO;
 import org.scoula.car.dto.CarAcquisitionTaxResponseDTO;
+import org.scoula.car.dto.CarEvSubsidyResponseDTO;
 import org.scoula.car.dto.CarGoalCreateRequestDTO;
 import org.scoula.car.dto.CarGoalCreateResponseDTO;
 import org.scoula.car.dto.CarGoalResponseDTO;
 import org.scoula.car.dto.CarMaintenanceCostResponseDTO;
+import org.scoula.car.dto.CarModelSelectRequestDTO;
+import org.scoula.car.dto.CarRecommendationResponseDTO;
 import org.scoula.car.dto.CarUsedPriceResponseDTO;
 import org.scoula.car.mapper.CarMapper;
 import org.scoula.common.exception.BusinessException;
@@ -76,6 +82,7 @@ public class CarServiceImpl implements CarService {
         carGoalVO.setBudget(requestDTO.getBudget());
         carGoalVO.setCarTypeCode(requestDTO.getCarTypeCode());
         carGoalVO.setIsNew(requestDTO.getIsNew());
+        carGoalVO.setExperienceYears(requestDTO.getExperienceYears());
         carGoalVO.setTargetDate(requestDTO.getTargetDate());
         carGoalVO.setRegion(requestDTO.getRegion());
 
@@ -96,6 +103,80 @@ public class CarServiceImpl implements CarService {
             throw BusinessException.notFound("목표를 찾을 수 없습니다", "CAR_003");
         }
         return goal;
+    }
+
+    @Override
+    public List<CarRecommendationResponseDTO> recommendCars(Long goalId) {
+        CarGoalVO goal = this.carMapper.selectCarGoalById(goalId);
+        if (goal == null) {
+            throw BusinessException.notFound("목표를 찾을 수 없습니다", "CAR_003");
+        }
+
+        CarTaxVO tax = this.carMapper.selectTaxByTypeCode(goal.getCarTypeCode());
+        if (tax == null) {
+            throw BusinessException.notFound("취득세 기준 정보를 찾을 수 없습니다", "CAR_007");
+        }
+
+        List<CarModelVO> candidates = this.carMapper.selectCarModelsByTypeCode(goal.getCarTypeCode());
+        boolean isNew = Boolean.TRUE.equals(goal.getIsNew());
+
+        List<CarRecommendationResponseDTO> recommendations = new ArrayList<>();
+        for (CarModelVO model : candidates) {
+            long estimatedPrice = isNew
+                    ? model.getBasePrice()
+                    : BigDecimal.valueOf(model.getBasePrice())
+                            .multiply(ANNUAL_RETENTION_RATE.pow(DEFAULT_ASSUMED_AGE_YEARS))
+                            .setScale(0, RoundingMode.HALF_UP)
+                            .longValue();
+            long acquisitionTaxAmount = BigDecimal.valueOf(estimatedPrice)
+                    .multiply(tax.getAcquisitionTaxRate())
+                    .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP)
+                    .longValue();
+            long totalPrice = estimatedPrice + acquisitionTaxAmount;
+
+            recommendations.add(CarRecommendationResponseDTO.builder()
+                    .modelId(model.getModelId())
+                    .manufacturer(model.getManufacturer())
+                    .modelName(model.getModelName())
+                    .fuelType(model.getFuelType())
+                    .baseNewPrice(model.getBasePrice())
+                    .estimatedPrice(estimatedPrice)
+                    .acquisitionTaxAmount(acquisitionTaxAmount)
+                    .totalPrice(totalPrice)
+                    .withinBudget(goal.getBudget() != null && totalPrice <= goal.getBudget())
+                    .build());
+        }
+
+        recommendations.sort(Comparator.comparingLong(CarRecommendationResponseDTO::getTotalPrice));
+        return recommendations;
+    }
+
+    @Override
+    @Transactional
+    public CarGoalResponseDTO selectCarModel(Long goalId, CarModelSelectRequestDTO requestDTO) {
+        CarGoalVO goal = this.carMapper.selectCarGoalById(goalId);
+        if (goal == null) {
+            throw BusinessException.notFound("목표를 찾을 수 없습니다", "CAR_003");
+        }
+        if (requestDTO.getModelId() == null) {
+            throw BusinessException.badRequest("선택할 차량 모델을 지정해야 합니다", "CAR_008");
+        }
+
+        CarModelVO model = this.carMapper.selectCarModelById(requestDTO.getModelId());
+        if (model == null) {
+            throw BusinessException.notFound("선택한 차량 모델을 찾을 수 없습니다", "CAR_009");
+        }
+        if (!model.getCarTypeCode().equals(goal.getCarTypeCode())) {
+            throw BusinessException.badRequest("선택한 차량이 목표 차종과 일치하지 않습니다", "CAR_010");
+        }
+
+        goal.setSelectedModelId(model.getModelId());
+        goal.setSelectedYear(requestDTO.getSelectedYear());
+        goal.setStatus("SELECTED");
+
+        this.carMapper.updateSelectedModel(goal);
+
+        return this.findCarGoalDetail(goalId);
     }
 
     @Override
@@ -244,6 +325,41 @@ public class CarServiceImpl implements CarService {
                 .estimatedUsedPrice(estimatedUsedPrice)
                 .acquisitionTaxAmount(acquisitionTaxAmount)
                 .totalPrice(estimatedUsedPrice + acquisitionTaxAmount)
+                .build();
+    }
+
+    @Override
+    public CarEvSubsidyResponseDTO calculateEvSubsidy(Long goalId) {
+        CarGoalVO goal = this.carMapper.selectCarGoalById(goalId);
+        if (goal == null) {
+            throw BusinessException.notFound("목표를 찾을 수 없습니다", "CAR_003");
+        }
+        if (goal.getSelectedModelId() == null) {
+            throw BusinessException.badRequest("차량 모델을 먼저 선택해야 합니다", "CAR_004");
+        }
+
+        CarModelVO model = this.carMapper.selectCarModelById(goal.getSelectedModelId());
+        if (!"전기".equals(model.getFuelType())) {
+            throw BusinessException.badRequest("선택한 차량은 전기차가 아닙니다", "CAR_011");
+        }
+
+        CarEvVO ev = this.carMapper.selectEvSubsidyByRegion(goal.getRegion());
+        if (ev == null) {
+            throw BusinessException.notFound("해당 지역의 전기차 보조금 정보를 찾을 수 없습니다", "CAR_012");
+        }
+
+        long totalSubsidy = ev.getNationalSubsidy() + ev.getLocalSubsidy();
+
+        return CarEvSubsidyResponseDTO.builder()
+                .goalId(goalId)
+                .modelName(model.getModelName())
+                .basePrice(model.getBasePrice())
+                .region(ev.getRegion())
+                .nationalSubsidy(ev.getNationalSubsidy())
+                .localSubsidy(ev.getLocalSubsidy())
+                .totalSubsidy(totalSubsidy)
+                .baseYear(ev.getBaseYear())
+                .finalPrice(Math.max(0, model.getBasePrice() - totalSubsidy))
                 .build();
     }
 
