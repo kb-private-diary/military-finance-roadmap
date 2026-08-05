@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.scoula.security.config.SecurityConfig;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
@@ -18,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes= {RootConfig.class, SecurityConfig.class})
+@ActiveProfiles("dev") // 오픈뱅킹 Mock(@Profile("dev")) 빈이 떠야 컨텍스트가 로딩됨
 @Log4j2
 class RootConfigTest {
 
