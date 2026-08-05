@@ -277,6 +277,7 @@ CREATE TABLE `policy_product` (
   `policy_link` VARCHAR(500) COMMENT '자세히 보기 URL',
   `has_calculator` BOOLEAN NOT NULL COMMENT '이익 계산기 노출 여부',
   `calc_period_months` INT COMMENT '계산기 기준 개월 수',
+  `min_rate` DECIMAL(5,2) COMMENT '최저 금리 (%)',
   `max_rate` DECIMAL(5,2) COMMENT '최고 우대금리 (%)',
   `normal_match_rate` DECIMAL(5,2) COMMENT '일반형 매칭비율 (%)',
   `prefer_match_rate` DECIMAL(5,2) COMMENT '우대형 매칭비율 (%)',
