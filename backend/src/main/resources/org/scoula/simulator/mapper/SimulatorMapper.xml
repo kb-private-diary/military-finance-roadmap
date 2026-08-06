@@ -9,13 +9,13 @@
     </select>
 
     <select id="findAccountListByUserId" resultType="org.scoula.simulator.dto.SimulatorSavingAccountDTO">
-        SELECT account_id, bank_code, monthly_save, created_date
+        SELECT account_id, bank_code, monthly_save, open_date
         FROM saving_account
         WHERE user_id = #{userId} AND del_yn = 'N'
     </select>
 
     <select id="findHistoryListByAccountId" resultType="org.scoula.simulator.dto.SimulatorSavingHistoryDTO">
-        SELECT account_id, pay_round, pay_amount, created_date
+        SELECT account_id, pay_round, pay_amount, paid_date
         FROM saving_history
         WHERE account_id = #{accountId} AND del_yn = 'N'
     </select>
