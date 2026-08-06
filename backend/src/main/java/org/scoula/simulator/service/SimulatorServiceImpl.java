@@ -44,6 +44,8 @@ public class SimulatorServiceImpl implements SimulatorService {
     // 가입 전 시뮬레이터(calculate/variable)는 아직 은행을 선택하기 전 단계라 특정 계좌가 없다.
     // KB국민(004) 금리를 기준으로 계산한다.
     private static final String SIMULATION_BANK_CODE = "004";
+    // 장병내일준비적금 제도상 월 납입 총한도(여러 은행 계좌 합산 기준, 특정 은행 상품 한도와는 별개)
+    private static final long MAX_SAVE_AMOUNT = 550000;
 
     @Transactional(readOnly = true)
     @Override
@@ -175,6 +177,7 @@ public class SimulatorServiceImpl implements SimulatorService {
         return new SimulatorSavingLossResponseDTO(totalWithdrawalAmount, lossAmount);
     }
 
+    @Transactional(readOnly = true)
     @Override
     public SimulatorCalculateResponseDTO calculateConstant(SimulatorConstantCalcRequestDTO request) {
         this.validateConstantRequest(request);
@@ -199,6 +202,7 @@ public class SimulatorServiceImpl implements SimulatorService {
                 totalPrincipal, totalInterest, rateResolver.getGovMatchRate());
     }
     
+    @Transactional(readOnly = true)
     @Override
     public SimulatorCalculateResponseDTO calculateVariable(SimulatorVariableCalcRequestDTO request) {
         this.validateVariableRequest(request);
@@ -242,14 +246,16 @@ public class SimulatorServiceImpl implements SimulatorService {
         if (request == null || request.getMonthlySave() == null || request.getSaveMonths() == null) {
             throw BusinessException.badRequest("잘못된 입력값입니다.", "SIMUL_003");
         }
-        this.validateSaveAmount(request.getMonthlySave());
+        long minSaveAmount = this.resolveMinSaveAmount();
+        this.validateSaveAmount(request.getMonthlySave(), minSaveAmount);
         this.validateTotalMonths(request.getSaveMonths());
     }
-    
+
     private void validateVariableRequest(SimulatorVariableCalcRequestDTO request) {
         if (request == null || request.getPeriods() == null || request.getPeriods().isEmpty()) {
             throw BusinessException.badRequest("잘못된 입력값입니다.", "SIMUL_003");
         }
+        long minSaveAmount = this.resolveMinSaveAmount();
         for (SimulatorVariableCalcRequestDTO.Period period : request.getPeriods()) {
             if (period.getStartMonthOffset() == null || period.getEndMonthOffset() == null
                     || period.getAmount() == null) {
@@ -259,14 +265,24 @@ public class SimulatorServiceImpl implements SimulatorService {
                 throw BusinessException.badRequest("가입 개월차는 1 이상이어야 합니다.", "SIMUL_009");
             }
             this.validatePeriodOrder(period.getStartMonthOffset(), period.getEndMonthOffset());
-            this.validateSaveAmount(period.getAmount());
+            this.validateSaveAmount(period.getAmount(), minSaveAmount);
         }
         this.validateNoOverlap(request.getPeriods());
     }
-    
-    private void validateSaveAmount(long amount) {
-        if (amount > 550000) {
+
+    // 기준 은행(SIMULATION_BANK_CODE)의 월 최소납입한도. 상품 데이터에 하한이 없으면 0(제한 없음)
+    private long resolveMinSaveAmount() {
+        Long minLimit = this.militarySavingProductMapper.findMinLimit(SIMULATION_BANK_CODE);
+        return minLimit != null ? minLimit : 0L;
+    }
+
+    private void validateSaveAmount(long amount, long minSaveAmount) {
+        if (amount > MAX_SAVE_AMOUNT) {
             throw BusinessException.badRequest("납입 한도 55만 원을 초과했습니다.", "SIMUL_004");
+        }
+        if (amount < minSaveAmount) {
+            throw BusinessException.badRequest(
+                    "월 납입액은 " + minSaveAmount + "원 이상이어야 합니다.", "SIMUL_007");
         }
     }
     
