@@ -782,6 +782,7 @@ CREATE TABLE `rent_goal` (
   `residence_preset` VARCHAR(10) NOT NULL COMMENT '거주기간프리셋 SEMESTER/YEAR/GRADUATE',
   `residence_months` INT NOT NULL COMMENT '거주개월수 6/12/24',
   `status` VARCHAR(12) NOT NULL COMMENT '진행상태 DRAFT/CONFIRMED/ARCHIVED',
+  `confirmed_listing_id` BIGINT COMMENT '확정 매물번호(Step5 저장 시 선택 매물)',
   `created_date` DATETIME NOT NULL COMMENT '생성일시',
   `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
   `modified_date` DATETIME COMMENT '수정일시',
