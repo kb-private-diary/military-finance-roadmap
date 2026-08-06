@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.scoula.push.mapper.PushSubscriptionMapper">
+
+    <select id="findByEndpoint" resultType="org.scoula.push.domain.PushSubscriptionVO">
+        SELECT subscription_id, user_id, endpoint, p256dh, auth,
+               created_date, created_nm, modified_date, modified_nm, del_yn
+        FROM push_subscription
+        WHERE endpoint = #{endpoint}
+    </select>
+
+    <!-- 발송 대상 조회용 (send()가 이 유저의 살아있는 구독을 다 가져와서 하나씩 보냄) -->
+    <select id="findListByUserId" resultType="org.scoula.push.domain.PushSubscriptionVO">
+        SELECT subscription_id, user_id, endpoint, p256dh, auth,
+               created_date, created_nm, modified_date, modified_nm, del_yn
+        FROM push_subscription
+        WHERE user_id = #{userId}
+          AND del_yn = 'N'
+    </select>
+
+    <insert id="insert" parameterType="org.scoula.push.domain.PushSubscriptionVO"
+            useGeneratedKeys="true" keyProperty="subscriptionId">
+        INSERT INTO push_subscription (
+            user_id, endpoint, p256dh, auth, created_date, created_nm, del_yn
+        ) VALUES (
+            #{userId}, #{endpoint}, #{p256dh}, #{auth}, NOW(), #{createdNm}, 'N'
+        )
+    </insert>
+
+    <!-- 재구독 처리용: del_yn='Y'였던 행도 되살려야 하므로 del_yn 조건 없이 endpoint로만 매칭 -->
+    <update id="reactivate" parameterType="org.scoula.push.domain.PushSubscriptionVO">
+        UPDATE push_subscription
+        SET user_id       = #{userId},
+            p256dh        = #{p256dh},
+            auth          = #{auth},
+            del_yn        = 'N',
+            modified_date = NOW(),
+            modified_nm   = #{modifiedNm}
+        WHERE endpoint = #{endpoint}
+    </update>
+
+    <update id="deleteByEndpoint">
+        UPDATE push_subscription
+        SET del_yn        = 'Y',
+            modified_date = NOW(),
+            modified_nm   = #{modifiedNm}
+        WHERE endpoint = #{endpoint}
+          AND del_yn = 'N'
+    </update>
+
+</mapper>

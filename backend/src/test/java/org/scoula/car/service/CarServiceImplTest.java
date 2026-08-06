@@ -154,12 +154,13 @@ class CarServiceImplTest {
     @Test
     void recommendCars_withSeededUsedGoal_sortsByTotalPriceAscending() {
         // goal_id=2 시드데이터: is_new=false, budget=1500만원
-        // 목표 단계엔 차종이 없으므로 전체 차량 모델이 후보 (경차6/준중형4/SUV9 = 19종)
+        // 목표 단계엔 차종이 없으므로 전체 차량 모델(경차6/준중형4/SUV9=19종)이 후보이지만,
+        // 예산+허용오차(100만원)를 넘는 아이오닉 6은 제외되어 18종이 남는다
         // 연식은 고정 3년이 아니라, 예산 안에서 가장 최신(연차가 가장 적은) 연식을 후보별로 역산한다
         List<CarRecommendationResponseDTO> result = this.service.recommendCars(2L, USER_ID);
         int currentYear = LocalDate.now().getYear();
 
-        assertEquals(19, result.size());
+        assertEquals(18, result.size());
         CarRecommendationResponseDTO cheapest = result.get(0);
         assertEquals("스파크", cheapest.getModelName());
         // 스파크(992만원)는 신차가만으로도 예산(1500) 이내라 감가 없이(0년) 그대로 추천된다
@@ -182,21 +183,34 @@ class CarServiceImplTest {
     }
 
     @Test
-    void recommendCars_withModelFarAboveBudget_staysMarkedOverBudget() {
-        // goal_id=1 시드데이터: is_new=false, budget=2000만원
-        // 아이오닉 6(4,995만원)은 연차를 아무리 낮춰도(상한 4년) 예산 안으로 못 들어와야 한다
-        // (연차 상한 없이 계속 낮추면 비현실적으로 오래된 것처럼 계산해서 억지로 예산에 맞추게 됨)
-        List<CarRecommendationResponseDTO> result = this.service.recommendCars(1L, USER_ID);
-        int currentYear = LocalDate.now().getYear();
+    void recommendCars_excludesModelsFarOverBudget_butKeepsMarginalOverBudgetOnes() {
+        // isNew=true로 신차 기준(연식 역산 없이 기준가 그대로)이라 예상 총액을 손으로 검증하기 쉬움
+        CarGoalCreateRequestDTO createDto = CarGoalCreateRequestDTO.builder()
+                .budget(1_450L)
+                .isNew(true)
+                .targetDate(LocalDate.of(2027, 1, 1))
+                .region("서울")
+                .build();
+        CarGoalCreateResponseDTO created = this.service.createCarGoal(USER_ID, createDto);
 
-        CarRecommendationResponseDTO ioniq6 = result.stream()
-                .filter(item -> "아이오닉 6".equals(item.getModelName()))
+        List<CarRecommendationResponseDTO> result =
+                this.service.recommendCars(created.getGoalId(), USER_ID);
+
+        // 레이(총액 1,456만원)는 예산을 6만원 넘지만 허용 오차(100만원) 이내라 목록에 남고 예산초과로 표시된다
+        CarRecommendationResponseDTO ray = result.stream()
+                .filter(item -> "레이".equals(item.getModelName()))
                 .findFirst()
                 .orElseThrow();
+        assertEquals(1_456L, ray.getTotalPrice());
+        assertFalse(ray.getWithinBudget());
 
-        assertEquals(currentYear - 4, ioniq6.getAssumedYear());
-        assertTrue(ioniq6.getTotalPrice() > 2_000L);
-        assertFalse(ioniq6.getWithinBudget());
+        // 아반떼(총액 2,101만원)는 예산+허용오차(1,550만원)를 크게 넘어서 목록에서 아예 제외된다
+        boolean hasAvante = result.stream().anyMatch(item -> "아반떼".equals(item.getModelName()));
+        assertFalse(hasAvante);
+
+        // 아이오닉 6(4,995만원)은 훨씬 더 심하게 초과하므로 당연히 제외된다
+        boolean hasIoniq6 = result.stream().anyMatch(item -> "아이오닉 6".equals(item.getModelName()));
+        assertFalse(hasIoniq6);
     }
 
     @Test

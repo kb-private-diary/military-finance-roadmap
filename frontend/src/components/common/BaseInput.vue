@@ -45,6 +45,7 @@ const updateRange = (index, value) => {
 // select-range 전용 로직 (예: 시작 개월차 ~ 종료 개월차)
 // 종료 드롭다운은 시작에서 고른 값 이상만 보여줘서, 시작이 종료보다 늦게
 // 선택되는 경우 자체를 UI에서 막는다.
+// 겉모양은 일반 select 타입과 동일한 커스텀 드롭다운(버튼+오버레이 메뉴)을 그대로 쓴다.
 // ==========================================
 const endRangeOptions = computed(() => {
   const start = Array.isArray(props.modelValue) ? props.modelValue[0] : '';
@@ -57,6 +58,50 @@ const updateRangeStart = (value) => {
   const stillValid = currentEnd !== '' && Number(currentEnd) >= Number(value);
   emit('update:modelValue', [value, stillValid ? currentEnd : '']);
 };
+
+const isStartOpen = ref(false);
+const isEndOpen = ref(false);
+const startDropdownRef = ref(null);
+const endDropdownRef = ref(null);
+
+const isRangeEndDisabled = computed(
+  () => !Array.isArray(props.modelValue) || props.modelValue[0] === '',
+);
+
+const toggleStart = () => {
+  isStartOpen.value = !isStartOpen.value;
+  isEndOpen.value = false;
+};
+
+const toggleEnd = () => {
+  if (isRangeEndDisabled.value) {
+    return;
+  }
+  isEndOpen.value = !isEndOpen.value;
+  isStartOpen.value = false;
+};
+
+const selectRangeStart = (option) => {
+  updateRangeStart(option.value);
+  isStartOpen.value = false;
+};
+
+const selectRangeEnd = (option) => {
+  updateRange(1, option.value);
+  isEndOpen.value = false;
+};
+
+const rangeStartLabel = computed(() => {
+  const start = Array.isArray(props.modelValue) ? props.modelValue[0] : '';
+  const found = props.options.find((opt) => opt.value === start);
+  return found ? found.label : '선택';
+});
+
+const rangeEndLabel = computed(() => {
+  const end = Array.isArray(props.modelValue) ? props.modelValue[1] : '';
+  const found = props.options.find((opt) => opt.value === end);
+  return found ? found.label : '선택';
+});
 
 // ==========================================
 // Select (Dropdown) 전용 로직
@@ -76,6 +121,15 @@ const selectOption = (option) => {
 const handleOutsideClick = (event) => {
   if (dropdownRef.value && !dropdownRef.value.contains(event.target)) {
     isSelectOpen.value = false;
+  }
+  if (
+    startDropdownRef.value &&
+    !startDropdownRef.value.contains(event.target)
+  ) {
+    isStartOpen.value = false;
+  }
+  if (endDropdownRef.value && !endDropdownRef.value.contains(event.target)) {
+    isEndOpen.value = false;
   }
 };
 
@@ -198,36 +252,95 @@ const handleAmountInput = (event) => {
       </template>
 
       <!-- SELECT RANGE (예: 시작 개월차 ~ 종료 개월차, 종료 옵션은 시작값 이상만) -->
+      <!-- 겉모양은 일반 select 타입과 동일한 커스텀 드롭다운을 그대로 재사용한다. -->
       <template v-else-if="type === 'select-range'">
         <div class="base-input__range">
-          <select
-            class="base-input__field base-input__select"
-            :class="{ 'is-error': error }"
-            :value="Array.isArray(modelValue) ? modelValue[0] : ''"
-            @change="updateRangeStart($event.target.value)"
-          >
-            <option value="" disabled>선택</option>
-            <option v-for="opt in options" :key="opt.value" :value="opt.value">
-              {{ opt.label }}
-            </option>
-          </select>
-          <span class="base-input__range-sep">~</span>
-          <select
-            class="base-input__field base-input__select"
-            :class="{ 'is-error': error }"
-            :value="Array.isArray(modelValue) ? modelValue[1] : ''"
-            :disabled="!Array.isArray(modelValue) || modelValue[0] === ''"
-            @change="updateRange(1, $event.target.value)"
-          >
-            <option value="" disabled>선택</option>
-            <option
-              v-for="opt in endRangeOptions"
-              :key="opt.value"
-              :value="opt.value"
+          <div class="dropdown" ref="startDropdownRef">
+            <button
+              class="dropdown__button"
+              type="button"
+              :class="{ 'is-open': isStartOpen }"
+              @click="toggleStart"
             >
-              {{ opt.label }}
-            </option>
-          </select>
+              <span class="dropdown__text">{{ rangeStartLabel }}</span>
+              <svg
+                class="dropdown__icon"
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+              >
+                <path
+                  d="M7 10l5 5 5-5"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+            <transition name="dropdown-fade">
+              <ul v-if="isStartOpen" class="dropdown__menu">
+                <li
+                  v-for="opt in options"
+                  :key="opt.value"
+                  class="dropdown__item"
+                  :class="{
+                    'is-selected':
+                      (Array.isArray(modelValue) ? modelValue[0] : '') ===
+                      opt.value,
+                  }"
+                  @click="selectRangeStart(opt)"
+                >
+                  {{ opt.label }}
+                </li>
+              </ul>
+            </transition>
+          </div>
+
+          <span class="base-input__range-sep">~</span>
+
+          <div class="dropdown" ref="endDropdownRef">
+            <button
+              class="dropdown__button"
+              type="button"
+              :class="{ 'is-open': isEndOpen }"
+              :disabled="isRangeEndDisabled"
+              @click="toggleEnd"
+            >
+              <span class="dropdown__text">{{ rangeEndLabel }}</span>
+              <svg
+                class="dropdown__icon"
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+              >
+                <path
+                  d="M7 10l5 5 5-5"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+            <transition name="dropdown-fade">
+              <ul v-if="isEndOpen" class="dropdown__menu">
+                <li
+                  v-for="opt in endRangeOptions"
+                  :key="opt.value"
+                  class="dropdown__item"
+                  :class="{
+                    'is-selected':
+                      (Array.isArray(modelValue) ? modelValue[1] : '') ===
+                      opt.value,
+                  }"
+                  @click="selectRangeEnd(opt)"
+                >
+                  {{ opt.label }}
+                </li>
+              </ul>
+            </transition>
+          </div>
         </div>
       </template>
 
@@ -343,16 +456,9 @@ const handleAmountInput = (event) => {
   flex-shrink: 0;
 }
 
-.base-input__select {
-  appearance: none;
-  background-color: var(--surface-default);
-  text-align: center;
-  cursor: pointer;
-}
-.base-input__select:disabled {
-  background-color: var(--surface-muted);
-  color: var(--text-hint);
-  cursor: not-allowed;
+.base-input__range .dropdown {
+  flex: 1;
+  min-width: 0;
 }
 
 .has-icon {
@@ -461,6 +567,15 @@ input[type='month']::-webkit-calendar-picker-indicator:hover {
 .dropdown__button.is-open {
   border-bottom-color: var(--kb-yellow-deep);
   box-shadow: none;
+}
+
+.dropdown__button:disabled {
+  color: var(--text-hint);
+  cursor: not-allowed;
+}
+
+.dropdown__button:disabled:hover {
+  border-bottom-color: var(--kb-gold);
 }
 
 .dropdown__text {

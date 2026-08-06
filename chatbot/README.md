@@ -86,9 +86,12 @@ DB_PORT=3306
 DB_USER=scoula
 DB_PASSWORD=1234
 DB_NAME=scoula_db        # ※ 메인 서비스와 같은 DB
+JWT_SECRET=              # Spring의 application-secret.properties(jwt.secret)와 동일한 값. 노션 "환경변수" 페이지 참고
 ```
 
 > DB 테이블은 메인 레포의 `backend/src/main/resources/sql/kb-schema.sql` 로 생성됩니다. 이 서버는 테이블을 직접 만들지 않습니다.
+> **스키마가 바뀌면(테이블/컬럼 추가) 이 서버가 참조하는 `user`/`chat_*` 테이블도 최신이어야 합니다** — `git pull` 후 API가 500을 던지면
+> 먼저 로컬 DB에 `kb-schema.sql`을 다시 반영했는지 확인하세요(데이터 유지하며 특정 컬럼만 추가하려면 `ALTER TABLE`로 개별 반영도 가능).
 
 ## 🔗 API 목록 (base `/api/chat`)
 
@@ -107,11 +110,13 @@ DB_NAME=scoula_db        # ※ 메인 서비스와 같은 DB
 
 ## 🔐 메인 서비스와의 연동 규칙
 
-1. **JWT 검증** — 헤더 `Authorization: Bearer <token>`
-   - 알고리즘 `HS256`, claim `sub` = username(로그인 아이디)
-   - Spring과 **동일한 secret key**(UTF-8)로 검증 → `.env` 로 주입
-   - 회원 PK 필요 시: `SELECT id FROM user WHERE user_id = :sub`
-   - ⬜ *현재 미구현 — 임시로 `user_id` 를 요청에서 받고 있음 (`TODO` 주석 참고)*
+1. **JWT 검증** — 헤더 `Authorization: Bearer <token>` (`app/core/auth.py`)
+   - claim `sub` = username(로그인 아이디), `SELECT id FROM user WHERE user_id = :sub` 로 숫자 PK 조회
+   - Spring과 **동일한 secret key**(UTF-8)로 검증 → `.env`의 `JWT_SECRET` 으로 주입 (비워두면 코드 기본값 사용,
+     Spring 쪽 `jwt.secret` 오버라이드와 다르면 401)
+   - 알고리즘은 `HS256`/`HS384`/`HS512` 모두 허용 — Java의 `Keys.hmacShaKeyFor`가 시크릿 바이트 길이로 자동 선택하므로
+     시크릿 값이 사람마다 다르면 실제 서명 알고리즘도 달라질 수 있음
+   - ✅ 구현 완료 (`get_current_user_id`/`get_current_admin_user_id`) — 프론트는 더 이상 `user_id`를 안 보냄
 2. **감사 컬럼** — 모든 INSERT 시 `created_date`, `created_nm`, `del_yn='N'` 채우기
    - 삭제는 물리 삭제 금지, `del_yn='Y'` 로 소프트 삭제
 3. **CORS** — 프론트 origin(`http://localhost:5173`) 허용
@@ -119,7 +124,7 @@ DB_NAME=scoula_db        # ※ 메인 서비스와 같은 DB
 
 ## ✅ TODO
 
-- [ ] JWT 검증 미들웨어 구현 (secret 공유 필요)
+- [x] JWT 검증 미들웨어 구현 (secret 공유 필요)
 - [x] LLM API 연동 · 프롬프트 설계 (Gemini, 다나까 말투)
 - [x] 정책 문서 수집 · 청킹 · 임베딩 (Chroma) — 문서 4종(장병내일준비적금·청년미래적금·청년주택드림청약통장·정책용어사전)
 - [x] RAG 파이프라인 (질의 임베딩 → 유사문서 검색 → 답변)

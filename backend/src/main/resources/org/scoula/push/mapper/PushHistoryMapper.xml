@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.scoula.push.mapper.PushHistoryMapper">
+
+    <!-- 발송 성공/실패 상관없이 매 시도마다 한 행씩 남긴다 -->
+    <insert id="insert" parameterType="org.scoula.push.domain.PushHistoryVO"
+            useGeneratedKeys="true" keyProperty="historyId">
+        INSERT INTO push_history (
+            user_id, title, body, status, sent_at, created_date, created_nm, del_yn
+        ) VALUES (
+            #{userId}, #{title}, #{body}, #{status}, #{sentAt}, NOW(), #{createdNm}, 'N'
+        )
+    </insert>
+
+</mapper>

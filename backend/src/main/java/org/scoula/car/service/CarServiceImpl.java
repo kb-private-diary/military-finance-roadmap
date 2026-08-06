@@ -71,6 +71,8 @@ public class CarServiceImpl implements CarService {
     // 실제 중고차는 아무리 오래돼도 신차가 대비 일정 비율(약 40%) 밑으로는 잘 안 떨어지므로,
     // 그 이상 연차를 가정해도 의미가 없다고 보고 상한을 4년으로 제한한다 (0.8^4 ≈ 41%)
     private static final int MAX_ASSUMED_AGE_YEARS = 4;
+    // 추천 목록에서 허용하는 예산 초과 허용 오차(만원) — 이보다 많이 넘는 차량은 목록에서 제외
+    private static final long BUDGET_OVERFLOW_TOLERANCE_MANWON = 100L;
 
     private final CarMapper carMapper;
     private final OpinetClient opinetClient;
@@ -164,6 +166,13 @@ public class CarServiceImpl implements CarService {
                     .totalPrice(totalPrice)
                     .withinBudget(goal.getBudget() != null && totalPrice <= goal.getBudget())
                     .build());
+        }
+
+        // 예산을 크게 벗어나는 차량은 추천 목록에서 아예 제외한다.
+        // 단, 예산을 살짝 넘는 차량은 "예산 초과" 배지를 단 채로 계속 보여준다 (허용 오차: +100만원).
+        if (goal.getBudget() != null) {
+            long maxAllowedPrice = goal.getBudget() + BUDGET_OVERFLOW_TOLERANCE_MANWON;
+            recommendations.removeIf(item -> item.getTotalPrice() > maxAllowedPrice);
         }
 
         recommendations.sort(Comparator.comparingLong(CarRecommendationResponseDTO::getTotalPrice));
