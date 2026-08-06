@@ -45,14 +45,14 @@
             monthly_count   AS monthlyCount,
             curr_amount     AS currAmount,
             account_status  AS accountStatus,
-            created_date    AS createdDate
+            open_date       AS openDate
         FROM saving_account
         WHERE user_id = #{userId}
           AND del_yn = 'N'
     </select>
     <!-- resultType 변경 필요 : 예) org.scoula.openbanking.domain.SavingHistoryVO -->
     <select id="findSavingHistoryListByAccountId" resultType="org.scoula.dashboard.dto.DashboardSavingHistoryDTO">
-        SELECT history_id, account_id, pay_round, pay_amount, created_date
+        SELECT history_id, account_id, pay_round, pay_amount, paid_date
         FROM saving_history
         WHERE account_id = #{accountId}
           AND del_yn = 'N'

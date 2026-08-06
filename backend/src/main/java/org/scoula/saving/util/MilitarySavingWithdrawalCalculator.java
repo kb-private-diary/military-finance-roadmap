@@ -42,7 +42,7 @@ public class MilitarySavingWithdrawalCalculator {
             for (SavingHistory history : histories) {
                 long amount = history.getPayAmount() != null ? history.getPayAmount() : 0L;
                 LocalDate payDate =
-                        history.getCreatedDate() != null ? history.getCreatedDate() : firstPayDate;
+                        history.getPaidDate() != null ? history.getPaidDate() : firstPayDate;
 
                 totalAmount += amount;
 

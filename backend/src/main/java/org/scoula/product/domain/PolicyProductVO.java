@@ -21,6 +21,7 @@ public class PolicyProductVO extends BaseVO {
     private String policyLink;
     private Boolean hasCalculator;
     private Integer calcPeriodMonths;
+    private BigDecimal minRate;
     private BigDecimal maxRate;
     private BigDecimal normalMatchRate;
     private BigDecimal preferMatchRate;

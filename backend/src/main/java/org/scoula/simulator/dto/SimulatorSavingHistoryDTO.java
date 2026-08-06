@@ -15,5 +15,5 @@ public class SimulatorSavingHistoryDTO implements MilitarySavingsCalculator.Savi
     private Long accountId;
     private Integer payRound;
     private Long payAmount;
-    private LocalDate createdDate;
+    private LocalDate paidDate;
 }

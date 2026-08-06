@@ -20,5 +20,5 @@ public class DashboardSavingAccountDTO {
     private Integer monthlyCount;
     private Long currAmount;
     private String accountStatus;
-    private LocalDate createdDate;
+    private LocalDate openDate;
 }

@@ -86,15 +86,18 @@
     <select id="findPolicyProductDetail"
             parameterType="Long" resultType="org.scoula.product.domain.PolicyProductVO">
         SELECT
-            policy_id       AS policyId,
-            policy_name     AS policyName,
-            benefits        AS benefits,
-            join_member     AS joinMember,
-            min_limit       AS minLimit,
-            max_limit       AS maxLimit,
-            save_trm_note   AS saveTrmNote,
-            policy_link     AS policyLink,
-            has_calculator  AS hasCalculator
+            policy_id          AS policyId,
+            policy_name        AS policyName,
+            min_limit          AS minLimit,
+            max_limit          AS maxLimit,
+            save_trm_note      AS saveTrmNote,
+            policy_link        AS policyLink,
+            has_calculator     AS hasCalculator,
+            calc_period_months AS calcPeriodMonths,
+            min_rate           AS minRate,
+            max_rate           AS maxRate,
+            normal_match_rate  AS normalMatchRate,
+            prefer_match_rate  AS preferMatchRate
         FROM policy_product
         WHERE policy_id = #{policyId}
           AND policy_status = TRUE

@@ -31,6 +31,7 @@ import org.scoula.dashboard.dto.DashboardVacationItemDTO;
 import org.scoula.dashboard.dto.DashboardVacationListResponseDTO;
 import org.scoula.dashboard.dto.DashboardVacationUsageDTO;
 import org.scoula.dashboard.mapper.DashboardMapper;
+import org.scoula.push.service.PushNotificationService;
 
 @Service
 @RequiredArgsConstructor
@@ -44,9 +45,10 @@ public class DashboardServiceImpl implements DashboardService {
             Set.of(CATEGORY_REGULAR, "REWARD", "CONSOLATION", "PETITION", "ETC");
 
     // DashboardSavingAccountDTO account -> SavingAccountVO account 교체
-    // VO getter 가 같은지 확인 필요(getCreatedDate(), getMonthlySave() 등)
+    // VO getter 가 같은지 확인 필요(getOpenDate(), getMonthlySave() 등)
     private final DashboardMapper mapper;
     private final MilitarySavingProductMapper militarySavingProductMapper;
+    private final PushNotificationService pushNotificationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -138,7 +140,7 @@ public class DashboardServiceImpl implements DashboardService {
                 MilitarySavingRateResolver rateResolver = new MilitarySavingRateResolver(
                         this.militarySavingProductMapper, account.getBankCode());
                 CalcResult calc = MilitarySavingsCalculator.calculateAccount(
-                        account.getCreatedDate(),
+                        account.getOpenDate(),
                         monthlySave,
                         dischargeDate,
                         histories,
@@ -277,6 +279,9 @@ public class DashboardServiceImpl implements DashboardService {
         vacation.setCreatedNm(createdNm);
 
         this.mapper.insertVacation(vacation);
+
+        // 웹푸시 연동 테스트용 - 다른 도메인이 push를 이렇게 갖다 쓰면 된다는 실사용 예시
+        this.pushNotificationService.send(userId, "휴가 등록 완료", name + "이(가) 등록됐어요!");
 
         return vacation.getVacationId();
     }

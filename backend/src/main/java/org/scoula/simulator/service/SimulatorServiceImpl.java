@@ -37,7 +37,7 @@ import org.scoula.simulator.mapper.SimulatorMapper;
 public class SimulatorServiceImpl implements SimulatorService {
     // TODO: SimulatorSavingAccountDTO -> openbanking 의 SavingAccountVO 로 교체
     // TODO: SimulatorSavingHistoryDTO -> openbanking 의 SavingHistoryVO 로 교체
-    // (교체 후 getter 메서드명이 동일한지 확인 필요 - 예: getCreatedDate(), getMonthlySave() 등)
+    // (교체 후 getter 메서드명이 동일한지 확인 필요 - 예: getOpenDate(), getMonthlySave() 등)
     private final SimulatorMapper mapper;
     private final MilitarySavingProductMapper militarySavingProductMapper;
 
@@ -77,7 +77,7 @@ public class SimulatorServiceImpl implements SimulatorService {
             MilitarySavingRateResolver rateResolver = new MilitarySavingRateResolver(
                     this.militarySavingProductMapper, account.getBankCode());
             CalcResult calc = MilitarySavingsCalculator.calculateAccount(
-                    account.getCreatedDate(),
+                    account.getOpenDate(),
                     monthlySave,
                     dischargeDate,
                     histories,
@@ -146,7 +146,7 @@ public class SimulatorServiceImpl implements SimulatorService {
             MilitarySavingRateResolver rateResolver = new MilitarySavingRateResolver(
                     this.militarySavingProductMapper, account.getBankCode());
             CalcResult calc = MilitarySavingsCalculator.calculateAccount(
-                    account.getCreatedDate(),
+                    account.getOpenDate(),
                     monthlySave,
                     dischargeDate,
                     histories,
