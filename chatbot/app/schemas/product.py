@@ -26,6 +26,7 @@ class ProductDetail(CamelModel):
     etc_note: str
     options: List[ProductOption]
     source: str
+    source_url: Optional[str] = None  # 은행별 개별 상품 페이지는 없어서, 이 데이터가 나온 비교 페이지로 연결
 
 
 class SubscriptionItem(CamelModel):
