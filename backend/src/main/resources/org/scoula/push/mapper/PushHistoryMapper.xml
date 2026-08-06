@@ -8,15 +8,16 @@
     <insert id="insert" parameterType="org.scoula.push.domain.PushHistoryVO"
             useGeneratedKeys="true" keyProperty="historyId">
         INSERT INTO push_history (
-            user_id, title, body, status, sent_at, created_date, created_nm, del_yn
+            user_id, title, body, category, status, sent_at, created_date, created_nm, del_yn
         ) VALUES (
-            #{userId}, #{title}, #{body}, #{status}, #{sentAt}, NOW(), #{createdNm}, 'N'
+            #{userId}, #{title}, #{body}, #{category}, #{status},
+            #{sentAt}, NOW(), #{createdNm}, 'N'
         )
     </insert>
 
     <!-- 사용자한테 보여주는 이력이라 실제로 받은(SUCCESS) 것만. FAILED는 내부 모니터링용이라 제외 -->
     <select id="findListByUserId" resultType="org.scoula.push.domain.PushHistoryVO">
-        SELECT history_id, user_id, title, body, status, sent_at,
+        SELECT history_id, user_id, title, body, category, status, sent_at,
                created_date, created_nm, modified_date, modified_nm, del_yn
         FROM push_history
         WHERE user_id = #{userId}

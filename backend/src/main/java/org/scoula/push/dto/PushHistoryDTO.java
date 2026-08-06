@@ -17,6 +17,7 @@ public class PushHistoryDTO {
     private Long historyId;
     private String title;
     private String body;
+    private String category;
     private String status;
 
     @JsonFormat(
@@ -27,6 +28,7 @@ public class PushHistoryDTO {
 
     public static PushHistoryDTO of(PushHistoryVO vo) {
         return new PushHistoryDTO(
-                vo.getHistoryId(), vo.getTitle(), vo.getBody(), vo.getStatus(), vo.getSentAt());
+                vo.getHistoryId(), vo.getTitle(), vo.getBody(), vo.getCategory(),
+                vo.getStatus(), vo.getSentAt());
     }
 }
