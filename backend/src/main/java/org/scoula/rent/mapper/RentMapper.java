@@ -50,4 +50,9 @@ public interface RentMapper {
 
     // 목표 단건 soft delete (goal_id 기준)
     void deleteGoalById(@Param("goalId") Long goalId, @Param("modifiedNm") String modifiedNm);
+
+    // 로드맵 저장: 상태 DRAFT → CONFIRMED 확정 (months 넘어오면 거주개월 갱신)
+    void confirmGoal(@Param("goalId") Long goalId,
+                     @Param("months") Integer months,
+                     @Param("modifiedNm") String modifiedNm);
 }
