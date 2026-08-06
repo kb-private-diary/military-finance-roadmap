@@ -2,7 +2,7 @@ import jwt
 from fastapi import Depends, Header
 from sqlalchemy.orm import Session
 
-from app.core.config import JWT_ALGORITHM, JWT_SECRET
+from app.core.config import JWT_ALGORITHMS, JWT_SECRET
 from app.core.db import get_db
 from app.core.exceptions import BusinessException
 from app.models.user import User
@@ -15,7 +15,7 @@ def _extract_username(authorization: str) -> str:
         raise _AUTH_ERROR
     token = authorization[len("Bearer "):]
     try:
-        claims = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        claims = jwt.decode(token, JWT_SECRET, algorithms=JWT_ALGORITHMS)
     except jwt.PyJWTError:
         raise _AUTH_ERROR
     if claims.get("type") == "refresh":
