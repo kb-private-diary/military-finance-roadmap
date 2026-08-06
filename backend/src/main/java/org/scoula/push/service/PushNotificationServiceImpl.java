@@ -7,6 +7,8 @@ import java.util.Map;
 import org.apache.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -76,10 +78,26 @@ public class PushNotificationServiceImpl implements PushNotificationService {
         this.subscriptionMapper.deleteByEndpoint(endpoint, modifiedNm);
     }
 
-    // 구독마다 개별 HTTP 발송(외부 I/O)이 일어나므로 DB 트랜잭션으로 묶지 않는다.
-    // (각 mapper 호출은 자체 트랜잭션으로 개별 커밋됨 - 다른 조회 전용 메서드들과 동일)
+    // 호출하는 쪽(다른 도메인)이 @Transactional 안에서 이걸 부르면, 그 트랜잭션이 커밋될 때까지
+    // send() 실행을 미룬다. 안 그러면 FCM 응답을 기다리는 동안 호출한 쪽의 DB 커넥션이 계속
+    // 붙잡혀서, 외부 API가 느려지면 커넥션 풀 고갈로 이어질 수 있다.
+    // 트랜잭션 밖에서 부른 경우(활성 트랜잭션 없음)는 그냥 바로 실행한다.
     @Override
     public void send(Long userId, String title, String body) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            doSend(userId, title, body);
+                        }
+                    });
+            return;
+        }
+        this.doSend(userId, title, body);
+    }
+
+    private void doSend(Long userId, String title, String body) {
         List<PushSubscriptionVO> subscriptions = this.subscriptionMapper.findListByUserId(userId);
         for (PushSubscriptionVO subscription : subscriptions) {
             this.sendToSubscription(userId, subscription, title, body);
