@@ -1073,7 +1073,43 @@ CREATE TABLE `notification` (
   `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
 );
 
+-- --------------------------------------------------------------------
+--  [석윤] 웹푸시(push_subscription, push_history)
+--  테이블: push_subscription, push_history
+--  ※ notification(카카오 알림 이력, [수연])과는 별개 채널이라 분리함
+-- --------------------------------------------------------------------
+DROP TABLE IF EXISTS `push_subscription`;
+CREATE TABLE `push_subscription` (
+  `subscription_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '구독번호',
+  `user_id` BIGINT NOT NULL COMMENT '회원고유번호',
+  `endpoint` VARCHAR(500) NOT NULL COMMENT '브라우저 푸시 서비스 발송 주소',
+  `p256dh` VARCHAR(200) NOT NULL COMMENT '암호화 공개키',
+  `auth` VARCHAR(100) NOT NULL COMMENT '암호화 인증 시크릿',
+  `created_date` DATETIME NOT NULL COMMENT '생성일시',
+  `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+  `modified_date` DATETIME COMMENT '수정일시',
+  `modified_nm` VARCHAR(50) COMMENT '수정자',
+  `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
+);
+
+DROP TABLE IF EXISTS `push_history`;
+CREATE TABLE `push_history` (
+  `history_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '발송이력번호',
+  `user_id` BIGINT NOT NULL COMMENT '회원고유번호',
+  `title` VARCHAR(100) NOT NULL COMMENT '알림 제목',
+  `body` VARCHAR(200) NOT NULL COMMENT '알림 내용',
+  `status` VARCHAR(10) NOT NULL COMMENT '발송상태(SUCCESS/FAILED)',
+  `sent_at` DATETIME NOT NULL COMMENT '발송일시',
+  `created_date` DATETIME NOT NULL COMMENT '생성일시',
+  `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+  `modified_date` DATETIME COMMENT '수정일시',
+  `modified_nm` VARCHAR(50) COMMENT '수정자',
+  `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
+);
+
 CREATE UNIQUE INDEX `car_ev_index_0` ON `car_ev` (`region`, `base_year`);
+
+CREATE UNIQUE INDEX `push_subscription_index_0` ON `push_subscription` (`endpoint`);
 
 ALTER TABLE `military_types` COMMENT = '군종(육군/해군/공군 등) 공통 코드';
 
