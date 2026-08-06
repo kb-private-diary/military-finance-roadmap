@@ -973,12 +973,12 @@ INSERT INTO `military_saving_product`
 --  [석윤] 시뮬레이터/ 정책상품(policy_product)
 --  테이블: policy_product
 -- --------------------------------------------------------------------
-INSERT INTO `policy_product` (`policy_id`, `policy_name`, `policy_status`, `benefits`, `join_member`, 
-  `min_limit`, `max_limit`, `save_trm_note`, `policy_link`, `has_calculator`, `calc_period_months`, `max_rate`, `normal_match_rate`, `prefer_match_rate`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`) VALUES 
-(1, '청년미래적금', TRUE, '1. 금리 연 5~8%\n2. 세제혜택: 만기유지시 이자소득 비과세\n3. 정부기여금 매칭비율(일반 6%, 우대 12%)', '1. 나이 요건: 만 19세 이상 34세 이하인 사람 (군 복무 기간은 최대 6년까지 나이에서 빼고 계산 가능).\n2. 개인 소득: 직전 년도 총급여 7,500만 원 이하 (종합소득 6,300만 원 이하) 또는 소상공인 연 매출 3억 원 이하.\n3. 가구 소득: 등본상 가구원 합산 소득이 기준 중위소득 200% 이하\n4. 금융 과세: 최근 3년 중 한 번이라도 금융소득종합과세 대상자(연 이자·배당 2,000만 원 초과)가 아니었을 것.', 
-1000, 500000, '36개월', 'https://obank.kbstar.com/quics?page=C016613&cc=b061496:b061645&isNew=Y&prcode=DP01001656', TRUE, 36, 8.00, 6.00, 12.00, NOW(), 'seokyun', NULL, NULL, 'N'),
-(2, '청년주택드림 청약통장', TRUE, '1. 금리 연 3.1~4.5%\n2. 세제혜택: 이자소득 비과세 및 연말정산소득공제', '1. 나이 요건: 만 19세 이상 34세 이하인 사람 (군 복무 기간은 최대 6년까지 나이에서 빼고 계산 가능).\n2. 주택요건: 가입일 기준 본인 명의의 주택을 소유하지 않은 자\n3. 개인소득: 직전년도 총급여 5,000만원 이하 또는 현역병 등 군 복무(전역)자', 
-20000, 1000000, '별도의 만기 없음', 'https://obank.kbstar.com/quics?page=C016613&cc=b061496:b061645&isNew=N&prcode=DP01000935',  FALSE,  NULL,  4.50,  NULL,  NULL,  NOW(),  'seokyun',  NULL,  NULL, 'N');
+INSERT INTO `policy_product` (`policy_id`, `policy_name`, `policy_status`, `benefits`, `join_member`,
+  `min_limit`, `max_limit`, `save_trm_note`, `policy_link`, `has_calculator`, `calc_period_months`, `min_rate`, `max_rate`, `normal_match_rate`, `prefer_match_rate`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`) VALUES
+(1, '청년미래적금', TRUE, '1. 금리 연 5~8%\n2. 세제혜택: 만기유지시 이자소득 비과세\n3. 정부기여금 매칭비율(일반 6%, 우대 12%)', '1. 나이 요건: 만 19세 이상 34세 이하인 사람 (군 복무 기간은 최대 6년까지 나이에서 빼고 계산 가능).\n2. 개인 소득: 직전 년도 총급여 7,500만 원 이하 (종합소득 6,300만 원 이하) 또는 소상공인 연 매출 3억 원 이하.\n3. 가구 소득: 등본상 가구원 합산 소득이 기준 중위소득 200% 이하\n4. 금융 과세: 최근 3년 중 한 번이라도 금융소득종합과세 대상자(연 이자·배당 2,000만 원 초과)가 아니었을 것.',
+1000, 500000, '36개월', 'https://obank.kbstar.com/quics?page=C016613&cc=b061496:b061645&isNew=Y&prcode=DP01001656', TRUE, 36, 5.00, 8.00, 6.00, 12.00, NOW(), 'seokyun', NULL, NULL, 'N'),
+(2, '청년주택드림 청약통장', TRUE, '1. 금리 연 3.1~4.5%\n2. 세제혜택: 이자소득 비과세 및 연말정산소득공제', '1. 나이 요건: 만 19세 이상 34세 이하인 사람 (군 복무 기간은 최대 6년까지 나이에서 빼고 계산 가능).\n2. 주택요건: 가입일 기준 본인 명의의 주택을 소유하지 않은 자\n3. 개인소득: 직전년도 총급여 5,000만원 이하 또는 현역병 등 군 복무(전역)자',
+20000, 1000000, '별도의 만기 없음', 'https://obank.kbstar.com/quics?page=C016613&cc=b061496:b061645&isNew=N&prcode=DP01000935',  FALSE,  NULL,  3.10,  4.50,  NULL,  NULL,  NOW(),  'seokyun',  NULL,  NULL, 'N');
 
 
 -- --------------------------------------------------------------------

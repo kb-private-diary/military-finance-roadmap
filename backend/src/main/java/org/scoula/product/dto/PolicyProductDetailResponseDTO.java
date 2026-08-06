@@ -1,5 +1,7 @@
 package org.scoula.product.dto;
 
+import java.math.BigDecimal;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,25 +18,31 @@ public class PolicyProductDetailResponseDTO {
 
     private Long policyId;
     private String policyName;
-    private String benefits;
-    private String joinMember;
     private Long minLimit;
     private Long maxLimit;
     private String saveTrmNote;
     private String policyLink;
     private Boolean hasCalculator;
+    private Integer calcPeriodMonths;
+    private BigDecimal minRate;
+    private BigDecimal maxRate;
+    private BigDecimal normalMatchRate;
+    private BigDecimal preferMatchRate;
 
     public static PolicyProductDetailResponseDTO of(PolicyProductVO vo) {
         return PolicyProductDetailResponseDTO.builder()
                 .policyId(vo.getPolicyId())
                 .policyName(vo.getPolicyName())
-                .benefits(vo.getBenefits())
-                .joinMember(vo.getJoinMember())
                 .minLimit(vo.getMinLimit())
                 .maxLimit(vo.getMaxLimit())
                 .saveTrmNote(vo.getSaveTrmNote())
                 .policyLink(vo.getPolicyLink())
                 .hasCalculator(vo.getHasCalculator())
+                .calcPeriodMonths(vo.getCalcPeriodMonths())
+                .minRate(vo.getMinRate())
+                .maxRate(vo.getMaxRate())
+                .normalMatchRate(vo.getNormalMatchRate())
+                .preferMatchRate(vo.getPreferMatchRate())
                 .build();
     }
 }
