@@ -41,4 +41,10 @@ public interface RentMapper {
 
     // 지역 면적당 월 관리비·공과금 합 (region_fee_stat 최신 기준월, 데이터 없으면 null)
     Long findMonthlyFeePerSqmByRegionCode(String regionCode);
+
+    // 전국 시군구코드 목록 (매물 전국 배치 적재용)
+    List<String> findAllSigunguCodes();
+
+    // 시군구코드 → 시도명 (매물 좌표변환 주소 조합용)
+    String findSidoNameBySigunguCode(String sigunguCode);
 }

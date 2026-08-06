@@ -88,4 +88,10 @@ public class RentController {
         int count = loadService.load(List.of("26410", "26230", "26440"), dealYm);
         return ResponseEntity.ok(ApiResponse.success(count));
     }
+
+    // POST /api/rent/listings/load-nationwide?dealYm=202605 → 전국 매물 적재 (좌표 없이, REGION 검색용)
+    @PostMapping("/listings/load-nationwide")
+    public ResponseEntity<ApiResponse<Integer>> loadNationwide(@RequestParam String dealYm) {
+        return ResponseEntity.ok(ApiResponse.success(loadService.loadNationwide(dealYm)));
+    }
 }
