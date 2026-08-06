@@ -80,4 +80,7 @@
   --pastel-yellow: #fbd55b;
   --pastel-green: #9cd495;
   --pastel-pink: #f8a5a5;
+
+  /* 알림 */
+  --notification: #ff3b30; /* 읽지 않은 알림 배지 */
 }

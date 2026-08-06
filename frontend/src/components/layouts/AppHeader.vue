@@ -2,10 +2,11 @@
   AppHeader - 모든 화면 공통 고정 헤더 (챗봇 포함, 예외 없음)
 
   탭바 유무(showTabNav)와 무관하게 헤더 내용은 항상 동일합니다.
-    왼쪽: < (미니앱 나가기) + "텅장일병일기"
+    왼쪽: < (미니앱 나가기) + "텅장일병구하기"
     오른쪽: 챗봇 / 마이페이지 / 홈 3아이콘 고정
 -->
 <script setup>
+import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 // 앱 타이틀 고정값
@@ -13,10 +14,21 @@ const APP_NAME = '텅장일병구하기';
 
 const router = useRouter();
 
+// 읽지 않은 알림 존재 여부
+// true  : 종 아이콘 우측 상단에 빨간 점 표시
+// false : 빨간 점 숨김
+// TODO: 알림 API 연동 후 unreadCount > 0 결과로 변경 예정
+const hasNotification = ref(true);
+
 const goExit = () => {
   // TODO: 실제 KB Star Banking 앱 연동 시 네이티브 브릿지(예: KBBridge.exit())로 교체 예정.
   // 현재는 독립 웹앱 시뮬레이션이라 시작 화면(Welcome)으로 이동시킴.
   router.push({ path: '/' });
+};
+
+// 알림 화면 이동
+const goNotification = () => {
+  router.push({ name: 'Notification' });
 };
 
 const goChat = () => {
@@ -54,10 +66,40 @@ const goHome = () => {
         </svg>
       </button>
 
-      <h1 class="app-header__title text-label">{{ APP_NAME }}</h1>
+      <h1 class="app-header__title">{{ APP_NAME }}</h1>
     </div>
 
     <div class="app-header__right">
+      <button
+        class="app-header__icon-btn"
+        type="button"
+        aria-label="알림"
+        @click="goNotification"
+      >
+        <span v-if="hasNotification" class="notification-badge"></span>
+
+        <svg
+          class="notification-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M6.5 10V8.5C6.5 5.46 8.96 3 12 3C15.04 3 17.5 5.46 17.5 8.5V10C17.5 12.35 18.2 13.75 19.25 15.05C19.72 15.63 19.31 16.5 18.56 16.5H5.44C4.69 16.5 4.28 15.63 4.75 15.05C5.8 13.75 6.5 12.35 6.5 10Z"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M10 19C10.45 19.62 11.16 20 12 20C12.84 20 13.55 19.62 14 19"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          />
+        </svg>
+      </button>
+
       <button
         class="app-header__icon-btn"
         type="button"
@@ -148,7 +190,7 @@ const goHome = () => {
   justify-content: space-between;
   height: 56px;
   padding: 0 20px;
-  background-color: #ffffff;
+  background-color: var(--surface-default);
   flex-shrink: 0;
 }
 
@@ -157,17 +199,17 @@ const goHome = () => {
   align-items: center;
   gap: 10px;
   min-width: 0;
-  line-height: 1;
 }
 
 .app-header__right {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   flex-shrink: 0;
 }
 
 .app-header__icon-btn {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -181,7 +223,23 @@ const goHome = () => {
   flex-shrink: 0;
 }
 
+.notification-icon {
+  transform: translateY(1px);
+}
+
+.notification-badge {
+  position: absolute;
+  top: 0px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--notification);
+  border: 2px solid var(--surface-default);
+}
+
 .app-header__icon-btn svg {
+  display: block;
   width: 23px;
   height: 23px;
 }
@@ -195,5 +253,9 @@ const goHome = () => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--text-strong);
 }
 </style>
