@@ -1,74 +1,262 @@
 <script setup>
-// SCR-JOB-02 · step2) 진로 로드맵 추천  (담당: 지원)
-// step2 - 자격증·인턴십·교육 추천
-import { ref, computed, onMounted } from 'vue';
+// SCR-JOB-02 · step2) 진로 준비 항목 추천
+// 취업: 자격증 선택 시 연결 인강 펼침 + 훈련과정 탭
+// 공무원·편입: 자격증·어학 / 인터넷 강의 탭
+
+import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import BaseCard from '@/components/common/BaseCard.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
+import EmptyState from '@/components/common/EmptyState.vue';
 import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
+import { useToast } from '@/composables/useToast';
+import { formatWon } from '@/util/format';
 import jobApi from '@/api/jobApi';
 
 const route = useRoute();
 const router = useRouter();
-const goalId = route.params.goalId;
+const { show } = useToast();
 
-// ── 진행바 (step2/4) ──
+const goalId = Number(route.params.goalId);
+
+// ── 진행바 ──
 const currentStep = 2;
 const progress = computed(() => (currentStep / 4) * 100);
 
-// item_type(P01/P02/P03) → 화면에 보여줄 섹션 제목
-const SECTION_LABELS = {
-  P01: '추천 자격증 · 어학',
-  P02: '추천 인강',
-  P03: '추천 정부지원 훈련과정',
+// ── 탭 ──
+const TAB_TYPES = {
+  QUALIFICATION: 'qualification',
+  SECONDARY: 'secondary',
 };
 
-// 백엔드 응답: { goalId, items: { P01: [...], P02: [...], P03: [...] } }
-const groupedItems = ref({});
-const selectedIds = ref(new Set());
+const activeTab = ref(TAB_TYPES.QUALIFICATION);
 
+// ── 조회 데이터 ──
+const loading = ref(false);
+const submitting = ref(false);
+
+const goalType = ref('');
+const qualifications = ref([]);
+const courses = ref([]);
+
+// ── 선택 상태 ──
+const selectedQualIds = ref(new Set());
+const selectedCourseIds = ref(new Set());
+
+const isEmployment = computed(() => goalType.value === 'J01');
+
+const secondTabLabel = computed(() =>
+  isEmployment.value ? '훈련과정' : '인터넷 강의',
+);
+
+const goalTypeLabel = computed(() => {
+  if (goalType.value === 'J01') return '취업';
+  if (goalType.value === 'J02') return '공무원';
+  if (goalType.value === 'J03') return '편입';
+
+  return '진로';
+});
+
+const selectedQualCount = computed(() => selectedQualIds.value.size);
+const selectedCourseCount = computed(() => selectedCourseIds.value.size);
+
+const totalSelectedCount = computed(
+  () => selectedQualCount.value + selectedCourseCount.value,
+);
+
+const isFormValid = computed(
+  () => totalSelectedCount.value > 0 && !submitting.value,
+);
+
+// ── 추천 조회 ──
 const loadRecommend = async () => {
-  const result = await jobApi.findPrepItemRecommend(goalId);
-  groupedItems.value = result.items;
+  loading.value = true;
+
+  try {
+    const result = await jobApi.findPrepItemRecommend(goalId);
+
+    goalType.value = result.goalType ?? '';
+    qualifications.value = result.qualifications ?? [];
+    courses.value = result.courses ?? [];
+  } catch (error) {
+    goalType.value = '';
+    qualifications.value = [];
+    courses.value = [];
+
+    show('추천 정보를 불러오지 못했습니다.', 'error');
+  } finally {
+    loading.value = false;
+  }
 };
 
 onMounted(loadRecommend);
 
-// 표시할 섹션 순서 고정 (P01 → P02 → P03), 데이터 없는 항목구분은 자동 제외
-const sections = computed(() =>
-  Object.keys(SECTION_LABELS)
-    .filter((type) => groupedItems.value[type]?.length)
-    .map((type) => ({
-      type,
-      label: SECTION_LABELS[type],
-      items: groupedItems.value[type],
-    })),
-);
+// ── 선택 처리 ──
+const isQualificationSelected = (qualId) =>
+  selectedQualIds.value.has(Number(qualId));
 
-const toggleSelect = (prepCritId) => {
-  const next = new Set(selectedIds.value);
-  if (next.has(prepCritId)) {
-    next.delete(prepCritId);
+const isCourseSelected = (courseId) =>
+  selectedCourseIds.value.has(Number(courseId));
+
+const getRelatedCourses = (qualId) =>
+  courses.value.filter(
+    (course) => Number(course.qualId) === Number(qualId),
+  );
+
+const toggleQualification = (qualId) => {
+  const normalizedQualId = Number(qualId);
+  const next = new Set(selectedQualIds.value);
+
+  if (next.has(normalizedQualId)) {
+    next.delete(normalizedQualId);
+
+    if (isEmployment.value) {
+      const nextCourseIds = new Set(selectedCourseIds.value);
+
+      getRelatedCourses(normalizedQualId).forEach((course) => {
+        nextCourseIds.delete(Number(course.courseId));
+      });
+
+      selectedCourseIds.value = nextCourseIds;
+    }
   } else {
-    next.add(prepCritId);
+    next.add(normalizedQualId);
   }
-  selectedIds.value = next;
+
+  selectedQualIds.value = next;
 };
 
-const isSelected = (prepCritId) => selectedIds.value.has(prepCritId);
+const toggleCourse = (courseId) => {
+  const normalizedCourseId = Number(courseId);
+  const next = new Set(selectedCourseIds.value);
+
+  if (next.has(normalizedCourseId)) {
+    next.delete(normalizedCourseId);
+  } else {
+    next.add(normalizedCourseId);
+  }
+
+  selectedCourseIds.value = next;
+};
 
 const formatAmount = (amount) =>
   amount != null ? `${amount.toLocaleString()}원` : '';
 
-const isFormValid = computed(() => selectedIds.value.size > 0);
+// ── 금액 ──
+const getQualificationFee = (qualification) => {
+  if (qualification.militaryFee != null) {
+    return qualification.militaryFee;
+  }
 
-// ── 선택 완료 → JOB-API-05 저장 → 비용 계산 화면으로 이동 ──
+  return (
+    (qualification.writtenFee ?? 0) +
+    (qualification.practicalFee ?? 0)
+  );
+};
+
+const getCoursePrice = (course) =>
+  course.militaryPrice ??
+  course.discountPrice ??
+  course.originalPrice ??
+  0;
+
+// ── 접수 D-Day ──
+const parseLocalDate = (dateValue) => {
+  if (!dateValue) return null;
+
+  const [year, month, day] = dateValue.split('-').map(Number);
+
+  return new Date(year, month - 1, day);
+};
+
+const getToday = () => {
+  const now = new Date();
+
+  return new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+  );
+};
+
+const getDayDifference = (targetDate) => {
+  const millisecondsPerDay = 1000 * 60 * 60 * 24;
+
+  return Math.ceil(
+    (targetDate.getTime() - getToday().getTime()) /
+      millisecondsPerDay,
+  );
+};
+
+const getScheduleLabel = (qualification) => {
+  const startDate = parseLocalDate(
+    qualification.writtenRegStartDate,
+  );
+  const endDate = parseLocalDate(
+    qualification.writtenRegEndDate,
+  );
+
+  if (!startDate || !endDate) {
+    return '다음 일정 미정';
+  }
+
+  const startDifference = getDayDifference(startDate);
+  const endDifference = getDayDifference(endDate);
+
+  if (startDifference > 0) {
+    return `필기 접수 시작 D-${startDifference}`;
+  }
+
+  if (endDifference > 0) {
+    return `필기 접수 마감 D-${endDifference}`;
+  }
+
+  if (endDifference === 0) {
+    return '오늘 필기 접수 마감';
+  }
+
+  return '다음 일정 미정';
+};
+
+const hasSchedule = (qualification) =>
+  Boolean(
+    qualification.writtenRegStartDate &&
+      qualification.writtenRegEndDate,
+  );
+
+// ── 외부 링크 ──
+const openExternalLink = (url) => {
+  if (!url) return;
+
+  window.open(url, '_blank', 'noopener,noreferrer');
+};
+
+// ── 저장 ──
 const handleConfirm = async () => {
   if (!isFormValid.value) return;
 
-  await jobApi.createJobPlans(goalId, Array.from(selectedIds.value));
+  submitting.value = true;
 
-  router.push({ name: 'JobCost', params: { goalId } });
+  try {
+    const result = await jobApi.createJobPlans(goalId, {
+      qualIds: Array.from(selectedQualIds.value),
+      courseIds: Array.from(selectedCourseIds.value),
+    });
+
+    show('준비 항목을 저장했어요.', 'success');
+
+    router.push({
+      name: 'JobCost',
+      params: { goalId },
+      state: {
+        costResult: result,
+      },
+    });
+  } catch (error) {
+    show('준비 항목을 저장하지 못했습니다.', 'error');
+  } finally {
+    submitting.value = false;
+  }
 };
 
 const handlePrev = () => {
@@ -78,139 +266,770 @@ const handlePrev = () => {
 
 <template>
   <div class="job-recommend">
-    <RoadmapCharacterSlider :progress="progress" label="진로 로드맵" />
+    <RoadmapCharacterSlider
+      :progress="progress"
+      label="진로 로드맵"
+    />
 
-    <h2 class="job-recommend__title">로드맵을 선택해주십니까?</h2>
+    <div class="job-recommend__heading">
+      <h2 class="job-recommend__title">
+        로드맵을 선택해주세요
+      </h2>
 
-    <div
-      v-for="section in sections"
-      :key="section.type"
-      class="job-recommend__section"
-    >
-      <div class="job-recommend__section-label">{{ section.label }}</div>
+      <p v-if="goalType" class="job-recommend__description">
+        {{ goalTypeLabel }} 준비에 필요한 항목을 선택할 수 있어요.
+      </p>
+    </div>
 
-      <BaseCard
-        v-for="item in section.items"
-        :key="item.prepCritId"
-        padding="16px"
-        class="recommend-card"
-        :class="{ 'recommend-card--active': isSelected(item.prepCritId) }"
-        @click="toggleSelect(item.prepCritId)"
+    <div class="job-recommend__tabs">
+      <button
+        type="button"
+        class="job-recommend__tab"
+        :class="{
+          'job-recommend__tab--active':
+            activeTab === TAB_TYPES.QUALIFICATION,
+        }"
+        @click="activeTab = TAB_TYPES.QUALIFICATION"
       >
-        <div class="recommend-card__check">
-          <span v-if="isSelected(item.prepCritId)">✓</span>
-          <span v-else>+</span>
-        </div>
+        자격증·어학
+      </button>
 
-        <div class="recommend-card__body">
-          <div class="recommend-card__name">{{ item.itemName }}</div>
-          <div class="recommend-card__amount">
-            {{ formatAmount(item.amount) }}
-          </div>
-        </div>
+      <button
+        type="button"
+        class="job-recommend__tab"
+        :class="{
+          'job-recommend__tab--active':
+            activeTab === TAB_TYPES.SECONDARY,
+        }"
+        @click="activeTab = TAB_TYPES.SECONDARY"
+      >
+        {{ secondTabLabel }}
+      </button>
+    </div>
 
-        <a
-          v-if="item.infoUrl"
-          :href="item.infoUrl"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="recommend-card__link"
-          @click.stop
-        >
-          ↗
-        </a>
-      </BaseCard>
+    <div v-if="loading" class="job-recommend__loading">
+      추천 정보를 불러오는 중입니다.
+    </div>
+
+    <template v-else>
+      <!-- 자격증·어학 탭 -->
+      <section
+        v-if="activeTab === TAB_TYPES.QUALIFICATION"
+        class="job-recommend__list"
+      >
+        <EmptyState
+          v-if="qualifications.length === 0"
+          title="추천 자격증·어학이 없습니다."
+          description="현재 목표에 등록된 추천 정보가 없습니다."
+        />
+
+        <template v-else>
+          <BaseCard
+            v-for="qualification in qualifications"
+            :key="qualification.qualId"
+            padding="18px"
+            class="qualification-card"
+            :class="{
+              'qualification-card--selected':
+                isQualificationSelected(qualification.qualId),
+            }"
+            @click="toggleQualification(qualification.qualId)"
+          >
+            <div class="qualification-card__header">
+              <button
+                type="button"
+                class="selection-button"
+                :class="{
+                  'selection-button--selected':
+                    isQualificationSelected(
+                      qualification.qualId,
+                    ),
+                }"
+                :aria-label="`${qualification.qualName} 선택`"
+                @click.stop="
+                  toggleQualification(qualification.qualId)
+                "
+              >
+                <svg
+                  v-if="
+                    isQualificationSelected(
+                      qualification.qualId,
+                    )
+                  "
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path d="m6 12 4 4 8-8" />
+                </svg>
+
+                <svg
+                  v-else
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              </button>
+
+              <div class="qualification-card__content">
+                <div class="qualification-card__title-row">
+                  <h3 class="qualification-card__title">
+                    {{ qualification.qualName }}
+                  </h3>
+
+                  <span
+                    v-if="hasSchedule(qualification)"
+                    class="qualification-card__dday"
+                  >
+                    {{ getScheduleLabel(qualification) }}
+                  </span>
+                </div>
+
+                <p
+                  v-if="qualification.organizationName"
+                  class="qualification-card__organization"
+                >
+                  {{ qualification.organizationName }}
+                </p>
+
+                <p
+                  v-if="qualification.qualSummary"
+                  class="qualification-card__summary"
+                >
+                  {{ qualification.qualSummary }}
+                </p>
+
+                <div class="qualification-card__meta">
+                  <span
+                    v-if="
+                      getQualificationFee(qualification) > 0
+                    "
+                  >
+                    {{
+                      formatWon(
+                        getQualificationFee(qualification),
+                      )
+                    }}
+                  </span>
+
+                  <span v-if="qualification.examRound">
+                    {{ qualification.examYear }}년
+                    {{ qualification.examRound }}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                v-if="qualification.detailUrl"
+                type="button"
+                class="external-link-button"
+                aria-label="자격증 상세 페이지 열기"
+                @click.stop="
+                  openExternalLink(qualification.detailUrl)
+                "
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  class="external-link-icon"
+                >
+                  <path
+                    d="M14 5h5v5M19 5l-8 8M19 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <!-- 취업일 때만 자격증 내부에 연결 인강 표시 -->
+            <div
+              v-if="
+                isEmployment &&
+                isQualificationSelected(
+                  qualification.qualId,
+                ) &&
+                getRelatedCourses(qualification.qualId).length >
+                  0
+              "
+              class="qualification-card__courses"
+              @click.stop
+            >
+              <div class="qualification-card__divider" />
+
+              <h4 class="qualification-card__course-title">
+                자격증 대비 인강
+              </h4>
+
+              <div class="qualification-card__course-list">
+                <button
+                  v-for="course in getRelatedCourses(
+                    qualification.qualId,
+                  )"
+                  :key="course.courseId"
+                  type="button"
+                  class="course-item"
+                  :class="{
+                    'course-item--selected':
+                      isCourseSelected(course.courseId),
+                  }"
+                  @click="toggleCourse(course.courseId)"
+                >
+                  <span
+                    class="course-item__selection"
+                    :class="{
+                      'course-item__selection--selected':
+                        isCourseSelected(course.courseId),
+                    }"
+                  >
+                    <svg
+                      v-if="
+                        isCourseSelected(course.courseId)
+                      "
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path d="m6 12 4 4 8-8" />
+                    </svg>
+
+                    <svg
+                      v-else
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
+                  </span>
+
+                  <span class="course-item__content">
+                    <strong class="course-item__name">
+                      {{ course.courseName }}
+                    </strong>
+
+                    <span
+                      v-if="course.providerName"
+                      class="course-item__provider"
+                    >
+                      {{ course.providerName }}
+                    </span>
+
+                    <span class="course-item__price">
+                      {{ formatWon(getCoursePrice(course)) }}
+                    </span>
+                  </span>
+
+                  <span
+                    v-if="course.detailUrl"
+                    class="course-item__link"
+                    role="button"
+                    tabindex="0"
+                    aria-label="인강 상세 페이지 열기"
+                    @click.stop="
+                      openExternalLink(course.detailUrl)
+                    "
+                    @keydown.enter.stop="
+                      openExternalLink(course.detailUrl)
+                    "
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                      class="external-link-icon"
+                    >
+                      <path
+                        d="M14 5h5v5M19 5l-8 8M19 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"
+                      />
+                    </svg>
+                  </span>
+                </button>
+              </div>
+            </div>
+          </BaseCard>
+        </template>
+      </section>
+
+      <!-- 취업: 훈련과정 탭 -->
+      <section
+        v-else-if="isEmployment"
+        class="job-recommend__list"
+      >
+        <EmptyState
+          title="추천 훈련과정이 없습니다."
+          description="정부지원 훈련과정 추천은 추후 제공될 예정입니다."
+        />
+      </section>
+
+      <!-- 공무원·편입: 인터넷 강의 탭 -->
+      <section v-else class="job-recommend__list">
+        <EmptyState
+          v-if="courses.length === 0"
+          title="추천 인터넷 강의가 없습니다."
+          description="현재 목표에 등록된 추천 정보가 없습니다."
+        />
+
+        <template v-else>
+          <BaseCard
+            v-for="course in courses"
+            :key="course.courseId"
+            padding="18px"
+            class="standalone-course-card"
+            :class="{
+              'standalone-course-card--selected':
+                isCourseSelected(course.courseId),
+            }"
+            @click="toggleCourse(course.courseId)"
+          >
+            <div class="standalone-course-card__header">
+              <button
+                type="button"
+                class="selection-button"
+                :class="{
+                  'selection-button--selected':
+                    isCourseSelected(course.courseId),
+                }"
+                :aria-label="`${course.courseName} 선택`"
+                @click.stop="toggleCourse(course.courseId)"
+              >
+                <svg
+                  v-if="isCourseSelected(course.courseId)"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path d="m6 12 4 4 8-8" />
+                </svg>
+
+                <svg
+                  v-else
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              </button>
+
+              <div class="standalone-course-card__content">
+                <h3 class="standalone-course-card__title">
+                  {{ course.courseName }}
+                </h3>
+
+                <p
+                  v-if="course.providerName"
+                  class="standalone-course-card__provider"
+                >
+                  {{ course.providerName }}
+                </p>
+
+                <p
+                  v-if="course.benefitDetail"
+                  class="standalone-course-card__benefit"
+                >
+                  {{ course.benefitDetail }}
+                </p>
+
+                <p class="standalone-course-card__price">
+                  {{ formatWon(getCoursePrice(course)) }}
+                </p>
+              </div>
+
+              <button
+                v-if="course.detailUrl"
+                type="button"
+                class="external-link-button"
+                aria-label="인강 상세 페이지 열기"
+                @click.stop="
+                  openExternalLink(course.detailUrl)
+                "
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  class="external-link-icon"
+                >
+                  <path
+                    d="M14 5h5v5M19 5l-8 8M19 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"
+                  />
+                </svg>
+              </button>
+            </div>
+          </BaseCard>
+        </template>
+      </section>
+    </template>
+
+    <div class="job-recommend__selection-summary">
+      <span>
+        자격증·어학
+        <strong>{{ selectedQualCount }}</strong>개
+      </span>
+
+      <span class="job-recommend__selection-divider">·</span>
+
+      <span>
+        인터넷 강의
+        <strong>{{ selectedCourseCount }}</strong>개
+      </span>
     </div>
 
     <BottomButtonBar
-      primaryLabel="선택 완료"
-      secondaryLabel="이전"
-      :primaryDisabled="!isFormValid"
-      @primary-click="handleConfirm"
+      secondary-label="이전"
+      primary-label="선택 완료"
+      :primary-disabled="!isFormValid"
       @secondary-click="handlePrev"
+      @primary-click="handleConfirm"
     />
   </div>
 </template>
 
 <style scoped>
 .job-recommend {
-  padding: 20px 20px 100px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
+  padding: 20px 20px 120px;
+}
+
+.job-recommend__heading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .job-recommend__title {
-  font-size: 20px;
-  font-weight: 700;
-  color: #545045;
   margin: 0;
+  color: var(--text-strong);
+  font-size: 22px;
+  font-weight: 700;
 }
 
-.job-recommend__section {
+.job-recommend__description {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.job-recommend__tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+}
+
+.job-recommend__tab {
+  min-height: 48px;
+  padding: 0 12px;
+  background: var(--surface-muted);
+  border: 0;
+  color: var(--gray-mid);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.job-recommend__tab + .job-recommend__tab {
+  border-left: 1px solid var(--line-strong);
+}
+
+.job-recommend__tab--active {
+  background: var(--surface-default);
+  color: var(--text-strong);
+  font-weight: 700;
+}
+
+.job-recommend__loading {
+  padding: 56px 20px;
+  color: var(--text-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.job-recommend__list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.qualification-card {
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.qualification-card--selected {
+  border-color: var(--kb-yellow);
+  box-shadow: 0 0 0 1px var(--kb-yellow);
+}
+
+.qualification-card__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.qualification-card__content {
+  min-width: 0;
+  flex: 1;
+}
+
+.qualification-card__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.qualification-card__title {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.qualification-card__dday {
+  padding: 4px 8px;
+  background: var(--kb-yellow-pale);
+  border-radius: 999px;
+  color: var(--kb-gray);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.qualification-card__organization,
+.qualification-card__summary {
+  margin: 5px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.qualification-card__organization {
+  color: var(--text-body);
+  font-weight: 600;
+}
+
+.qualification-card__summary {
+  color: var(--text-muted);
+}
+
+.qualification-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 8px;
+  color: var(--text-body);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.selection-button,
+.course-item__selection {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  background: var(--surface-default);
+  border: 1.5px solid var(--line-strong);
+  border-radius: 50%;
+  color: var(--gray-mid);
+  cursor: pointer;
+}
+
+.selection-button--selected,
+.course-item__selection--selected {
+  background: var(--kb-yellow);
+  border-color: var(--kb-yellow);
+  color: var(--kb-dark-gray);
+}
+
+.selection-button svg,
+.course-item__selection svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.external-link-button {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  background: transparent;
+  border: 0;
+  color: var(--text-body);
+  cursor: pointer;
+}
+
+.external-link-icon {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.qualification-card__courses {
+  margin-top: 16px;
+}
+
+.qualification-card__divider {
+  height: 1px;
+  margin-bottom: 14px;
+  background: var(--line);
+}
+
+.qualification-card__course-title {
+  margin: 0 0 10px;
+  color: var(--text-body);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.qualification-card__course-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.job-recommend__section-label {
-  font-size: 14px;
-  color: #9e9e9e;
-}
-
-.recommend-card {
-  cursor: pointer;
+.course-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  transition: all 0.2s ease;
+  gap: 10px;
+  width: 100%;
+  padding: 12px;
+  background: var(--surface-default);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
-.recommend-card--active {
-  border-color: #ffbc00;
-  box-shadow: 0 0 0 1px #ffbc00;
+.course-item--selected {
+  background: var(--kb-yellow-pale);
+  border-color: var(--kb-yellow);
 }
 
-.recommend-card__check {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 1.5px solid #d0d0d0;
+.course-item__selection {
+  width: 30px;
+  height: 30px;
+}
+
+.course-item__selection svg {
+  width: 16px;
+  height: 16px;
+}
+
+.course-item__content {
   display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.course-item__name {
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.course-item__provider {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.course-item__price {
+  color: var(--text-body);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.course-item__link {
+  display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
-  color: #9e9e9e;
-  flex-shrink: 0;
+  padding: 4px;
+  color: var(--text-body);
 }
 
-.recommend-card--active .recommend-card__check {
-  background-color: #ffbc00;
-  border-color: #ffbc00;
-  color: #60584c;
-  font-weight: 700;
+.standalone-course-card {
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
-.recommend-card__body {
+.standalone-course-card--selected {
+  border-color: var(--kb-yellow);
+  box-shadow: 0 0 0 1px var(--kb-yellow);
+}
+
+.standalone-course-card__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.standalone-course-card__content {
+  min-width: 0;
   flex: 1;
 }
 
-.recommend-card__name {
-  font-size: 15px;
-  font-weight: 600;
-  color: #545045;
-}
-
-.recommend-card__amount {
-  font-size: 12px;
-  color: #9e9e9e;
-  margin-top: 2px;
-}
-
-.recommend-card__link {
+.standalone-course-card__title {
+  margin: 0;
+  color: var(--text-strong);
   font-size: 16px;
-  color: #9e9e9e;
-  text-decoration: none;
-  flex-shrink: 0;
+  font-weight: 700;
+}
+
+.standalone-course-card__provider,
+.standalone-course-card__benefit,
+.standalone-course-card__price {
+  margin: 5px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.standalone-course-card__provider {
+  color: var(--text-body);
+  font-weight: 600;
+}
+
+.standalone-course-card__benefit {
+  color: var(--text-muted);
+}
+
+.standalone-course-card__price {
+  color: var(--text-body);
+  font-weight: 700;
+}
+
+.job-recommend__selection-summary {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.job-recommend__selection-summary strong {
+  color: var(--text-strong);
+}
+
+.job-recommend__selection-divider {
+  color: var(--line-strong);
 }
 </style>

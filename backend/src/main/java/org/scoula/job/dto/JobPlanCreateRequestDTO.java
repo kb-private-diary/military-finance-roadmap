@@ -6,6 +6,9 @@ import java.util.List;
 
 @Data
 public class JobPlanCreateRequestDTO {
-    // JOB-API-04에서 추천받은 항목 중 사용자가 선택한 prep_crit_id 목록
-    private List<Long> prepCritIds;
+    // 사용자가 선택한 자격증·어학 ID 목록
+    private List<Long> qualIds;
+
+    // 사용자가 선택한 인강 ID 목록
+    private List<Long> courseIds;
 }

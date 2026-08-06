@@ -5,7 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import org.scoula.job.domain.ServiceCriteriaVO;
+import org.scoula.job.domain.JobRecommendServiceVO;
 import org.scoula.product.dto.CardProductListResponseDTO;
 
 // 정책·서비스(service_criteria)와 카드 상품(card_product)을 한 목록으로 노출하기 위한 통합 DTO
@@ -28,14 +28,14 @@ public class JobProductDTO {
     private String badgeCode;
     private String linkUrl;
 
-    public static JobProductDTO ofService(ServiceCriteriaVO vo) {
+    public static JobProductDTO ofService(JobRecommendServiceVO vo) {
         return JobProductDTO.builder()
                 .productType(PRODUCT_TYPE_SERVICE)
-                .productId(vo.getSvcCritId())
+                .productId(vo.getServiceId())
                 .productName(vo.getServiceName())
                 .productDesc(vo.getServiceDesc())
-                .badgeCode(vo.getUseTime())
-                .linkUrl(vo.getInfoUrl())
+                .badgeCode(vo.getServiceQual())
+                .linkUrl(vo.getServiceUrl())
                 .build();
     }
 

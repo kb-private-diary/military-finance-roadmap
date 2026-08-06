@@ -1,14 +1,14 @@
 SET FOREIGN_KEY_CHECKS = 0;
 
 /*
-총 테이블 갯수: 61개
+총 테이블 갯수: 69개
 
 [테이블 구분]
 - 회원/공통: user, military_types, military_unit, military_rank, badge, user_badge, terms, terms_agreement, vacation
 - 예적금/금융: bank_category, saving_product, military_saving_product, card_product, saving_account, saving_history, policy_product
 - 목표/로드맵 공통: roadmap_category, user_bookmark
 - 여행 목표: travel_goal, travel_cost, city_cost, hotel_cost, flight_cost, travel_package, travel_insurance
-- 진로 목표: job_goal, job_code, prep_item_criteria, job_plan, service_criteria, service_selection
+- 진로 목표: job_goal, job_category, job_transfer_university, job_transfer_major_category, job_transfer_major, job_qualification, job_qualification_schedule, job_course, job_category_qualification, job_transfer_major_qualification, job_qualification_course, job_category_course, job_transfer_major_course, job_goal_qualification, job_goal_course, job_recommend_service
 - 자동차 목표: car_goal, car_model, car_type, car_insurance, car_ev, car_tax_prepay, car_tax
 - 자취/부동산 목표: rent_goal, rent_goal_region, school, region_code, rent_listing, region_fee_stat, rent_recommend, housing_loan, loan_recommend
 - 마이데이터/소비: openbanking_link, spending, spending_review, merchant_category, saving_challenge
@@ -435,9 +435,11 @@ DROP TABLE IF EXISTS `job_goal`;
 CREATE TABLE `job_goal` (
   `goal_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '목표ID',
   `user_id` BIGINT NOT NULL COMMENT '회원고유번호',
-  `goal_type` CHAR(3) NOT NULL COMMENT '목표유형',
-  `job_code_id` BIGINT NOT NULL COMMENT '희망직무직렬학과ID',
-  `expected_date` VARCHAR(7) NOT NULL COMMENT '목표예상시기',
+  `goal_type` CHAR(3) NOT NULL COMMENT '목표유형(J01:취업,J02:공무원,J03:편입)',
+  `category_id` BIGINT COMMENT '희망직무·직렬ID',
+  `univ_id` BIGINT COMMENT '희망대학교ID',
+  `major_id` BIGINT COMMENT '희망학교별학과계열ID',
+  `expected_date` VARCHAR(7) NOT NULL COMMENT '목표예상시기(YYYY-MM)',
   `status` VARCHAR(20) COMMENT '진행상태',
   `created_date` DATETIME NOT NULL COMMENT '생성일시',
   `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
@@ -446,95 +448,232 @@ CREATE TABLE `job_goal` (
   `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
 );
 
-DROP TABLE IF EXISTS `job_code`;
-CREATE TABLE `job_code` (
-  `job_code_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '희망직무직렬학과ID',
-  `goal_type` CHAR(3) NOT NULL COMMENT '목표유형',
-  `code_name` VARCHAR(100) NOT NULL COMMENT '코드명',
-  `info_url` VARCHAR(500) COMMENT '상세정보URL',
-  `created_date` DATETIME NOT NULL COMMENT '생성일시',
-  `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
-  `modified_date` DATETIME COMMENT '수정일시',
-  `modified_nm` VARCHAR(50) COMMENT '수정자',
-  `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
+DROP TABLE IF EXISTS `job_category`;
+CREATE TABLE `job_category` (
+    `category_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '분류ID',
+    `parent_id` BIGINT COMMENT '상위분류ID',
+    `goal_type` CHAR(3) NOT NULL COMMENT '목표유형(J01:취업, J02:공무원)',
+    `category_name` VARCHAR(100) NOT NULL COMMENT '분류명',
+    `category_level` TINYINT NOT NULL COMMENT '분류레벨(1:대분류, 2:중분류)',
+    `created_date` DATETIME NOT NULL COMMENT '생성일시',
+    `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+    `modified_date` DATETIME COMMENT '수정일시',
+    `modified_nm` VARCHAR(50) COMMENT '수정자',
+    `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
 );
 
-DROP TABLE IF EXISTS `job_interested_type`;
-CREATE TABLE `job_interested_type` (
-    `interested_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '관심항목ID',
-    `goal_id` BIGINT NOT NULL COMMENT '목표ID',
-    `item_type` CHAR(3) NOT NULL COMMENT '항목구분',
+DROP TABLE IF EXISTS `job_transfer_university`;
+CREATE TABLE `job_transfer_university` (
+    `univ_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '대학교ID',
+    `univ_name` VARCHAR(100) NOT NULL COMMENT '대학교명',
+    `created_date` DATETIME NOT NULL COMMENT '생성일시',
+    `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+    `modified_date` DATETIME COMMENT '수정일시',
+    `modified_nm` VARCHAR(50) COMMENT '수정자',
+    `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
+);
+
+DROP TABLE IF EXISTS `job_transfer_major_category`;
+CREATE TABLE `job_transfer_major_category` (
+    `major_code` CHAR(3) PRIMARY KEY NOT NULL COMMENT '학과계열코드',
+    `major_name` VARCHAR(100) NOT NULL COMMENT '학과계열명',
+    `created_date` DATETIME NOT NULL COMMENT '생성일시',
+    `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+    `modified_date` DATETIME COMMENT '수정일시',
+    `modified_nm` VARCHAR(50) COMMENT '수정자',
+    `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
+);
+
+DROP TABLE IF EXISTS `job_transfer_major`;
+CREATE TABLE `job_transfer_major` (
+    `major_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '학교별학과계열ID',
+    `univ_id` BIGINT NOT NULL COMMENT '대학교ID',
+    `major_code` CHAR(3) NOT NULL COMMENT '학과계열코드',
+    `admission_year` INT NOT NULL COMMENT '편입모집연도',
     `created_date` DATETIME NOT NULL COMMENT '생성일시',
     `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
     `modified_date` DATETIME COMMENT '수정일시',
     `modified_nm` VARCHAR(50) COMMENT '수정자',
     `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부',
-     UNIQUE (`goal_id`, `item_type`)
+     UNIQUE (`univ_id`, `major_code`, `admission_year`)
 );
 
-DROP TABLE IF EXISTS `prep_item_criteria`;
-CREATE TABLE `prep_item_criteria` (
-  `prep_crit_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '기준항목ID',
-  `goal_type` CHAR(3) NOT NULL COMMENT '목표유형',
-  `item_type` CHAR(3) NOT NULL COMMENT '항목구분',
-  `job_code_id` BIGINT COMMENT '희망직무직렬학과ID (NULL=직무무관 공통항목)',
-  `item_name` VARCHAR(200) NOT NULL COMMENT '항목명',
-  `info_url` VARCHAR(500) COMMENT '상세정보URL',
-  `apply_url` VARCHAR(500) COMMENT '접수URL',
-  `amount` BIGINT COMMENT '금액',
-  `amount_source` CHAR(3) NOT NULL COMMENT '금액출처',
-  `fee_detail` VARCHAR(200) COMMENT '비용 상세 내역',
-  `external_code` VARCHAR(50) COMMENT '외부 API 코드',
-  `created_date` DATETIME NOT NULL COMMENT '생성일시',
-  `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
-  `modified_date` DATETIME COMMENT '수정일시',
-  `modified_nm` VARCHAR(50) COMMENT '수정자',
-  `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
+DROP TABLE IF EXISTS `job_qualification`;
+CREATE TABLE `job_qualification` (
+    `qual_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '자격증어학ID',
+    `qual_type` CHAR(3) NOT NULL COMMENT '항목유형(Q01:자격증,Q02:어학)',
+    `external_code` VARCHAR(50) COMMENT '외부API식별코드',
+    `data_source` CHAR(3) NOT NULL COMMENT '데이터출처(D01:수기, D02:Q-Net, D03:기타API)',
+    `qual_name` VARCHAR(100) NOT NULL COMMENT '자격증어학명',
+    `qual_summary` VARCHAR(300) COMMENT '자격증 요약',
+    `organization_name` VARCHAR(100) COMMENT '주관기관',
+    `written_fee` BIGINT COMMENT '필기 또는 단일시험 응시료',
+    `practical_fee` BIGINT COMMENT '실기응시료',
+    `military_fee` BIGINT COMMENT '군인할인가',
+    `detail_url` VARCHAR(500) COMMENT '상세정보URL',
+    `last_synced_date` DATETIME COMMENT '마지막API동기화일시',
+    `created_date` DATETIME NOT NULL COMMENT '생성일시',
+    `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+    `modified_date` DATETIME COMMENT '수정일시',
+    `modified_nm` VARCHAR(50) COMMENT '수정자',
+    `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부',
+     UNIQUE (`external_code`)
 );
 
-DROP TABLE IF EXISTS `job_plan`;
-CREATE TABLE `job_plan` (
-  `plan_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '준비항목ID',
-  `goal_id` BIGINT NOT NULL COMMENT '목표ID',
-  `item_type` CHAR(3) NOT NULL COMMENT '항목구분',
-  `item_name` VARCHAR(200) NOT NULL COMMENT '항목명',
-  `info_url` VARCHAR(500) COMMENT '상세정보URL',
-  `apply_url` VARCHAR(500) COMMENT '접수URL',
-  `amount` BIGINT COMMENT '금액',
-  `created_date` DATETIME NOT NULL COMMENT '생성일시',
-  `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
-  `modified_date` DATETIME COMMENT '수정일시',
-  `modified_nm` VARCHAR(50) COMMENT '수정자',
-  `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
+DROP TABLE IF EXISTS `job_qualification_schedule`;
+CREATE TABLE `job_qualification_schedule` (
+    `schedule_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '시험일정ID',
+    `qual_id` BIGINT NOT NULL COMMENT '자격증어학ID',
+    `exam_year`  SMALLINT NOT NULL COMMENT '시험연도',
+    `exam_round` VARCHAR(30) NOT NULL COMMENT '시험회차',
+    `written_reg_start_date` DATE COMMENT '필기접수시작일',
+    `written_reg_end_date` DATE COMMENT '필기접수마감일',
+    `written_exam_start_date` DATE COMMENT '필기시험시행시작일',
+    `written_exam_end_date` DATE COMMENT '필기시험시행종료일',
+    `written_result_date` DATE COMMENT '필기합격발표일',
+    `practical_reg_start_date` DATE COMMENT '실기접수시작일',
+    `practical_reg_end_date` DATE COMMENT '실기접수마감일',
+    `practical_exam_start_date` DATE COMMENT '실기시험시행시작일',
+    `practical_exam_end_date` DATE COMMENT '실기시험시행종료일',
+    `practical_result_date` DATE COMMENT '실기합격발표일',
+    `last_synced_date` DATETIME COMMENT '마지막API동기화일시',
+    `created_date` DATETIME NOT NULL COMMENT '생성일시',
+    `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+    `modified_date` DATETIME COMMENT '수정일시',
+    `modified_nm` VARCHAR(50) COMMENT '수정자',
+    `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부',
+     UNIQUE (`qual_id`, `exam_year`, `exam_round`)
 );
 
-DROP TABLE IF EXISTS `service_criteria`;
-CREATE TABLE `service_criteria` (
-  `svc_crit_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '서비스ID',
-  `goal_type` CHAR(3) NOT NULL COMMENT '목표유형',
-  `service_type` CHAR(3) NOT NULL COMMENT '서비스구분',
-  `service_name` VARCHAR(200) NOT NULL COMMENT '서비스명',
-  `service_desc` VARCHAR(500) COMMENT '서비스설명',
-  `use_time` CHAR(3) NOT NULL COMMENT '이용시점',
-  `info_url` VARCHAR(500) COMMENT '상세정보URL',
-  `created_date` DATETIME NOT NULL COMMENT '생성일시',
-  `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
-  `modified_date` DATETIME COMMENT '수정일시',
-  `modified_nm` VARCHAR(50) COMMENT '수정자',
-  `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
+
+DROP TABLE IF EXISTS `job_course`;
+CREATE TABLE `job_course` (
+    `course_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '인강ID',
+    `course_type` CHAR(3) NOT NULL COMMENT '인강유형(C01:개별강의,C02:공무원패스,C03:편입패스)',
+    `provider_name` VARCHAR(100) NOT NULL COMMENT '제공업체명',
+    `course_name` VARCHAR(200) NOT NULL COMMENT '인강명',
+    `original_price` BIGINT COMMENT '정가',
+    `discount_price` BIGINT COMMENT '기본할인가',
+    `military_price` BIGINT COMMENT '군인최종가',
+    `benefit_detail` VARCHAR(1000) COMMENT '주요혜택',
+    `detail_url` VARCHAR(500) COMMENT '상세정보URL',
+    `created_date` DATETIME NOT NULL COMMENT '생성일시',
+    `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+    `modified_date` DATETIME COMMENT '수정일시',
+    `modified_nm` VARCHAR(50) COMMENT '수정자',
+    `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
 );
 
-DROP TABLE IF EXISTS `service_selection`;
-CREATE TABLE `service_selection` (
-  `selection_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '선택서비스ID',
-  `goal_id` BIGINT NOT NULL COMMENT '목표ID',
-  `svc_crit_id` BIGINT COMMENT '서비스ID',
-  `card_id` BIGINT COMMENT '카드상품ID',
-  `created_date` DATETIME NOT NULL COMMENT '생성일시',
-  `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
-  `modified_date` DATETIME COMMENT '수정일시',
-  `modified_nm` VARCHAR(50) COMMENT '수정자',
-  `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
+DROP TABLE IF EXISTS `job_category_qualification`;
+CREATE TABLE `job_category_qualification` (
+    `category_qual_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '분류자격증매핑ID',
+    `category_id` BIGINT NOT NULL COMMENT '직무직렬분류ID',
+    `qual_id` BIGINT NOT NULL COMMENT '자격증어학ID',
+    `created_date` DATETIME NOT NULL COMMENT '생성일시',
+    `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+    `modified_date` DATETIME COMMENT '수정일시',
+    `modified_nm` VARCHAR(50) COMMENT '수정자',
+    `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부',
+     UNIQUE (`category_id`, `qual_id`)
+);
+
+DROP TABLE IF EXISTS `job_transfer_major_qualification`;
+CREATE TABLE `job_transfer_major_qualification` (
+    `major_qual_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '학과계열자격증매핑ID',
+    `major_code` CHAR(3) NOT NULL COMMENT '학과계열코드',
+    `qual_id` BIGINT NOT NULL COMMENT '자격증어학ID',
+    `created_date` DATETIME NOT NULL COMMENT '생성일시',
+    `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+    `modified_date` DATETIME COMMENT '수정일시',
+    `modified_nm` VARCHAR(50) COMMENT '수정자',
+    `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부',
+     UNIQUE (`major_code`, `qual_id`)
+);
+
+DROP TABLE IF EXISTS `job_qualification_course`;
+CREATE TABLE `job_qualification_course` (
+    `qual_course_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '자격증인강매핑ID',
+    `qual_id` BIGINT NOT NULL COMMENT '자격증어학ID',
+    `course_id` BIGINT NOT NULL COMMENT '인강ID',
+    `created_date` DATETIME NOT NULL COMMENT '생성일시',
+    `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+    `modified_date` DATETIME COMMENT '수정일시',
+    `modified_nm` VARCHAR(50) COMMENT '수정자',
+    `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부',
+     UNIQUE (`qual_id`, `course_id`)
+);
+
+DROP TABLE IF EXISTS `job_category_course`;
+CREATE TABLE `job_category_course` (
+    `category_course_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '분류인강매핑ID',
+    `category_id` BIGINT NOT NULL COMMENT '직무직렬분류ID',
+    `course_id` BIGINT NOT NULL COMMENT '인강ID',
+    `created_date` DATETIME NOT NULL COMMENT '생성일시',
+    `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+    `modified_date` DATETIME COMMENT '수정일시',
+    `modified_nm` VARCHAR(50) COMMENT '수정자',
+    `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부',
+     UNIQUE (`category_id`, `course_id`)
+);
+
+DROP TABLE IF EXISTS `job_transfer_major_course`;
+CREATE TABLE `job_transfer_major_course` (
+    `major_course_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '학과계열인강매핑ID',
+    `major_code` CHAR(3) NOT NULL COMMENT '학과계열코드',
+    `course_id` BIGINT NOT NULL COMMENT '인강ID',
+    `created_date` DATETIME NOT NULL COMMENT '생성일시',
+    `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+    `modified_date` DATETIME COMMENT '수정일시',
+    `modified_nm` VARCHAR(50) COMMENT '수정자',
+    `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부',
+     UNIQUE (`major_code`, `course_id`)
+);
+
+DROP TABLE IF EXISTS `job_goal_qualification`;
+CREATE TABLE `job_goal_qualification` (
+    `goal_qual_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '목표자격증선택ID',
+    `goal_id` BIGINT NOT NULL COMMENT '목표ID',
+    `qual_id` BIGINT NOT NULL COMMENT '자격증어학ID',
+    `selected_cost` BIGINT NOT NULL COMMENT '선택당시 적용비용',
+    `created_date` DATETIME NOT NULL COMMENT '생성일시',
+    `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+    `modified_date` DATETIME COMMENT '수정일시',
+    `modified_nm` VARCHAR(50) COMMENT '수정자',
+    `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부',
+    UNIQUE (`goal_id`, `qual_id`)
+);
+
+DROP TABLE IF EXISTS `job_goal_course`;
+CREATE TABLE `job_goal_course` (
+    `goal_course_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '목표인강선택ID',
+    `goal_id` BIGINT NOT NULL COMMENT '목표ID',
+    `course_id` BIGINT NOT NULL COMMENT '인강ID',
+    `selected_cost` BIGINT NOT NULL COMMENT '선택당시 적용 비용',
+    `created_date` DATETIME NOT NULL COMMENT '생성일시',
+    `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+    `modified_date` DATETIME COMMENT '수정일시',
+    `modified_nm` VARCHAR(50) COMMENT '수정자',
+    `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부',
+     UNIQUE (`goal_id`, `course_id`)
+);
+
+DROP TABLE IF EXISTS `job_recommend_service`;
+CREATE TABLE `job_recommend_service` (
+    `service_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '추천서비스ID',
+    `service_type` CHAR(3) NOT NULL COMMENT '서비스유형(P01:정책, P02:KB서비스)',
+    `goal_type` CHAR(3) COMMENT '목표유형(J01:취업, J02:공무원, J03:편입, NULL:공통)',
+    `service_name` VARCHAR(100) NOT NULL COMMENT '서비스명',
+    `service_qual` VARCHAR(50) COMMENT '신청자격라벨',
+    `service_desc` VARCHAR(500) COMMENT '서비스설명',
+    `service_url` VARCHAR(500) COMMENT '상세URL',
+    `external_code` VARCHAR(100) COMMENT '외부API식별코드',
+    `last_synced_date` DATETIME COMMENT '마지막API동기화일시',
+    `sort_order` INT COMMENT '노출순서',
+    `created_date` DATETIME NOT NULL COMMENT '생성일시',
+    `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+    `modified_date` DATETIME COMMENT '수정일시',
+    `modified_nm` VARCHAR(50) COMMENT '수정자',
+    `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
 );
 
 DROP TABLE IF EXISTS `car_goal`;
@@ -931,43 +1070,7 @@ CREATE TABLE `notification` (
   `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
 );
 
--- --------------------------------------------------------------------
---  [석윤] 웹푸시(push_subscription, push_history)
---  테이블: push_subscription, push_history
---  ※ notification(카카오 알림 이력, [수연])과는 별개 채널이라 분리함
--- --------------------------------------------------------------------
-DROP TABLE IF EXISTS `push_subscription`;
-CREATE TABLE `push_subscription` (
-  `subscription_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '구독번호',
-  `user_id` BIGINT NOT NULL COMMENT '회원고유번호',
-  `endpoint` VARCHAR(500) NOT NULL COMMENT '브라우저 푸시 서비스 발송 주소',
-  `p256dh` VARCHAR(200) NOT NULL COMMENT '암호화 공개키',
-  `auth` VARCHAR(100) NOT NULL COMMENT '암호화 인증 시크릿',
-  `created_date` DATETIME NOT NULL COMMENT '생성일시',
-  `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
-  `modified_date` DATETIME COMMENT '수정일시',
-  `modified_nm` VARCHAR(50) COMMENT '수정자',
-  `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
-);
-
-DROP TABLE IF EXISTS `push_history`;
-CREATE TABLE `push_history` (
-  `history_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '발송이력번호',
-  `user_id` BIGINT NOT NULL COMMENT '회원고유번호',
-  `title` VARCHAR(100) NOT NULL COMMENT '알림 제목',
-  `body` VARCHAR(200) NOT NULL COMMENT '알림 내용',
-  `status` VARCHAR(10) NOT NULL COMMENT '발송상태(SUCCESS/FAILED)',
-  `sent_at` DATETIME NOT NULL COMMENT '발송일시',
-  `created_date` DATETIME NOT NULL COMMENT '생성일시',
-  `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
-  `modified_date` DATETIME COMMENT '수정일시',
-  `modified_nm` VARCHAR(50) COMMENT '수정자',
-  `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
-);
-
 CREATE UNIQUE INDEX `car_ev_index_0` ON `car_ev` (`region`, `base_year`);
-
-CREATE UNIQUE INDEX `push_subscription_index_0` ON `push_subscription` (`endpoint`);
 
 ALTER TABLE `military_types` COMMENT = '군종(육군/해군/공군 등) 공통 코드';
 
@@ -1013,17 +1116,35 @@ ALTER TABLE `travel_insurance` COMMENT = '여행자 보험 상품 참조 데이�
 
 ALTER TABLE `job_goal` COMMENT = '목표 등록 화면 및 로드맵/메인페이지 조회에 사용되는 사용자별 진로 목표 데이터';
 
-ALTER TABLE `job_code` COMMENT = '관리자가 사전 큐레이션하여 등록하는 드롭다운 선택지 기준 데이터';
+ALTER TABLE `job_category` COMMENT = '관리자가 사전 큐레이션하여 등록하는 취업·공무원 분류 기준 데이터';
 
-ALTER TABLE `job_interested_type` COMMENT = '목표 등록 시 희망 준비항목 카테고리 복수선택 저장';
+ALTER TABLE `job_transfer_university` COMMENT = '편입 희망대학교 드롭다운 기준 데이터';
 
-ALTER TABLE `prep_item_criteria` COMMENT = '관리자가 사전 조사·등록하는 준비항목 추천 기준 데이터';
+ALTER TABLE `job_transfer_major_category` COMMENT = '편입 학과계열 공통 코드 및 계열명 기준 데이터';
 
-ALTER TABLE `job_plan` COMMENT = '준비비용 계산 및 로드맵 조회에 활용되는 사용자별 확정 준비항목 데이터';
+ALTER TABLE `job_transfer_major` COMMENT = '대학교별 편입 모집 학과계열 및 모집연도 매핑 데이터';
 
-ALTER TABLE `service_criteria` COMMENT = '목표유형별로 사용자에게 노출할 정부 정책 및 KB 서비스 기준 정보 (관리자 사전 등록 데이터)';
+ALTER TABLE `job_qualification` COMMENT = '진로별 추천 자격증·어학 기준 및 API 동기화 데이터';
 
-ALTER TABLE `service_selection` COMMENT = '로드맵 저장 시 사용자가 선택한 정부 제도·KB 서비스 항목을 저장';
+ALTER TABLE `job_qualification_schedule` COMMENT = '자격증·어학 회차별 접수 및 시험일정 데이터';
+
+ALTER TABLE `job_course` COMMENT = '취업·공무원·편입 추천 인강 기준 데이터';
+
+ALTER TABLE `job_category_qualification` COMMENT = '취업직무·공무원 직렬별 추천 자격증·어학 매핑';
+
+ALTER TABLE `job_transfer_major_qualification` COMMENT = '편입학과계열별 추천 자격증·어학 매핑';
+
+ALTER TABLE `job_qualification_course` COMMENT='취업 자격증·어학별 추천 인강 매핑';
+
+ALTER TABLE `job_category_course` COMMENT='공무원 직렬별 추천 인강 매핑';
+
+ALTER TABLE `job_transfer_major_course` COMMENT='편입학과계열별 추천 인강 매핑';
+
+ALTER TABLE `job_goal_qualification` COMMENT='사용자가 목표별로 선택한 자격증·어학 데이터';
+
+ALTER TABLE `job_goal_course` COMMENT='사용자가 목표별로 선택한 인강 데이터';
+
+ALTER TABLE `job_recommend_service` COMMENT='목표유형별 정책 및 KB서비스 기준정보';
 
 ALTER TABLE `car_goal` COMMENT = '회원이 등록한 자동차 구매 목표 정보';
 
@@ -1115,19 +1236,47 @@ ALTER TABLE `flight_cost` ADD FOREIGN KEY (`city_cost_id`) REFERENCES `city_cost
 
 ALTER TABLE `job_goal` ADD FOREIGN KEY (`user_id`) REFERENCES `user` (`id`);
 
-ALTER TABLE `job_goal` ADD FOREIGN KEY (`job_code_id`) REFERENCES `job_code` (`job_code_id`);
+ALTER TABLE `job_goal` ADD FOREIGN KEY (`category_id`) REFERENCES `job_category` (`category_id`);
 
-ALTER TABLE `job_interested_type` ADD FOREIGN KEY (`goal_id`) REFERENCES `job_goal` (`goal_id`);
+ALTER TABLE `job_goal` ADD FOREIGN KEY (`univ_id`) REFERENCES `job_transfer_university` (`univ_id`);
 
-ALTER TABLE `prep_item_criteria` ADD FOREIGN KEY (`job_code_id`) REFERENCES `job_code` (`job_code_id`);
+ALTER TABLE `job_goal` ADD FOREIGN KEY (`major_id`) REFERENCES `job_transfer_major` (`major_id`);
 
-ALTER TABLE `job_plan` ADD FOREIGN KEY (`goal_id`) REFERENCES `job_goal` (`goal_id`);
+ALTER TABLE `job_category` ADD FOREIGN KEY (`parent_id`) REFERENCES `job_category` (`category_id`);
 
-ALTER TABLE `service_selection` ADD FOREIGN KEY (`goal_id`) REFERENCES `job_goal` (`goal_id`);
+ALTER TABLE `job_transfer_major` ADD FOREIGN KEY (`univ_id`) REFERENCES `job_transfer_university` (`univ_id`);
 
-ALTER TABLE `service_selection` ADD FOREIGN KEY (`svc_crit_id`) REFERENCES `service_criteria` (`svc_crit_id`);
+ALTER TABLE `job_transfer_major` ADD FOREIGN KEY (`major_code`) REFERENCES `job_transfer_major_category` (`major_code`);
 
-ALTER TABLE `service_selection` ADD FOREIGN KEY (`card_id`) REFERENCES `card_product` (`card_id`);
+ALTER TABLE `job_qualification_schedule` ADD FOREIGN KEY (`qual_id`) REFERENCES `job_qualification` (`qual_id`);
+
+ALTER TABLE `job_category_qualification` ADD FOREIGN KEY (`category_id`) REFERENCES `job_category` (`category_id`);
+
+ALTER TABLE `job_category_qualification` ADD FOREIGN KEY (`qual_id`) REFERENCES `job_qualification` (`qual_id`);
+
+ALTER TABLE `job_transfer_major_qualification` ADD FOREIGN KEY (`major_code`) REFERENCES `job_transfer_major_category` (`major_code`);
+
+ALTER TABLE `job_transfer_major_qualification` ADD FOREIGN KEY (`qual_id`) REFERENCES `job_qualification` (`qual_id`);
+
+ALTER TABLE `job_qualification_course` ADD FOREIGN KEY (`qual_id`) REFERENCES `job_qualification` (`qual_id`);
+
+ALTER TABLE `job_qualification_course` ADD FOREIGN KEY (`course_id`) REFERENCES `job_course` (`course_id`);
+
+ALTER TABLE `job_category_course` ADD FOREIGN KEY (`category_id`) REFERENCES `job_category` (`category_id`);
+
+ALTER TABLE `job_category_course` ADD FOREIGN KEY (`course_id`) REFERENCES `job_course` (`course_id`);
+
+ALTER TABLE `job_transfer_major_course` ADD FOREIGN KEY (`major_code`) REFERENCES `job_transfer_major_category` (`major_code`);
+
+ALTER TABLE `job_transfer_major_course` ADD FOREIGN KEY (`course_id`) REFERENCES `job_course` (`course_id`);
+
+ALTER TABLE `job_goal_qualification` ADD FOREIGN KEY (`goal_id`) REFERENCES `job_goal` (`goal_id`);
+
+ALTER TABLE `job_goal_qualification` ADD FOREIGN KEY (`qual_id`) REFERENCES `job_qualification` (`qual_id`);
+
+ALTER TABLE `job_goal_course` ADD FOREIGN KEY (`goal_id`) REFERENCES `job_goal` (`goal_id`);
+
+ALTER TABLE `job_goal_course` ADD FOREIGN KEY (`course_id`) REFERENCES `job_course` (`course_id`);
 
 ALTER TABLE `car_goal` ADD FOREIGN KEY (`user_id`) REFERENCES `user` (`id`);
 

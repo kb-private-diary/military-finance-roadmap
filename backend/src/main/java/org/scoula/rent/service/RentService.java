@@ -6,6 +6,7 @@ import org.scoula.rent.dto.SchoolSearchResponseDTO;
 import org.scoula.rent.dto.RentGoalDetailResponseDTO;
 import org.scoula.rent.dto.RentListingResponseDTO;
 import org.scoula.rent.dto.RentListingDetailResponseDTO;
+import org.scoula.rent.dto.RentCostResponseDTO;
 import java.util.List;
 
 public interface RentService {
@@ -25,4 +26,7 @@ public interface RentService {
 
     // 매물 상세 (Step3)
     RentListingDetailResponseDTO findListingDetail(Long listingId);
+
+    // 총 필요자금 계산 (보증금 + 월세×거주개월)
+    RentCostResponseDTO calculateCost(Long listingId, int months);
 }

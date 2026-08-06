@@ -12,11 +12,13 @@ import org.scoula.rent.dto.SchoolSearchResponseDTO;
 import org.scoula.rent.dto.RentGoalDetailResponseDTO;
 import org.scoula.rent.dto.RentListingResponseDTO;
 import org.scoula.rent.dto.RentListingDetailResponseDTO;
+import org.scoula.rent.dto.RentCostResponseDTO;
 import org.scoula.rent.mapper.RentMapper;
 import org.scoula.rent.mapper.RentListingMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -149,6 +151,32 @@ public class RentServiceImpl implements RentService {
             throw BusinessException.notFound("매물을 찾을 수 없습니다.", "RENT_006");
         }
         return RentListingDetailResponseDTO.of(vo);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public RentCostResponseDTO calculateCost(Long listingId, int months) {
+        RentListingVO vo = this.listingMapper.findById(listingId);
+        if (vo == null) {
+            throw BusinessException.notFound("매물을 찾을 수 없습니다.", "RENT_006");
+        }
+        // 거주개월 검증 (1개월 이상)
+        if (months <= 0) {
+            throw BusinessException.badRequest("거주 개월수가 올바르지 않습니다.", "RENT_007");
+        }
+        long deposit = vo.getDeposit() == null ? 0L : vo.getDeposit();
+        long monthlyRent = vo.getMonthlyRent() == null ? 0L : vo.getMonthlyRent();
+
+        // 예상 관리비 = 지역 면적당 요금 × 전용면적 (region_fee_stat 데이터 없으면 0)
+        long monthlyFee = 0L;
+        Long feePerSqm = this.mapper.findMonthlyFeePerSqmByRegionCode(vo.getRegionCode());
+        if (feePerSqm != null && vo.getAreaSqm() != null) {
+            monthlyFee = BigDecimal.valueOf(feePerSqm).multiply(vo.getAreaSqm()).longValue();
+        }
+
+        long livingCost = (monthlyRent + monthlyFee) * months; // 월주거비 = (월세 + 관리비) × 개월
+        long totalRequired = deposit + livingCost;             // 보증금(반환) + 월주거비
+        return RentCostResponseDTO.of(vo, months, monthlyFee, livingCost, totalRequired);
     }
 
     /** SCHOOL / REGION 모드별 필수값 검증 (모드에 따라 달라지는 조건이라 @Valid 대신 여기서) */

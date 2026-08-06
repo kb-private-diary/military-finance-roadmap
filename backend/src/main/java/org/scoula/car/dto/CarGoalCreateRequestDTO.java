@@ -12,10 +12,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class CarGoalCreateRequestDTO {
-    private Long userId;
     private Long budget;
-    private Integer carTypeCode;
     private Boolean isNew;
+    private Integer experienceYears;
     private LocalDate targetDate;
     private String region;
 }

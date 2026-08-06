@@ -9,6 +9,8 @@ import java.util.UUID;
 import org.scoula.common.exception.BusinessException;
 import org.scoula.openbanking.client.OpenBankingClient;
 import org.scoula.openbanking.domain.OpenBankingLinkVO;
+import org.scoula.openbanking.domain.SavingAccountVO;
+import org.scoula.openbanking.domain.SavingHistoryVO;
 import org.scoula.openbanking.domain.SpendingVO;
 import org.scoula.openbanking.dto.AccountInfo;
 import org.scoula.openbanking.dto.AuthUrlResponse;
@@ -16,6 +18,7 @@ import org.scoula.openbanking.dto.LinkRequest;
 import org.scoula.openbanking.dto.TokenResponse;
 import org.scoula.openbanking.dto.TransactionInfo;
 import org.scoula.openbanking.mapper.OpenBankingLinkMapper;
+import org.scoula.openbanking.mapper.SavingWriteMapper;
 import org.scoula.openbanking.mapper.SpendingMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -37,6 +40,7 @@ public class OpenBankingServiceImpl implements OpenBankingService {
     private final OpenBankingClient client;
     private final OpenBankingLinkMapper mapper;
     private final SpendingMapper spendingMapper;
+    private final SavingWriteMapper savingWriteMapper;
 
     // 분류 규칙(merchant_category)에 걸리지 않는 가맹점의 기본 카테고리
     private static final String DEFAULT_CATEGORY = "ETC";
@@ -117,10 +121,6 @@ public class OpenBankingServiceImpl implements OpenBankingService {
             link.setAccountNumMasked(acc.getAccountNumMasked());
             link.setExpiresAt(expiresAt);
             link.setCreatedNm(actor);
-            // 적금계좌면 잔액조회 → 석윤 파트 saving_account 생성 후 account_id 연결
-            // TODO: 석윤 POST /api/saving/accounts 준비되면 연결, 지금은 account_id = NULL
-            //   ("SAVING".equals(acc.getAccountType()) 일 때 client.getBalance 호출 예정)
-
             // 신규회원(동적 계좌 "8"로 시작) 적금이면 개설일·만기일을 그 회원 입대일 이후로 보정
             // (회원1·2는 시드라 이미 입대일 이후로 정합성 맞음 → 보정 안 함)
             if ("SAVING".equals(acc.getAccountType()) && acc.getFintechUseNum().startsWith("8")) {
@@ -132,10 +132,50 @@ public class OpenBankingServiceImpl implements OpenBankingService {
                 }
             }
 
+            // 적금계좌면 saving_account + saving_history 저장 후 account_id 연결
+            // (저장은 오픈뱅킹 담당, 조회·만기금 계산은 석윤 saving 파트가 이 데이터를 사용)
+            if ("SAVING".equals(acc.getAccountType())) {
+                Long accountId = saveSaving(acc, userId, token, actor);
+                link.setAccountId(accountId);
+            }
+
             mapper.insertLink(link);
             linked.add(acc);
         }
         return linked;
+    }
+
+    /** 적금계좌를 saving_account에 저장 + 납입내역을 saving_history에 회차별 저장 → account_id 반환 */
+    private Long saveSaving(AccountInfo acc, Long userId, TokenResponse token, String actor) {
+        // 납입내역(적금 입금) 조회 - 회차·금액 산출
+        List<TransactionInfo> pays = client.getTransactions(
+                token.getAccessToken(), acc.getFintechUseNum(), null, null);
+
+        long monthlySave = pays.isEmpty() ? 0L : pays.get(0).getAmount(); // 한달 납입금 (회차 금액)
+        int monthlyCount = pays.size();                                   // 납입 회차수
+
+        // 1) saving_account 저장 (INSERT 후 accountId 채워짐)
+        SavingAccountVO account = new SavingAccountVO();
+        account.setUserId(userId);
+        account.setBankCode(acc.getBankCodeStd());
+        account.setMonthlySave(monthlySave);
+        account.setMonthlyCount(monthlyCount);
+        account.setCurrAmount(acc.getBalance() == null ? 0L : acc.getBalance()); // 누적납입 = 잔액
+        account.setAccountStatus("ACTIVE");
+        account.setCreatedNm(actor);
+        savingWriteMapper.insertSavingAccount(account);
+
+        // 2) saving_history 회차별 저장
+        int round = 1;
+        for (TransactionInfo pay : pays) {
+            SavingHistoryVO history = new SavingHistoryVO();
+            history.setAccountId(account.getAccountId());
+            history.setPayRound(round++);
+            history.setPayAmount(pay.getAmount());
+            history.setCreatedNm(actor);
+            savingWriteMapper.insertSavingHistory(history);
+        }
+        return account.getAccountId();
     }
 
     @Override

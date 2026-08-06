@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.scoula.regret.mapper.SpendingReviewMapper">
+
+    <!-- 지출 목록 + 회고 (LEFT JOIN: 태깅 안 한 지출도 포함, review_type은 null) -->
+    <select id="findSpendingsWithReview" resultType="org.scoula.regret.dto.SpendingResponseDTO">
+        SELECT s.spending_id   AS spendingId,
+               s.merchant_name AS merchantName,
+               s.category      AS category,
+               s.amount        AS amount,
+               s.spent_at      AS spentAt,
+               r.review_type   AS reviewType
+          FROM spending s
+          LEFT JOIN spending_review r
+                 ON r.spending_id = s.spending_id
+                AND r.del_yn = 'N'
+         WHERE s.user_id = #{userId}
+           AND s.del_yn = 'N'
+         ORDER BY s.spent_at DESC
+    </select>
+
+    <!-- 특정 지출의 회고 조회 (재태깅 insert/update 분기용) -->
+    <select id="findReviewBySpendingId" resultType="org.scoula.regret.domain.SpendingReviewVO">
+        SELECT review_id, spending_id, review_type, reviewed_at
+          FROM spending_review
+         WHERE spending_id = #{spendingId}
+           AND del_yn = 'N'
+    </select>
+
+    <!-- 회고 신규 저장 -->
+    <insert id="insertReview" parameterType="org.scoula.regret.domain.SpendingReviewVO"
+            useGeneratedKeys="true" keyProperty="reviewId">
+        INSERT INTO spending_review (spending_id, review_type, reviewed_at, created_date, created_nm, del_yn)
+        VALUES (#{spendingId}, #{reviewType}, NOW(), NOW(), #{createdNm}, 'N')
+    </insert>
+
+    <!-- 회고 구분 변경 (재태깅) -->
+    <update id="updateReviewType">
+        UPDATE spending_review
+           SET review_type   = #{reviewType},
+               reviewed_at   = NOW(),
+               modified_date = NOW(),
+               modified_nm   = #{modifiedNm}
+         WHERE spending_id = #{spendingId}
+           AND del_yn = 'N'
+    </update>
+
+    <!-- 월별 후회소비 통계 (spending LEFT JOIN review, review_type별 집계) -->
+    <select id="findMonthlyStats" resultType="org.scoula.regret.dto.RegretStatsResponseDTO">
+        SELECT
+            COALESCE(SUM(s.amount), 0)                                                AS totalSpending,
+            COALESCE(SUM(CASE WHEN r.review_type = 'REGRET'    THEN s.amount END), 0) AS regretAmount,
+            COALESCE(SUM(CASE WHEN r.review_type = 'SATISFIED' THEN s.amount END), 0) AS satisfiedAmount,
+            SUM(CASE WHEN r.review_type = 'REGRET'    THEN 1 ELSE 0 END)              AS regretCount,
+            SUM(CASE WHEN r.review_type = 'SATISFIED' THEN 1 ELSE 0 END)              AS satisfiedCount,
+            SUM(CASE WHEN r.review_id IS NULL         THEN 1 ELSE 0 END)              AS untaggedCount
+          FROM spending s
+          LEFT JOIN spending_review r
+                 ON r.spending_id = s.spending_id
+                AND r.del_yn = 'N'
+         WHERE s.user_id = #{userId}
+           AND DATE_FORMAT(s.spent_at, '%Y%m') = #{yearMonth}
+           AND s.del_yn = 'N'
+    </select>
+
+    <!-- 월별 카테고리별 후회 금액 (후회 많은 순) -->
+    <select id="findCategoryRegrets" resultType="org.scoula.regret.dto.CategoryAmountDTO">
+        SELECT s.category    AS category,
+               SUM(s.amount) AS amount,
+               COUNT(*)      AS count
+          FROM spending s
+          JOIN spending_review r
+                 ON r.spending_id = s.spending_id
+                AND r.del_yn = 'N'
+         WHERE s.user_id = #{userId}
+           AND r.review_type = 'REGRET'
+           AND DATE_FORMAT(s.spent_at, '%Y%m') = #{yearMonth}
+           AND s.del_yn = 'N'
+         GROUP BY s.category
+         ORDER BY amount DESC
+    </select>
+
+</mapper>

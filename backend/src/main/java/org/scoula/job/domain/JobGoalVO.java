@@ -9,8 +9,20 @@ import org.scoula.common.domain.BaseVO;
 public class JobGoalVO extends BaseVO {
     private Long goalId;
     private Long userId;
+
+    // J01:취업, J02:공무원, J03:편입
     private String goalType;
-    private Long jobCodeId;
+
+    // 취업/공무원
+    private Long categoryId;
+
+    // 편입
+    private Long univId;
+    private Long majorId;
+
+    // YYYY-MM
     private String expectedDate;
+
+    // DRAFT, CONFIRMED
     private String status;
 }
