@@ -13,8 +13,10 @@ import org.scoula.rent.dto.RentGoalDetailResponseDTO;
 import org.scoula.rent.dto.RentListingResponseDTO;
 import org.scoula.rent.dto.RentListingDetailResponseDTO;
 import org.scoula.rent.dto.RentCostResponseDTO;
+import org.scoula.rent.dto.RentAffordabilityResponseDTO;
 import org.scoula.rent.mapper.RentMapper;
 import org.scoula.rent.mapper.RentListingMapper;
+import org.scoula.dashboard.service.DashboardService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +33,8 @@ public class RentServiceImpl implements RentService {
     private final RentMapper mapper;
     private final RentListingMapper listingMapper;
     private final UtilityService utilityService; // Step3 관리비 = 새 공과금 방식(region_fee_stat 대체)
+    // 만기금(군적금 예상 만기 수령액) 조회용 - rent → dashboard 단방향 주입 (dashboard는 rent 미참조, 순환 없음)
+    private final DashboardService dashboardService;
 
     @Override
     @Transactional(readOnly = true)
@@ -184,6 +188,20 @@ public class RentServiceImpl implements RentService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public RentAffordabilityResponseDTO findAffordability(Long listingId, Long userId, int months) {
+        // 1) 총 필요자금 계산 재사용 (매물 존재·개월수 검증 포함)
+        RentCostResponseDTO cost = this.calculateCost(listingId, months);
+
+        // 2) 만기금(군적금 예상 만기 수령액) 조회
+        //    온보딩에서 군적금 가입을 강제하므로 미가입(DASH_002)은 정상 흐름에 없음 - 예외는 그대로 전파(공통 advice가 처리)
+        long maturity = this.dashboardService.findSavingsStatus(userId).getExpectedMaturityTotal();
+
+        // 3) 부족분·감당도 판정 후 응답 조립
+        return RentAffordabilityResponseDTO.of(listingId, months, cost.getTotalRequired(), maturity);
+    }
+
+    @Override
     @Transactional
     public void deleteGoal(Long goalId) {
         RentGoalVO goal = this.mapper.findGoalById(goalId);
@@ -192,6 +210,29 @@ public class RentServiceImpl implements RentService {
         }
         // TODO: JWT 연동 후 로그인 사용자명으로 교체
         this.mapper.deleteGoalById(goalId, "user:" + goal.getUserId());
+    }
+
+    @Override
+    @Transactional
+    public void confirmGoal(Long goalId, Long userId, Integer months) {
+        // 1) 목표 조회 (없으면 404)
+        RentGoalVO goal = this.mapper.findGoalById(goalId);
+        if (goal == null) {
+            throw BusinessException.notFound("목표를 찾을 수 없습니다.", "RENT_005");
+        }
+        // 2) 본인 목표만 저장 가능
+        if (!goal.getUserId().equals(userId)) {
+            throw BusinessException.forbidden("본인의 목표만 저장할 수 있습니다.", "RENT_008");
+        }
+        // 3) DRAFT 상태만 확정 가능 (이미 CONFIRMED면 충돌)
+        if (!STATUS_DRAFT.equals(goal.getStatus())) {
+            throw BusinessException.conflict("이미 저장된 목표입니다.", "RENT_009");
+        }
+
+        String modifier = "user:" + userId; // TODO: JWT 연동 후 로그인 사용자명으로 교체
+
+        // 4) 상태 DRAFT → CONFIRMED 확정 (months 넘어오면 Step3에서 확정한 거주개월로 갱신)
+        this.mapper.confirmGoal(goalId, months, modifier);
     }
 
     /** SCHOOL / REGION 모드별 필수값 검증 (모드에 따라 달라지는 조건이라 @Valid 대신 여기서) */
