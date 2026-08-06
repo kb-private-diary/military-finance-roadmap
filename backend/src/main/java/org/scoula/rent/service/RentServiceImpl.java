@@ -241,7 +241,7 @@ public class RentServiceImpl implements RentService {
         }
         // 시세 상대평가 뱃지용: 조회된 매물의 종류별 평균 월세 (같은 조건 매물끼리 비교)
         Map<String, Double> avgRentByType = listings.stream()
-                .filter(l -> l.getMonthlyRent() != null)
+                .filter(l -> l.getMonthlyRent() != null && l.getEstateType() != null)
                 .collect(Collectors.groupingBy(
                         RentListingVO::getEstateType,
                         Collectors.averagingLong(RentListingVO::getMonthlyRent)));
@@ -318,6 +318,10 @@ public class RentServiceImpl implements RentService {
     @Override
     @Transactional
     public void confirmGoal(Long goalId, Long userId, Integer months, Long listingId) {
+        // 0) 저장할 확정 매물 필수 (Step4에서 고른 매물 = Step5 정밀 시뮬레이션 기준)
+        if (listingId == null) {
+            throw BusinessException.badRequest("저장할 매물을 선택해주세요.", "RENT_011");
+        }
         // 1) 목표 조회 (없으면 404)
         RentGoalVO goal = this.mapper.findGoalById(goalId);
         if (goal == null) {
