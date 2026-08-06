@@ -44,7 +44,7 @@ public class DashboardServiceImpl implements DashboardService {
             Set.of(CATEGORY_REGULAR, "REWARD", "CONSOLATION", "PETITION", "ETC");
 
     // DashboardSavingAccountDTO account -> SavingAccountVO account 교체
-    // VO getter 가 같은지 확인 필요(getCreatedDate(), getMonthlySave() 등)
+    // VO getter 가 같은지 확인 필요(getOpenDate(), getMonthlySave() 등)
     private final DashboardMapper mapper;
     private final MilitarySavingProductMapper militarySavingProductMapper;
 
@@ -138,7 +138,7 @@ public class DashboardServiceImpl implements DashboardService {
                 MilitarySavingRateResolver rateResolver = new MilitarySavingRateResolver(
                         this.militarySavingProductMapper, account.getBankCode());
                 CalcResult calc = MilitarySavingsCalculator.calculateAccount(
-                        account.getCreatedDate(),
+                        account.getOpenDate(),
                         monthlySave,
                         dischargeDate,
                         histories,
