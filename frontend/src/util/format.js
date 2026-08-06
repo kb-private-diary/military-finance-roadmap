@@ -47,3 +47,21 @@ export const toIsoDate = (value) => {
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
+
+// 날짜 그룹 헤더용(연도 없이): formatMonthDay('2026-08-06') === "8월 6일"
+export const formatMonthDay = (value) => {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${date.getMonth() + 1}월 ${date.getDate()}일`;
+};
+
+// 시:분만 표시: formatTime('2026-08-06T14:44:00') === "14:44"
+export const formatTime = (value) => {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+};
