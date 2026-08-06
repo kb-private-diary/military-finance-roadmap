@@ -14,4 +14,15 @@
         )
     </insert>
 
+    <!-- 사용자한테 보여주는 이력이라 실제로 받은(SUCCESS) 것만. FAILED는 내부 모니터링용이라 제외 -->
+    <select id="findListByUserId" resultType="org.scoula.push.domain.PushHistoryVO">
+        SELECT history_id, user_id, title, body, status, sent_at,
+               created_date, created_nm, modified_date, modified_nm, del_yn
+        FROM push_history
+        WHERE user_id = #{userId}
+          AND status = 'SUCCESS'
+          AND del_yn = 'N'
+        ORDER BY sent_at DESC
+    </select>
+
 </mapper>

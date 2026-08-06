@@ -19,6 +19,7 @@ import org.scoula.common.exception.BusinessException;
 import org.scoula.push.client.WebPushClient;
 import org.scoula.push.domain.PushHistoryVO;
 import org.scoula.push.domain.PushSubscriptionVO;
+import org.scoula.push.dto.PushHistoryDTO;
 import org.scoula.push.dto.PushSubscriptionRequestDTO;
 import org.scoula.push.mapper.PushHistoryMapper;
 import org.scoula.push.mapper.PushSubscriptionMapper;
@@ -138,5 +139,12 @@ public class PushNotificationServiceImpl implements PushNotificationService {
                 .build();
         history.setCreatedNm(SYSTEM);
         this.historyMapper.insert(history);
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public List<PushHistoryDTO> findHistoryList(Long userId) {
+        return this.historyMapper.findListByUserId(userId).stream()
+                .map(PushHistoryDTO::of).toList();
     }
 }
