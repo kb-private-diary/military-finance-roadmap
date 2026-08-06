@@ -15,13 +15,15 @@ import nl.martijndwars.webpush.PushService;
 // Service는 이 클라이언트를 통해서만 발송하고, 라이브러리/BouncyCastle 관련 사항은 여기서만 다룬다.
 @Component
 public class WebPushClient {
-    @Value("${push.vapid.public-key}")
+    // 기본값을 빈 문자열로 둬서, 로컬에 이 키가 없는 팀원도 앱 자체는 정상 기동되게 한다.
+    // (값이 비어있으면 발송 시도 시점에만 실패하고 push_history에 FAILED로 기록됨)
+    @Value("${push.vapid.public-key:}")
     private String vapidPublicKey;
 
-    @Value("${push.vapid.private-key}")
+    @Value("${push.vapid.private-key:}")
     private String vapidPrivateKey;
 
-    @Value("${push.vapid.subject}")
+    @Value("${push.vapid.subject:}")
     private String vapidSubject;
 
     private PushService pushService;
