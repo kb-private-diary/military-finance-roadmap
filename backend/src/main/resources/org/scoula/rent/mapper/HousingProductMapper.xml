@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.scoula.rent.mapper.HousingProductMapper">
+
+    <!-- 조회 컬럼 (mapUnderscoreToCamelCase 로 VO 자동 매핑) -->
+    <sql id="productColumns">
+        product_id, product_name, product_type, support_type, loan_type, provider, is_kb, region_code,
+        rate_min, rate_max, rate_summary, support_amount, support_months, loan_limit,
+        min_age, max_age, veteran_extend, veteran_note,
+        deposit_limit, monthly_limit, area_limit, income_limit, join_condition,
+        exclusive_group, base_year, apply_start, apply_end, apply_cycle,
+        priority, detail, external_url, deeplink, created_at, updated_at
+    </sql>
+
+    <!--
+      매물 조건 기반 금융상품 추천 (명세 3장 필터)
+      - 지역: region_code IS NULL(전국) OR region_code = LEFT(매물 법정동코드, 2) (공과금과 동일 방식)
+      - 매물조건: 한도 컬럼이 NULL 이면 제한 없음(통과), 값이 있으면 매물값이 한도를 초과할 때만 제외
+      - 나이 필터 없음 (생년월일 부재)
+      - ORDER BY priority (만료 상품 하단 배치는 서비스단에서 isOpen 으로 재정렬)
+    -->
+    <select id="findProducts" resultType="org.scoula.rent.domain.HousingProductVO">
+        SELECT <include refid="productColumns"/>
+          FROM housing_product
+         WHERE (region_code IS NULL OR region_code = LEFT(#{regionCode}, 2))
+           AND (deposit_limit IS NULL OR #{deposit} &lt;= deposit_limit)
+           AND (monthly_limit IS NULL OR #{monthlyRent} &lt;= monthly_limit)
+           AND (area_limit    IS NULL OR #{areaSqm} IS NULL OR #{areaSqm} &lt;= area_limit)
+         ORDER BY priority
+    </select>
+
+    <!-- 사용자 복무기간(입대일·전역예정일) - 병역 혜택 안내용 -->
+    <select id="findServicePeriodByUserId" resultType="org.scoula.rent.domain.MilitaryServiceVO">
+        SELECT enlist_date, discharge_date
+          FROM `user`
+         WHERE id = #{userId}
+           AND del_yn = 'N'
+    </select>
+
+</mapper>
