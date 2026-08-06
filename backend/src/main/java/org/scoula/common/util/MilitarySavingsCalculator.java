@@ -13,7 +13,7 @@ public class MilitarySavingsCalculator {
     public interface SavingHistory {
         Integer getPayRound();
         Long getPayAmount();
-        LocalDate getCreatedDate();
+        LocalDate getPaidDate();
     }
 
     public static class CalcResult {
@@ -41,7 +41,7 @@ public class MilitarySavingsCalculator {
     }
 
     public static CalcResult calculateAccount(
-            LocalDate accountCreatedDate,
+            LocalDate accountOpenDate,
             Long monthlySave,
             LocalDate dischargeDate,
             List<? extends SavingHistory> histories,
@@ -51,12 +51,13 @@ public class MilitarySavingsCalculator {
         long monthlySaveAmt = monthlySave != null ? monthlySave : 0L;
 
         // 1. 실제 첫 입금일(납입회차 1회)을 기준으로 시작일 계산
-        LocalDate firstPayDate = accountCreatedDate != null ? accountCreatedDate : LocalDate.now();
+        LocalDate firstPayDate = accountOpenDate != null ? accountOpenDate : LocalDate.now();
 
         if (histories != null && !histories.isEmpty()) {
             for (SavingHistory history : histories) {
-                if (history.getPayRound() != null && history.getPayRound() == 1 && history.getCreatedDate() != null) {
-                    firstPayDate = history.getCreatedDate();
+                if (history.getPayRound() != null && history.getPayRound() == 1
+                        && history.getPaidDate() != null) {
+                    firstPayDate = history.getPaidDate();
                     break;
                 }
             }
@@ -103,8 +104,8 @@ public class MilitarySavingsCalculator {
                 long amount = history.getPayAmount() != null ? history.getPayAmount() : 0L;
                 result.pastPrincipal += amount;
 
-                LocalDate payDate = history.getCreatedDate() != null
-                        ? history.getCreatedDate()
+                LocalDate payDate = history.getPaidDate() != null
+                        ? history.getPaidDate()
                         : firstPayDate.plusMonths(
                                 (history.getPayRound() != null ? history.getPayRound() : 1) - 1);
 

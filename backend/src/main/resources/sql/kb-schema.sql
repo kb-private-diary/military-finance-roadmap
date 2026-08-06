@@ -1,7 +1,7 @@
 SET FOREIGN_KEY_CHECKS = 0;
 
 /*
-총 테이블 갯수: 67개
+총 테이블 갯수: 69개
 
 [테이블 구분]
 - 회원/공통: user, military_types, military_unit, military_rank, badge, user_badge, terms, terms_agreement, vacation
@@ -13,6 +13,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 - 자취/부동산 목표: rent_goal, rent_goal_region, school, region_code, rent_listing, region_fee_stat, rent_recommend, housing_loan, loan_recommend
 - 마이데이터/소비: openbanking_link, spending, spending_review, merchant_category, saving_challenge
 - 챗봇/알림: chat_session, chat_message, chat_feedback, kakao_token, notification
+- 웹푸시: push_subscription, push_history
 */
 
 DROP TABLE IF EXISTS `military_types`;
@@ -228,6 +229,7 @@ CREATE TABLE `saving_account` (
   `monthly_count` INT NOT NULL COMMENT '납입개월수',
   `curr_amount` BIGINT NOT NULL COMMENT '누적납입금',
   `account_status` VARCHAR(20) NOT NULL COMMENT '적금 상태',
+  `open_date` DATE COMMENT '계좌 개설일 (실제 은행 개설일, 감사용 created_date와 별개)',
   `created_date` DATETIME NOT NULL COMMENT '생성날짜',
   `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
   `modified_date` DATETIME COMMENT '수정날짜',
@@ -241,6 +243,7 @@ CREATE TABLE `saving_history` (
   `account_id` BIGINT NOT NULL COMMENT '계좌ID',
   `pay_round` INT NOT NULL COMMENT '납입회차',
   `pay_amount` BIGINT NOT NULL COMMENT '해당회차 납입금',
+  `paid_date` DATE COMMENT '실제 납입일 (감사용 created_date와 별개)',
   `created_date` DATETIME NOT NULL COMMENT '생성날짜',
   `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
   `modified_date` DATETIME COMMENT '수정날짜',
@@ -277,6 +280,7 @@ CREATE TABLE `policy_product` (
   `policy_link` VARCHAR(500) COMMENT '자세히 보기 URL',
   `has_calculator` BOOLEAN NOT NULL COMMENT '이익 계산기 노출 여부',
   `calc_period_months` INT COMMENT '계산기 기준 개월 수',
+  `min_rate` DECIMAL(5,2) COMMENT '최저 금리 (%)',
   `max_rate` DECIMAL(5,2) COMMENT '최고 우대금리 (%)',
   `normal_match_rate` DECIMAL(5,2) COMMENT '일반형 매칭비율 (%)',
   `prefer_match_rate` DECIMAL(5,2) COMMENT '우대형 매칭비율 (%)',
@@ -1069,7 +1073,43 @@ CREATE TABLE `notification` (
   `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
 );
 
+-- --------------------------------------------------------------------
+--  [석윤] 웹푸시(push_subscription, push_history)
+--  테이블: push_subscription, push_history
+--  ※ notification(카카오 알림 이력, [수연])과는 별개 채널이라 분리함
+-- --------------------------------------------------------------------
+DROP TABLE IF EXISTS `push_subscription`;
+CREATE TABLE `push_subscription` (
+  `subscription_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '구독번호',
+  `user_id` BIGINT NOT NULL COMMENT '회원고유번호',
+  `endpoint` VARCHAR(500) NOT NULL COMMENT '브라우저 푸시 서비스 발송 주소',
+  `p256dh` VARCHAR(200) NOT NULL COMMENT '암호화 공개키',
+  `auth` VARCHAR(100) NOT NULL COMMENT '암호화 인증 시크릿',
+  `created_date` DATETIME NOT NULL COMMENT '생성일시',
+  `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+  `modified_date` DATETIME COMMENT '수정일시',
+  `modified_nm` VARCHAR(50) COMMENT '수정자',
+  `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
+);
+
+DROP TABLE IF EXISTS `push_history`;
+CREATE TABLE `push_history` (
+  `history_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '발송이력번호',
+  `user_id` BIGINT NOT NULL COMMENT '회원고유번호',
+  `title` VARCHAR(100) NOT NULL COMMENT '알림 제목',
+  `body` VARCHAR(200) NOT NULL COMMENT '알림 내용',
+  `status` VARCHAR(10) NOT NULL COMMENT '발송상태(SUCCESS/FAILED)',
+  `sent_at` DATETIME NOT NULL COMMENT '발송일시',
+  `created_date` DATETIME NOT NULL COMMENT '생성일시',
+  `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+  `modified_date` DATETIME COMMENT '수정일시',
+  `modified_nm` VARCHAR(50) COMMENT '수정자',
+  `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
+);
+
 CREATE UNIQUE INDEX `car_ev_index_0` ON `car_ev` (`region`, `base_year`);
+
+CREATE UNIQUE INDEX `push_subscription_index_0` ON `push_subscription` (`endpoint`);
 
 ALTER TABLE `military_types` COMMENT = '군종(육군/해군/공군 등) 공통 코드';
 
@@ -1194,6 +1234,10 @@ ALTER TABLE `saving_challenge` COMMENT = '월 단위 후회 소비 절감 목표
 ALTER TABLE `kakao_token` COMMENT = '카카오 알림 발송용 사용자 토큰';
 
 ALTER TABLE `notification` COMMENT = '카카오 알림 발송 이력';
+
+ALTER TABLE `push_subscription` COMMENT = '브라우저 웹푸시 구독 정보(엔드포인트/암호화키)';
+
+ALTER TABLE `push_history` COMMENT = '웹푸시 발송 이력';
 
 ALTER TABLE `card_product` ADD FOREIGN KEY (`category`) REFERENCES `roadmap_category` (`category_id`);
 
@@ -1332,6 +1376,10 @@ ALTER TABLE `user_badge` ADD FOREIGN KEY (`user_id`) REFERENCES `user` (`id`);
 ALTER TABLE `user_badge` ADD FOREIGN KEY (`badge_id`) REFERENCES `badge` (`badge_id`);
 
 ALTER TABLE `user` ADD FOREIGN KEY (`rank_id`) REFERENCES `military_rank` (`rank_id`);
+
+ALTER TABLE `push_subscription` ADD FOREIGN KEY (`user_id`) REFERENCES `user` (`id`);
+
+ALTER TABLE `push_history` ADD FOREIGN KEY (`user_id`) REFERENCES `user` (`id`);
 
 
 SET FOREIGN_KEY_CHECKS = 1;

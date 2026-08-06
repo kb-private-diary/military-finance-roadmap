@@ -77,7 +77,7 @@ org.scoula.{도메인}.{controller, service, mapper, domain, dto}
 - **mapper** = MyBatis 매퍼 인터페이스
 - **매퍼 XML**: `resources/org/scoula/{도메인}/mapper/`
 
-### 도메인 패키지 (15개)
+### 도메인 패키지 (16개)
 
 | 도메인        | 담당                | 비고                 |
 | ------------- | ------------------- | -------------------- |
@@ -96,6 +96,7 @@ org.scoula.{도메인}.{controller, service, mapper, domain, dto}
 | `openbanking` | 수연                | 계좌 연동(인프라)    |
 | `social`      | 태석                | 랭킹                 |
 | `bookmark`    | 공통                | `/api/bookmarks`     |
+| `push`        | 석윤                | 웹푸시(구독/발송), `/api/push` — 다른 도메인은 `PushNotificationService.send()` 주입받아 사용 |
 
 > `chat` 은 별도 FastAPI 담당 → **Spring 백엔드에 없음**
 
@@ -242,7 +243,7 @@ public XxxDTO findXxx(Long id) {
 - 접두어는 **대문자 3~6자** 이내 (`SIMULATOR`❌ → `SIMUL`⭕)
 - 번호는 도메인별 **`_001`부터** 순서대로 (건너뛰기·중복 금지)
 - 전역 에러(인증·토큰)는 `AUTH`/`COMMON` 접두어
-- 접두어: `MEM`·`MAIN`·`DASH`·`SIMUL`·`SAVE`·`PRODU`·`ROAD`·`TRAVEL`·`RENT`·`CAR`·`JOB`·`REGRET`·`OPBANK`·`SOCIAL`·`BOOK`·`AUTH`·`COMMON`
+- 접두어: `MEM`·`MAIN`·`DASH`·`SIMUL`·`SAVE`·`PRODU`·`ROAD`·`TRAVEL`·`RENT`·`CAR`·`JOB`·`REGRET`·`OPBANK`·`SOCIAL`·`BOOK`·`PUSH`·`AUTH`·`COMMON`
 
 **공통·인증 코드 (미리 정의)**
 | 코드 | HTTP | 메시지 |
