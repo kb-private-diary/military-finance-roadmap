@@ -4,9 +4,20 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import memberApi from '@/api/memberApi';
 import { formatDate } from '@/util/format';
+import { usePush } from '@/composables/usePush';
+import ToggleSwitch from '@/components/common/ToggleSwitch.vue';
 import bearSalute from '@/assets/images/bear-salute.png';
 
 const router = useRouter();
+const {
+  isSupported: pushSupported,
+  isSubscribed: pushSubscribed,
+  loading: pushLoading,
+  checkSubscription,
+  subscribe,
+  unsubscribe,
+} = usePush();
+const handlePushToggle = (next) => (next ? subscribe() : unsubscribe());
 
 // TODO: 군종목록조회/계급조회 API 나오면 하드코딩 목록을 API 조회로 교체 (SignupMilitaryPage와 동일한 임시 목록)
 const MILITARY_TYPES = [
@@ -52,7 +63,10 @@ const load = async () => {
   }
 };
 
-onMounted(load);
+onMounted(() => {
+  load();
+  checkSubscription();
+});
 </script>
 
 <template>
@@ -102,6 +116,15 @@ onMounted(load);
           <span class="mypage__label">전역예정일</span>
           <span class="mypage__value">{{ member.dischargeDate ? formatDate(member.dischargeDate) : '-' }}</span>
         </div>
+      </section>
+
+      <section class="mypage__settings">
+        <ToggleSwitch
+          :model-value="pushSubscribed"
+          label="푸시 알림 받기"
+          :disabled="!pushSupported || pushLoading"
+          @update:model-value="handlePushToggle"
+        />
       </section>
 
       <button type="button" class="mypage__edit-btn" @click="router.push({ name: 'MyPageEdit' })">
@@ -195,6 +218,12 @@ onMounted(load);
   font-size: 15px;
   font-weight: 600;
   color: var(--text-strong);
+}
+
+.mypage__settings {
+  margin-top: 20px;
+  padding: 14px 4px;
+  border-top: 1px solid var(--line);
 }
 
 .mypage__edit-btn {

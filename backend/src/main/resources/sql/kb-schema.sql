@@ -1,7 +1,7 @@
 SET FOREIGN_KEY_CHECKS = 0;
 
 /*
-총 테이블 갯수: 67개
+총 테이블 갯수: 69개
 
 [테이블 구분]
 - 회원/공통: user, military_types, military_unit, military_rank, badge, user_badge, terms, terms_agreement, vacation
@@ -13,6 +13,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 - 자취/부동산 목표: rent_goal, rent_goal_region, school, region_code, rent_listing, region_fee_stat, rent_recommend, housing_loan, loan_recommend
 - 마이데이터/소비: openbanking_link, spending, spending_review, merchant_category, saving_challenge
 - 챗봇/알림: chat_session, chat_message, chat_feedback, kakao_token, notification
+- 웹푸시: push_subscription, push_history
 */
 
 DROP TABLE IF EXISTS `military_types`;
@@ -1198,6 +1199,10 @@ ALTER TABLE `kakao_token` COMMENT = '카카오 알림 발송용 사용자 토큰
 
 ALTER TABLE `notification` COMMENT = '카카오 알림 발송 이력';
 
+ALTER TABLE `push_subscription` COMMENT = '브라우저 웹푸시 구독 정보(엔드포인트/암호화키)';
+
+ALTER TABLE `push_history` COMMENT = '웹푸시 발송 이력';
+
 ALTER TABLE `card_product` ADD FOREIGN KEY (`category`) REFERENCES `roadmap_category` (`category_id`);
 
 ALTER TABLE `user_bookmark` ADD FOREIGN KEY (`user_id`) REFERENCES `user` (`id`);
@@ -1335,6 +1340,10 @@ ALTER TABLE `user_badge` ADD FOREIGN KEY (`user_id`) REFERENCES `user` (`id`);
 ALTER TABLE `user_badge` ADD FOREIGN KEY (`badge_id`) REFERENCES `badge` (`badge_id`);
 
 ALTER TABLE `user` ADD FOREIGN KEY (`rank_id`) REFERENCES `military_rank` (`rank_id`);
+
+ALTER TABLE `push_subscription` ADD FOREIGN KEY (`user_id`) REFERENCES `user` (`id`);
+
+ALTER TABLE `push_history` ADD FOREIGN KEY (`user_id`) REFERENCES `user` (`id`);
 
 
 SET FOREIGN_KEY_CHECKS = 1;
