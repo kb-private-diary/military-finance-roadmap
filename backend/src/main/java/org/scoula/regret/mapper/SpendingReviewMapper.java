@@ -4,6 +4,7 @@ import org.apache.ibatis.annotations.Param;
 import org.scoula.regret.domain.SpendingReviewVO;
 import org.scoula.regret.dto.SpendingResponseDTO;
 import org.scoula.regret.dto.RegretStatsResponseDTO;
+import org.scoula.regret.dto.RegretSpendingSummaryDTO;
 import org.scoula.regret.dto.CategoryAmountDTO;
 import java.util.List;
 
@@ -33,4 +34,8 @@ public interface SpendingReviewMapper {
     // 월별 총 수입 (income 합계, 수입 대비 후회소비 비율 계산용) income은 오픈뱅킹 저장, 여기선 조회만
     Long findMonthlyIncomeByUserId(@Param("userId") Long userId,
                                    @Param("yearMonth") String yearMonth);
+
+    // 최근 N개월 월평균 지출·후회소비 (자취 Step5 정밀 시뮬레이션용)
+    RegretSpendingSummaryDTO findSpendingSummary(@Param("userId") Long userId,
+                                                 @Param("months") int months);
 }
