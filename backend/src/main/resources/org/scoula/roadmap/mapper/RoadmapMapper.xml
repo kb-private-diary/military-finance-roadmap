@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.scoula.roadmap.mapper.RoadmapMapper">
+
+    <select
+            id="findRoadmapList"
+            parameterType="map"
+            resultType="org.scoula.roadmap.dto.RoadmapListResponseDTO">
+
+        SELECT
+        tg.goal_id AS goalId,
+        1 AS categoryId,
+        tg.title AS title,
+        DATE_FORMAT(tg.start_date, '%Y.%m.%d') AS targetDate,
+        NULL AS detail,
+        FALSE AS bookmarked
+        FROM travel_goal tg
+        WHERE tg.user_id = #{userId}
+        AND tg.status = 'CONFIRMED'
+        AND tg.del_yn = 'N'
+        AND (#{category} = 'all' OR #{category} = 'travel')
+
+        UNION ALL
+
+        SELECT
+        jg.goal_id AS goalId,
+        2 AS categoryId,
+
+        CASE
+        WHEN jg.goal_type IN ('J01', 'J02')
+        THEN jc2.category_name
+
+        WHEN jg.goal_type = 'J03'
+        THEN CONCAT(
+        REPLACE(jtu.univ_name, '대학교', '대'),
+        ' · ',
+        jtmc.major_name
+        )
+
+        ELSE '진로 목표'
+        END AS title,
+
+        REPLACE(jg.expected_date, '-', '.') AS targetDate,
+
+        CASE
+        WHEN jg.goal_type = 'J01'
+        THEN '취업'
+
+        WHEN jg.goal_type = 'J02'
+        THEN jc1.category_name
+
+        WHEN jg.goal_type = 'J03'
+        THEN '편입'
+
+        ELSE NULL
+        END AS detail,
+
+        FALSE AS bookmarked
+
+        FROM job_goal jg
+
+        LEFT JOIN job_category jc2
+        ON jg.category_id = jc2.category_id
+        AND jc2.del_yn = 'N'
+
+        LEFT JOIN job_category jc1
+        ON jc2.parent_id = jc1.category_id
+        AND jc1.del_yn = 'N'
+
+        LEFT JOIN job_transfer_university jtu
+        ON jg.univ_id = jtu.univ_id
+        AND jtu.del_yn = 'N'
+
+        LEFT JOIN job_transfer_major jtm
+        ON jg.major_id = jtm.major_id
+        AND jtm.del_yn = 'N'
+
+        LEFT JOIN job_transfer_major_category jtmc
+        ON jtm.major_code = jtmc.major_code
+        AND jtmc.del_yn = 'N'
+
+        WHERE jg.user_id = #{userId}
+        AND jg.status = 'CONFIRMED'
+        AND jg.del_yn = 'N'
+        AND (#{category} = 'all' OR #{category} = 'job')
+
+        UNION ALL
+
+        SELECT
+        cg.goal_id AS goalId,
+        3 AS categoryId,
+        COALESCE(
+        CONCAT(
+        cm.model_name,
+        CASE
+        WHEN cg.selected_year IS NOT NULL
+        THEN CONCAT(' (', cg.selected_year, ')')
+        ELSE ''
+        END
+        ),
+        '자동차 구매 목표'
+        ) AS title,
+        DATE_FORMAT(cg.target_date, '%Y.%m.%d') AS targetDate,
+        NULL AS detail,
+        FALSE AS bookmarked
+        FROM car_goal cg
+        LEFT JOIN car_model cm
+        ON cg.selected_model_id = cm.model_id
+        AND cm.del_yn = 'N'
+        WHERE cg.user_id = #{userId}
+        AND cg.status = 'CONFIRMED'
+        AND cg.del_yn = 'N'
+        AND (#{category} = 'all' OR #{category} = 'car')
+
+        UNION ALL
+
+        SELECT
+        rg.goal_id AS goalId,
+        4 AS categoryId,
+        COALESCE(rg.title, '자취 목표') AS title,
+        NULL AS targetDate,
+        CONCAT(rg.residence_months, '개월 거주') AS detail,
+        FALSE AS bookmarked
+        FROM rent_goal rg
+        WHERE rg.user_id = #{userId}
+        AND rg.status = 'CONFIRMED'
+        AND rg.del_yn = 'N'
+        AND (#{category} = 'all' OR #{category} = 'rent')
+
+        ORDER BY targetDate DESC
+
+    </select>
+
+</mapper>
