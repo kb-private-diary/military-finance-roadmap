@@ -8,10 +8,10 @@ const route = useRoute();
 // 탭 네비게이션 정의 (라우트 정의서 기준 route name 사용)
 const tabItems = [
   { label: '홈', routeName: 'Home' },
-  { label: '대시보드', routeName: 'Dashboard' },
+  { label: 'D-Day', routeName: 'Dashboard' },
   { label: '로드맵', routeName: 'RoadmapMain' },
-  { label: '시뮬레이터', routeName: 'Simulator' },
-  { label: '소셜', routeName: 'Social' },
+  { label: '금융계산기', routeName: 'Simulator' },
+  { label: '전우들', routeName: 'Social' },
   { label: '후회소비', routeName: 'RegretDashboard' },
 ];
 
