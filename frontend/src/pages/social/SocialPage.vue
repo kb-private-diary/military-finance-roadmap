@@ -1,12 +1,745 @@
 <script setup>
-// SCR-SOC-01 · 소셜  (담당: 태석)
-// 랭킹·부대별 비교·개인 통계
+import { computed, onMounted, ref } from 'vue';
+import socialApi from '@/api/socialApi';
+import BaseCard from '@/components/common/BaseCard.vue';
+import CategoryButton from '@/components/common/CategoryButton.vue';
+import DonutChart from '@/components/common/DonutChart.vue';
+import EmptyState from '@/components/common/EmptyState.vue';
+import ProgressBar from '@/components/common/ProgressBar.vue';
+import { formatWon } from '@/util/format';
+
+import progress50Image from '@/assets/badge/prog_50.png';
+import progress75Image from '@/assets/badge/prog_75.png';
+import progress100Image from '@/assets/badge/prog_100.png';
+import rank1Image from '@/assets/badge/rank_1.png';
+import rank5Image from '@/assets/badge/rank_5.png';
+import rank10Image from '@/assets/badge/rank_10.png';
+import rank30Image from '@/assets/badge/rank_30.png';
+import ranking1Image from '@/assets/badge/ranking_1.png';
+import ranking2Image from '@/assets/badge/ranking_2.png';
+import ranking3Image from '@/assets/badge/ranking_3.png';
+import savingMasterImage from '@/assets/badge/saving_master.png';
+
+const SCOPE_OPTIONS = [
+  { value: 'ALL', label: '전체' },
+  { value: 'TYPE', label: '군종' },
+  { value: 'UNIT', label: '부대' },
+];
+
+const BADGE_IMAGES = {
+  1: rank1Image,
+  2: rank5Image,
+  3: rank10Image,
+  4: rank30Image,
+  5: progress50Image,
+  6: progress75Image,
+  7: progress100Image,
+  8: savingMasterImage,
+};
+
+const BADGE_DESCRIPTIONS = {
+  1: '비교 그룹 저축률 상위 1%',
+  2: '비교 그룹 저축률 상위 5%',
+  3: '비교 그룹 저축률 상위 10%',
+  4: '비교 그룹 저축률 상위 30%',
+  5: '복무 진행률 50% 달성',
+  6: '복무 진행률 75% 달성',
+  7: '복무 진행률 100% 달성',
+  8: '지난달보다 후회 소비 줄이기',
+};
+
+// 프로필 카드 대표 뱃지 3칸. 각 배열은 상위 등급 → 하위 등급 순으로 적는다.
+// 랭킹은 id가 작을수록 상위(1=상위 1%)이고 진행률은 id가 클수록 상위(7=100%)라 순서가 반대다.
+const REPRESENTATIVE_BADGE_TIERS = [
+  [1, 2, 3, 4],
+  [7, 6, 5],
+  [8],
+];
+
+const RANKING_IMAGES = [ranking1Image, ranking2Image, ranking3Image];
+const CHART_COLORS = [
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+];
+
+const activeScope = ref('ALL');
+const stats = ref(null);
+const distribution = ref([]);
+const ranking = ref(null);
+const badges = ref([]);
+const loading = ref(true);
+const errorMessage = ref('');
+const badgeErrorMessage = ref('');
+const rankingErrorMessage = ref('');
+let requestSequence = 0;
+
+const readErrorMessage = (error) =>
+  error.response?.data?.message || '저축 비교 정보를 불러오지 못했습니다.';
+
+const badgeList = computed(() => {
+  return badges.value.map((badge) => ({
+    ...badge,
+    name: badge.badgeName.replace(/\s*뱃지$/, ''),
+    image: BADGE_IMAGES[badge.badgeId],
+    description: BADGE_DESCRIPTIONS[badge.badgeId],
+  }));
+});
+
+// 계열마다 대표 1개씩. 달성한 것 중 가장 높은 등급을 보여주고,
+// 하나도 달성하지 않았으면 그 계열의 최하위 등급을 잠금 상태로 보여준다.
+const representativeBadges = computed(() =>
+  REPRESENTATIVE_BADGE_TIERS.map((tierIds) => {
+    const tiers = tierIds
+      .map((tierId) => badgeList.value.find((badge) => badge.badgeId === tierId))
+      .filter(Boolean);
+    return (
+      tiers.find((badge) => badge.achieved) ?? tiers[tiers.length - 1]
+    );
+  }).filter(Boolean),
+);
+
+const chartItems = computed(() =>
+  distribution.value
+    .filter((item) => item.interestCount > 0)
+    .map((item, index) => ({
+      label: item.categoryName,
+      value: item.interestCount,
+      color: CHART_COLORS[index % CHART_COLORS.length],
+      percentage: item.percentage,
+    })),
+);
+
+const hasInterestData = computed(() => chartItems.value.length > 0);
+
+// 비교 모수는 "선택한 범위 + 나와 같은 계급"이다. 계급을 빼고 적으면
+// 화면의 순위·평균이 어느 집단 기준인지 오해하게 되므로 문구에 함께 드러낸다.
+// 계급 미등록 회원은 서버도 계급 조건을 걸지 않으므로 '장병'으로 되돌린다.
+const scopeDescription = computed(() => {
+  const peerLabel = stats.value?.rankName ?? '장병';
+  if (activeScope.value === 'TYPE') {
+    return `${stats.value?.typeName ?? '같은 군종'} ${peerLabel}과 비교`;
+  }
+  if (activeScope.value === 'UNIT') {
+    return `${stats.value?.unitName ?? '같은 부대'} ${peerLabel}과 비교`;
+  }
+  return `전체 ${peerLabel}과 비교`;
+});
+
+// 로드맵 관심도 섹션 문구. 비교 범위에 따라 집계 대상을 그대로 읽어주도록 바꾼다.
+// 군종 미등록 회원은 typeName 이 없으므로 군종명만 빼고 기본 문구로 되돌린다.
+const interestOverline = computed(() => {
+  if (activeScope.value === 'TYPE' && stats.value?.typeName) {
+    return `${stats.value.typeName} 장병들이 저장한 목표`;
+  }
+  if (activeScope.value === 'UNIT') {
+    return '부대원들이 저장한 목표';
+  }
+  return '장병들이 저장한 목표';
+});
+
+// 뱃지는 이 화면의 보조 정보라, 실패해도 비교 통계는 계속 보여준다.
+const loadBadges = async () => {
+  badgeErrorMessage.value = '';
+  try {
+    badges.value = (await socialApi.findBadgeList()) ?? [];
+  } catch (error) {
+    badgeErrorMessage.value =
+      error.response?.data?.message || '뱃지 정보를 불러오지 못했습니다.';
+  }
+};
+
+// 하단 랭킹은 비교 범위와 무관하게 항상 같은 결과라 최초 1회만 불러온다.
+const loadRanking = async () => {
+  rankingErrorMessage.value = '';
+  try {
+    ranking.value = await socialApi.findRanking(activeScope.value);
+  } catch (error) {
+    rankingErrorMessage.value =
+      error.response?.data?.message || '랭킹 정보를 불러오지 못했습니다.';
+  }
+};
+
+const loadComparison = async (scope) => {
+  const currentSequence = ++requestSequence;
+  loading.value = true;
+  errorMessage.value = '';
+
+  try {
+    const [statsResult, distributionResult] = await Promise.all([
+      socialApi.findStats(scope),
+      socialApi.findDistributionList(scope),
+    ]);
+
+    if (currentSequence !== requestSequence) return true;
+    stats.value = statsResult;
+    distribution.value = distributionResult ?? [];
+    return true;
+  } catch (error) {
+    if (currentSequence !== requestSequence) return true;
+    errorMessage.value = readErrorMessage(error);
+    return false;
+  } finally {
+    if (currentSequence === requestSequence) {
+      loading.value = false;
+    }
+  }
+};
+
+
+const selectScope = async (scope) => {
+  if (activeScope.value === scope) return;
+  const previousScope = activeScope.value;
+  activeScope.value = scope;
+  if (!(await loadComparison(scope))) {
+    activeScope.value = previousScope;
+  }
+};
+
+const retry = async () => {
+  await Promise.all([
+    loadBadges(),
+    loadRanking(),
+    loadComparison(activeScope.value),
+  ]);
+};
+
+onMounted(retry);
 </script>
 
 <template>
-  <div class="container py-4">
-    <h2 class="mb-2">소셜</h2>
-    <p class="text-muted small">SCR-SOC-01 · <code>/social</code></p>
-    <!-- TODO: 태석 구현 -->
-  </div>
+  <main class="social-page">
+    <header class="page-header">
+      <p class="text-overline">함께 만드는 저축 습관</p>
+      <h1 class="text-title">저축 비교</h1>
+    </header>
+
+    <div v-if="loading && !stats" class="status text-caption" role="status">
+      저축 비교 정보를 불러오고 있습니다.
+    </div>
+
+    <EmptyState
+      v-else-if="errorMessage && !stats"
+      title="정보를 불러오지 못했습니다."
+      :description="errorMessage"
+    >
+      <template #action>
+        <button type="button" class="retry-button" @click="retry">
+          다시 시도
+        </button>
+      </template>
+    </EmptyState>
+
+    <template v-else-if="stats">
+      <BaseCard class="profile-card" padding="20px 18px">
+        <div class="profile-card__headline">
+          <div>
+            <p class="profile-card__name">
+              {{ stats.name }} {{ stats.rankName }}님
+            </p>
+            <p class="profile-card__unit text-caption">
+              {{ stats.typeName || '군종 미등록' }} ·
+              {{ stats.unitName || '부대 미등록' }}
+            </p>
+          </div>
+          <div class="profile-card__saving">
+            <span>현재 납입액</span>
+            <strong>{{ formatWon(stats.currentSavings) }}</strong>
+          </div>
+        </div>
+
+        <div class="profile-card__badges" aria-label="대표 뱃지">
+          <div
+            v-for="badge in representativeBadges"
+            :key="badge.badgeId"
+            class="profile-badge"
+            :class="{ 'is-locked': !badge.achieved }"
+          >
+            <div class="profile-badge__image-wrap">
+              <img :src="badge.image" :alt="badge.name" />
+              <span v-if="!badge.achieved" aria-hidden="true">잠금</span>
+            </div>
+            <p>{{ badge.name }}</p>
+          </div>
+        </div>
+
+        <p
+          v-if="badgeErrorMessage"
+          class="profile-card__badge-error"
+          role="alert"
+        >
+          {{ badgeErrorMessage }}
+        </p>
+      </BaseCard>
+
+      <nav class="scope-tabs" aria-label="저축 비교 범위">
+        <CategoryButton
+          v-for="option in SCOPE_OPTIONS"
+          :key="option.value"
+          variant="oval-green"
+          :label="option.label"
+          :active="activeScope === option.value"
+          @click="selectScope(option.value)"
+        />
+      </nav>
+
+      <p class="scope-description text-caption">{{ scopeDescription }}</p>
+
+      <section class="comparison-section" aria-labelledby="comparison-title">
+        <div class="section-heading">
+          <div>
+            <p class="text-overline">나와 평균의 차이</p>
+            <h2 id="comparison-title" class="text-title">저축률 비교</h2>
+          </div>
+          <p class="rank-summary">
+            <strong>{{ stats.savingsRank }}위</strong>
+            <span>/ {{ stats.comparisonMemberCount }}명</span>
+          </p>
+        </div>
+
+        <BaseCard class="comparison-card" padding="18px">
+          <div class="comparison-row">
+            <div class="comparison-row__label">
+              <span>나</span>
+              <strong>{{ stats.savingsRate.toFixed(1) }}%</strong>
+            </div>
+            <ProgressBar
+              :value="stats.savingsRate"
+              :total="100"
+              color="var(--military-green)"
+              :height="12"
+            />
+          </div>
+          <div class="comparison-row">
+            <div class="comparison-row__label">
+              <span>비교 그룹 평균</span>
+              <strong>{{ stats.averageSavingsRate.toFixed(1) }}%</strong>
+            </div>
+            <ProgressBar
+              :value="stats.averageSavingsRate"
+              :total="100"
+              color="var(--chart-3)"
+              :height="12"
+            />
+          </div>
+          <p class="comparison-card__caption text-caption">
+            현재 월 적금 납입액을 계급 월급으로 나눈 비율입니다.
+          </p>
+        </BaseCard>
+      </section>
+
+      <section class="interest-section" aria-labelledby="interest-title">
+        <div class="section-heading">
+          <div>
+            <p class="text-overline">{{ interestOverline }}</p>
+            <h2 id="interest-title" class="text-title">로드맵 관심도</h2>
+          </div>
+        </div>
+
+        <BaseCard v-if="hasInterestData" class="interest-card" padding="18px">
+          <DonutChart
+            :items="chartItems"
+            :size="164"
+            :thickness="30"
+            chart-label="로드맵 카테고리별 관심도"
+          />
+          <ul class="interest-legend">
+            <li v-for="item in chartItems" :key="item.label">
+              <span
+                class="interest-legend__dot"
+                :style="{ backgroundColor: item.color }"
+              />
+              <span>{{ item.label }}</span>
+              <strong>{{ item.percentage.toFixed(1) }}%</strong>
+            </li>
+          </ul>
+        </BaseCard>
+        <BaseCard v-else padding="22px">
+          <p class="empty-caption text-caption">
+            아직 비교할 로드맵 관심 데이터가 없습니다.
+          </p>
+        </BaseCard>
+      </section>
+
+      <section class="ranking-section" aria-labelledby="ranking-title">
+        <div class="section-heading">
+          <div>
+            <p class="text-overline">함께 모으는 사람들</p>
+            <h2 id="ranking-title" class="text-title">
+              {{ ranking?.title }}
+            </h2>
+          </div>
+        </div>
+
+        <ol v-if="ranking?.rankings?.length" class="ranking-list">
+          <li
+            v-for="item in ranking.rankings"
+            :key="`${item.rank}-${item.label}`"
+          >
+            <BaseCard
+              class="ranking-card"
+              :class="{ 'is-me': item.me }"
+              padding="12px 14px"
+            >
+              <img
+                :src="RANKING_IMAGES[item.rank - 1]"
+                :alt="`${item.rank}위`"
+              />
+              <div class="ranking-card__content">
+                <strong>{{ item.label }}</strong>
+                <span v-if="item.me">내가 속한 그룹</span>
+              </div>
+              <p>{{ item.savingsRate.toFixed(1) }}%</p>
+            </BaseCard>
+          </li>
+        </ol>
+        <BaseCard v-else padding="22px">
+          <p
+            class="empty-caption text-caption"
+            :class="{ 'inline-error': rankingErrorMessage }"
+            :role="rankingErrorMessage ? 'alert' : null"
+          >
+            {{ rankingErrorMessage || '아직 랭킹 데이터가 없습니다.' }}
+          </p>
+        </BaseCard>
+      </section>
+
+      <p v-if="loading" class="refreshing text-caption" role="status">
+        선택한 범위의 정보를 갱신하고 있습니다.
+      </p>
+      <p v-if="errorMessage" class="inline-error text-caption" role="alert">
+        {{ errorMessage }}
+      </p>
+    </template>
+  </main>
 </template>
+
+<style scoped>
+.social-page {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 20px 0 40px;
+  color: var(--text-strong);
+}
+
+.page-header p,
+.page-header h1,
+.section-heading p,
+.section-heading h2 {
+  margin: 0;
+}
+
+.page-header h1,
+.section-heading h2 {
+  margin-top: 4px;
+}
+
+.status,
+.empty-caption,
+.refreshing,
+.inline-error {
+  margin: 0;
+  text-align: center;
+}
+
+.status {
+  padding: 72px 16px;
+}
+
+.inline-error {
+  color: var(--danger);
+}
+
+.retry-button {
+  padding: 9px 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--military-green);
+  color: var(--surface-default);
+  font: inherit;
+  cursor: pointer;
+}
+
+.profile-card {
+  background: var(--military-green);
+  color: var(--surface-default);
+}
+
+.profile-card__headline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.profile-card__name {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.profile-card__unit {
+  margin: 5px 0 0;
+  color: var(--military-green-light);
+}
+
+.profile-card__saving {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  text-align: right;
+}
+
+.profile-card__saving span {
+  color: var(--military-green-light);
+  font-size: 11px;
+}
+
+.profile-card__saving strong {
+  margin-top: 3px;
+  font-size: 16px;
+}
+
+/* 뱃지 조회만 실패한 경우의 안내. 비교 통계는 정상이므로 카드 안에서만 알린다. */
+.profile-card__badge-error {
+  margin: 12px 0 0;
+  color: var(--military-green-light);
+  font-size: 11px;
+  text-align: center;
+}
+
+.profile-card__badges {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.profile-badge {
+  min-width: 0;
+  text-align: center;
+}
+
+.profile-badge__image-wrap {
+  position: relative;
+  margin: 0 auto;
+}
+
+.profile-badge__image-wrap {
+  width: 64px;
+  height: 64px;
+}
+
+.profile-badge img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.profile-badge p {
+  margin: 5px 0 0;
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-badge.is-locked img {
+  filter: grayscale(1);
+  opacity: 0.35;
+}
+
+.profile-badge__image-wrap span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  color: var(--surface-default);
+  font-size: 10px;
+  font-weight: 700;
+  place-items: center;
+}
+
+.scope-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.scope-description {
+  margin: -14px 0 0;
+  text-align: center;
+}
+
+.comparison-section,
+.interest-section,
+.ranking-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rank-summary {
+  margin: 0;
+  color: var(--text-hint);
+  font-size: 12px;
+}
+
+.rank-summary strong {
+  color: var(--military-green);
+  font-size: 17px;
+}
+
+.comparison-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.comparison-row {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.comparison-row__label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.comparison-row__label strong {
+  font-size: 15px;
+}
+
+.comparison-card__caption {
+  margin: -2px 0 0;
+}
+
+.interest-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 14px;
+}
+
+.interest-legend {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.interest-legend li {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-body);
+  font-size: 12px;
+}
+
+.interest-legend__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.interest-legend strong {
+  color: var(--text-strong);
+}
+
+.ranking-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ranking-card {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  align-items: center;
+  gap: 11px;
+}
+
+.ranking-card.is-me {
+  border-color: var(--military-green);
+  background: var(--military-green-light);
+}
+
+.ranking-card img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+}
+
+.ranking-card__content {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.ranking-card__content strong {
+  overflow: hidden;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ranking-card__content span {
+  margin-top: 2px;
+  color: var(--military-green);
+  font-size: 10px;
+}
+
+.ranking-card > p {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+@media (max-width: 380px) {
+  .profile-card__headline {
+    flex-direction: column;
+  }
+
+  .profile-card__saving {
+    text-align: left;
+  }
+
+  .interest-card {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .interest-legend {
+    width: 100%;
+  }
+}
+</style>
+
+<style>
+.app-content:has(.social-page) {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.app-content:has(.social-page)::-webkit-scrollbar {
+  display: none;
+}
+</style>
