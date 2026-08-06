@@ -11,10 +11,6 @@ import jobApi from '@/api/jobApi';
 
 const router = useRouter();
 
-// — 진행바 (step1/4)
-const currentStep = 1;
-const progress = computed(() => (currentStep / 4) * 100);
-
 // ── goalType 토글 (취업/공무원/편입) ──
 const GOAL_TYPES = [
   { value: 'J01', label: '취업' },
@@ -151,9 +147,9 @@ watch(parentCategoryId, () => {
 
 watch(univId, loadMajors);
 
-watch(goalType, loadCategories);
+watch(goalType, loadGoalOptions);
 
-onMounted(loadCategories);
+onMounted(loadGoalOptions);
 
 // ── 목표 시기 (년 select + 월 select 조합) ──
 const expectedYear = ref('');
@@ -259,19 +255,23 @@ const handleSubmit = async () => {
 
 <template>
   <div class="job-goal-create">
-    <RoadmapCharacterSlider :progress="progress" label="진로 로드맵" />
+    <RoadmapCharacterSlider :progress="0" label="진로 로드맵" />
 
-    <h2 class="job-goal-create__title">무엇을 준비하고 싶습니까?</h2>
+    <h2 class="job-goal-create__title text-title">무엇을 준비하고 싶습니까?</h2>
 
-    <div class="job-goal-create__type-toggle">
-      <CategoryButton
-        v-for="type in GOAL_TYPES"
-        :key="type.value"
-        :label="type.label"
-        variant="oval-yellow"
-        :active="goalType === type.value"
-        @click="goalType = type.value"
-      />
+    <div class="job-goal-create__type-section">
+      <p class="job-goal-create__type-label">진로 유형</p>
+
+      <div class="job-goal-create__type-toggle">
+        <CategoryButton
+          v-for="type in GOAL_TYPES"
+          :key="type.value"
+          :label="type.label"
+          variant="oval-yellow"
+          :active="goalType === type.value"
+          @click="goalType = type.value"
+        />
+      </div>
     </div>
 
     <!--  기존 BaseInput 1개 대신 입력칸 아래 2단 드롭다운 -->
@@ -436,7 +436,6 @@ const handleSubmit = async () => {
         />
       </div>
     </div>
-
     <BottomButtonBar
       primary-label="진로 로드맵 추천 받기"
       :primary-disabled="!isFormValid"
@@ -454,10 +453,8 @@ const handleSubmit = async () => {
 }
 
 .job-goal-create__title {
-  margin: 0;
-  color: var(--kb-dark-gray);
-  font-size: 20px;
-  font-weight: 700;
+  margin: 0 0 22px;
+  line-height: 1.35;
 }
 
 .job-goal-create__type-toggle {
@@ -472,6 +469,7 @@ const handleSubmit = async () => {
   gap: 8px;
 }
 
+.job-goal-create__type-label,
 .job-goal-create__option-label,
 .job-goal-create__date-label {
   color: var(--kb-dark-gray);
