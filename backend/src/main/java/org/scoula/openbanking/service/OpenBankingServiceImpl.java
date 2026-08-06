@@ -165,6 +165,8 @@ public class OpenBankingServiceImpl implements OpenBankingService {
         account.setMonthlyCount(monthlyCount);
         account.setCurrAmount(acc.getBalance() == null ? 0L : acc.getBalance()); // 누적납입 = 잔액
         account.setAccountStatus("ACTIVE");
+        // 개설일 저장 (석윤 만기금 계산이 open_date를 개설일로 읽음, created_date 감사컬럼과 별개)
+        account.setOpenDate(acc.getOpenDate() != null ? LocalDate.parse(acc.getOpenDate()) : null);
         account.setCreatedNm(actor);
         savingWriteMapper.insertSavingAccount(account);
 
@@ -175,6 +177,8 @@ public class OpenBankingServiceImpl implements OpenBankingService {
             history.setAccountId(account.getAccountId());
             history.setPayRound(round++);
             history.setPayAmount(pay.getAmount());
+            // 실제 납입일 저장 (석윤 계산이 paid_date를 납입일로 읽어 firstPayDate 산출)
+            history.setPaidDate(pay.getTxDateTime() != null ? pay.getTxDateTime().toLocalDate() : null);
             history.setCreatedNm(actor);
             savingWriteMapper.insertSavingHistory(history);
         }

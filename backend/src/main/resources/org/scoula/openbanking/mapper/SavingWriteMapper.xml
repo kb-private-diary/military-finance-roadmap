@@ -9,19 +9,19 @@
             useGeneratedKeys="true" keyProperty="accountId">
         INSERT INTO saving_account (
             user_id, bank_code, monthly_save, monthly_count, curr_amount, account_status,
-            created_date, created_nm, del_yn
+            open_date, created_date, created_nm, del_yn
         ) VALUES (
             #{userId}, #{bankCode}, #{monthlySave}, #{monthlyCount}, #{currAmount}, #{accountStatus},
-            NOW(), #{createdNm}, 'N'
+            #{openDate}, NOW(), #{createdNm}, 'N'
         )
     </insert>
 
     <!-- 적금 납입내역 저장 (회차별) -->
     <insert id="insertSavingHistory" parameterType="org.scoula.openbanking.domain.SavingHistoryVO">
         INSERT INTO saving_history (
-            account_id, pay_round, pay_amount, created_date, created_nm, del_yn
+            account_id, pay_round, pay_amount, paid_date, created_date, created_nm, del_yn
         ) VALUES (
-            #{accountId}, #{payRound}, #{payAmount}, NOW(), #{createdNm}, 'N'
+            #{accountId}, #{payRound}, #{payAmount}, #{paidDate}, NOW(), #{createdNm}, 'N'
         )
     </insert>
 
