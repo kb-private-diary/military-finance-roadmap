@@ -15,6 +15,9 @@ public interface OpenBankingLinkMapper {
     /** 회원 입대일 조회 (신규회원 적금 개설일을 입대일 이후로 보정할 때 사용) */
     LocalDate findEnlistDateByUserId(Long userId);
 
+    /** 회원 계급의 월급액 조회 (user.rank_id → military_rank.rank_salary, 급여 income 저장용) */
+    Long findMonthlySalaryByUserId(Long userId);
+
     /** 연동 1건 저장 (선택된 계좌마다 호출) 생성된 link_id를 VO에 채워줌 */
     int insertLink(OpenBankingLinkVO link);
 

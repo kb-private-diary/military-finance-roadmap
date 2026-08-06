@@ -1002,6 +1002,21 @@ CREATE TABLE `spending` (
   `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
 );
 
+DROP TABLE IF EXISTS `income`;
+CREATE TABLE `income` (
+  `income_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '수입번호',
+  `user_id` BIGINT NOT NULL COMMENT '회원고유번호',
+  `source` VARCHAR(100) NOT NULL COMMENT '수입원 (예 국군재정관리단=급여)',
+  `category` VARCHAR(15) COMMENT '수입종류 (SALARY 등)',
+  `amount` BIGINT NOT NULL COMMENT '수입금액',
+  `received_at` DATETIME NOT NULL COMMENT '입금일시 (업무일 - 감사컬럼과 분리)',
+  `created_date` DATETIME NOT NULL COMMENT '생성일시',
+  `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+  `modified_date` DATETIME COMMENT '수정일시',
+  `modified_nm` VARCHAR(50) COMMENT '수정자',
+  `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
+);
+
 DROP TABLE IF EXISTS `spending_review`;
 CREATE TABLE `spending_review` (
   `review_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '회고번호',
