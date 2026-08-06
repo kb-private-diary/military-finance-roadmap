@@ -66,7 +66,7 @@
     <!-- 목표 단건 조회 (상세) -->
     <select id="findGoalById" resultType="org.scoula.rent.domain.RentGoalVO">
         SELECT goal_id, user_id, title, selection_mode, school_id, commute_radius_km,
-               monthly_budget, residence_preset, residence_months, status,
+               monthly_budget, residence_preset, residence_months, status, confirmed_listing_id,
                created_date, created_nm, modified_date, modified_nm, del_yn
         FROM rent_goal
         WHERE goal_id = #{goalId}
@@ -146,6 +146,7 @@
                modified_date = NOW(),
                modified_nm = #{modifiedNm}
                <if test="months != null">, residence_months = #{months}</if>
+               <if test="listingId != null">, confirmed_listing_id = #{listingId}</if>
          WHERE goal_id = #{goalId}
            AND status = 'DRAFT'
            AND del_yn = 'N'
