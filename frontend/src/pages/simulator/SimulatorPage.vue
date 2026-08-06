@@ -37,8 +37,9 @@ const monthlySave = ref('');
 const saveMonths = ref('');
 // 등록 완료된 구간 목록. 각 항목은 { startMonthOffset, endMonthOffset, amount }.
 const periods = ref([]);
-// 구간별 금액 모드에서 "등록" 누르기 전까지의 입력 중인 구간.
-const periodDraft = ref({ range: ['', ''], amount: '' });
+// 구간별 금액 모드에서 "등록" 누르기 전까지의 입력 중인 구간 — 시작월은 직전 구간
+// 종료월+1로 자동 결정되므로(구간이 이어붙어야 함) 종료월만 입력받는다.
+const periodDraft = ref({ endMonth: '', amount: '' });
 
 // 기간 설정 드롭다운 선택지 (최대 가입기간 24개월, SIMUL_005와 동일한 한도)
 const monthOptions = computed(() =>
@@ -48,12 +49,26 @@ const monthOptions = computed(() =>
   })),
 );
 
+// 다음 구간의 시작월: 등록된 구간이 없으면 1개월, 있으면 마지막 구간 종료월+1.
+const draftStartMonth = computed(() => {
+  if (periods.value.length === 0) {
+    return 1;
+  }
+  const lastEnd = Math.max(...periods.value.map((p) => p.endMonthOffset));
+  return lastEnd + 1;
+});
+
+const canAddMorePeriods = computed(() => draftStartMonth.value <= 24);
+
+const endMonthOptions = computed(() =>
+  monthOptions.value.filter((opt) => opt.value >= draftStartMonth.value),
+);
+
 const isDraftValid = computed(() => {
-  const [start, end] = periodDraft.value.range;
+  const end = periodDraft.value.endMonth;
   return (
-    start !== '' &&
     end !== '' &&
-    Number(start) <= Number(end) &&
+    Number(end) >= draftStartMonth.value &&
     Number(periodDraft.value.amount) > 0
   );
 });
@@ -113,17 +128,17 @@ const openCalcSheet = () => {
 const registerPeriod = () => {
   if (!isDraftValid.value) return;
   periods.value.push({
-    startMonthOffset: Number(periodDraft.value.range[0]),
-    endMonthOffset: Number(periodDraft.value.range[1]),
+    startMonthOffset: draftStartMonth.value,
+    endMonthOffset: Number(periodDraft.value.endMonth),
     amount: Number(periodDraft.value.amount),
   });
-  periodDraft.value = { range: ['', ''], amount: '' };
+  periodDraft.value = { endMonth: '', amount: '' };
 };
 
 // 등록된 구간 전체 + 입력 중인 구간을 함께 초기화한다.
 const resetPeriods = () => {
   periods.value = [];
-  periodDraft.value = { range: ['', ''], amount: '' };
+  periodDraft.value = { endMonth: '', amount: '' };
 };
 
 const runCalculation = async () => {
@@ -427,41 +442,55 @@ onMounted(() => {
           </div>
         </div>
 
-        <BaseInput
-          type="select-range"
-          label="기간 설정"
-          :options="monthOptions"
-          :model-value="periodDraft.range"
-          @update:model-value="periodDraft.range = $event"
-        />
+        <p v-if="!canAddMorePeriods" class="calc-sheet__hint">
+          24개월 전체 구간을 다 등록했어요.
+        </p>
 
-        <div class="calc-sheet__amount-row">
-          <BaseInput
-            type="amount"
-            label="금액 설정"
-            suffix="원"
-            placeholder="최대 550,000"
-            :model-value="periodDraft.amount"
-            @update:model-value="periodDraft.amount = $event"
-          />
-          <div class="calc-sheet__amount-actions">
-            <button
-              type="button"
-              class="calc-sheet__reset-btn"
-              @click="resetPeriods"
-            >
-              초기화
-            </button>
-            <button
-              type="button"
-              class="calc-sheet__register-btn"
-              :disabled="!isDraftValid"
-              @click="registerPeriod"
-            >
-              등록
-            </button>
+        <template v-else>
+          <div class="calc-sheet__range-field">
+            <span class="calc-sheet__range-label">기간 설정</span>
+            <div class="calc-sheet__range-inputs">
+              <span class="calc-sheet__range-start"
+                >{{ draftStartMonth }}개월</span
+              >
+              <span class="base-input__range-sep">~</span>
+              <BaseInput
+                type="select"
+                :options="endMonthOptions"
+                :model-value="periodDraft.endMonth"
+                @update:model-value="periodDraft.endMonth = $event"
+              />
+            </div>
           </div>
-        </div>
+
+          <div class="calc-sheet__amount-row">
+            <BaseInput
+              type="amount"
+              label="금액 설정"
+              suffix="원"
+              placeholder="최대 550,000"
+              :model-value="periodDraft.amount"
+              @update:model-value="periodDraft.amount = $event"
+            />
+            <div class="calc-sheet__amount-actions">
+              <button
+                type="button"
+                class="calc-sheet__reset-btn"
+                @click="resetPeriods"
+              >
+                초기화
+              </button>
+              <button
+                type="button"
+                class="calc-sheet__register-btn"
+                :disabled="!isDraftValid"
+                @click="registerPeriod"
+              >
+                등록
+              </button>
+            </div>
+          </div>
+        </template>
       </div>
     </BaseBottomSheet>
 
@@ -754,6 +783,31 @@ onMounted(() => {
   font-size: 14px;
   font-weight: 700;
   color: var(--text-strong);
+}
+
+.calc-sheet__range-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.calc-sheet__range-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-body);
+}
+
+.calc-sheet__range-inputs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.calc-sheet__range-start {
+  flex-shrink: 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-body);
 }
 
 .calc-sheet__amount-row {
