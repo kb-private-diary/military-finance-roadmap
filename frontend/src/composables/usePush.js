@@ -55,7 +55,14 @@ export function usePush() {
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
       });
-      await pushApi.subscribe(subscription.toJSON());
+      try {
+        await pushApi.subscribe(subscription.toJSON());
+      } catch (e) {
+        // 백엔드 저장 실패 시 브라우저 쪽 구독도 롤백한다.
+        // 안 하면 브라우저엔 구독이 남아서 다음에 켰을 때 "이미 켜짐"으로 잘못 보임.
+        await subscription.unsubscribe();
+        throw e;
+      }
       isSubscribed.value = true;
       show('알림을 켰어요', 'success');
     } catch (e) {
