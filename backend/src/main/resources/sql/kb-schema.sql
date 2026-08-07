@@ -782,6 +782,7 @@ CREATE TABLE `rent_goal` (
   `residence_preset` VARCHAR(10) NOT NULL COMMENT '거주기간프리셋 SEMESTER/YEAR/GRADUATE',
   `residence_months` INT NOT NULL COMMENT '거주개월수 6/12/24',
   `status` VARCHAR(12) NOT NULL COMMENT '진행상태 DRAFT/CONFIRMED/ARCHIVED',
+  `confirmed_listing_id` BIGINT COMMENT '확정 매물번호(Step5 저장 시 선택 매물)',
   `created_date` DATETIME NOT NULL COMMENT '생성일시',
   `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
   `modified_date` DATETIME COMMENT '수정일시',
@@ -889,6 +890,76 @@ CREATE TABLE `rent_recommend` (
   `modified_nm` VARCHAR(50) COMMENT '수정자',
   `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
 );
+
+-- =====================================================================
+-- housing_product : 주거 금융상품 (월세 전용). KB 상품 + 정책/지자체 상품
+--   상세: housing_product2_schema.sql / 온통청년API_연동명세_v1.0.md
+--   온통청년 컬럼 3개(plcy_no/zip_cd/api_synced_at) 포함 (v2)
+--   plcy_no IS NOT NULL → API 관리(배치가 덮어씀), plcy_no IS NULL → 수동(KB)
+--   (폐기된 housing_loan 은 아래에 그대로 유지)
+-- =====================================================================
+DROP TABLE IF EXISTS housing_product;
+CREATE TABLE housing_product (
+  product_id      BIGINT AUTO_INCREMENT PRIMARY KEY,
+  product_name    VARCHAR(80)  NOT NULL COMMENT '상품/사업명',
+
+  -- 분류
+  product_type    VARCHAR(10)  NOT NULL COMMENT 'POLICY(정책) / LOCAL(지자체) / BANK(시중)',
+  support_type    VARCHAR(10)  NOT NULL COMMENT 'GRANT(지원금) / LOAN(대출) / INTEREST(이자지원) / COST(비용지원)',
+  loan_type       VARCHAR(10)           COMMENT 'DEPOSIT(보증금) / MONTHLY(월세) / BOTH, GRANT는 NULL',
+  provider        VARCHAR(40)  NOT NULL COMMENT '주택도시기금 / 국토교통부 / KB국민은행 / 서울시 …',
+  is_kb           CHAR(1)      NOT NULL DEFAULT 'N' COMMENT 'KB 상품 우선 노출용',
+
+  -- 지역
+  region_code     CHAR(2)               COMMENT '법정동 시도코드 2자리. NULL이면 전국',
+
+  -- 금리 / 지원액
+  rate_min        DECIMAL(5,2)          COMMENT '최저 금리 %. GRANT는 NULL',
+  rate_max        DECIMAL(5,2)          COMMENT '최고 금리 %',
+  rate_summary    VARCHAR(60)           COMMENT '화면 표시용 문자열',
+  support_amount  INT                   COMMENT '지원금 월 최대액(원). GRANT/INTEREST용',
+  support_months  SMALLINT              COMMENT '지원 개월수',
+  loan_limit      BIGINT                COMMENT '대출 한도(원)',
+
+  -- 자격 조건 (필터링용)
+  min_age         TINYINT      NOT NULL DEFAULT 19,
+  max_age         TINYINT      NOT NULL DEFAULT 34,
+  veteran_extend  TINYINT      NOT NULL DEFAULT 0 COMMENT '병역 이행 시 연령 상한 연장(년). 0이면 없음',
+  veteran_note    VARCHAR(120)          COMMENT '병역 혜택 상세',
+  deposit_limit   BIGINT                COMMENT '임차보증금 상한(원). 초과 시 추천 제외',
+  monthly_limit   INT                   COMMENT '월세 상한(원). 초과 시 추천 제외',
+  area_limit      DECIMAL(6,2)          COMMENT '전용면적 상한(㎡). 초과 시 추천 제외',
+  income_limit    BIGINT                COMMENT '연소득 상한(원)',
+  join_condition  VARCHAR(200)          COMMENT '가입 조건 요약',
+
+  -- 중복 제한
+  exclusive_group VARCHAR(20)           COMMENT '동일 그룹 내 택1. NULL이면 제한 없음',
+
+  -- 공고 기간
+  base_year       SMALLINT     NOT NULL COMMENT '기준 연도',
+  apply_start     DATE                  COMMENT '접수 시작일. NULL이면 상시',
+  apply_end       DATE                  COMMENT '접수 종료일. NULL이면 상시',
+  apply_cycle     VARCHAR(60)           COMMENT '접수 주기 안내 (만료 시 표시용)',
+
+  -- 표시
+  priority        TINYINT      NOT NULL DEFAULT 50 COMMENT '정렬 우선순위. 낮을수록 상단',
+  detail          TEXT                  COMMENT '상세 설명',
+  external_url    VARCHAR(255)          COMMENT '신청 페이지',
+  deeplink        VARCHAR(255)          COMMENT 'KB스타뱅킹 딥링크 (KB 상품)',
+
+  -- 온통청년 OPEN API 연동 (연동명세 §5)
+  plcy_no         VARCHAR(20)           COMMENT '온통청년 정책번호. NULL이면 자체 등록(KB)',
+  zip_cd          TEXT                  COMMENT 'API 원본 시군구코드 목록(콤마 구분). 지역 매칭용',
+  api_synced_at   DATETIME              COMMENT '마지막 API 동기화 시각',
+
+  created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  UNIQUE KEY uk_plcy (plcy_no),
+  INDEX idx_region (region_code, product_type),
+  INDEX idx_priority (priority)
+) COMMENT '자취 로드맵 주거 금융상품 (월세 전용, 온통청년 API 캐시 겸용)';
+
 
 DROP TABLE IF EXISTS `housing_loan`;
 CREATE TABLE `housing_loan` (

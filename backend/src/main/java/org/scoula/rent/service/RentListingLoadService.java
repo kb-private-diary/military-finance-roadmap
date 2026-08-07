@@ -46,6 +46,8 @@ public class RentListingLoadService {
     // 국토부 실거래가 API (오피스텔 / 연립다세대)
     private static final String OFFI_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcOffiRent/getRTMSDataSvcOffiRent";
     private static final String VILLA_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcRHRent/getRTMSDataSvcRHRent";
+    private static final int ROWS_PER_PAGE = 100; // 국토부 API 페이지당 건수
+    private static final int MAX_PAGES = 50;       // 시군구·월당 최대 페이지 (100×50=5000건, 무한루프 안전장치)
 
     /**
      * 대상 시군구들의 오피스텔·연립다세대 매물 적재
@@ -75,36 +77,48 @@ public class RentListingLoadService {
         return load(rentMapper.findAllSigunguCodes(), dealYm, false);
     }
 
-    /** 한 API·시군구·월의 매물을 조회해 적재 (한 건 실패해도 나머지는 계속) */
+    /** 한 API·시군구·월의 매물을 조회해 적재 (전체 페이지 순회, 한 건 실패해도 나머지는 계속) */
     private int fetchAndSave(String url, String estateType, String nameField,
                              String sigunguCode, String dealYm, boolean withGeocoding) {
         int saved = 0;
         try {
-            URI uri = UriComponentsBuilder.fromHttpUrl(url)
-                    .queryParam("serviceKey", serviceKey)
-                    .queryParam("LAWD_CD", sigunguCode)
-                    .queryParam("DEAL_YMD", dealYm)
-                    .queryParam("pageNo", 1)
-                    .queryParam("numOfRows", 100)
-                    .queryParam("_type", "json") // JSON 응답 명시
-                    .build(true) // serviceKey가 이미 인코딩된 값이면 이중인코딩 방지
-                    .toUri();
+            // 매물 많은 시군구는 100건을 넘으므로 totalCount를 볼 때까지 페이지를 순회 (안전장치 MAX_PAGES)
+            for (int pageNo = 1; pageNo <= MAX_PAGES; pageNo++) {
+                URI uri = UriComponentsBuilder.fromHttpUrl(url)
+                        .queryParam("serviceKey", serviceKey)
+                        .queryParam("LAWD_CD", sigunguCode)
+                        .queryParam("DEAL_YMD", dealYm)
+                        .queryParam("pageNo", pageNo)
+                        .queryParam("numOfRows", ROWS_PER_PAGE)
+                        .queryParam("_type", "json") // JSON 응답 명시
+                        .build(true) // serviceKey가 이미 인코딩된 값이면 이중인코딩 방지
+                        .toUri();
 
-            byte[] body = rest.getForObject(uri, byte[].class);
-            if (body == null || body.length == 0) {
-                return 0;
-            }
-            String json = decodeBody(body); // 서버가 gzip 압축으로 주면 해제
-
-            // response.body.items.item = 매물 배열 (최상위에 response 래퍼 있음, 결과 1건이면 배열 아닌 객체, 0건이면 items가 빈 문자열)
-            JsonNode items = om.readTree(json).path("response").path("body").path("items").path("item");
-            for (JsonNode item : toList(items)) {
-                long monthlyRent = won(text(item, "monthlyRent"));
-                if (monthlyRent <= 0) {
-                    continue; // 전세(월세 0)는 제외 - 자취는 월세만
+                byte[] body = rest.getForObject(uri, byte[].class);
+                if (body == null || body.length == 0) {
+                    break;
                 }
-                listingMapper.insertListing(toListing(item, estateType, nameField, sigunguCode, withGeocoding));
-                saved++;
+                String json = decodeBody(body); // 서버가 gzip 압축으로 주면 해제
+
+                // response.body.items.item = 매물 배열 (1건이면 객체, 0건이면 items가 빈 문자열)
+                JsonNode bodyNode = om.readTree(json).path("response").path("body");
+                List<JsonNode> items = toList(bodyNode.path("items").path("item"));
+                if (items.isEmpty()) {
+                    break; // 이 페이지에 매물 없음 = 끝
+                }
+                for (JsonNode item : items) {
+                    long monthlyRent = won(text(item, "monthlyRent"));
+                    if (monthlyRent <= 0) {
+                        continue; // 전세(월세 0)는 제외 - 자취는 월세만
+                    }
+                    listingMapper.insertListing(toListing(item, estateType, nameField, sigunguCode, withGeocoding));
+                    saved++;
+                }
+                // 누적 조회 건수가 전체 건수 이상이면 마지막 페이지 (전세 포함 totalCount 기준)
+                int totalCount = bodyNode.path("totalCount").asInt(0);
+                if ((long) pageNo * ROWS_PER_PAGE >= totalCount) {
+                    break;
+                }
             }
         } catch (Exception e) {
             log.warn("매물 적재 실패 (type={}, sigungu={}, ym={}): {}", estateType, sigunguCode, dealYm, e.getMessage());

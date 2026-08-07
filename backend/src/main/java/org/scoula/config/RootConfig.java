@@ -63,6 +63,7 @@ import javax.sql.DataSource;
         "org.scoula.travel.service",
         "org.scoula.rent.service",
         "org.scoula.rent.client",
+        "org.scoula.rent.scheduler",
         "org.scoula.car.service",
         "org.scoula.car.client",
         "org.scoula.job.service",
