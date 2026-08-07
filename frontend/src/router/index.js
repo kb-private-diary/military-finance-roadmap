@@ -9,6 +9,7 @@ import mainRoutes from './main';
 import memberRoutes from './member';
 import openbankingRoutes from './openbanking';
 import productRoutes from './product';
+import pushRoutes from './push';
 import regretRoutes from './regret';
 import rentRoutes from './rent';
 import simulatorRoutes from './simulator';
@@ -26,6 +27,7 @@ const router = createRouter({
     ...memberRoutes,
     ...openbankingRoutes,
     ...productRoutes,
+    ...pushRoutes,
     ...regretRoutes,
     ...rentRoutes,
     ...simulatorRoutes,

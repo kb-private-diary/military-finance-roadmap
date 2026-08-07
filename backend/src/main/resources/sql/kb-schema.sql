@@ -1113,6 +1113,7 @@ CREATE TABLE `push_history` (
   `user_id` BIGINT NOT NULL COMMENT '회원고유번호',
   `title` VARCHAR(100) NOT NULL COMMENT '알림 제목',
   `body` VARCHAR(200) NOT NULL COMMENT '알림 내용',
+  `category` VARCHAR(20) COMMENT '알림 분류(프론트 아이콘 매핑용, 값은 호출하는 도메인이 자유롭게 정함)',
   `status` VARCHAR(10) NOT NULL COMMENT '발송상태(SUCCESS/FAILED)',
   `sent_at` DATETIME NOT NULL COMMENT '발송일시',
   `created_date` DATETIME NOT NULL COMMENT '생성일시',
