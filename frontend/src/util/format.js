@@ -7,8 +7,13 @@ export const formatWon = (amount) => `${(amount ?? 0).toLocaleString('ko-KR')}�
 
 // 만원 단위 + "만원"  →  formatManwon(1200000) === "120만원"
 // 금액이 커서 만원 단위가 자연스러운 화면에서 사용 (한 화면 안에선 한 단위로 통일).
+// 입력값은 "원" 단위여야 한다 (10000으로 나눔).
 export const formatManwon = (amount) =>
   `${Math.round((amount ?? 0) / 10000).toLocaleString('ko-KR')}만원`;
+
+// 이미 "만원" 단위로 내려오는 금액 표기용  →  formatManwonUnit(1200) === "1,200만원"
+// car 도메인처럼 백엔드 DTO가 만원 단위 정수를 그대로 내려주는 화면에서 사용 (formatManwon과 달리 나누지 않음).
+export const formatManwonUnit = (amount) => `${(amount ?? 0).toLocaleString('ko-KR')}만원`;
 
 // ── 금액 입력창 (실시간 콤마 포맷) ──────────────────────────────
 // 타이핑 중 표시용: 숫자 아닌 문자 제거 + 3자리 콤마  →  formatAmountInput('1200000') === "1,200,000"

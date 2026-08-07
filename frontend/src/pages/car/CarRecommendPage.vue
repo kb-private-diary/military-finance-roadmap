@@ -8,6 +8,8 @@ import BaseCard from '@/components/common/BaseCard.vue';
 import CategoryButton from '@/components/common/CategoryButton.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
+import EmptyState from '@/components/common/EmptyState.vue';
+import { formatManwonUnit } from '@/util/format';
 
 const route = useRoute();
 const router = useRouter();
@@ -29,9 +31,6 @@ const submitError = ref('');
 const submitting = ref(false);
 
 const unwrap = (response) => response.data?.data;
-
-// 백엔드 car 도메인 금액 필드는 전부 만원 단위로 내려온다 (formatManwon은 원 단위 입력용이라 여기선 안 맞음)
-const formatManwonUnit = (value) => `${(value ?? 0).toLocaleString('ko-KR')}만원`;
 
 const readErrorMessage = (error, fallback) =>
   error.response?.data?.message ||
@@ -112,7 +111,8 @@ const handlePrev = () => {
 
     <h2 class="car-recommend__title text-title">차량을 추천해드려요</h2>
     <p v-if="goal" class="car-recommend__subtitle text-caption">
-      예산 {{ formatManwonUnit(goal.budget) }} · {{ goal.isNew ? '신차' : '중고' }} 기준
+      {{ goal.budget != null ? `예산 ${formatManwonUnit(goal.budget)}` : '군적금 만기예상액 기준' }}
+      · {{ goal.isNew ? '신차' : '중고' }} 기준
     </p>
 
     <div class="tab-row">
@@ -130,9 +130,17 @@ const handlePrev = () => {
     <p v-else-if="loadError" class="form-error text-caption" role="alert">
       {{ loadError }}
     </p>
-    <p v-else-if="!itemsByTab.length" class="car-recommend__status text-caption">
-      해당 차종에 추천 가능한 차량이 없어요.
-    </p>
+    <EmptyState
+      v-else-if="!itemsByTab.length"
+      title="해당 차종에 추천 가능한 차량이 없어요"
+      description="예산·조건을 다시 설정하면 다른 차량을 추천받을 수 있어요"
+    >
+      <template #action>
+        <button type="button" class="empty-state__retry-btn" @click="handlePrev">
+          조건 다시 설정하기
+        </button>
+      </template>
+    </EmptyState>
 
     <div class="car-list">
       <BaseCard
@@ -214,6 +222,17 @@ const handlePrev = () => {
 
 .car-recommend__status {
   color: var(--text-muted);
+}
+
+.empty-state__retry-btn {
+  padding: 10px 18px;
+  border: 1.5px solid var(--kb-yellow-deep);
+  border-radius: 999px;
+  background: var(--surface-default);
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .car-list {

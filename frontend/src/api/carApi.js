@@ -38,4 +38,8 @@ export default {
   findEvSubsidy(goalId) {
     return api.get(`${BASE_URL}/goals/${goalId}/ev-subsidy`);
   },
+
+  findBudgetStatus(goalId) {
+    return api.get(`${BASE_URL}/goals/${goalId}/budget-status`);
+  },
 };
