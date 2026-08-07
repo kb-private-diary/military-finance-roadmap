@@ -24,16 +24,6 @@ const ESTATE_LABEL = {
   ROOM: '원룸',
 };
 
-// TODO: 백엔드 매물 API(WIP) 준비되면 샘플 폴백 제거 (지역·가격·종류 다양하게 섞은 데모용)
-const SAMPLE = [
-  { listingId: 1, buildingName: '부산대 앞 오피스텔', estateType: 'OFFICETEL', dongName: '부산 금정구 장전동', deposit: 5000000, monthlyRent: 450000, maintenanceFee: 50000, totalCost6M: 8000000, distanceText: '도보 12분', affordText: '딱 맞아요' },
-  { listingId: 2, buildingName: '장전동 원룸', estateType: 'ROOM', dongName: '부산 금정구 장전동', deposit: 3000000, monthlyRent: 400000, maintenanceFee: 30000, totalCost6M: 5580000, distanceText: '도보 8분', affordText: '딱 맞아요' },
-  { listingId: 3, buildingName: '부곡동 신축 빌라', estateType: 'VILLA', dongName: '부산 금정구 부곡동', deposit: 8000000, monthlyRent: 500000, maintenanceFee: 50000, totalCost6M: 11300000, distanceText: '버스 15분', affordText: '빠듯해요' },
-  { listingId: 4, buildingName: '남산동 리모델링 원룸', estateType: 'ROOM', dongName: '부산 금정구 남산동', deposit: 4000000, monthlyRent: 380000, maintenanceFee: 30000, totalCost6M: 6460000, distanceText: '도보 5분', affordText: '딱 맞아요' },
-  { listingId: 5, buildingName: '구서동 투룸 오피스텔', estateType: 'OFFICETEL', dongName: '부산 금정구 구서동', deposit: 10000000, monthlyRent: 650000, maintenanceFee: 70000, totalCost6M: 14320000, distanceText: '도보 20분', affordText: '예산 초과' },
-  { listingId: 6, buildingName: '온천동 브라운 아파트', estateType: 'APARTMENT', dongName: '부산 금정구 온천동', deposit: 20000000, monthlyRent: 700000, maintenanceFee: 100000, totalCost6M: 24800000, distanceText: '버스 10분', affordText: '예산 초과' },
-];
-
 const listings = ref([]);
 const loading = ref(true);
 
@@ -50,20 +40,33 @@ const load = async () => {
   loading.value = true;
   try {
     const data = await rentApi.findListings(goalId);
-    listings.value = data?.length ? data : SAMPLE;
+    listings.value = Array.isArray(data) ? data : [];
   } catch {
-    listings.value = SAMPLE; // TODO: 폴백 제거
+    listings.value = [];
   } finally {
     loading.value = false;
   }
 };
 onMounted(load);
 
+// 선택된 매물(store) — 하단 '다음' 버튼 활성 조건
+const selectedListingId = computed(() => rentStore.selectedListingId);
+
 const goDetail = (l) => {
   rentStore.selectedListingId = l.listingId;
   router.push({
     name: 'RentListingDetail',
     params: { listingId: l.listingId },
+    query: { goalId, months: rentStore.months },
+  });
+};
+
+// 하단 '다음' — 선택된 매물의 상세로 이동 (선택 없으면 비활성이라 호출 안 됨)
+const goNext = () => {
+  if (!selectedListingId.value) return;
+  router.push({
+    name: 'RentListingDetail',
+    params: { listingId: selectedListingId.value },
     query: { goalId, months: rentStore.months },
   });
 };
@@ -87,7 +90,7 @@ const priceLine = (l) =>
     <EmptyState
       v-else-if="!listings.length"
       title="조건에 맞는 매물이 없어요"
-      description="반경을 넓히거나 월 예산을 조정해보세요"
+      description="다른 지역·학교로 찾아보거나 예산을 조정해보세요"
     >
       <template #action>
         <button class="cta" @click="router.push({ name: 'RentGoalCreate' })">
@@ -113,12 +116,16 @@ const priceLine = (l) =>
         </button>
       </BaseCard>
       <p class="footnote">6개월 거주 기준으로 재정 진단</p>
+      <p v-if="!selectedListingId" class="select-hint">매물을 선택해주세요</p>
     </template>
 
-    <!-- 매물은 카드 탭으로 다음 단계 진행 → 하단 바는 '이전'(step1)만 -->
+    <!-- 이전(step1) + 다음: 카드 탭으로 상세를 열면 선택 상태가 저장돼 '다음' 활성화 -->
     <BottomButtonBar
       secondary-label="이전"
+      primary-label="다음"
+      :primary-disabled="!selectedListingId"
       @secondary-click="router.push({ name: 'RentGoalCreate' })"
+      @primary-click="goNext"
     />
   </div>
 </template>
@@ -222,6 +229,12 @@ const priceLine = (l) =>
   font-size: 10px;
   color: var(--text-hint);
   margin-top: 4px;
+}
+.select-hint {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
 }
 .cta {
   padding: 9px 18px;
