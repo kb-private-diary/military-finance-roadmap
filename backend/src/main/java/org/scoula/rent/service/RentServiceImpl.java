@@ -29,6 +29,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -42,6 +44,18 @@ public class RentServiceImpl implements RentService {
     private static final String MODE_SCHOOL = "SCHOOL";
     private static final String MODE_REGION = "REGION";
     private static final int SPENDING_MONTHS = 3; // 소비 패턴 집계 기간 (최근 3개월)
+
+    // 전월세전환율 (연 5.5%). 보증금환산액 = deposit × 0.055 ÷ 12 (원/월)
+    //   반전세(보증금 크고 월세 낮음)를 순수 월세와 공정 비교하려고 보증금을 월부담으로 환산한다.
+    //   근거: 주택임대차보호법 법정 전월세전환율 상한(기준금리+2%) 근처 + 한국부동산원 서울 오피스텔 실무값 ≈ 5.5%
+    //   저장 위치: utility_constant 는 지역계수·요금표 중심 key-value 라 법정 도메인 상수는 코드에서 단일 관리
+    private static final double JEONSE_CONVERSION_RATE = 0.055;
+
+    // 보증금 감당 토글 (findAffordability) - 기본 INCLUDE
+    private static final String DEPOSIT_MODE_EXCLUDE = "EXCLUDE"; // 보증금 대출 전제 → 필요목돈에서 제외
+
+    // findListings 노출 매물 최대 개수 (실질월부담 필터 후 상위 N개, 선택 피로 방지)
+    private static final int LISTING_LIMIT = 30;
 
     private final RentMapper mapper;
     private final RentListingMapper listingMapper;
@@ -227,27 +241,99 @@ public class RentServiceImpl implements RentService {
             throw BusinessException.notFound("목표를 찾을 수 없습니다.", "RENT_005");
         }
 
-        List<RentListingVO> listings;
+        // 1) 후보 매물 조회 (SQL 은 지역/학교반경 + 월세 느슨한 상한까지만, LIMIT 없음)
+        List<RentListingVO> candidates;
         if (MODE_SCHOOL.equals(goal.getSelectionMode())) {
             // 학교 좌표 기준 반경 내 매물
-            listings = this.listingMapper.findListingsBySchool(
+            candidates = this.listingMapper.findListingsBySchool(
                     goal.getSchoolId(), goal.getCommuteRadiusKm(), goal.getMonthlyBudget());
         } else {
             // 희망 지역(법정동코드)에 속한 매물
             List<String> regionCodes = this.mapper.findRegionCodesByGoalId(goalId);
-            listings = regionCodes.isEmpty()
+            candidates = regionCodes.isEmpty()
                     ? List.of()
                     : this.listingMapper.findListingsByRegions(regionCodes, goal.getMonthlyBudget());
         }
-        // 시세 상대평가 뱃지용: 조회된 매물의 종류별 평균 월세 (같은 조건 매물끼리 비교)
-        Map<String, Double> avgRentByType = listings.stream()
+
+        // 2) 실질월부담(월세+관리비+보증금환산) 계산 → 월예산 이하만 남기고 오름차순 상위 30개
+        long budget = goal.getMonthlyBudget() != null ? goal.getMonthlyBudget() : 0L;
+        List<ListingCost> affordable = filterByEffectiveMonthly(candidates, budget);
+
+        // 3) 시세 상대평가 뱃지용: 최종 노출 매물의 종류별 평균 월세 (같은 조건 매물끼리 비교)
+        Map<String, Double> avgRentByType = affordable.stream()
+                .map(ListingCost::listing)
                 .filter(l -> l.getMonthlyRent() != null && l.getEstateType() != null)
                 .collect(Collectors.groupingBy(
                         RentListingVO::getEstateType,
                         Collectors.averagingLong(RentListingVO::getMonthlyRent)));
-        return listings.stream()
-                .map(l -> RentListingResponseDTO.of(l, avgRentByType.get(l.getEstateType())))
+
+        // 4) DTO 변환 (뱃지 + 관리비·보증금환산·실질월부담 값 담기)
+        return affordable.stream()
+                .map(c -> RentListingResponseDTO.of(
+                        c.listing(),
+                        avgRentByType.get(c.listing().getEstateType()),
+                        c.maintenanceFee(), c.depositConverted(), c.effectiveMonthly()))
                 .toList();
+    }
+
+    /**
+     * 후보 매물 각각의 실질 월부담을 계산해, 월예산 이하인 것만 실질월부담 오름차순 상위 30개로 추린다.
+     * - 관리비: utilityService.calcManagementFee(regionCode, areaSqm) (regionCode/areaSqm 없으면 0)
+     * - 보증금환산: deposit × 전월세전환율 ÷ 12 (원/월)
+     * - 실질월부담: 월세 + 관리비 + 보증금환산 (반전세 공정 비교 기준)
+     *
+     * 성능: calcManagementFee 는 매 건 DB 조회(시도계수·관리비 앵커)라 N+1 소지가 있어,
+     *       동일 (regionCode, areaSqm) 은 요청 단위 Map 으로 메모이즈해 중복 조회를 줄인다.
+     *       (같은 건물·같은 면적 매물이 실거래에 반복 등장하므로 중복 제거 효과가 있다)
+     *       TODO(확장): 관리비 앵커(findAreaMgmtAnchors)는 요청당 1회, 시도계수는 시도별 1회만
+     *                  조회하면 서로 다른 면적까지 완전 제거 가능 - UtilityService 에 배치 API 추가 시 고도화
+     */
+    private List<ListingCost> filterByEffectiveMonthly(List<RentListingVO> candidates, long budget) {
+        Map<String, Long> mgmtCache = new HashMap<>(); // key: regionCode|areaSqm → 관리비 (요청 단위 메모이즈)
+        List<ListingCost> result = new ArrayList<>();
+
+        for (RentListingVO l : candidates) {
+            long monthlyRent = l.getMonthlyRent() != null ? l.getMonthlyRent() : 0L;
+            long deposit = l.getDeposit() != null ? l.getDeposit() : 0L;
+
+            long maintenanceFee = calcMaintenanceFeeCached(l, mgmtCache); // 관리비 (없으면 0)
+            long depositConverted = Math.round(deposit * JEONSE_CONVERSION_RATE / 12); // 보증금환산 (원/월)
+            long effectiveMonthly = monthlyRent + maintenanceFee + depositConverted;   // 실질 월부담
+
+            // 실질월부담 ≤ 월예산 인 매물만 통과
+            if (effectiveMonthly <= budget) {
+                result.add(new ListingCost(l, maintenanceFee, depositConverted, effectiveMonthly));
+            }
+        }
+
+        // 실질월부담 오름차순 정렬 후 상위 30개 (선택 피로 방지)
+        result.sort((a, b) -> Long.compare(a.effectiveMonthly(), b.effectiveMonthly()));
+        return result.size() > LISTING_LIMIT ? result.subList(0, LISTING_LIMIT) : result;
+    }
+
+    /**
+     * 관리비 계산 (요청 단위 메모이즈).
+     * regionCode/areaSqm 이 없으면 계산 불가 → 0.
+     */
+    private long calcMaintenanceFeeCached(RentListingVO l, Map<String, Long> cache) {
+        String regionCode = l.getRegionCode();
+        if (regionCode == null || l.getAreaSqm() == null) {
+            return 0L;
+        }
+        double areaSqm = l.getAreaSqm().doubleValue();
+        String key = regionCode + "|" + areaSqm;
+        Long cached = cache.get(key);
+        if (cached != null) {
+            return cached;
+        }
+        long fee = this.utilityService.calcManagementFee(regionCode, areaSqm);
+        cache.put(key, fee);
+        return fee;
+    }
+
+    /** findListings 내부용 홀더 - 매물 VO + 계산된 관리비·보증금환산·실질월부담을 함께 들고 다닌다 */
+    private record ListingCost(RentListingVO listing, long maintenanceFee,
+                               long depositConverted, long effectiveMonthly) {
     }
 
     @Override
@@ -257,7 +343,14 @@ public class RentServiceImpl implements RentService {
         if (vo == null) {
             throw BusinessException.notFound("매물을 찾을 수 없습니다.", "RENT_006");
         }
-        return RentListingDetailResponseDTO.of(vo);
+        // 예상 관리비 = K-apt 면적앵커 보간 단가 × 전용면적 × 시도계수 (공용관리비, UtilityService로 통일)
+        //   regionCode 없거나 areaSqm null 이면 계산 불가 → 0
+        long maintenanceFee = 0L;
+        if (vo.getRegionCode() != null && vo.getAreaSqm() != null) {
+            maintenanceFee = utilityService.calcManagementFee(
+                    vo.getRegionCode(), vo.getAreaSqm().doubleValue());
+        }
+        return RentListingDetailResponseDTO.of(vo, maintenanceFee);
     }
 
     @Override
@@ -292,16 +385,24 @@ public class RentServiceImpl implements RentService {
 
     @Override
     @Transactional(readOnly = true)
-    public RentAffordabilityResponseDTO findAffordability(Long listingId, Long userId, int months) {
+    public RentAffordabilityResponseDTO findAffordability(Long listingId, Long userId, int months, String depositMode) {
         // 1) 총 필요자금 계산 재사용 (매물 존재·개월수 검증 포함)
+        //    cost.totalRequired = 보증금 + 월주거비((월세+관리비)×개월), cost.livingCost = 월주거비만
         RentCostResponseDTO cost = this.calculateCost(listingId, months);
 
-        // 2) 만기금(군적금 예상 만기 수령액) 조회
+        // 2) 보증금 감당 토글 → 필요목돈 결정
+        //    INCLUDE(기본): 보증금 + 월주거비 (보증금까지 직접 마련)
+        //    EXCLUDE       : 월주거비만 (보증금은 전세대출 전제로 필요목돈에서 제외)
+        long required = DEPOSIT_MODE_EXCLUDE.equalsIgnoreCase(depositMode)
+                ? cost.getLivingCost()
+                : cost.getTotalRequired();
+
+        // 3) 만기금(군적금 예상 만기 수령액) 조회
         //    온보딩에서 군적금 가입을 강제하므로 미가입(DASH_002)은 정상 흐름에 없음 - 예외는 그대로 전파(공통 advice가 처리)
         long maturity = this.dashboardService.findSavingsStatus(userId).getExpectedMaturityTotal();
 
-        // 3) 부족분·감당도 판정 후 응답 조립
-        return RentAffordabilityResponseDTO.of(listingId, months, cost.getTotalRequired(), maturity);
+        // 4) 부족분·감당도 판정 후 응답 조립 (판정 로직은 기존 재사용)
+        return RentAffordabilityResponseDTO.of(listingId, months, required, maturity);
     }
 
     @Override

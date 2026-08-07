@@ -30,6 +30,11 @@ public class RentListingResponseDTO {
     private String priceLevel;    // 시세 상대평가 CHEAP / AVERAGE / EXPENSIVE
     private String freshness;     // 실거래 신선도 FRESH_1M / FRESH_3M / OLD_6M
 
+    // --- 전월세전환 실질월부담 (findListings 에서 계산해 채워짐, 프론트 카드 표시용) ---
+    private Long maintenanceFee;   // 월 예상 관리비 (면적앵커 보간 단가 × 전용면적 × 시도계수, 없으면 0)
+    private Long depositConverted; // 보증금환산액 = 보증금 × 전월세전환율 ÷ 12 (원/월)
+    private Long effectiveMonthly; // 실질 월부담 = 월세 + 관리비 + 보증금환산 (반전세 공정 비교 기준)
+
     /** 뱃지 없는 기본 매핑 */
     public static RentListingResponseDTO of(RentListingVO vo) {
         return RentListingResponseDTO.builder()
@@ -51,6 +56,19 @@ public class RentListingResponseDTO {
         return of(vo).toBuilder()
                 .priceLevel(priceLevel(vo.getMonthlyRent(), avgRent))
                 .freshness(freshness(vo.getDealDate()))
+                .build();
+    }
+
+    /**
+     * 뱃지 + 전월세전환 실질월부담 포함 매핑 (Step2 매물 리스트용)
+     * 관리비·보증금환산·실질월부담은 findListings 에서 이미 계산한 값을 그대로 담는다.
+     */
+    public static RentListingResponseDTO of(RentListingVO vo, Double avgRent,
+                                            long maintenanceFee, long depositConverted, long effectiveMonthly) {
+        return of(vo, avgRent).toBuilder()
+                .maintenanceFee(maintenanceFee)
+                .depositConverted(depositConverted)
+                .effectiveMonthly(effectiveMonthly)
                 .build();
     }
 
