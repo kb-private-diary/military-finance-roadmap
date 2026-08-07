@@ -118,11 +118,13 @@ INSERT INTO `military_unit` (`unit_code`, `unit_name`, `type_id`, `created_date`
 --  [석윤] 공통/ 계급(military_rank)
 --  테이블: military_rank
 -- --------------------------------------------------------------------
-INSERT INTO `military_rank` (`rank_id`, `rank_name`, `rank_salary`, `image_url`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`) VALUES
-(1, '이병', 750000, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
-(2, '일병', 900000, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
-(3, '상병', 1200000, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
-(4, '병장', 1500000, NULL, NOW(), 'seokyun', NULL, NULL, 'N');
+INSERT INTO `military_rank`
+    (`rank_id`, `rank_name`, `rank_salary`, `service_months`, `image_url`,
+     `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`) VALUES
+(1, '이병', 750000, 1, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
+(2, '일병', 900000, 3, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
+(3, '상병', 1200000, 9, NULL, NOW(), 'seokyun', NULL, NULL, 'N'),
+(4, '병장', 1500000, 15, NULL, NOW(), 'seokyun', NULL, NULL, 'N');
 
 
 -- --------------------------------------------------------------------

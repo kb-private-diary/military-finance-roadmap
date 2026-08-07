@@ -20,4 +20,7 @@ public interface MilitarySavingProductMapper {
             @Param("bankCode") String bankCode,
             @Param("elapsedMonths") Integer elapsedMonths,
             @Param("elapsedRatio") BigDecimal elapsedRatio);
+
+    // bankCode의 월 최소납입한도. 상품 데이터가 없거나 하한이 없으면 null(호출부에서 0으로 처리)
+    Long findMinLimit(@Param("bankCode") String bankCode);
 }

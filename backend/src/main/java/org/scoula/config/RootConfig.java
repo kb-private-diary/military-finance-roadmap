@@ -73,6 +73,7 @@ import javax.sql.DataSource;
         "org.scoula.bookmark.service",
         "org.scoula.push.service",
         "org.scoula.push.client",
+        "org.scoula.member.scheduler",
         "org.scoula.roadmap.service",
         "org.scoula.kakao.service"
 })
