@@ -55,6 +55,10 @@ const affordText = computed(() => {
 const goProducts = () => {
   router.push({ name: 'RentProducts', params: { goalId }, query: { listingId, months: months.value } });
 };
+// 이전: step2 매물 리스트로 (draft·선택값은 store에 유지됨)
+const goPrev = () => {
+  router.push({ name: 'RentListingList', params: { goalId } });
+};
 </script>
 
 <template>
@@ -101,7 +105,12 @@ const goProducts = () => {
 
     <p class="promo">저장하면 지역별 실제 공과금까지 계산해서 진짜 정확한 자취 예산을 알려드려요</p>
 
-    <BottomButtonBar primary-label="금융상품 보기" @primary-click="goProducts" />
+    <BottomButtonBar
+      secondary-label="이전"
+      primary-label="금융상품 보기"
+      @secondary-click="goPrev"
+      @primary-click="goProducts"
+    />
   </div>
   <p v-else class="loading">불러오는 중...</p>
 </template>

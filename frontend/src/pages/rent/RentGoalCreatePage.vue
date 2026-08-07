@@ -18,24 +18,20 @@ const router = useRouter();
 const rentStore = useRentStore();
 const { show } = useToast();
 const draft = rentStore.draft;
-const TEMP_USER_ID = 1; // TODO: JWT 연동 후 제거
 const maturityManwon = 720; // TODO: 오픈뱅킹/적금 데이터 연동
 
-// 학교 검색
+// 학교 검색 — 정상 응답(배열)만 반영, 결과 없거나 실패 시 빈 목록(부산대 폴백 제거)
 const keyword = ref('');
 const schoolResults = ref([]);
 const searching = ref(false);
-const SAMPLE_SCHOOLS = [
-  { schoolId: 1, schoolName: '부산대학교', address: '부산 금정구 장전동' },
-];
 const searchSchools = async () => {
   if (keyword.value.trim().length < 2) return (schoolResults.value = []);
   searching.value = true;
   try {
     const data = await rentApi.searchSchools(keyword.value.trim());
-    schoolResults.value = data?.length ? data : SAMPLE_SCHOOLS;
+    schoolResults.value = Array.isArray(data) ? data : [];
   } catch {
-    schoolResults.value = SAMPLE_SCHOOLS;
+    schoolResults.value = [];
   } finally {
     searching.value = false;
   }
@@ -47,56 +43,70 @@ const selectSchool = (s) => {
   keyword.value = ''; // 검색창 초기화 (선택된 학교는 아래 카드에 표시됨)
 };
 
-// 지역 (최대 3개) — 바텀시트에서 시 → 군/구 → 동 계층 선택
-// TODO: 백엔드 regions 계층(level) 안정화되면 실데이터로 교체 (지금은 샘플)
-const SAMPLE_REGIONS = {
-  sido: [
-    { value: '26', label: '부산광역시' },
-    { value: '11', label: '서울특별시' },
-  ],
-  sigungu: {
-    26: [
-      { value: '26410', label: '금정구' },
-      { value: '26230', label: '부산진구' },
-      { value: '26290', label: '남구' },
-    ],
-    11: [{ value: '11680', label: '강남구' }],
-  },
-  dong: {
-    26410: [
-      { value: '2641010100', label: '장전동' },
-      { value: '2641010200', label: '구서동' },
-    ],
-    26230: [{ value: '2623010100', label: '부전동' }],
-    26290: [{ value: '2629010100', label: '대연동' }],
-    11680: [{ value: '1168010100', label: '역삼동' }],
-  },
-};
+// 지역 (최대 3개) — 바텀시트에서 시도 → 시군구 → 동 계층 선택 (rentApi.findRegions 실 API)
+// 백엔드 RegionResponseDTO { code, name } → BaseInput 옵션 { value, label } 로 매핑
+// 흐름: findRegions({}) 시도 → findRegions({ sido }) 시군구 → findRegions({ sigunguCode }) 동
+const toOpts = (list) =>
+  (list || []).map((r) => ({ value: r.code, label: r.name }));
+
 const regionSheetOpen = ref(false);
 const selSido = ref('');
 const selSigungu = ref('');
 const selDong = ref('');
-const sidoOpts = SAMPLE_REGIONS.sido;
-const sigunguOpts = computed(() => SAMPLE_REGIONS.sigungu[selSido.value] || []);
-const dongOpts = computed(() => SAMPLE_REGIONS.dong[selSigungu.value] || []);
-watch(selSido, () => {
+const sidoOpts = ref([]);
+const sigunguOpts = ref([]);
+const dongOpts = ref([]);
+
+// API 실패 시에만 쓰는 최소 폴백 (에러 안전)
+const SAMPLE_SIDO = [{ value: '부산광역시', label: '부산광역시' }];
+
+const loadSido = async () => {
+  try {
+    sidoOpts.value = toOpts(await rentApi.findRegions({}));
+  } catch {
+    sidoOpts.value = SAMPLE_SIDO;
+  }
+};
+// 시도 선택 → 시군구 로드 (하위 선택 초기화)
+watch(selSido, async (sido) => {
   selSigungu.value = '';
   selDong.value = '';
+  sigunguOpts.value = [];
+  dongOpts.value = [];
+  if (!sido) return;
+  try {
+    sigunguOpts.value = toOpts(await rentApi.findRegions({ sido }));
+  } catch {
+    sigunguOpts.value = [];
+  }
 });
-watch(selSigungu, () => (selDong.value = ''));
+// 시군구 선택 → 동 로드 (하위 선택 초기화)
+watch(selSigungu, async (sigunguCode) => {
+  selDong.value = '';
+  dongOpts.value = [];
+  if (!sigunguCode) return;
+  try {
+    dongOpts.value = toOpts(await rentApi.findRegions({ sigunguCode }));
+  } catch {
+    dongOpts.value = [];
+  }
+});
 const openRegionSheet = () => {
   selSido.value = '';
   selSigungu.value = '';
   selDong.value = '';
+  sigunguOpts.value = [];
+  dongOpts.value = [];
+  if (!sidoOpts.value.length) loadSido();
   regionSheetOpen.value = true;
 };
-// 동까지 고르면 칩으로 추가 + 시트 닫기
+// 동까지 고르면 칩으로 추가 + 시트 닫기 (region_code = 법정동코드, 기존 addRegion 유지)
 watch(selDong, (v) => {
   if (!v) return;
-  const sido = sidoOpts.find((o) => o.value === selSido.value)?.label || '';
+  const sido = sidoOpts.value.find((o) => o.value === selSido.value)?.label || '';
   const gu = sigunguOpts.value.find((o) => o.value === selSigungu.value)?.label || '';
   const dong = dongOpts.value.find((o) => o.value === v)?.label || '';
-  rentStore.addRegion({ code: v, name: `${sido} ${gu} ${dong}` });
+  rentStore.addRegion({ code: v, name: `${sido} ${gu} ${dong}`.trim() });
   regionSheetOpen.value = false;
 });
 
@@ -111,7 +121,7 @@ const goNext = async () => {
   if (!canProceed.value || submitting.value) return;
   submitting.value = true;
   try {
-    const goalId = await rentStore.createGoal(TEMP_USER_ID);
+    const goalId = await rentStore.createGoal();
     await router.push({ name: 'RentListingList', params: { goalId } });
   } catch {
     show('조건 저장에 실패했어요. 다시 시도해주세요.', 'error');
@@ -159,6 +169,7 @@ const goNext = async () => {
             </li>
           </ul>
           <p v-else-if="searching" class="hint">검색 중...</p>
+          <p v-else-if="keyword.trim().length >= 2" class="hint">검색 결과가 없어요</p>
         </div>
         <BaseCard v-if="draft.schoolId" padding="12px 14px">
           <div class="picked-name">{{ draft.schoolName }}</div>
@@ -219,8 +230,10 @@ const goNext = async () => {
     </div>
 
     <BottomButtonBar
+      secondary-label="이전"
       :primary-label="submitting ? '불러오는 중...' : '매물 보기'"
       :primary-disabled="!canProceed || submitting"
+      @secondary-click="router.push({ name: 'Home' })"
       @primary-click="goNext"
     />
 

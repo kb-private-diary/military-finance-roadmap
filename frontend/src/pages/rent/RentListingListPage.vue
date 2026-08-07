@@ -8,6 +8,7 @@ import { useRentStore } from '@/stores/rent';
 import { formatManwon } from '@/util/format';
 import BaseCard from '@/components/common/BaseCard.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
+import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
 
 const route = useRoute();
@@ -23,11 +24,14 @@ const ESTATE_LABEL = {
   ROOM: '원룸',
 };
 
-// TODO: 백엔드 매물 API(WIP) 준비되면 샘플 폴백 제거
+// TODO: 백엔드 매물 API(WIP) 준비되면 샘플 폴백 제거 (지역·가격·종류 다양하게 섞은 데모용)
 const SAMPLE = [
   { listingId: 1, buildingName: '부산대 앞 오피스텔', estateType: 'OFFICETEL', dongName: '부산 금정구 장전동', deposit: 5000000, monthlyRent: 450000, maintenanceFee: 50000, totalCost6M: 8000000, distanceText: '도보 12분', affordText: '딱 맞아요' },
   { listingId: 2, buildingName: '장전동 원룸', estateType: 'ROOM', dongName: '부산 금정구 장전동', deposit: 3000000, monthlyRent: 400000, maintenanceFee: 30000, totalCost6M: 5580000, distanceText: '도보 8분', affordText: '딱 맞아요' },
-  { listingId: 3, buildingName: '부곡동 신축 원룸', estateType: 'VILLA', dongName: '부산 금정구 부곡동', deposit: 8000000, monthlyRent: 500000, maintenanceFee: 50000, totalCost6M: 11300000, distanceText: '버스 15분', affordText: '빠듯해요' },
+  { listingId: 3, buildingName: '부곡동 신축 빌라', estateType: 'VILLA', dongName: '부산 금정구 부곡동', deposit: 8000000, monthlyRent: 500000, maintenanceFee: 50000, totalCost6M: 11300000, distanceText: '버스 15분', affordText: '빠듯해요' },
+  { listingId: 4, buildingName: '남산동 리모델링 원룸', estateType: 'ROOM', dongName: '부산 금정구 남산동', deposit: 4000000, monthlyRent: 380000, maintenanceFee: 30000, totalCost6M: 6460000, distanceText: '도보 5분', affordText: '딱 맞아요' },
+  { listingId: 5, buildingName: '구서동 투룸 오피스텔', estateType: 'OFFICETEL', dongName: '부산 금정구 구서동', deposit: 10000000, monthlyRent: 650000, maintenanceFee: 70000, totalCost6M: 14320000, distanceText: '도보 20분', affordText: '예산 초과' },
+  { listingId: 6, buildingName: '온천동 브라운 아파트', estateType: 'APARTMENT', dongName: '부산 금정구 온천동', deposit: 20000000, monthlyRent: 700000, maintenanceFee: 100000, totalCost6M: 24800000, distanceText: '버스 10분', affordText: '예산 초과' },
 ];
 
 const listings = ref([]);
@@ -110,12 +114,18 @@ const priceLine = (l) =>
       </BaseCard>
       <p class="footnote">6개월 거주 기준으로 재정 진단</p>
     </template>
+
+    <!-- 매물은 카드 탭으로 다음 단계 진행 → 하단 바는 '이전'(step1)만 -->
+    <BottomButtonBar
+      secondary-label="이전"
+      @secondary-click="router.push({ name: 'RentGoalCreate' })"
+    />
   </div>
 </template>
 
 <style scoped>
 .listings {
-  padding: 20px 0 24px;
+  padding: 20px 0 88px; /* 하단 고정 BottomButtonBar 여백 */
   display: flex;
   flex-direction: column;
   gap: 10px;

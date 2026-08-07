@@ -80,6 +80,7 @@
   --pastel-yellow: #fbd55b;
   --pastel-green: #9cd495;
   --pastel-pink: #f8a5a5;
+  --rent-pink: #e85d84; /* 자취 테마 핑크 — 흰 글씨 대비 확보한 진한 핑크(카테고리 칩) */
 
   /* 알림 */
   --notification: #ff3b30; /* 읽지 않은 알림 배지 */

@@ -18,7 +18,6 @@ const { show } = useToast();
 const goalId = Number(route.params.goalId);
 const listingId = Number(route.query.listingId) || rentStore.selectedListingId;
 const months = Number(route.query.months) || rentStore.months || 6;
-const TEMP_USER_ID = 1; // TODO: JWT 연동 후 제거
 
 const CATEGORY = { POLICY: '정책', KB: 'KB' };
 
@@ -53,11 +52,16 @@ const load = async () => {
 };
 onMounted(load);
 
+// 이전: step3 매물 상세로 (listingId·months 유지)
+const goPrev = () => {
+  router.push({ name: 'RentListingDetail', params: { listingId }, query: { goalId, months } });
+};
+
 const saveRoadmap = async () => {
   if (saving.value) return;
   saving.value = true;
   try {
-    await rentApi.confirmGoal(goalId, { listingId, months, selectedProductIds: products.value.map((p) => p.productId) }, TEMP_USER_ID);
+    await rentApi.confirmGoal(goalId, { listingId, months, selectedProductIds: products.value.map((p) => p.productId) });
   } catch {
     // TODO(데모용/임시): 백엔드 confirm 엔드포인트(POST /api/rent/goals/{goalId}/confirm) 준비 전이라 404임
     //   정식 연동되면 이 catch를 에러 토스트 + return 으로 되돌릴 것
@@ -111,8 +115,10 @@ const saveRoadmap = async () => {
     </template>
 
     <BottomButtonBar
+      secondary-label="이전"
       :primary-label="saving ? '저장 중...' : '로드맵 저장'"
       :primary-disabled="saving || loading"
+      @secondary-click="goPrev"
       @primary-click="saveRoadmap"
     />
   </div>

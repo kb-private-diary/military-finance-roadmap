@@ -1,6 +1,8 @@
 <script setup>
 defineProps({
-  primaryLabel: { type: String, required: true, default: '다음' },
+  // primaryLabel 을 비워두면 primary 버튼을 렌더하지 않는다.
+  // (매물 리스트 step2 처럼 '이전'만 필요한 back-only 바 용도)
+  primaryLabel: { type: String, required: false, default: '' },
   secondaryLabel: { type: String, required: false, default: '' },
   primaryDisabled: { type: Boolean, required: false, default: false },
   primaryVariant: { type: String, required: false, default: 'primary' },
@@ -20,6 +22,7 @@ defineEmits(['primary-click', 'secondary-click']);
       {{ secondaryLabel }}
     </button>
     <button
+      v-if="primaryLabel"
       type="button"
       class="bar-button"
       :class="primaryVariant"

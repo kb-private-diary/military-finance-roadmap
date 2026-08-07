@@ -2,7 +2,7 @@ import instance from '@/api'; // 공통 axios 인스턴스
 
 // 자취(rent) 도메인 API (FINAL 스펙 v2.1 §7)
 // 응답은 ApiResponse 래핑 → data.data 로 벗겨서 반환함
-// ⚠️ userId 는 JWT 연동 전 임시 @RequestParam임 (TODO: JWT 연동 후 제거)
+// userId 는 JWT(Authorization 헤더)에서 식별 - axios 인터셉터가 토큰을 자동으로 붙임
 const BASE_URL = '/api/rent';
 
 export default {
@@ -14,20 +14,18 @@ export default {
     return data.data;
   },
 
-  // 지역 계층 조회 (Step1 지역 모드) — level: SIDO | SIGUNGU | DONG
-  //   findRegions({ level: 'SIDO' })
-  //   findRegions({ level: 'SIGUNGU', sidoCode: '26' })
-  //   findRegions({ level: 'DONG', sigunguCode: '26260' })
-  async findRegions(params) {
+  // 지역 계층 조회 (Step1 지역 모드) — 백엔드 실계약: GET /rent/regions (sido·sigunguCode)
+  //   findRegions({})                    → 시/도 목록   (code=name=시도명)
+  //   findRegions({ sido: '서울특별시' })  → 시/군/구 목록 (code=시군구코드, name=시군구명)
+  //   findRegions({ sigunguCode: '11680' }) → 읍/면/동 목록 (code=법정동코드, name=읍면동명)
+  async findRegions(params = {}) {
     const { data } = await instance.get(`${BASE_URL}/regions`, { params });
-    return data.data; // [{ regionCode, regionName, sigunguCode }]
+    return data.data; // [{ code, name }]
   },
 
   // 목표 생성 (Step1 → 매물 보기) — { goalId, maturityAmount }
-  async createGoal(payload, userId) {
-    const { data } = await instance.post(`${BASE_URL}/goals`, payload, {
-      params: { userId },
-    });
+  async createGoal(payload) {
+    const { data } = await instance.post(`${BASE_URL}/goals`, payload);
     return data.data;
   },
 
@@ -63,11 +61,10 @@ export default {
   },
 
   // 로드맵 저장 (Step4 → 5) — body: { listingId, months, selectedProductIds }
-  async confirmGoal(goalId, payload, userId) {
+  async confirmGoal(goalId, payload) {
     const { data } = await instance.post(
       `${BASE_URL}/goals/${goalId}/confirm`,
       payload,
-      { params: { userId } },
     );
     return data.data; // { goalId, status, months, redirectUrl }
   },

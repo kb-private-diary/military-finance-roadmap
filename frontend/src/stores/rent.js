@@ -51,7 +51,7 @@ export const useRentStore = defineStore('rent', () => {
   };
 
   // ── 목표 생성 (매물 보기) → { goalId, maturityAmount } ─────
-  const createGoal = async (userId) => {
+  const createGoal = async () => {
     // 백엔드 실계약: { selectionMode, schoolId, commuteRadiusKm, regionCodes, monthlyBudget(원), residencePreset }
     const isSchool = draft.value.locationType === 'SCHOOL';
     const payload = {
@@ -62,7 +62,7 @@ export const useRentStore = defineStore('rent', () => {
       monthlyBudget: draft.value.monthlyBudget * 10000, // 만원 → 원
       residencePreset: 'YEAR', // 거주기간은 Step3에서 조정, 생성 시 기본값
     };
-    const data = await rentApi.createGoal(payload, userId);
+    const data = await rentApi.createGoal(payload);
     const goalId = typeof data === 'object' && data !== null ? data.goalId : data;
     currentGoalId.value = goalId;
     if (data?.maturityAmount != null) maturityAmount.value = data.maturityAmount;
