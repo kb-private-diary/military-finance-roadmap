@@ -16,10 +16,6 @@ const router = useRouter();
 
 const goalId = computed(() => Number(route.params.goalId));
 
-// ── 진행바 (step3/4) ──────────────────────────────────────────
-const currentStep = 3;
-const progress = computed(() => (currentStep / 4) * 100);
-
 // ── 조회 상태 ─────────────────────────────────────────────────
 const qualifications = ref([]);
 const courses = ref([]);
@@ -138,7 +134,7 @@ onMounted(() => {
 
 <template>
   <div class="job-cost">
-    <RoadmapCharacterSlider :progress="progress" label="진로 로드맵" />
+    <RoadmapCharacterSlider :progress="67" label="진로 로드맵" />
 
     <div v-if="isLoading" class="job-cost__loading">
       비용 정보를 불러오고 있습니다.
