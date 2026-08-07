@@ -1,6 +1,6 @@
 <script setup>
 // SCR-RENT-02 · Step 2) 매물 리스트  담당: 수연
-// 디자인: UI/rent_ui_(school|region)_mode.html (매물 카드) — 모드별 뱃지 2개(교통 + 재정진단)
+// 디자인: UI/rent_ui_school_mode.html (매물 카드) — 목업 톤 반영(교통·재정 뱃지)
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import rentApi from '@/api/rentApi';
@@ -24,25 +24,16 @@ const ESTATE_LABEL = {
   ROOM: '원룸',
 };
 
-// 뱃지1) 교통: 모드별로 다른 필드 사용 (학교=commuteText / 지역=transitText)
-//   아이콘은 텍스트로 추정 — '버스'면 🚌, 아니면 학교 🚶 / 지역 🚇. 값 없으면 미표시.
-//   (시세·신선도 뱃지는 step2에서 제거 — 시세는 step3 담당)
-const transportBadgeOf = (l) => {
-  const text = l.selectionMode === 'SCHOOL' ? l.commuteText : l.transitText;
-  if (!text) return null;
-  let icon;
-  if (text.includes('버스')) icon = '🚌';
-  else icon = l.selectionMode === 'SCHOOL' ? '🚶' : '🚇';
-  return { icon, text };
-};
-// 뱃지2) 재정진단: affordLevel 로 톤(색) 구분, 텍스트는 affordText. 아이콘은 목업 수준으로 최소.
-const AFFORD_TONE = { ENOUGH: 'good', TIGHT: 'caution', OVER: 'danger' };
-const AFFORD_ICON = { ENOUGH: '👍', TIGHT: '⚠️', OVER: '❌' };
-const affordToneOf = (l) => AFFORD_TONE[l.affordLevel] || 'neutral';
-const affordIconOf = (l) => AFFORD_ICON[l.affordLevel] || '';
+// TODO: 백엔드 매물 API(WIP) 준비되면 샘플 폴백 제거
+const SAMPLE = [
+  { listingId: 1, estateType: 'OFFICETEL', buildingName: '부산대 앞 오피스텔', umdName: '부산 금정구 장전동', areaSqm: 31.7, floor: 11, deposit: 5000000, monthlyRent: 450000, maintenanceFee: 50000, selectionMode: 'SCHOOL', commuteText: '도보 12분', transitText: null, affordLevel: 'ENOUGH', affordText: '딱 맞아요', effectiveMonthly: 530000, totalCost6M: 8000000, priceLevel: 'LOW' },
+  { listingId: 2, estateType: 'ROOM', buildingName: '장전동 원룸', umdName: '부산 금정구 장전동', areaSqm: 23.1, floor: 3, deposit: 3000000, monthlyRent: 400000, maintenanceFee: 30000, selectionMode: 'SCHOOL', commuteText: '도보 8분', transitText: null, affordLevel: 'ENOUGH', affordText: '딱 맞아요', effectiveMonthly: 480000, totalCost6M: 5580000, priceLevel: 'MID' },
+  { listingId: 3, estateType: 'VILLA', buildingName: '부곡동 신축 빌라', umdName: '부산 금정구 부곡동', areaSqm: 39.6, floor: 2, deposit: 8000000, monthlyRent: 500000, maintenanceFee: 50000, selectionMode: 'SCHOOL', commuteText: '버스 15분', transitText: null, affordLevel: 'TIGHT', affordText: '빠듯해요', effectiveMonthly: 620000, totalCost6M: 11300000, priceLevel: 'HIGH' },
+];
 
 const listings = ref([]);
 const loading = ref(true);
+const sortMode = ref('recommend'); // recommend | cheap | near
 
 const filterText = computed(() => {
   const d = rentStore.draft;
@@ -50,66 +41,118 @@ const filterText = computed(() => {
     d.locationType === 'SCHOOL'
       ? d.schoolName || '학교'
       : d.regions.map((r) => r.name.split(' ').pop()).join('·') || '지역';
-  return `${loc} · ${d.radiusKm}km · ${d.monthlyBudget}만`;
+  return `${loc} · ${d.radiusKm}km · ${d.monthlyBudget}만원`;
 });
 
 const load = async () => {
   loading.value = true;
   try {
     const data = await rentApi.findListings(goalId);
-    listings.value = Array.isArray(data) ? data : [];
+    // 백엔드 계약: { totalCount, listings[] } — 배열로 바로 오는 경우도 방어
+    const arr = Array.isArray(data) ? data : (data?.listings ?? []);
+    listings.value = arr.length ? arr : SAMPLE;
   } catch {
-    listings.value = [];
+    listings.value = SAMPLE; // TODO: 폴백 제거
   } finally {
     loading.value = false;
   }
 };
 onMounted(load);
 
-// 선택된 매물(store) — 하단 '다음' 버튼 활성 조건
-const selectedListingId = computed(() => rentStore.selectedListingId);
+// ── 교통 뱃지(SCHOOL=commuteText / REGION=transitText) ──────────
+// "도보 N분"→🚶, "OO역 도보 N분"→🚇 (둘 다 파랑), "버스…"→🚌(갈색). null이면 미표시.
+const trafficText = (l) =>
+  l.selectionMode === 'REGION' ? l.transitText : l.commuteText;
 
-const goDetail = (l) => {
-  rentStore.selectedListingId = l.listingId;
-  // 시세(priceLevel)는 step3 단건 응답에 없으므로 여기서 store에 넘겨 시세 뱃지로 표시
-  rentStore.selectedPriceLevel = l.priceLevel ?? null;
-  router.push({
-    name: 'RentListingDetail',
-    params: { listingId: l.listingId },
-    query: { goalId, months: rentStore.months },
-  });
+const trafficBadge = (l) => {
+  const t = trafficText(l);
+  if (!t) return null;
+  if (t.includes('버스')) return { emoji: '🚌', cls: 'badge--brown', text: t };
+  if (t.includes('역')) return { emoji: '🚇', cls: 'badge--blue', text: t };
+  return { emoji: '🚶', cls: 'badge--blue', text: t }; // 도보
 };
 
-// 하단 '다음' — 선택된 매물의 상세로 이동 (선택 없으면 비활성이라 호출 안 됨)
-const goNext = () => {
-  if (!selectedListingId.value) return;
-  router.push({
-    name: 'RentListingDetail',
-    params: { listingId: selectedListingId.value },
-    query: { goalId, months: rentStore.months },
-  });
+// ── 재정 뱃지(affordLevel) ────────────────────────────────────
+const AFFORD = {
+  ENOUGH: { emoji: '👍', cls: 'badge--green' },
+  TIGHT: { emoji: '⚠️', cls: 'badge--amber' },
+  OVER: { emoji: '❌', cls: 'badge--red' },
 };
+const affordBadge = (l) => {
+  const m = AFFORD[l.affordLevel];
+  return m ? { ...m, text: l.affordText } : null;
+};
+
+// ── 평수 변환(㎡ ÷ 3.3058, 소수1자리) ─────────────────────────
+const toPyeong = (sqm) =>
+  sqm == null ? null : (sqm / 3.3058).toFixed(1);
+
+const metaLine = (l) =>
+  [
+    l.umdName,
+    toPyeong(l.areaSqm) != null ? `${toPyeong(l.areaSqm)}평` : null,
+    l.floor != null ? `${l.floor}층` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
 const priceLine = (l) =>
   `보증 ${formatManwon(l.deposit)} / 월 ${formatManwon(l.monthlyRent)} / 관리 ${formatManwon(l.maintenanceFee)}`;
 
-// 보증금환산(원/월): 응답에 depositConverted 있으면 사용, 없으면 보증금×5.5%÷12
-const depositConvertedOf = (l) =>
-  l.depositConverted ?? Math.round(((l.deposit ?? 0) * 0.055) / 12);
-// 실질 월부담(원/월): 응답에 effectiveMonthly 있으면 사용, 없으면 월세+관리비+보증금환산
-const effectiveMonthlyOf = (l) =>
-  l.effectiveMonthly ??
-  (l.monthlyRent ?? 0) + (l.maintenanceFee ?? 0) + depositConvertedOf(l);
+// ── 정렬 ──────────────────────────────────────────────────────
+// 추천순 = 응답 순서(백엔드 실질월부담 오름차순) / 저렴한 순 = effectiveMonthly↑ / 가까운 순 = 교통 분↑
+const parseMinutes = (l) => {
+  const t = trafficText(l);
+  if (!t) return Infinity;
+  const m = t.match(/(\d+)\s*분/);
+  // TODO: "버스 이용 지역"처럼 분(分)이 없는 지역 표기는 파싱 불가 → 맨 뒤로
+  return m ? Number(m[1]) : Infinity;
+};
+
+const sortedListings = computed(() => {
+  const arr = [...listings.value];
+  if (sortMode.value === 'cheap') {
+    return arr.sort(
+      (a, b) => (a.effectiveMonthly ?? Infinity) - (b.effectiveMonthly ?? Infinity),
+    );
+  }
+  if (sortMode.value === 'near') {
+    return arr.sort((a, b) => parseMinutes(a) - parseMinutes(b));
+  }
+  return arr; // recommend: 응답 순서 유지
+});
+
+// ── 상세 이동 + 선택(priceLevel) 저장 ─────────────────────────
+const goDetail = (l) => {
+  rentStore.selectedListingId = l.listingId;
+  router.push({
+    name: 'RentListingDetail',
+    params: { listingId: l.listingId },
+    // priceLevel 저장: 상세/이후 단계에서 참조하도록 query로 이어줌
+    query: {
+      goalId,
+      months: rentStore.months,
+      priceLevel: l.priceLevel ?? undefined,
+    },
+  });
+};
+
+const onPrev = () => router.push({ name: 'RentGoalCreate' });
+const onComplete = () => {
+  const picked = listings.value.find(
+    (l) => l.listingId === rentStore.selectedListingId,
+  );
+  if (picked) goDetail(picked);
+};
 </script>
 
 <template>
   <div class="listings">
     <RoadmapCharacterSlider :progress="40" label="자취 로드맵" />
+
     <header class="head">
-      <div>
-        <p class="step">STEP 2</p>
-        <h2 class="title">추천 매물 {{ listings.length }}개</h2>
-      </div>
-      <span class="filter">{{ filterText }}</span>
+      <h2 class="title">로드맵을 선택해주십니까?</h2>
+      <span class="step">STEP 2</span>
     </header>
 
     <p v-if="loading" class="loading">불러오는 중...</p>
@@ -117,7 +160,7 @@ const effectiveMonthlyOf = (l) =>
     <EmptyState
       v-else-if="!listings.length"
       title="조건에 맞는 매물이 없어요"
-      description="다른 지역·학교로 찾아보거나 예산을 조정해보세요"
+      description="반경을 넓히거나 월 예산을 조정해보세요"
     >
       <template #action>
         <button class="cta" @click="router.push({ name: 'RentGoalCreate' })">
@@ -127,77 +170,74 @@ const effectiveMonthlyOf = (l) =>
     </EmptyState>
 
     <template v-else>
-      <BaseCard v-for="l in listings" :key="l.listingId" padding="12px">
+      <div class="sortbar">
+        <select v-model="sortMode" class="sort-select" aria-label="정렬">
+          <option value="recommend">추천순</option>
+          <option value="cheap">저렴한 순</option>
+          <option value="near">가까운 순</option>
+        </select>
+        <span class="filter">{{ filterText }}</span>
+      </div>
+
+      <BaseCard v-for="l in sortedListings" :key="l.listingId" padding="12px">
         <button class="listing-card" @click="goDetail(l)">
-          <span class="info">
-            <span class="name">
-              <span class="estate">{{ ESTATE_LABEL[l.estateType] || '매물' }}</span>
-              {{ l.buildingName }}
+          <span class="name-row">
+            <span class="chip">{{ ESTATE_LABEL[l.estateType] || '매물' }}</span>
+            <span class="name">{{ l.buildingName }}</span>
+          </span>
+          <span class="meta">{{ metaLine(l) }}</span>
+          <span class="price">{{ priceLine(l) }}</span>
+          <span class="badges">
+            <span
+              v-if="trafficBadge(l)"
+              class="badge"
+              :class="trafficBadge(l).cls"
+            >
+              {{ trafficBadge(l).emoji }} {{ trafficBadge(l).text }}
             </span>
-            <span class="dong">{{ l.dongName }}</span>
-            <span class="badges">
-              <span v-if="transportBadgeOf(l)" class="badge badge--neutral">
-                {{ transportBadgeOf(l).icon }} {{ transportBadgeOf(l).text }}
-              </span>
-              <span
-                v-if="l.affordText"
-                class="badge"
-                :class="`badge--${affordToneOf(l)}`"
-              >
-                {{ affordIconOf(l) }} {{ l.affordText }}
-              </span>
+            <span
+              v-if="affordBadge(l)"
+              class="badge"
+              :class="affordBadge(l).cls"
+            >
+              {{ affordBadge(l).emoji }} {{ affordBadge(l).text }}
             </span>
-            <span class="eff">
-              <span class="eff-label">실질 월부담</span>
-              <span class="eff-val">{{ formatManwon(effectiveMonthlyOf(l)) }}</span>
-            </span>
-            <span class="price">{{ priceLine(l) }}</span>
-            <span class="conv">
-              보증금 {{ formatManwon(l.deposit) }} (월 {{ formatManwon(depositConvertedOf(l)) }} 상당)
-            </span>
-            <span class="est">6개월 예상 {{ formatManwon(l.totalCost6M) }}</span>
           </span>
         </button>
       </BaseCard>
-      <p class="footnote">6개월 거주 기준으로 재정 진단</p>
-      <p v-if="!selectedListingId" class="select-hint">매물을 선택해주세요</p>
     </template>
 
-    <!-- 이전(step1) + 다음: 카드 탭으로 상세를 열면 선택 상태가 저장돼 '다음' 활성화 -->
     <BottomButtonBar
       secondary-label="이전"
-      primary-label="다음"
-      :primary-disabled="!selectedListingId"
-      @secondary-click="router.push({ name: 'RentGoalCreate' })"
-      @primary-click="goNext"
+      primary-label="선택 완료"
+      :primary-disabled="!rentStore.selectedListingId"
+      @secondary-click="onPrev"
+      @primary-click="onComplete"
     />
   </div>
 </template>
 
 <style scoped>
 .listings {
-  padding: 20px 0 88px; /* 하단 고정 BottomButtonBar 여백 */
+  padding: 20px 0 88px;
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 .head {
   display: flex;
-  align-items: flex-end;
+  align-items: baseline;
   justify-content: space-between;
-}
-.step {
-  font-size: 12px;
-  color: var(--text-muted);
 }
 .title {
   font-size: 18px;
   font-weight: 700;
   color: var(--text-strong);
 }
-.filter {
-  font-size: 11px;
+.step {
+  font-size: 12px;
   color: var(--text-muted);
+  flex-shrink: 0;
 }
 .loading {
   padding: 40px 0;
@@ -205,10 +245,35 @@ const effectiveMonthlyOf = (l) =>
   font-size: 13px;
   color: var(--text-hint);
 }
+.sortbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+.sort-select {
+  appearance: none;
+  padding: 6px 26px 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background-color: #ffffff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23767676' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--text-body);
+  cursor: pointer;
+}
+.filter {
+  font-size: 11px;
+  color: var(--text-muted);
+}
 .listing-card {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
+  gap: 2px;
   width: 100%;
   padding: 0;
   border: 0;
@@ -217,105 +282,75 @@ const effectiveMonthlyOf = (l) =>
   cursor: pointer;
   font-family: inherit;
 }
-.info {
+.name-row {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
+}
+.chip {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--kb-gray-pale);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
 }
 .name {
   font-size: 13px;
   font-weight: 700;
   color: var(--text-body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.estate {
-  display: inline-block;
-  margin-right: 4px;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: var(--kb-gray-pale);
-  color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 600;
-  vertical-align: middle;
-}
-.dong {
+.meta {
+  margin-top: 3px;
   font-size: 11px;
   color: var(--text-hint);
-}
-.badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 5px;
-}
-/* 담백 톤: 배경 없이 테두리+글자색으로만 톤 구분 (기존 .tag 결과 맞춤) */
-.badge {
-  font-size: 10px;
-  padding: 2px 8px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  color: var(--text-muted);
-}
-/* 재정진단 톤: ENOUGH(딱 맞아요) / TIGHT(빠듯해요) / OVER(예산 초과) */
-.badge--good {
-  border-color: var(--military-green-light);
-  color: var(--success);
-}
-.badge--caution {
-  border-color: var(--roadmap-active);
-  color: var(--brown-text);
-}
-.badge--danger {
-  border-color: var(--danger);
-  color: var(--danger);
-}
-/* 교통 뱃지 등 중립 톤 */
-.badge--neutral {
-  border-color: var(--line);
-  color: var(--text-muted);
-}
-.eff {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  margin-top: 4px;
-}
-.eff-label {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-.eff-val {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-strong);
 }
 .price {
   margin-top: 2px;
   font-size: 11px;
   color: var(--text-muted);
 }
-.conv {
-  margin-top: 1px;
-  font-size: 10px;
-  color: var(--text-hint);
-}
-.est {
+.badges {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
   margin-top: 6px;
-  font-size: 11px;
-  color: var(--text-body);
 }
-.footnote {
-  text-align: center;
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   font-size: 10px;
-  color: var(--text-hint);
-  margin-top: 4px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
 }
-.select-hint {
-  text-align: center;
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-top: 2px;
+/* 뱃지 톤: 목업 색을 colors.css 토큰에서 파생(담백한 pill). */
+.badge--blue {
+  background: color-mix(in srgb, var(--pastel-blue) 16%, #fff);
+  color: color-mix(in srgb, var(--pastel-blue) 78%, #000);
+}
+.badge--brown {
+  background: var(--kb-gray-pale);
+  color: var(--brown-text);
+}
+.badge--green {
+  background: var(--military-green-light);
+  color: var(--success);
+}
+.badge--amber {
+  background: color-mix(in srgb, var(--roadmap-active) 22%, #fff);
+  color: color-mix(in srgb, var(--roadmap-active) 80%, #000);
+}
+.badge--red {
+  background: color-mix(in srgb, var(--danger) 18%, #fff);
+  color: color-mix(in srgb, var(--danger) 72%, #000);
 }
 .cta {
   padding: 9px 18px;
