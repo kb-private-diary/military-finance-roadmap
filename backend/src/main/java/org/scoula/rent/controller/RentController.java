@@ -9,6 +9,7 @@ import org.scoula.rent.dto.RentGoalDetailResponseDTO;
 import org.scoula.rent.dto.RentListingResponseDTO;
 import org.scoula.rent.dto.RentListingDetailResponseDTO;
 import org.scoula.rent.dto.RentCostResponseDTO;
+import org.scoula.rent.dto.RentAffordabilityResponseDTO;
 import org.scoula.rent.service.RentService;
 import org.scoula.rent.service.RentListingLoadService;
 import org.springframework.http.HttpStatus;
@@ -95,6 +96,25 @@ public class RentController {
             @PathVariable Long listingId,
             @RequestParam int months) {
         return ResponseEntity.ok(ApiResponse.success(service.calculateCost(listingId, months)));
+    }
+
+    // GET /api/rent/listings/{listingId}/affordability?userId=1&months=6 → 부족분·감당도 (Step4 빨간 카드)
+    @GetMapping("/listings/{listingId}/affordability")
+    public ResponseEntity<ApiResponse<RentAffordabilityResponseDTO>> findAffordability(
+            @PathVariable Long listingId,
+            @RequestParam Long userId, // TODO: JWT 연동 후 SecurityContext 로 교체
+            @RequestParam int months) {
+        return ResponseEntity.ok(ApiResponse.success(service.findAffordability(listingId, userId, months)));
+    }
+
+    // POST /api/rent/goals/{goalId}/confirm?userId=1&months=6 → 로드맵 저장 (DRAFT → CONFIRMED, months 선택)
+    @PostMapping("/goals/{goalId}/confirm")
+    public ResponseEntity<ApiResponse<Void>> confirmGoal(
+            @PathVariable Long goalId,
+            @RequestParam Long userId, // TODO: JWT 연동 후 SecurityContext 로 교체
+            @RequestParam(required = false) Integer months) {
+        service.confirmGoal(goalId, userId, months);
+        return ResponseEntity.ok(ApiResponse.success());
     }
 
     // POST /api/rent/listings/load?dealYm=202605 → 국토부 실거래가 매물 적재 (개발용, 대상 시군구 3개)

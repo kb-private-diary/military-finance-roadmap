@@ -139,4 +139,16 @@
            AND del_yn = 'N'
     </update>
 
+    <!-- 로드맵 저장: 상태 DRAFT → CONFIRMED (months 넘어오면 거주개월 갱신), DRAFT 인 건만 대상 -->
+    <update id="confirmGoal">
+        UPDATE rent_goal
+           SET status = 'CONFIRMED',
+               modified_date = NOW(),
+               modified_nm = #{modifiedNm}
+               <if test="months != null">, residence_months = #{months}</if>
+         WHERE goal_id = #{goalId}
+           AND status = 'DRAFT'
+           AND del_yn = 'N'
+    </update>
+
 </mapper>
