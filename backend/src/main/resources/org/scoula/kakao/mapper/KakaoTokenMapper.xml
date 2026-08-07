@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.scoula.kakao.mapper.KakaoTokenMapper">
+
+    <!-- 회원의 카카오 토큰 조회 (나에게 보내기 발송용) -->
+    <select id="findByUserId" parameterType="long" resultType="org.scoula.kakao.domain.KakaoTokenVO">
+        SELECT token_id, user_id, access_token, refresh_token, expires_at,
+               created_date, created_nm, modified_date, modified_nm, del_yn
+          FROM kakao_token
+         WHERE user_id = #{userId}
+           AND del_yn = 'N'
+    </select>
+
+    <!-- 토큰 저장/갱신 (user_id UNIQUE, 재연동·갱신 시 UPSERT) -->
+    <insert id="upsertToken" parameterType="org.scoula.kakao.domain.KakaoTokenVO">
+        INSERT INTO kakao_token
+            (user_id, access_token, refresh_token, expires_at, created_date, created_nm, del_yn)
+        VALUES
+            (#{userId}, #{accessToken}, #{refreshToken}, #{expiresAt}, NOW(), #{createdNm}, 'N')
+        ON DUPLICATE KEY UPDATE
+            access_token  = VALUES(access_token),
+            refresh_token = VALUES(refresh_token),
+            expires_at    = VALUES(expires_at),
+            modified_date = NOW(),
+            modified_nm   = VALUES(created_nm),
+            del_yn        = 'N'
+    </insert>
+
+</mapper>
