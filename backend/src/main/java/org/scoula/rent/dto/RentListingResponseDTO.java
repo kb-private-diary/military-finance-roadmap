@@ -30,6 +30,20 @@ public class RentListingResponseDTO {
     private String priceLevel;    // 시세 상대평가 CHEAP / AVERAGE / EXPENSIVE
     private String freshness;     // 실거래 신선도 FRESH_1M / FRESH_3M / OLD_6M
 
+    // --- 전월세전환 실질월부담 (findListings 에서 계산해 채워짐, 프론트 카드 표시용) ---
+    private Long maintenanceFee;   // 월 예상 관리비 (면적앵커 보간 단가 × 전용면적 × 시도계수, 없으면 0)
+    private Long depositConverted; // 보증금환산액 = 보증금 × 전월세전환율 ÷ 12 (원/월)
+    private Long effectiveMonthly; // 실질 월부담 = 월세 + 관리비 + 보증금환산 (반전세 공정 비교 기준)
+    private Long totalCost6M;      // 6개월 거주 총필요자금 = 보증금 + (월세 + 관리비) × 6 (원) - 프론트 "6개월 예상" 표시용
+                                   //   재정진단 뱃지(affordText) 판정에 쓰는 6개월 총필요자금과 동일한 값을 그대로 담는다.
+
+    // --- Step2 카드 모드별 뱃지 (findListings 에서 채움, 프론트 계약) ---
+    private String selectionMode; // 위치 모드 SCHOOL / REGION (프론트 뱃지 분기용)
+    private String commuteText;   // [학교 모드만] 통학시간 "도보 N분" / "버스 N분" (학교↔매물), 좌표 없으면 null
+    private String transitText;   // [지역 모드만] 대중교통 "OO역 도보 N분" / "버스 이용 지역"
+    private String affordLevel;   // [공통] 재정진단 코드 ENOUGH / TIGHT / OVER (6개월 거주 기준)
+    private String affordText;    // [공통] 재정진단 라벨 딱 맞아요 / 빠듯해요 / 예산 초과
+
     /** 뱃지 없는 기본 매핑 */
     public static RentListingResponseDTO of(RentListingVO vo) {
         return RentListingResponseDTO.builder()
@@ -51,6 +65,19 @@ public class RentListingResponseDTO {
         return of(vo).toBuilder()
                 .priceLevel(priceLevel(vo.getMonthlyRent(), avgRent))
                 .freshness(freshness(vo.getDealDate()))
+                .build();
+    }
+
+    /**
+     * 뱃지 + 전월세전환 실질월부담 포함 매핑 (Step2 매물 리스트용)
+     * 관리비·보증금환산·실질월부담은 findListings 에서 이미 계산한 값을 그대로 담는다.
+     */
+    public static RentListingResponseDTO of(RentListingVO vo, Double avgRent,
+                                            long maintenanceFee, long depositConverted, long effectiveMonthly) {
+        return of(vo, avgRent).toBuilder()
+                .maintenanceFee(maintenanceFee)
+                .depositConverted(depositConverted)
+                .effectiveMonthly(effectiveMonthly)
                 .build();
     }
 

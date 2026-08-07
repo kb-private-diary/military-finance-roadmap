@@ -186,6 +186,45 @@ const PRODUCT_QUESTIONS = {
     '청약 당첨되면 어떻게 되나요?',
     '기존 청약통장에서 바꿀 수 있나요?',
   ],
+  'KB손해보험 자동차보험(개인)': [
+    '어떤 보장을 받을 수 있어요?',
+    '보험료를 어떻게 줄일 수 있어요?',
+    '가입 전에 뭘 확인해야 해요?',
+    '청약철회는 어떻게 해요?',
+  ],
+  'KB손해보험 이륜차보험(개인)': [
+    '의무보험은 꼭 가입해야 하나요?',
+    '용도는 어떻게 골라야 해요?',
+    '어떤 보장을 받을 수 있어요?',
+    '가입 전에 뭘 확인해야 해요?',
+  ],
+  'KB손해보험 운전자보험(3년 이상)': [
+    '3대 운전자 비용이 뭐예요?',
+    '보험료는 얼마 정도예요?',
+    '가입 조건이 어떻게 돼요?',
+    '중도해지하면 손해봐요?',
+  ],
+  'KB손해보험 오토바이 운전자보험': [
+    '형사합의금은 얼마까지 보장돼요?',
+    '변호사선임비는 얼마나 보장돼요?',
+    'KB자동차보험 가입하면 할인되나요?',
+  ],
+  'KB손해보험 운전자보험(1~3년)': [
+    '운전자플랜이랑 자전거플랜 차이가 뭐예요?',
+    '왜 짧게(1~3년) 가입하는 게 유리해요?',
+    '보장 내용이 어떻게 돼요?',
+  ],
+  'KB손해보험 하루운전자보험(1~7일)': [
+    '며칠까지 가입할 수 있어요?',
+    '어떤 상황에 필요해요?',
+    '3대 운전자 비용이 뭐예요?',
+  ],
+  'KB손해보험 실손의료비보장보험(본인)': [
+    '비급여 의료비도 보장돼요?',
+    '몇 살까지 가입할 수 있어요?',
+    '보험료 할인은 어떻게 받아요?',
+    '재가입은 어떻게 되는 거예요?',
+  ],
 };
 
 /* 상담(목적=투자 수익)에서 위험성향별 실시간 펀드를 추천할 때 쓰는 매핑.
@@ -341,6 +380,7 @@ const encodeMenuMarker = (msg) => {
   if (msg.menuFit) style.menuFit = true;
   if (msg.menuAlternate) style.menuAlternate = true;
   if (msg.menuLight) style.menuLight = true;
+  if (msg.menuGrid3) style.menuGrid3 = true;
   return (
     MENU_MARKER +
     JSON.stringify({
@@ -436,13 +476,21 @@ const showAllProducts = () => {
       // 카테고리 자체는 상품이 아니라 되묻기(선택) 성격이라 다른 되묻기랑 통일 - 카드 안 흰 배경으로
       // (예전엔 번갈아 색을 넣었는데, 이제 되묻기=카드/상품=캐러셀 기준이 명확해져서 정리함, 2026-08-06 피드백)
       menuInCard: true,
+      // 카테고리가 6개(적금/예금/청약/투자/보험/대출)라 3개씩 2줄로 고르게 배치한다 - flex-wrap만 쓰면
+      // 5+1로 어중간하게 쪼개져 보였다(2026-08-07 피드백)
+      menuGrid3: true,
       menu: [
-        ...Object.entries(LIVE_CATEGORY_LABELS).map(([category, label]) => ({
-          label,
-          onClick: () => selectProductCategory(category, label),
-          action: 'selectProductCategory',
-          args: [category, label],
-        })),
+        // 대출 3종(주택담보대출/전세자금대출/개인신용대출)은 사용자 입장에선 "대출"이라는 상품 카테고리
+        // 하나일 뿐이라, 여기 순회에서 빼고 showLoanProducts로 묶어서 버튼 하나만 보여준다(2026-08-06 피드백)
+        ...Object.entries(LIVE_CATEGORY_LABELS)
+          .filter(([category]) => !LOAN_CATEGORIES.includes(category))
+          .map(([category, label]) => ({
+            label,
+            onClick: () => selectProductCategory(category, label),
+            action: 'selectProductCategory',
+            args: [category, label],
+          })),
+        { label: '대출', onClick: () => showLoanProducts(), action: 'showLoanProducts', args: [] },
       ],
     });
   }, TYPING_DELAY_MS);
@@ -455,36 +503,111 @@ const selectProductCategory = (category, label) => {
   showProductCategoryList(category, label, { includeListings: category !== 'subscription' });
 };
 
+// 대출 3종(주택담보대출/전세자금대출/개인신용대출)을 카테고리 선택 없이 바로 한 목록으로 합쳐서 보여준다.
+// 처음엔 "대출 -> 어떤 대출이 궁금하신가요?(3종) -> 상품 목록"으로 한 단계 더 물어봤는데,
+// "주택담보대출이 카테고리인 줄 몰랐다"는 피드백이 있어서 보험처럼 바로 상품을 보여주는 걸로 통일함(2026-08-06).
+const showLoanProducts = async () => {
+  pushUser('대출');
+  panel.value = null;
+  typing.value = true;
+  try {
+    const results = await Promise.all(
+      LOAN_CATEGORIES.map((category) =>
+        chatApi.listProducts(category).then(({ data }) => data.map((p) => ({ ...p, category }))),
+      ),
+    );
+    typing.value = false;
+    const top = results.flat().slice(0, 8);
+    if (!top.length) {
+      pushBot({ text: '지금은 표시할 수 있는 대출 상품이 없습니다.' });
+      return;
+    }
+    pushBot({
+      text: '대출 상품이에요. 궁금한 상품을 골라주세요.',
+      source: CATEGORY_LIST_SOURCE.mortgage.label,
+      sourceUrl: null,
+      menuCarousel: true,
+      menu: top.map((p) => ({
+        label: LIVE_ITEM_LABEL[p.category](p),
+        onClick: () => showLiveProductDetail(LIVE_ITEM_NAME[p.category](p), p.category),
+        action: 'showLiveProductDetail',
+        args: [LIVE_ITEM_NAME[p.category](p), p.category],
+      })),
+    });
+  } catch {
+    typing.value = false;
+    pushError();
+  }
+};
+
 /* 실시간 은행 상품(FSS 예적금/청약홈/펀드) - 카테고리별로 목록을 받아와서 최대 8개까지 보여준다.
    장병내일준비적금 등 3개는 API로 못 받아오는 KB 군장병 전용 상품이라 텍스트로 직접 정리해둔 것뿐이고,
    실제로는 해당 카테고리(적금/청약)의 "상품 중 하나"라 API 상품들과 같은 목록에 같이 보여준다. */
-const LIVE_CATEGORY_LABELS = { savings: '적금', deposit: '예금', subscription: '청약', investment: '투자' };
+// 대출 3종(주택담보대출/전세자금대출/개인신용대출)은 상품 성격이 아니라 API 카테고리 구분이라,
+// "대출" 하나로 묶어서 보여주고(showLoanProducts) 카테고리 픽커 목록(LIVE_CATEGORY_LABELS)의
+// Object.entries 순회에서는 제외한다 - 순회에 그대로 두면 "대출" 하나가 아니라 3개 버튼이 따로 나온다.
+const LOAN_CATEGORIES = ['mortgage', 'jeonse', 'creditLoan'];
+const LIVE_CATEGORY_LABELS = {
+  savings: '적금',
+  deposit: '예금',
+  subscription: '청약',
+  investment: '투자',
+  mortgage: '주택담보대출',
+  jeonse: '전세자금대출',
+  creditLoan: '개인신용대출',
+  insurance: '보험',
+};
 const FIXED_PRODUCTS_BY_CATEGORY = {
   savings: ['장병내일준비적금', '청년미래적금'],
   subscription: ['청년주택드림청약통장'],
   deposit: [],
   investment: [],
+  mortgage: [],
+  jeonse: [],
+  creditLoan: [],
+  // 보험은 KB손해보험다이렉트에 실시간 조회 API가 없어서(2026-08-06 확인), 7개 상품을 RAG 문서로
+  // 직접 정리해두고 여기 고정 목록으로만 보여준다 - 다른 카테고리처럼 API 목록과 안 섞인다.
+  insurance: [
+    'KB손해보험 자동차보험(개인)',
+    'KB손해보험 이륜차보험(개인)',
+    'KB손해보험 운전자보험(3년 이상)',
+    'KB손해보험 오토바이 운전자보험',
+    'KB손해보험 운전자보험(1~3년)',
+    'KB손해보험 하루운전자보험(1~7일)',
+    'KB손해보험 실손의료비보장보험(본인)',
+  ],
 };
 const LIVE_ITEM_LABEL = {
   savings: (p) => `${p.finPrdtNm} (${p.korCoNm} · 최고 ${p.maxRate}%)`,
   deposit: (p) => `${p.finPrdtNm} (${p.korCoNm} · 최고 ${p.maxRate}%)`,
   subscription: (p) => `${p.houseNm} (청약 ${p.rceptBgnde || '-'}~${p.rceptEndde || '-'})`,
   investment: (p) => p.fndNm,
+  // 대출은 낮을수록 유리해서 적금/예금(최고금리)과 반대로 최저금리를 대표값으로 보여준다.
+  mortgage: (p) => `${p.finPrdtNm} (${p.korCoNm} · 최저 ${p.rate}%)`,
+  jeonse: (p) => `${p.finPrdtNm} (${p.korCoNm} · 최저 ${p.rate}%)`,
+  creditLoan: (p) => `${p.finPrdtNm} (${p.korCoNm} · 최저 ${p.rate}%)`,
 };
 const LIVE_ITEM_NAME = {
   savings: (p) => p.finPrdtNm,
   deposit: (p) => p.finPrdtNm,
   subscription: (p) => p.houseNm,
   investment: (p) => p.fndNm,
+  mortgage: (p) => p.finPrdtNm,
+  jeonse: (p) => p.finPrdtNm,
+  creditLoan: (p) => p.finPrdtNm,
 };
 
 // 목록 화면 자체(개별 항목을 누르기 전)에도 이 데이터가 어디서 왔는지 출처를 붙인다.
-// 청약·예적금은 실제로 열어서 확인된 링크가 있고, 펀드(투자)는 아직 확인된 링크가 없어 텍스트만 표기한다.
+// 청약·예적금·대출은 실제로 열어서 확인된 링크가 있고, 펀드(투자)는 아직 확인된 링크가 없어 텍스트만 표기한다.
 const CATEGORY_LIST_SOURCE = {
   savings: { label: '금융감독원 금융상품한눈에', url: 'https://finlife.fss.or.kr/finlife/svings/fdrmEnty/list.do?menuNo=700003' },
   deposit: { label: '금융감독원 금융상품한눈에', url: 'https://finlife.fss.or.kr/finlife/svings/fdrmDpst/list.do?menuNo=700002' },
   subscription: { label: '한국부동산원 청약홈', url: 'https://www.applyhome.co.kr' },
   investment: { label: '금융투자협회 펀드표준코드', url: null },
+  mortgage: { label: '금융감독원 금융상품한눈에', url: 'https://finlife.fss.or.kr/finlife/ldng/houseMrtg/list.do?menuNo=700007' },
+  jeonse: { label: '금융감독원 금융상품한눈에', url: 'https://finlife.fss.or.kr/finlife/ldng/lfstsFunds/list.do?menuNo=700008' },
+  creditLoan: { label: '금융감독원 금융상품한눈에', url: 'https://finlife.fss.or.kr/finlife/ldng/indvlCrdt/list.do?menuNo=700009' },
+  insurance: { label: 'KB손해보험다이렉트', url: null },
 };
 
 // includeListings: false면 실시간 청약홈 "매물" 목록은 빼고 고정 상품만 보여준다.
@@ -530,6 +653,25 @@ const showProductCategoryList = async (category, categoryLabel, { includeListing
   }
 };
 
+// 대출 3종 공통 상세 텍스트. loanLmt(대출한도)는 주담대/전세자금대출에만, cbName(신용평가사)은
+// 개인신용대출에만 있는 필드라 옵션으로 켜고 끈다. 금리는 min~max 범위(주담대/전세자금) 또는
+// crdt_grad_avg를 lendRateAvg 자리에 매핑한 값(개인신용대출, fss.py에서 통일)을 그대로 보여준다.
+const loanDetailText = (p, { loanLmt = false, cbName = false } = {}) => {
+  const lines = [`${p.korCoNm}에서 제공하는 상품입니다.`, `가입 방법: ${p.joinWay}`];
+  if (loanLmt && p.loanLmt) lines.push(`대출한도: ${p.loanLmt}`);
+  if (p.erlyRpayFee) lines.push(`중도상환수수료: ${p.erlyRpayFee}`);
+  if (cbName && p.cbName) lines.push(`신용평가사: ${p.cbName}`);
+  const rates = p.options || [];
+  const mins = rates.map((o) => (o.lendRateMin != null ? o.lendRateMin : o.lendRateAvg)).filter((v) => v != null);
+  const maxs = rates.map((o) => (o.lendRateMax != null ? o.lendRateMax : o.lendRateAvg)).filter((v) => v != null);
+  if (mins.length) {
+    const lo = Math.min(...mins);
+    const hi = Math.max(...maxs);
+    lines.push(lo === hi ? `금리: 연 ${lo}%` : `금리: 연 ${lo}% ~ ${hi}%`);
+  }
+  return lines.join('\n');
+};
+
 const LIVE_DETAIL_TEXT = {
   savings: (p) =>
     `${p.korCoNm}에서 제공하는 상품입니다.\n가입 방법: ${p.joinWay}\n가입 대상: ${p.joinMember}\n우대조건: ${p.spclCnd}${p.etcNote ? `\n기타: ${p.etcNote}` : ''}`,
@@ -538,6 +680,55 @@ const LIVE_DETAIL_TEXT = {
   subscription: (p) =>
     `주소: ${p.hssplyAdres || '정보 없음'}\n청약 접수: ${p.rceptBgnde || '-'}~${p.rceptEndde || '-'}\n입주 예정: ${p.mvnPrearngeYm || '미정'}`,
   investment: (p) => `분류: ${p.ctg || '정보 없음'}\n설정일: ${p.setpDt || '정보 없음'}\n유형: ${p.fndTp || '정보 없음'}`,
+  mortgage: (p) => loanDetailText(p, { loanLmt: true }),
+  jeonse: (p) => loanDetailText(p, { loanLmt: true }),
+  creditLoan: (p) => loanDetailText(p, { cbName: true }),
+};
+
+// 후속 질문(LIVE_FOLLOWUP_QUESTIONS)에 실제로 답할 수 있으려면, 화면에 보여준 요약 텍스트보다
+// 더 많은 정보가 필요하다 - 화면엔 안 보이지만 API 응답엔 있는 값(가입기간별 금리표, 당첨자
+// 발표일 등)까지 넣어서 백엔드에 근거로 실어 보낸다(2026-08-07).
+const buildLiveProductContext = (category, p) => {
+  const base = LIVE_DETAIL_TEXT[category](p);
+  if (category === 'savings' || category === 'deposit') {
+    const table = (p.options || [])
+      .map((o) => `- ${o.saveTrm}개월: 기본금리 ${o.intrRate}% / 우대금리 적용 시 최고 ${o.intrRate2}%`)
+      .join('\n');
+    return table ? `${base}\n\n가입기간별 금리:\n${table}` : base;
+  }
+  if (category === 'subscription') {
+    return `${base}\n당첨자 발표일: ${p.przwnerPresnatnDe || '정보 없음'}`;
+  }
+  return base;
+};
+
+// 억지로 4개를 채우지 않고, 화면에 이미 보여준 내용과 겹치지 않는(그래서 실제로 새 정보를 주는)
+// 질문만 카테고리별로 큐레이션했다. 투자·대출 3종은 지금 스키마상 화면 밖에 남는 필드가 없어서 비워둠
+// - 없는 걸 억지로 만들면 "가입방법이 뭐예요?"처럼 이미 보여준 걸 또 물어보게 돼서 안 넣기로 함(2026-08-07 피드백).
+const LIVE_FOLLOWUP_QUESTIONS = {
+  savings: ['가입 기간별 금리가 어떻게 돼요?'],
+  deposit: ['가입 기간별 금리가 어떻게 돼요?'],
+  subscription: ['당첨자 발표는 언제예요?'],
+  investment: [],
+  mortgage: [],
+  jeonse: [],
+  creditLoan: [],
+};
+
+const showMoreProductsAction = (category) =>
+  LOAN_CATEGORIES.includes(category)
+    ? { label: '다른 대출 상품도 보여줘', onClick: () => showLoanProducts(), action: 'showLoanProducts', args: [] }
+    : {
+        label: `다른 ${LIVE_CATEGORY_LABELS[category]} 상품도 보여줘`,
+        onClick: () => selectProductCategory(category, LIVE_CATEGORY_LABELS[category]),
+        action: 'selectProductCategory',
+        args: [category, LIVE_CATEGORY_LABELS[category]],
+      };
+
+// productContext: buildLiveProductContext로 만든, 이 상품 하나에 대한 (화면 표시분보다 풍부한) 정보 텍스트.
+// 백엔드가 카테고리 전체 요약이 아니라 이 텍스트 하나만 근거로 답하게 된다(2026-08-07).
+const askLiveProductQuestion = (name, productContext, question) => {
+  askBackend(question, { title: name, productContext });
 };
 
 const showLiveProductDetail = async (name, category) => {
@@ -547,14 +738,26 @@ const showLiveProductDetail = async (name, category) => {
   try {
     const { data: p } = await chatApi.getProduct(name, category);
     typing.value = false;
+    const detailText = LIVE_DETAIL_TEXT[category](p);
+    const qaContext = buildLiveProductContext(category, p);
     pushBot({
       title: name,
-      text: LIVE_DETAIL_TEXT[category](p),
+      text: detailText,
       source: p.source,
       // 청약: API 응답에 그 공고의 실제 상세 페이지 링크(PBLANC_URL)가 그대로 들어있어서 바로 연결.
       // 예적금(FSS): 은행별 개별 상품 페이지는 없어서, 대신 이 데이터가 나온 금감원 비교 페이지로 연결(source_url).
       // 펀드(금투협 표준코드): 아직 검증된 링크가 없어서 비워둠.
       sourceUrl: category === 'subscription' ? p.pblancUrl : p.sourceUrl,
+      menuFit: true,
+      menu: [
+        ...LIVE_FOLLOWUP_QUESTIONS[category].map((q) => ({
+          label: q,
+          onClick: () => askLiveProductQuestion(name, qaContext, q),
+          action: 'askLiveProductQuestion',
+          args: [name, qaContext, q],
+        })),
+        showMoreProductsAction(category),
+      ],
     });
   } catch {
     typing.value = false;
@@ -643,10 +846,12 @@ const openCounsel = () => {
   }, TYPING_DELAY_MS);
 };
 
-const startCounsel = () => {
+// introText: 자유입력에서 상담으로 분류됐을 때 백엔드가 주는 안내 문구("자세한 상담을 위해...")를
+// 별도 말풍선으로 안 띄우고 이 카드 문구 앞줄에 합친다 - 안내와 되묻기가 나눠 뜰 필요가 없다(2026-08-08 피드백)
+const startCounsel = (introText = null) => {
   pushBot({
     title: '자금 상담',
-    text: '몇 가지만 여쭤볼게요.\n어떤 목적으로 목돈을 활용하고 싶으세요?',
+    text: `${introText || '몇 가지만 여쭤볼게요.'}\n어떤 목적으로 목돈을 활용하고 싶으세요?`,
     // 되묻기는 질문의 일부라서 답변 카드 밖으로 안 빼고 카드 안에서 바로 고르게 한다(2026-08-06 피드백)
     menuInCard: true,
     menu: COUNSEL_GOALS.map((g) => ({ label: g.label, onClick: () => askGoal(g), action: 'askGoal', args: [g] })),
@@ -999,14 +1204,18 @@ const finishCounsel = async (period, type) => {
 };
 
 /* 자유 입력 텍스트를 실제 백엔드(RAG/Gemini)로 보내고 답변을 받는다 */
-const askBackend = async (text, { title, extraMenu = [], forceInfo = false } = {}) => {
+// productContext: 실시간 상품 상세를 이미 보여준 뒤 그 상품 하나에 대해 후속 질문할 때만 채운다
+// (buildLiveProductContext로 만든 텍스트). 채워지면 카테고리 전체가 아니라 이 상품 하나만 근거로
+// 답하도록 백엔드에 그대로 실어 보낸다(2026-08-07).
+const askBackend = async (text, { title, extraMenu = [], forceInfo = false, productContext = null } = {}) => {
   counselInputHandler.value = null;
 
   // 자동차/자취/진로/계산기처럼 이미 우리 서비스에 있는 기능과 명확히 관련된 질문이면, AI(Gemini) 호출도
   // 안 하고 바로 그 기능 안내로 답한다. 예전엔 일단 RAG 답변부터 받아서(대부분 "참고 자료에 없다"는
   // 엉뚱한 내용) 뒤에 안내 문구만 덧붙였는데, 그 앞부분이 질문이랑 안 맞아서 오히려 헷갈린다는
   // 피드백(2026-08-06) - 이제 그 답변 자체를 아예 안 보여주고 깔끔하게 안내만 한다.
-  const pageLink = PAGE_LINKS.find((p) => p.keywords.some((k) => text.includes(k)));
+  // productContext가 있는(=실시간 상품 후속질문) 흐름은 이 페이지-링크 안내로 새지 않고 그대로 상품 Q&A로 간다.
+  const pageLink = !productContext && PAGE_LINKS.find((p) => p.keywords.some((k) => text.includes(k)));
   if (pageLink) {
     pushUser(text);
     input.value = '';
@@ -1030,19 +1239,21 @@ const askBackend = async (text, { title, extraMenu = [], forceInfo = false } = {
   panel.value = null;
   typing.value = true;
   try {
-    const { data: botMsg } = await chatApi.sendMessage(sessionId.value, text, forceInfo);
+    const { data: botMsg } = await chatApi.sendMessage(sessionId.value, text, forceInfo, productContext);
     typing.value = false;
 
     // 백엔드가 자유입력을 상담(counsel)으로 분류하면, 일반 RAG 답변 대신
     // 되묻기 플로우로 분기한다 (WBS-6) - 가이드 화면의 "목돈 상담받기" 버튼과 동일한 흐름 재사용.
     // 텍스트에 목적이 이미 드러나 있으면(예: "투자해보고싶어") 목적 질문은 건너뛴다.
     if (botMsg.intent === 'counsel') {
-      pushBot({ text: botMsg.content });
       const matchedGoal = detectCounselGoal(text);
       if (matchedGoal) {
+        // 목적이 이미 텍스트에서 추론된 경우엔 되묻기 카드가 따로 없어서 합칠 대상이 없다 -> 안내만 먼저 띄운다
+        pushBot({ text: botMsg.content });
         askGoal(matchedGoal, { announce: false });
       } else {
-        startCounsel();
+        // 목적 되묻기 카드와 안내 문구를 한 말풍선으로 합친다(2026-08-08 피드백)
+        startCounsel(botMsg.content);
       }
       return;
     }
@@ -1050,19 +1261,23 @@ const askBackend = async (text, { title, extraMenu = [], forceInfo = false } = {
     const menu = [...extraMenu];
     const answerText = botMsg.content;
 
-    // 답변에서 특정 상품이 언급됐으면 "더 자세한 내용 확인해보기" 버튼을 붙인다.
-    // 고정된 FAQ를 다시 보여주는 게 아니라, 실제로 백엔드에 새 질문을 보내서
-    // (멀티턴 문맥 덕분에) 지금까지 대화 주제에 맞는 답변을 받아오게 한다.
+    // 답변에서 특정 상품이 언급됐으면, 그 상품의 큐레이션된 후속 질문들을 바로 붙인다.
+    // 예전엔 "더 자세한 내용 확인해보기"로 뭉뚱그려서 물어봤는데, 그럼 백엔드가 뭘 더 알고
+    // 싶은 건지 몰라서 "은행연합회 가서 확인하라"는 식으로 떠넘기는 답이 나왔다(2026-08-07 피드백).
     // 이미 그 상품의 되묻기 메뉴(extraMenu)가 붙어있으면(=이미 상품 Q&A 흐름 안) 중복이라 스킵
     if (!extraMenu.length) {
       const relatedProduct = Object.keys(PRODUCT_QUESTIONS).find(
         (name) => botMsg.content.includes(name) || (botMsg.sourceDetail || '').includes(name),
       );
       if (relatedProduct) {
-        menu.unshift({
-          label: '더 자세한 내용 확인해보기',
-          onClick: () => askBackend('더 자세한 내용을 확인하고 싶어요'),
-        });
+        menu.push(
+          ...PRODUCT_QUESTIONS[relatedProduct].map((q) => ({
+            label: q,
+            onClick: () => askProductQuestion(relatedProduct, q),
+            action: 'askProductQuestion',
+            args: [relatedProduct, q],
+          })),
+        );
       }
     }
 
@@ -1109,6 +1324,9 @@ const askBackend = async (text, { title, extraMenu = [], forceInfo = false } = {
 // 여기 없는 액션은 그냥 못 누르는 문구로만 남는다(치명적이지 않음 - 텍스트는 항상 보존됨).
 const ACTIONS = {
   selectProductCategory,
+  askProductQuestion,
+  showLoanProducts,
+  askLiveProductQuestion,
   openDoc,
   showLiveProductDetail,
   goTo,
@@ -1231,8 +1449,12 @@ const deriveHistoryMenu = (history, index) => {
     (name) => m.content.includes(name) || (m.sourceDetail || '').includes(name),
   );
   if (relatedProduct) {
+    // askBackend와 동일하게 뭉뚱그린 재질문 대신 그 상품의 큐레이션된 후속 질문을 그대로 복원(2026-08-07)
     return {
-      menu: [{ label: '더 자세한 내용 확인해보기', onClick: () => askBackend('더 자세한 내용을 확인하고 싶어요') }],
+      menu: PRODUCT_QUESTIONS[relatedProduct].map((q) => ({
+        label: q,
+        onClick: () => askProductQuestion(relatedProduct, q),
+      })),
     };
   }
   return { menu: [] };
@@ -1286,8 +1508,9 @@ const toBubble = (m, history, index) => {
     source: m.source,
     sourceDetail: m.sourceDetail,
     isAiGenerated: m.isAiGenerated,
-    // deriveHistoryMenu는 항상 자유질문 답변 뒤 후속 선택지라 카드 안 스타일로 통일
-    menuInCard: menu.length > 0,
+    // 실시간 렌더링에서 이런 되묻기(상품 후속질문 등)는 카드 밖 태그칩 스타일(menuFit)로 뜨는데,
+    // 여기가 menuInCard였어서 새로고침 후 히스토리 복원 때만 카드 안으로 잘못 들어가 보였다(2026-08-07 피드백)
+    menuFit: menu.length > 0,
     menu,
   };
 };
@@ -1550,7 +1773,11 @@ onMounted(async () => {
                 <!-- 되묻기(목돈 상담/목돈 모으기)는 질문의 일부라서 답변 카드 밖으로 안 빼고,
                      같은 카드 안에서 바로 고르게 한다. 색은 일단 흰 배경+검정 글씨로 되돌려두고,
                      전체 색상은 나중에 한번에 몰아서 정하기로 함(2026-08-06 피드백) -->
-                <div v-if="msg.menu && msg.menuInCard" class="menu-col menu-col--incard">
+                <div
+                  v-if="msg.menu && msg.menuInCard"
+                  class="menu-col menu-col--incard"
+                  :class="{ 'menu-col--grid3': msg.menuGrid3 }"
+                >
                   <button
                     v-for="(opt, i) in msg.menu"
                     :key="i"
@@ -2095,6 +2322,17 @@ onMounted(async () => {
   flex-direction: row;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+/* 카테고리 픽커(적금/예금/청약/투자/보험/대출 6개)처럼 항목 수가 고정이고 한눈에 격자로 보여줄 때.
+   flex-wrap만 쓰면 5+1처럼 마지막 줄이 어중간하게 쪼개져 보였다(2026-08-07 피드백) */
+.menu-col--incard.menu-col--grid3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+.menu-col--incard.menu-col--grid3 .menu-btn {
+  width: 100%;
+  text-align: center;
 }
 
 .menu-btn {

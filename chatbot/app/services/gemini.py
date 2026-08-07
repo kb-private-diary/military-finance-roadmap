@@ -21,23 +21,47 @@ _LIVE_SOURCE_LABELS = {
     "deposit": "Gemini AI (금감원 실시간 예금 데이터 기반 생성)",
     "subscription": "Gemini AI (청약홈 실시간 분양정보 기반 생성)",
     "investment": "Gemini AI (펀드 실시간 데이터 기반 생성)",
+    "mortgage": "Gemini AI (금감원 실시간 주택담보대출 데이터 기반 생성)",
+    "jeonse": "Gemini AI (금감원 실시간 전세자금대출 데이터 기반 생성)",
+    "creditLoan": "Gemini AI (금감원 실시간 개인신용대출 데이터 기반 생성)",
 }
+
+# 실시간(API) 상품 상세를 보고 그 상품 하나에 대해 후속 질문할 때 쓰는 출처 라벨.
+# 카테고리 전체 요약이 아니라 프론트가 이미 화면에 표시한 그 상품 하나의 정보만 근거로 생성한다(2026-08-07).
+LIVE_PRODUCT_QA_SOURCE_LABEL = "Gemini AI (선택한 상품 정보 기반 생성)"
 
 # RAG 답변의 출처 캡션용 — 문서(doc_name)별 기관명 표기.
 _DOC_SOURCE_ORG = {
     "장병내일준비적금": "KB국민은행 상품안내",
     "청년미래적금": "KB국민은행 상품안내",
     "청년주택드림청약통장": "KB국민은행 상품안내",
+    "KB손해보험 자동차보험(개인)": "KB손해보험 상품안내",
+    "KB손해보험 이륜차보험(개인)": "KB손해보험 상품안내",
+    "KB손해보험 운전자보험(3년 이상)": "KB손해보험 상품안내",
+    "KB손해보험 오토바이 운전자보험": "KB손해보험 상품안내",
+    "KB손해보험 운전자보험(1~3년)": "KB손해보험 상품안내",
+    "KB손해보험 하루운전자보험(1~7일)": "KB손해보험 상품안내",
+    "KB손해보험 실손의료비보장보험(본인)": "KB손해보험 상품안내",
     "정책용어사전": "정책용어사전",
 }
 _DOC_AS_OF = "2026년 3월 기준"
 
 # 3개 고정 상품의 실제 상세 페이지 링크 (에스더 직접 확인 요청 → 실제 링크 받아서 반영, 2026-08-06).
 # 장병내일준비적금은 국방부·은행 공동 제도라 KB 온라인뱅킹이 아니라 국방부 공식 안내 페이지로 연결한다.
+# 아래 7개 KB손해보험 상품은 에스더가 보내준 링크를 직접 열어서 각 상품 페이지(타이틀·심의필 번호까지)
+# 확인한 딥링크다(2026-08-08). 자동차/이륜차는 그대로 받은 링크, 운전자보험 4종·실손은 받은 링크가
+# 상품 그룹 진입점(실손 페이지)이라 왼쪽 "생활보험" 메뉴에서 각 상품의 실제 hash 라우트를 찾아서 반영함.
 _DOC_SOURCE_URL = {
     "장병내일준비적금": "https://mnd.go.kr/mnd/288/subview.do",
     "청년미래적금": "https://obank.kbstar.com/quics?page=C020722&boardId=669&compId=b058336&articleId=145082&bbsMode=view&viewPage=1&articleClass=2&searchCondition=title&searchStr=",
     "청년주택드림청약통장": "https://obank.kbstar.com/quics?page=C016613&cc=b061496:b061645&isNew=N&prcode=DP01000935",
+    "KB손해보험 자동차보험(개인)": "https://direct.kbinsure.co.kr/home/#/CAR_INDV_IS001M/",
+    "KB손해보험 이륜차보험(개인)": "https://direct.kbinsure.co.kr/home/#/CAR_TWLVHL_W001M",
+    "KB손해보험 운전자보험(3년 이상)": "https://direct.kbinsure.co.kr/home/#/GL/DR/LT_CM0101M/",
+    "KB손해보험 오토바이 운전자보험": "https://direct.kbinsure.co.kr/home/#/GL/LMD/LT_CM0101M/",
+    "KB손해보험 운전자보험(1~3년)": "https://direct.kbinsure.co.kr/home/#/GL/SD/GN_CM0101M//01",
+    "KB손해보험 하루운전자보험(1~7일)": "https://direct.kbinsure.co.kr/home/#/GL/OSD/GN_CM0101M/",
+    "KB손해보험 실손의료비보장보험(본인)": "https://direct.kbinsure.co.kr/home/#/GL/RD/LT_CM0101M/",
 }
 
 
@@ -105,9 +129,13 @@ class ChatState(TypedDict, total=False):
     history: List[Tuple[str, str]]  # [(role, content), ...] 오래된 순 - 현재 질문은 미포함
     intent: str
     product_category: Optional[str]
+    # 실시간(API) 상품 상세를 이미 화면에 보여준 상태에서 그 상품 하나에 대해 후속 질문할 때만 채워짐.
+    # 채워지면 의도분류·카테고리분류를 다 건너뛰고 이 텍스트 하나만 근거로 답한다(2026-08-07).
+    product_context: Optional[str]
     context: str
     source: str
     doc_names: List[str]  # RAG 검색결과 top_k의 doc_name (유사도 순), 실시간 데이터면 빈 리스트
+    mentioned_docs: List[str]  # 질문 문장 자체에서 정확히 언급된 상품명 (RAG 검색 타겟팅 + 출처 판정 우선순위용)
     source_detail: Optional[str]  # 사람이 읽는 출처 캡션 (RAG 답변만 해당, 없으면 None)
     source_url: Optional[str]  # 출처를 클릭해서 실제 상품 페이지로 이동할 수 있는 링크 (있는 문서만)
     is_ai_generated: bool  # 프론트에 "AI가 생성한 답변입니다" 문구를 보여줄지 여부
@@ -133,10 +161,25 @@ def _classify_intent_node(state: ChatState) -> ChatState:
 
 
 def _classify_category_node(state: ChatState) -> ChatState:
+    # product_context가 있으면(=이미 화면에 보여준 실시간 상품 하나에 대한 후속 질문) 카테고리 분류
+    # 자체가 무의미하다 - 어차피 이 상품 하나만 근거로 답할 거라 LLM 호출만 낭비된다(2026-08-07).
+    if state.get("product_context"):
+        return {}
     return {"product_category": classify_product_category(state["question"])}
 
 
-_SPECIFIC_DOC_NAMES = ("장병내일준비적금", "청년미래적금", "청년주택드림청약통장")
+_SPECIFIC_DOC_NAMES = (
+    "장병내일준비적금",
+    "청년미래적금",
+    "청년주택드림청약통장",
+    "KB손해보험 자동차보험(개인)",
+    "KB손해보험 이륜차보험(개인)",
+    "KB손해보험 운전자보험(3년 이상)",
+    "KB손해보험 오토바이 운전자보험",
+    "KB손해보험 운전자보험(1~3년)",
+    "KB손해보험 하루운전자보험(1~7일)",
+    "KB손해보험 실손의료비보장보험(본인)",
+)
 
 # 상품명을 정확히 안 쓰고 "적금이 나아요, 청약이 나아요?"처럼 일반 단어로만 물어봤을 때 쓸 대표 상품.
 # 카테고리(적금)에 해당 상품이 여러 개(장병내일준비적금·청년미래적금)라도 대표로 1개만 써서,
@@ -144,6 +187,7 @@ _SPECIFIC_DOC_NAMES = ("장병내일준비적금", "청년미래적금", "청년
 _GENERIC_CATEGORY_DOC = {
     "적금": "장병내일준비적금",
     "청약": "청년주택드림청약통장",
+    "보험": "KB손해보험 자동차보험(개인)",
 }
 
 
@@ -178,6 +222,17 @@ def _pick_doc_name(answer: str, doc_names: List[str]) -> Optional[str]:
 
 
 def _build_context_node(state: ChatState) -> ChatState:
+    product_context = state.get("product_context")
+    if product_context:
+        # 프론트가 이미 화면에 보여준 그 상품 하나의 정보를 그대로 근거로 쓴다 - RAG 검색도,
+        # 카테고리 top-5 요약도 안 거친다(2026-08-07).
+        return {
+            "context": product_context,
+            "source": LIVE_PRODUCT_QA_SOURCE_LABEL,
+            "doc_names": [],
+            "is_ai_generated": True,
+        }
+
     category = state.get("product_category")
     if category:
         context = _build_product_context(category)
@@ -195,9 +250,11 @@ def _build_context_node(state: ChatState) -> ChatState:
 
     # 비교형 질문("장병내일준비적금이랑 청년미래적금 차이가 뭐예요?")은 검색어 하나로 top_k만 뽑으면
     # 의미상 가장 비슷한 한쪽 상품으로 결과가 쏠려서 다른 쪽 자료가 아예 안 딸려온다.
-    # 2개 이상 상품이 감지되면 상품별로 따로 검색해서 균형 있게 문서를 모은다.
+    # 상품이 1개라도 정확히 감지되면 그 상품명으로 검색을 타겟팅한다 - 예전엔 2개 이상일 때만
+    # 타겟팅해서, "운전자보험(3년 이상)"처럼 이름이 거의 똑같은 문서가 여러 개 있으면 1개만 언급된
+    # 질문에서도 임베딩 유사도로 엉뚱한 문서(예: 운전자보험(1~3년))가 섞여 들어왔다(2026-08-07 버그 수정).
     mentioned_docs = _mentioned_doc_names(state["question"])
-    if len(mentioned_docs) >= 2:
+    if mentioned_docs:
         results = []
         seen_texts = set()
         for name in mentioned_docs:
@@ -215,6 +272,7 @@ def _build_context_node(state: ChatState) -> ChatState:
         "context": context,
         "source": source,
         "doc_names": doc_names,
+        "mentioned_docs": mentioned_docs,
         "is_ai_generated": True,
         "is_comparison": len(mentioned_docs) >= 2,
     }
@@ -234,9 +292,14 @@ _COMPARISON_INSTRUCTION = (
 
 def _generate_node(state: ChatState) -> ChatState:
     category = state.get("product_category")
+    product_context = state.get("product_context")
     history_block = _format_history(state.get("history") or [])
     if category:
         prompt = f"{history_block}[실시간 상품 데이터 - {category}]\n{state['context']}\n\n[질문]\n{state['question']}"
+    elif product_context:
+        # 카테고리 전체가 아니라 프론트가 이미 보여준 그 상품 하나의 정보만 근거로 답한다는 걸
+        # 프롬프트 헤더로도 명확히 구분해서, 실시간 데이터/정책 문서 프롬프트와 안 섞이게 한다.
+        prompt = f"{history_block}[선택한 상품 정보]\n{state['context']}\n\n[질문]\n{state['question']}"
     else:
         comparison_note = _COMPARISON_INSTRUCTION if state.get("is_comparison") else ""
         prompt = f"{history_block}[참고 정책 문서]\n{state['context']}{comparison_note}\n\n[질문]\n{state['question']}"
@@ -245,8 +308,12 @@ def _generate_node(state: ChatState) -> ChatState:
     source_detail = None
     source_url = None
     hide_source = False
-    if not category:
-        doc_name = _pick_doc_name(answer, state.get("doc_names") or [])
+    if not category and not product_context:
+        # 질문 문장에서 상품명이 정확히 1개만 언급됐으면, 그게 답변 본문에 그대로 재등장하는지에
+        # 기대는 _pick_doc_name(답변 텍스트 매칭)보다 더 믿을 만한 신호라 우선한다 - Gemini가
+        # 답변에서 상품명 전체를 문자 그대로 안 반복하면 _pick_doc_name이 못 찾는 경우가 있었다(2026-08-07).
+        question_docs = state.get("mentioned_docs") or []
+        doc_name = question_docs[0] if len(question_docs) == 1 else _pick_doc_name(answer, state.get("doc_names") or [])
         source_detail = _build_source_detail(doc_name)
         source_url = _DOC_SOURCE_URL.get(doc_name)
         hide_source = source_detail is None
@@ -319,6 +386,7 @@ def generate_reply(
     question: str,
     history: Optional[List[Tuple[str, str]]] = None,
     force_intent: Optional[str] = None,
+    product_context: Optional[str] = None,
 ) -> Tuple[str, str, Optional[str], bool, str, Optional[str]]:
     """반환값: (답변, source 라벨, source_detail 캡션, is_ai_generated, intent, source_url).
     LangGraph로 의도분류 → (분기) → 컨텍스트 구성 → 답변 생성을 수행한다.
@@ -329,10 +397,17 @@ def generate_reply(
 
     force_intent: 지정하면 classify_intent를 건너뛰고 이 값을 그대로 쓴다. 자주 묻는 질문처럼
     미리 정보성으로 큐레이션된 질문이 LLM 의도분류에 따라 매번 다르게(상담 등으로) 튀지 않게 한다.
+
+    product_context: 실시간(API) 상품 상세를 이미 화면에 보여준 뒤 그 상품 하나에 대해 후속
+    질문할 때만 채운다. 채워지면 의도는 무조건 정보성(info)으로 취급하고(force_intent보다 우선),
+    카테고리 분류·RAG 검색을 다 건너뛰고 이 텍스트 하나만 근거로 답한다(2026-08-07).
     """
     initial_state = {"question": question, "history": history or []}
     if force_intent:
         initial_state["intent"] = force_intent
+    if product_context:
+        initial_state["product_context"] = product_context
+        initial_state["intent"] = "info"
     result = _compiled_graph.invoke(initial_state)
     return (
         result["answer"],

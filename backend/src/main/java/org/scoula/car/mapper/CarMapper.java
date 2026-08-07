@@ -21,6 +21,9 @@ public interface CarMapper {
     // 자동차 목표 단건 조회 (소유자 검증 포함)
     CarGoalVO selectCarGoalById(@Param("goalId") Long goalId, @Param("userId") Long userId);
 
+    // 목표 확정(완료) 처리 — status를 CONFIRMED로 전환, 영향받은 행 수 반환
+    int confirmGoal(@Param("goalId") Long goalId, @Param("userId") Long userId);
+
     // 신차 모델 단건 조회
     CarModelVO selectCarModelById(@Param("modelId") Long modelId);
 

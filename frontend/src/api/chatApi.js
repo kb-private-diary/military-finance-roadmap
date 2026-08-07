@@ -22,8 +22,11 @@ export default {
     return api.get(`${BASE_URL}/history`);
   },
 
-  sendMessage(sessionId, content, forceInfo = false) {
-    return api.post(`${BASE_URL}/messages`, { sessionId, content, forceInfo });
+  // productContext: 실시간 상품 상세를 보고 나서 그 상품 하나에 대해 후속 질문할 때만 넘김
+  // (이미 화면에 표시한 그 상품의 정보 텍스트 그대로) - 백엔드가 카테고리 전체가 아니라
+  // 이 상품 하나만 근거로 답하게 한다(2026-08-07)
+  sendMessage(sessionId, content, forceInfo = false, productContext = null) {
+    return api.post(`${BASE_URL}/messages`, { sessionId, content, forceInfo, productContext });
   },
 
   // 버튼으로 진행하는 되묻기·상품 목록 등 - AI 호출 없이 화면 문구를 그대로 기록만 한다

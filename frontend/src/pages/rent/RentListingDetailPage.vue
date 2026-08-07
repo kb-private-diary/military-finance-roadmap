@@ -2,27 +2,29 @@
 // SCR-RENT-03 · Step 3) 매물 상세 + 내 재정 체크  담당: 수연
 // 디자인: UI/rent_ui_school_mode.html — 담백 버전(색·이모지 제거)
 // 거주기간 슬라이더(6~24) 조작 → 총비용/재정체크 실시간 갱신됨, months 는 Step4~5로 이어짐
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import rentApi from '@/api/rentApi';
 import { useRentStore } from '@/stores/rent';
 import { formatManwon } from '@/util/format';
+import { useToast } from '@/composables/useToast';
 import BaseCard from '@/components/common/BaseCard.vue';
+import BaseBottomSheet from '@/components/common/BaseBottomSheet.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
+
+const { show: showToast } = useToast();
 
 const route = useRoute();
 const router = useRouter();
 const rentStore = useRentStore();
 const listingId = Number(route.params.listingId);
 const goalId = Number(route.query.goalId) || rentStore.currentGoalId;
-const maturity = computed(() => rentStore.maturityAmount || 7200000);
-
-// TODO: 백엔드 매물 상세 API(WIP) 준비되면 샘플 폴백 제거
-const SAMPLE = {
-  listing: { buildingName: '부산대 앞 오피스텔', dongName: '부산 금정구 장전동', areaSqm: 23, floor: 5, buildYear: 2018, dealDate: '2026-06-15', deposit: 5000000, monthlyRent: 450000, maintenanceFee: 50000 },
-  propertyBadges: ['지역 평균보다 저렴', '1개월 전 실거래'],
-};
+// 만기금: 감당도 응답(백엔드 실제 계산값) 우선 → store → 0.
+// (하드코딩 폴백을 쓰면 "만기금 720만원인데 남는 돈 776만원" 같은 앞뒤 안 맞는 문구가 나옴)
+const maturity = computed(
+  () => affordability.value?.maturityAmount ?? rentStore.maturityAmount ?? 0,
+);
 
 const data = ref(null);
 const loading = ref(true);
@@ -32,78 +34,483 @@ const load = async () => {
   loading.value = true;
   try {
     const res = await rentApi.findListingDetail(listingId, goalId, months.value);
-    data.value = res?.listing ? res : SAMPLE;
+    data.value = res?.listing ? res : null;
   } catch {
-    data.value = SAMPLE;
+    data.value = null;
+    showToast('매물 정보를 불러오지 못했어요', 'error');
   } finally {
     loading.value = false;
   }
 };
-onMounted(load);
+onMounted(() => {
+  load();
+  loadAffordability();
+});
 watch(months, (m) => (rentStore.months = m));
 
 const listing = computed(() => data.value?.listing);
+
+// 매물종류 한글 매핑(응답 estateType). 값이 없으면 목업 기본(오피스텔).
+const ESTATE_TYPE = { OFFICETEL: '오피스텔', APARTMENT: '아파트', VILLA: '빌라', ROOM: '원룸' };
+const estateTypeLabel = computed(() => ESTATE_TYPE[listing.value?.estateType] || '오피스텔');
+// 평수 = ㎡ / 3.3058 (소수 1자리)
+const pyeong = computed(() => ((listing.value?.areaSqm ?? 0) / 3.3058).toFixed(1));
+
+// 시세 뱃지: step2에서 넘어온 priceLevel(CHEAP/AVERAGE/EXPENSIVE)로 표시.
+// step3 단건 응답은 지역평균을 못 줘서 시세가 없으므로 store 값에 의존.
+// step2를 안 거치고 직접 진입하면 priceLevel이 없어 시세 뱃지는 생략(신선도만 표시).
+// 목업: 배경 채운 pill(초록/파랑/빨강) + 검정 글자.
+const PRICE_BADGE = {
+  CHEAP: { label: '✅ 지역 평균보다 저렴', cls: 'pill--cheap' },
+  AVERAGE: { label: '✔ 지역 평균 수준', cls: 'pill--average' },
+  EXPENSIVE: { label: '⛔ 지역 평균보다 비쌈', cls: 'pill--expensive' },
+};
+// 시세뱃지: 백엔드 상세 응답 priceLevel 우선(항상 계산됨), 없으면 step2에서 넘긴 store 값
+const priceBadge = computed(
+  () => PRICE_BADGE[listing.value?.priceLevel || rentStore.selectedPriceLevel] || null,
+);
+
+// 신선도 뱃지: 백엔드 propertyBadges 원문("1개월 전 실거래" 등)을 그대로 노랑 pill(⭐)로 노출.
+const freshBadges = computed(() => data.value?.propertyBadges || []);
+// 위치 좌표(국토부 실거래 API에 매물 이미지가 없어 지도로 대체). 좌표 있을 때만 안내 노출.
+const hasCoords = computed(
+  () => listing.value?.latitude != null && listing.value?.longitude != null,
+);
+const coordText = computed(() =>
+  hasCoords.value
+    ? `위도 ${Number(listing.value.latitude).toFixed(4)}, 경도 ${Number(listing.value.longitude).toFixed(4)}`
+    : '',
+);
+
+// 카카오맵: 앱키는 .env(VITE_KAKAO_MAP_KEY)에서만, 하드코딩 금지
+const KAKAO_KEY = import.meta.env.VITE_KAKAO_MAP_KEY;
+const mapEl = ref(null);
+// 지도 표시 조건: 앱키 있고 좌표 있을 때만. 아니면 좌표 안내 폴백
+const showMap = computed(() => !!KAKAO_KEY && hasCoords.value);
+let mapReady = false; // 중복 초기화 방지
+
+// SDK 동적 로드(한 번만). window.kakao.maps 있으면 재사용, 없으면 script 주입
+const loadKakaoSdk = () =>
+  new Promise((resolve, reject) => {
+    if (window.kakao?.maps) return resolve();
+    const existing = document.getElementById('kakao-map-sdk');
+    if (existing) {
+      existing.addEventListener('load', () => resolve());
+      existing.addEventListener('error', reject);
+      return;
+    }
+    const script = document.createElement('script');
+    script.id = 'kakao-map-sdk';
+    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_KEY}&autoload=false`;
+    script.onload = () => resolve();
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+
+// 좌표로 지도 생성 + 대략 위치 원(Circle)
+// 정확 위치 노출 방지: 마커 대신 반경 150m 원만 표시해 "대략 범위"만 보여준다.
+const initMap = () => {
+  if (!mapEl.value || !hasCoords.value) return;
+  const { kakao } = window;
+  const pos = new kakao.maps.LatLng(
+    Number(listing.value.latitude),
+    Number(listing.value.longitude),
+  );
+  // level 4: 원(150m)이 화면에 적당히 차도록
+  const map = new kakao.maps.Map(mapEl.value, { center: pos, level: 4 });
+  const circle = new kakao.maps.Circle({
+    center: pos,
+    radius: 150, // m
+    strokeWeight: 2,
+    strokeColor: '#F0A500', // KB 노랑 계열(목업 지정색)
+    strokeOpacity: 1,
+    strokeStyle: 'dashed',
+    fillColor: '#FFBC00',
+    fillOpacity: 0.22,
+  });
+  circle.setMap(map);
+};
+
+const setupMap = async () => {
+  if (mapReady || !showMap.value) return;
+  mapReady = true;
+  try {
+    await loadKakaoSdk();
+    window.kakao.maps.load(initMap);
+  } catch {
+    mapReady = false; // 로드 실패 시 폴백 유지(showMap은 여전히 true라 컨테이너만 비어보임)
+  }
+};
+
+// listing 이 비동기로 채워지므로 좌표 준비되면 DOM 렌더 후 초기화
+watch(
+  showMap,
+  async (ok) => {
+    if (!ok) return;
+    await nextTick();
+    setupMap();
+  },
+  { immediate: true },
+);
+// 거주기간 슬라이더 채움(노랑) — 6~24 구간을 %로 환산해 트랙 배경에 그린다(step1 예산 슬라이더 방식).
+const monthsFillStyle = computed(() => {
+  const pct = ((months.value - 6) / (24 - 6)) * 100;
+  return {
+    background: `linear-gradient(to right, var(--kb-yellow) 0%, var(--kb-yellow) ${pct}%, var(--kb-gray-pale) ${pct}%, var(--kb-gray-pale) 100%)`,
+  };
+});
+
 const monthlyCost = computed(() => (listing.value?.monthlyRent ?? 0) + (listing.value?.maintenanceFee ?? 0));
 const totalCost = computed(() => (listing.value?.deposit ?? 0) + monthlyCost.value * months.value);
-const affordText = computed(() => {
-  const t = totalCost.value, m = maturity.value;
-  if (m >= t * 1.2) return '딱 맞아요';
-  if (m >= t * 0.8) return '빠듯해요';
-  return '예산 초과';
+// 실제 소멸 비용: 돌려받지 못하고 나가는 돈 (월세+관리비)×개월. totalCost 에서 보증금을 뺀 값과 같다.
+const spentCost = computed(() => monthlyCost.value * months.value);
+
+// ── 비율 막대그래프(N개월 거주 한다면?) ─────────────────────
+// 분모(합계)는 항상 보증금+월세×개월+관리비×개월. 각 %는 항목/합계.
+// 토글 OFF(보증금 제외)면 보증금 구간은 막대·리스트에서 숨기고 빈 트랙으로 남긴다.
+const depositAmt = computed(() => listing.value?.deposit ?? 0);
+const rentTotal = computed(() => (listing.value?.monthlyRent ?? 0) * months.value);
+const maintTotal = computed(() => (listing.value?.maintenanceFee ?? 0) * months.value);
+const ratioSum = computed(() => depositAmt.value + rentTotal.value + maintTotal.value);
+const ratioPct = (v) => (ratioSum.value > 0 ? Math.round((v / ratioSum.value) * 100) : 0);
+const depositPct = computed(() => ratioPct(depositAmt.value));
+const rentPct = computed(() => ratioPct(rentTotal.value));
+const maintPct = computed(() => ratioPct(maintTotal.value));
+
+// 감당도 "보증금 포함/제외" 토글 — INCLUDE: 목돈으로 보증금까지 / EXCLUDE: 보증금은 전세대출로
+// 목업의 우상단 스위치와 연동(ON=INCLUDE, OFF=EXCLUDE). watch 로 재정체크 자동 재계산.
+// step3 보증금 포함/제외 선택을 store에 저장 → step4·step5 감당도 계산과 통일
+const depositMode = ref(rentStore.depositMode || 'INCLUDE');
+watch(depositMode, (v) => {
+  rentStore.depositMode = v;
 });
+const includeDeposit = computed({
+  get: () => depositMode.value === 'INCLUDE',
+  set: (on) => (depositMode.value = on ? 'INCLUDE' : 'EXCLUDE'),
+});
+const affordability = ref(null);
+// 모드별 필요 자금: 포함=총 필요 자금, 제외=보증금 뺀 소멸 비용
+const requiredForMode = computed(() =>
+  depositMode.value === 'EXCLUDE' ? spentCost.value : totalCost.value,
+);
+const judge = (need, m) => {
+  if (m >= need * 1.2) return '딱 맞아요';
+  if (m >= need * 0.8) return '빠듯해요';
+  return '예산 초과';
+};
+// 백엔드 affordability 응답(affordabilityLabel: "딱 맞아요" 등)을 우선, 없으면 로컬 판정으로 폴백
+const affordText = computed(
+  () => affordability.value?.affordabilityLabel ?? judge(requiredForMode.value, maturity.value),
+);
+// 재정 체크 박스: 배경색 + 아이콘 + 헤드라인(헤드라인만 볼드, "내 재정 체크"는 별도 라벨)
+const AFFORD = {
+  '딱 맞아요': { cls: 'afford--ok', icon: '👍', headline: '딱 맞아요' },
+  '빠듯해요': { cls: 'afford--tight', icon: '⚠️', headline: '빠듯해요' },
+  '예산 초과': { cls: 'afford--over', icon: '❌', headline: '예산 초과' },
+};
+const affordMeta = computed(() => AFFORD[affordText.value] || AFFORD['빠듯해요']);
+
+// 재정 분석 문구: 만기금으로 몇 개월 가능 + 남는 돈/부족분
+// (백엔드 surplus/shortfall 응답을 우선, 없으면 로컬 계산으로 폴백)
+const analysisText = computed(() => {
+  const a = affordability.value;
+  const mat = formatManwon(maturity.value);
+  if (affordText.value === '딱 맞아요') {
+    const surplus = a?.surplus ?? Math.max(0, maturity.value - requiredForMode.value);
+    return `만기금 ${mat}으로 ${months.value}개월 거주가 가능해요. 남는 돈 ${formatManwon(surplus)}은 비상금으로 두는 걸 추천합니다.`;
+  }
+  if (affordText.value === '빠듯해요') {
+    return `만기금 ${mat}으로 ${months.value}개월 거주는 가능하지만 여유가 빠듯해요. 예비비를 넉넉히 준비하는 걸 추천해요.`;
+  }
+  const shortfall = a?.shortfall ?? Math.max(0, requiredForMode.value - maturity.value);
+  return `${months.value}개월 거주하려면 ${formatManwon(shortfall)}이 부족해요. 거주기간을 줄이거나 전월세보증금대출을 확인해보세요.`;
+});
+
+const loadAffordability = async () => {
+  try {
+    const res = await rentApi.findAffordability(listingId, months.value, depositMode.value);
+    affordability.value = res || null;
+  } catch {
+    affordability.value = null;
+  }
+};
+watch([months, depositMode], loadAffordability);
+
+// ── 동네 시세 상세보기 바텀시트 ─────────────────────────────
+const marketSheetOpen = ref(false);
+const market = ref(null);
+const marketLoading = ref(false);
+const marketError = ref(false);
+let marketLoaded = false; // 재오픈 시 재호출 방지(성공한 경우만)
+
+const openMarketSheet = async () => {
+  marketSheetOpen.value = true;
+  if (marketLoaded) return; // 이미 받아온 데이터 재사용
+  marketLoading.value = true;
+  marketError.value = false;
+  try {
+    market.value = await rentApi.findMarketComparison(listingId);
+    marketLoaded = true;
+  } catch {
+    marketError.value = true;
+    showToast('시세 정보를 불러오지 못했어요', 'error');
+  } finally {
+    marketLoading.value = false;
+  }
+};
+
+// 만원 단위 표기(접미사 "만"). formatManwon 은 "원"까지 붙어 표에 부적합해 별도 유틸.
+const toMan = (v) => `${Math.round((v ?? 0) / 10000).toLocaleString('ko-KR')}만`;
+
+// 비교표 셀 포맷: key/label 로 단위 판별(면적 ㎡ / 건축년도 년 / 층 / 그 외 금액 만).
+const fmtCompare = (row, value) => {
+  const t = `${row?.key ?? ''} ${row?.label ?? ''}`;
+  if (t.includes('면적')) return `${value}㎡`;
+  if (t.includes('건축') || t.includes('년도')) return `${value}년`;
+  if (t.includes('층')) return `${value}층`;
+  return toMan(value);
+};
+
+// 이 매물 월세(㎡당월세 행은 제외). 없으면 listing 폴백.
+const mineRent = computed(() => {
+  const rows = market.value?.rows ?? [];
+  const row = rows.find((r) => {
+    const t = `${r.key ?? ''} ${r.label ?? ''}`;
+    return t.includes('월세') && !t.includes('㎡');
+  });
+  return row?.mine ?? listing.value?.monthlyRent ?? 0;
+});
+
+// 슬라이더 위치(%) — (값-최저)/(최고-최저). 범위가 0이면 중앙.
+const pctOf = (v) => {
+  const min = market.value?.rentMin ?? 0;
+  const max = market.value?.rentMax ?? 0;
+  if (max <= min) return 50;
+  return Math.min(100, Math.max(0, ((v - min) / (max - min)) * 100));
+};
+const minePct = computed(() => pctOf(mineRent.value));
+const avgPct = computed(() => pctOf(market.value?.rentAvg ?? 0));
+
+// 지역 평균 대비 차액(원). 음수=저렴, 양수=비쌈.
+const rentDiff = computed(() => mineRent.value - (market.value?.rentAvg ?? 0));
+const rentDiffLabel = computed(() => {
+  const man = rentDiff.value / 10000;
+  const sign = man > 0 ? '+' : ''; // 음수는 toFixed 가 이미 '-' 포함
+  return `${sign}${man.toFixed(1)}만`;
+});
+// 저렴(음수) 초록 / 비쌈(양수) 빨강 / 동일 중립
+const rentDiffTone = computed(() => {
+  if (rentDiff.value < 0) return 'good';
+  if (rentDiff.value > 0) return 'bad';
+  return 'neutral';
+});
+
+// 가성비 판정 박스 톤/아이콘
+const VERDICT = {
+  GOOD: { tone: 'good', icon: '👍' },
+  NORMAL: { tone: 'normal', icon: '🙂' },
+  BAD: { tone: 'bad', icon: '😥' },
+};
+const verdictMeta = computed(() => VERDICT[market.value?.verdict] || VERDICT.NORMAL);
 
 const goProducts = () => {
   router.push({ name: 'RentProducts', params: { goalId }, query: { listingId, months: months.value } });
+};
+// 이전: step2 매물 리스트로 (draft·선택값은 store에 유지됨)
+const goPrev = () => {
+  router.push({ name: 'RentListingList', params: { goalId } });
 };
 </script>
 
 <template>
   <div v-if="listing" class="detail">
-    <RoadmapCharacterSlider :progress="60" label="자취 로드맵" />
-    <header>
-      <p class="step">STEP 3</p>
-      <h2 class="name">{{ listing.buildingName }}</h2>
-      <p class="meta">{{ listing.dongName }} · {{ listing.floor }}층 · {{ listing.areaSqm }}㎡</p>
-    </header>
+    <RoadmapCharacterSlider :step="3" label="자취 로드맵" />
+    <h2 class="page-title">선택한 로드맵 비용은?</h2>
 
-    <div class="map">지도</div>
+    <!-- 매물 카드: 상단 KB 노랑 가로 바 -->
+    <BaseCard class="listing-card" padding="16px 16px 18px">
+      <!-- (a) 매물종류 칩 + 매물명 -->
+      <div class="lc-title">
+        <span class="type-chip">{{ estateTypeLabel }}</span>
+        <span class="lc-name">{{ listing.buildingName }}</span>
+      </div>
+      <!-- (b) 메타: 동 · 평수 · 층 -->
+      <p class="lc-meta">{{ listing.dongName }} · {{ pyeong }}평 · {{ listing.floor }}층</p>
 
-    <div class="pbadges">
-      <span v-for="(b, i) in (data.propertyBadges || SAMPLE.propertyBadges)" :key="i" class="tag">{{ b }}</span>
-    </div>
+      <!-- (c) 시세 뱃지(step2 priceLevel, 있을 때만) + 신선도 뱃지 -->
+      <div class="pbadges">
+        <span v-if="priceBadge" class="pill" :class="priceBadge.cls">{{ priceBadge.label }}</span>
+        <span v-for="(b, i) in freshBadges" :key="i" class="pill pill--fresh">⭐ {{ b }}</span>
+      </div>
 
-    <BaseCard padding="12px 14px">
-      <p class="cap">세부 정보</p>
-      <div class="row"><span>계약일</span><span>{{ listing.dealDate }}</span></div>
-      <div class="row"><span>건축년도</span><span>{{ listing.buildYear }}년</span></div>
-      <div class="row"><span>층수</span><span>{{ listing.floor }}층</span></div>
+      <!-- (d) 카카오맵: 앱키(.env)+좌표 있으면 대략 위치 원(Circle), 아니면 폴백 -->
+      <div v-if="showMap" class="map-wrap">
+        <div ref="mapEl" class="map map--live"></div>
+        <p class="lockbar">🔒 정확한 위치는 대략 범위로만 표시돼요</p>
+      </div>
+      <div v-else class="map">
+        <template v-if="hasCoords">
+          <span class="map__label">매물 위치</span>
+          <span class="map__coord">{{ coordText }}</span>
+        </template>
+        <span v-else class="map__label">위치 정보 없음</span>
+      </div>
+
+      <!-- (e) 스펙 2열 grid -->
+      <div class="spec-grid">
+        <div class="spec"><span class="spec__l">계약일</span><span class="spec__v">{{ listing.dealDate }}</span></div>
+        <div class="spec"><span class="spec__l">면적</span><span class="spec__v">{{ listing.areaSqm }}㎡ ({{ pyeong }}평)</span></div>
+        <div class="spec"><span class="spec__l">건축년도</span><span class="spec__v">{{ listing.buildYear }}년</span></div>
+        <div class="spec"><span class="spec__l">층수</span><span class="spec__v">{{ listing.floor }}층</span></div>
+      </div>
+
+      <!-- (f) 동네 시세 상세보기 -->
+      <button type="button" class="market-btn" @click="openMarketSheet">
+        동네 시세 상세보기
+      </button>
     </BaseCard>
+
+    <!-- 기간별 예상 비용 -->
+    <p class="sec-title">기간별 예상 비용</p>
 
     <section class="period">
-      <div class="row"><span class="label">거주기간</span><span class="val">{{ months }}개월</span></div>
-      <input v-model.number="months" type="range" min="6" max="24" step="1" class="slider" />
-      <div class="scale"><span>6개월</span><span>24개월</span></div>
+      <div class="period__head">
+        <span class="period__label">거주기간</span>
+        <span class="period__val">{{ months }}<em>개월</em></span>
+      </div>
+      <input v-model.number="months" type="range" min="6" max="24" step="1" class="slider" :style="monthsFillStyle" />
+      <div class="scale"><span>6개월</span><span>12개월</span><span>24개월</span></div>
     </section>
 
-    <BaseCard padding="12px 14px">
-      <p class="cap">{{ months }}개월 예상 총 비용</p>
-      <p class="total">{{ formatManwon(totalCost) }}</p>
-      <div class="divider" />
-      <div class="row"><span>보증금</span><span>{{ formatManwon(listing.deposit) }}</span></div>
-      <div class="row"><span>월세 × {{ months }}</span><span>{{ formatManwon(listing.monthlyRent * months) }}</span></div>
-      <div class="row"><span>관리비 × {{ months }}</span><span>{{ formatManwon(listing.maintenanceFee * months) }}</span></div>
-    </BaseCard>
-
-    <div class="check">
-      <div class="check__t">내 재정 체크: {{ affordText }}</div>
-      <div class="check__s">만기금 {{ formatManwon(maturity) }} 기준</div>
+    <!-- 내 재정 체크 -->
+    <div class="afford" :class="affordMeta.cls">
+      <p class="afford__label">내 재정 체크</p>
+      <p class="afford__t">{{ affordMeta.icon }} {{ affordMeta.headline }}</p>
+      <p class="afford__s">{{ analysisText }}</p>
     </div>
 
-    <p class="promo">저장하면 지역별 실제 공과금까지 계산해서 진짜 정확한 자취 예산을 알려드려요</p>
+    <!-- N개월 거주 한다면? (비율 막대그래프) -->
+    <BaseCard padding="14px 16px 16px">
+      <div class="ratio__head">
+        <p class="ratio__title">{{ months }}개월 거주 한다면?</p>
+        <label class="switch">
+          <input type="checkbox" v-model="includeDeposit" />
+          <span class="switch__track"><span class="switch__thumb"></span></span>
+          <span class="switch__label">보증금 포함</span>
+        </label>
+      </div>
 
-    <BottomButtonBar primary-label="금융상품 보기" @primary-click="goProducts" />
+      <div class="ratiobar">
+        <div v-if="includeDeposit" class="ratiobar__seg seg--deposit" :style="{ width: depositPct + '%' }"></div>
+        <div class="ratiobar__seg seg--rent" :style="{ width: rentPct + '%' }"></div>
+        <div class="ratiobar__seg seg--maint" :style="{ width: maintPct + '%' }"></div>
+      </div>
+
+      <ul class="ratio-list">
+        <li v-if="includeDeposit">
+          <span class="dot dot--deposit"></span>
+          <span class="ratio-name">보증금</span>
+          <span class="ratio-amt">{{ formatManwon(depositAmt) }}</span>
+          <span class="ratio-pct">{{ depositPct }}%</span>
+        </li>
+        <li>
+          <span class="dot dot--rent"></span>
+          <span class="ratio-name">월세</span>
+          <span class="ratio-amt">{{ formatManwon(rentTotal) }}</span>
+          <span class="ratio-pct">{{ rentPct }}%</span>
+        </li>
+        <li>
+          <span class="dot dot--maint"></span>
+          <span class="ratio-name">관리비</span>
+          <span class="ratio-amt">{{ formatManwon(maintTotal) }}</span>
+          <span class="ratio-pct">{{ maintPct }}%</span>
+        </li>
+      </ul>
+    </BaseCard>
+
+    <p class="promo">💡 해당 매물의 예상 공과금까지 계산해 더 정확한 자취 예산을 알려드려요</p>
+
+    <BottomButtonBar
+      secondary-label="이전"
+      primary-label="다음"
+      @secondary-click="goPrev"
+      @primary-click="goProducts"
+    />
+
+    <!-- 동네 시세 상세보기 바텀시트 -->
+    <BaseBottomSheet
+      v-model="marketSheetOpen"
+      title="동네 시세 상세보기"
+      confirm-text="닫기"
+    >
+      <p v-if="marketLoading" class="mkt-state">불러오는 중...</p>
+      <p v-else-if="marketError" class="mkt-state">시세 정보를 불러오지 못했어요</p>
+
+      <!-- 표본 부족: (A)(B)(C) 대신 안내만 -->
+      <p v-else-if="market && !market.enough" class="mkt-empty">
+        이 동네는 비교할 매물 데이터가 부족해요 🥲
+      </p>
+
+      <template v-else-if="market">
+        <!-- (A) 시세 슬라이더 -->
+        <section class="mkt-slider">
+          <p class="mkt-slider__title">{{ market.umdName }} 시세에서 이 매물은?</p>
+          <p class="mkt-diff">
+            <span class="mkt-diff__num" :class="`mkt-diff__num--${rentDiffTone}`">{{ rentDiffLabel }}</span>
+            <span class="mkt-diff__unit">월세 기준</span>
+          </p>
+          <div class="bar">
+            <div class="bar__track"></div>
+            <div class="bar__avg" :style="{ left: avgPct + '%' }" title="동네 평균"></div>
+            <div class="bar__mine" :style="{ left: minePct + '%' }">
+              <span class="bar__mine-dot"></span>
+              <span class="bar__mine-tag">이 매물</span>
+            </div>
+          </div>
+          <div class="bar__scale">
+            <span>{{ toMan(market.rentMin) }}</span>
+            <span>평균 {{ toMan(market.rentAvg) }}</span>
+            <span>{{ toMan(market.rentMax) }}</span>
+          </div>
+          <p class="mkt-cap">
+            같은 조건 최근 {{ market.sampleCount }}건 중 하위 {{ market.rentPercentile }}% 가격이에요
+          </p>
+        </section>
+
+        <!-- (B) 비교 테이블 -->
+        <section class="mkt-table">
+          <div class="mkt-table__head">
+            <span class="mkt-table__title">{{ market.umdName }} 평균과 비교</span>
+            <span class="mkt-table__badge">동네 실거래 {{ market.sampleCount }}건</span>
+          </div>
+          <div class="cmp cmp--head">
+            <span>항목</span>
+            <span>이 매물</span>
+            <span>동네 평균</span>
+            <span aria-hidden="true"></span>
+          </div>
+          <div v-for="row in market.rows" :key="row.key" class="cmp">
+            <span class="cmp__label">{{ row.label }}</span>
+            <span class="cmp__mine">{{ fmtCompare(row, row.mine) }}</span>
+            <span class="cmp__avg">{{ fmtCompare(row, row.avg) }}</span>
+            <span class="cmp__flag">{{ row.better ? '✅' : '⚠️' }}</span>
+          </div>
+          <p class="cmp-sum">🏆 {{ market.totalItems }}개 중 {{ market.betterCount }}개 우위</p>
+        </section>
+
+        <!-- (C) 가성비 판정 박스 -->
+        <section class="verdict" :class="`verdict--${verdictMeta.tone}`">
+          <span class="verdict__icon">{{ verdictMeta.icon }}</span>
+          <div class="verdict__body">
+            <p class="verdict__title">{{ market.verdictTitle }}</p>
+            <p class="verdict__text">{{ market.verdictText }}</p>
+          </div>
+        </section>
+      </template>
+    </BaseBottomSheet>
   </div>
-  <p v-else class="loading">불러오는 중...</p>
+  <p v-else-if="loading" class="loading">불러오는 중...</p>
+  <p v-else class="loading">매물 정보를 불러오지 못했어요</p>
 </template>
 
 <style scoped>
@@ -113,74 +520,196 @@ const goProducts = () => {
   flex-direction: column;
   gap: 12px;
 }
-.step {
-  font-size: 12px;
-  color: var(--text-muted);
+.page-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-strong);
+  line-height: 1.35;
 }
-.name {
-  font-size: 17px;
+
+/* ── 매물 카드 ─────────────────────────────────────────── */
+.listing-card {
+  border-top: 4px solid var(--kb-yellow);
+  overflow: hidden;
+}
+.lc-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.type-chip {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 5px;
+  background: #9d9d9d;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+.lc-name {
+  font-size: 15px;
   font-weight: 700;
   color: var(--text-strong);
 }
-.meta {
-  margin-top: 3px;
+.lc-meta {
+  margin-top: 6px;
   font-size: 12px;
   color: var(--text-muted);
 }
 .map {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 3px;
   height: 100px;
   border-radius: 8px;
   background: var(--kb-gray-pale);
   color: var(--text-muted);
   font-size: 13px;
 }
-.pbadges {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
+/* 실제 카카오맵 컨테이너: 타일이 보이도록 높이 확보 */
+.map--live {
+  display: block;
+  height: 200px;
+  background: var(--kb-gray-pale);
+  overflow: hidden;
 }
-.tag {
-  font-size: 11px;
-  padding: 3px 10px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  color: var(--text-muted);
-}
-.cap {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-bottom: 6px;
-}
-.row {
-  display: flex;
-  justify-content: space-between;
+.map__label {
   font-size: 12px;
-  color: var(--text-body);
-  margin-bottom: 3px;
-}
-.row span:first-child {
   color: var(--text-muted);
 }
-.label {
+.map__coord {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-body);
 }
-.val {
+/* ── 뱃지 pill(배경 채움) ──────────────────────────────── */
+.pbadges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 10px 0;
+}
+.pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: #000;
+}
+.pill--cheap {
+  background: #e1f3e0;
+}
+.pill--average {
+  background: #d3e6ff;
+}
+.pill--expensive {
+  background: #f4d1d1;
+}
+.pill--fresh {
+  background: #fff4cc;
+}
+
+/* ── 스펙 2열 grid ─────────────────────────────────────── */
+.spec-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
+  margin-top: 12px;
+}
+.spec {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.spec__l {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.spec__v {
   font-size: 13px;
   font-weight: 700;
+  color: var(--text-strong);
 }
+
+/* ── 섹션 제목 ─────────────────────────────────────────── */
+.sec-title {
+  margin-top: 18px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+/* ── 거주기간 슬라이더 ─────────────────────────────────── */
 .period {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
+.period__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.period__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-body);
+}
+.period__val {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+.period__val em {
+  font-size: 13px;
+  font-weight: 600;
+  font-style: normal;
+  color: var(--text-muted);
+  margin-left: 2px;
+}
+/* 채움(노랑)은 인라인 배경, 핸들은 흰 원+노랑 테두리 (step1 예산 슬라이더와 통일) */
 .slider {
+  -webkit-appearance: none;
+  appearance: none;
   width: 100%;
-  accent-color: var(--text-strong);
+  height: 6px;
+  border-radius: 3px;
+  margin: 12px 0 8px;
+  background: var(--kb-gray-pale);
+  cursor: pointer;
+}
+.slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: transparent;
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--kb-yellow-deep);
+  box-shadow: 0 1px 3px var(--shadow-thumb);
+  cursor: pointer;
+}
+.slider::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: transparent;
+}
+.slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--kb-yellow-deep);
+  box-shadow: 0 1px 3px var(--shadow-thumb);
+  cursor: pointer;
 }
 .scale {
   display: flex;
@@ -188,38 +717,161 @@ const goProducts = () => {
   font-size: 10px;
   color: var(--text-hint);
 }
-.total {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-strong);
-  margin-bottom: 8px;
-}
-.divider {
-  height: 1px;
-  background: var(--line);
-  margin: 6px 0;
-}
-.check {
+
+/* ── 내 재정 체크 박스 ─────────────────────────────────── */
+.afford {
   padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fafafa;
+  border-radius: 12px;
 }
-.check__t {
-  font-size: 13px;
+.afford--ok {
+  background: #e1f3e0;
+}
+.afford--tight {
+  background: #ffffc3;
+}
+.afford--over {
+  background: #f4d1d1;
+}
+/* "내 재정 체크" 라벨 - 볼드 아님, 작은 회색 */
+.afford__label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-bottom: 3px;
+}
+/* 헤드라인(👍 딱 맞아요)만 볼드 */
+.afford__t {
+  font-size: 15px;
   font-weight: 700;
   color: var(--text-strong);
 }
-.check__s {
-  margin-top: 3px;
+.afford__s {
+  margin-top: 5px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-body);
+}
+
+/* ── 비율 막대그래프 ───────────────────────────────────── */
+.ratio__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.ratio__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+/* 보증금 포함 토글 스위치 */
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.switch__track {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--kb-gray-pale);
+  transition: background 0.15s;
+}
+.switch__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: transform 0.15s;
+}
+.switch input:checked + .switch__track {
+  background: var(--kb-yellow-deep);
+}
+.switch input:checked + .switch__track .switch__thumb {
+  transform: translateX(16px);
+}
+.switch__label {
   font-size: 11px;
   color: var(--text-muted);
 }
+.ratiobar {
+  display: flex;
+  width: 100%;
+  height: 14px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--kb-gray-pale);
+}
+.ratiobar__seg {
+  height: 100%;
+}
+.seg--deposit {
+  background: #6b5b4d;
+}
+.seg--rent {
+  background: #a68b73;
+}
+.seg--maint {
+  background: #e5c558;
+}
+.ratio-list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ratio-list li {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+}
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 8px;
+  flex: none;
+}
+.dot--deposit {
+  background: #6b5b4d;
+}
+.dot--rent {
+  background: #a68b73;
+}
+.dot--maint {
+  background: #e5c558;
+}
+.ratio-name {
+  color: var(--text-body);
+}
+.ratio-amt {
+  margin-left: auto;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+.ratio-pct {
+  margin-left: 10px;
+  font-weight: 700;
+  color: #f0a500;
+  min-width: 38px;
+  text-align: right;
+}
 .promo {
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fafafa;
+  text-align: center;
   font-size: 11px;
   color: var(--text-muted);
   line-height: 1.6;
@@ -231,4 +883,231 @@ const goProducts = () => {
   color: var(--text-hint);
 }
 /* 버튼 색은 BottomButtonBar 컴포넌트 기본값 사용 */
+
+/* ── 지도: 대략 위치 원 + 잠금바 ───────────────────────── */
+.map-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.lockbar {
+  font-size: 11px;
+  color: var(--text-hint);
+  text-align: center;
+}
+
+/* ── 동네 시세 상세보기 버튼 ───────────────────────────── */
+.market-btn {
+  width: 100%;
+  margin-top: 14px;
+  padding: 11px 0;
+  border: 0;
+  border-radius: 8px;
+  background: #c9bca8;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* ── 바텀시트 공통 상태 ────────────────────────────────── */
+.mkt-state {
+  padding: 40px 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-hint);
+}
+.mkt-empty {
+  padding: 40px 12px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+/* ── (A) 시세 슬라이더 ─────────────────────────────────── */
+.mkt-slider {
+  margin-bottom: 20px;
+}
+.mkt-slider__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-strong);
+  margin-bottom: 8px;
+}
+.mkt-diff {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.mkt-diff__num {
+  font-size: 22px;
+  font-weight: 800;
+}
+.mkt-diff__num--good {
+  color: var(--success);
+}
+.mkt-diff__num--bad {
+  color: var(--danger);
+}
+.mkt-diff__num--neutral {
+  color: var(--info-blue);
+}
+.mkt-diff__unit {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.bar {
+  position: relative;
+  height: 28px;
+  margin: 0 6px;
+}
+.bar__track {
+  position: absolute;
+  top: 13px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--kb-gray-pale);
+}
+.bar__avg {
+  position: absolute;
+  top: 7px;
+  width: 2px;
+  height: 16px;
+  background: var(--info-blue);
+  transform: translateX(-50%);
+}
+.bar__mine {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.bar__mine-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--kb-yellow-deep);
+  border: 2px solid var(--text-strong);
+  box-sizing: border-box;
+}
+.bar__mine-tag {
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+.bar__scale {
+  display: flex;
+  justify-content: space-between;
+  margin: 8px 0 0;
+  font-size: 10px;
+  color: var(--text-hint);
+}
+.mkt-cap {
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ── (B) 비교 테이블 ───────────────────────────────────── */
+.mkt-table {
+  margin-bottom: 20px;
+}
+.mkt-table__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.mkt-table__title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+.mkt-table__badge {
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--kb-gray-pale);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.cmp {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr 24px;
+  align-items: center;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+}
+.cmp--head {
+  border-top: 0;
+  color: var(--text-hint);
+  font-size: 11px;
+}
+.cmp__label {
+  color: var(--text-muted);
+}
+.cmp__mine {
+  font-weight: 700;
+  color: var(--kb-yellow-deep);
+}
+.cmp__avg {
+  color: var(--text-muted);
+}
+.cmp__flag {
+  text-align: right;
+  font-size: 12px;
+}
+.cmp-sum {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: var(--kb-gray-pale);
+  color: var(--text-strong);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* ── (C) 가성비 판정 박스 ──────────────────────────────── */
+.verdict {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 14px;
+  border-radius: 12px;
+}
+.verdict--good {
+  background: var(--military-green-light);
+}
+.verdict--normal {
+  background: #eaf3fb; /* 파랑 계열 연한 배경(목업 톤) */
+}
+.verdict--bad {
+  background: #ffecec;
+}
+.verdict__icon {
+  font-size: 22px;
+  line-height: 1.2;
+}
+.verdict__title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-strong);
+  margin-bottom: 3px;
+}
+.verdict__text {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-body);
+}
 </style>

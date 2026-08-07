@@ -265,7 +265,7 @@ const submitGoal = async () => {
 
 <template>
   <div class="travel-goal">
-    <RoadmapCharacterSlider :progress="0" label="여행 로드맵" />
+    <RoadmapCharacterSlider :step="1" label="여행 로드맵" />
 
     <h2 class="travel-goal__title text-title">어디로 떠나고 싶습니까?</h2>
 

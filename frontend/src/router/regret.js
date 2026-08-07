@@ -14,6 +14,12 @@ export default [
     meta: { requiresAuth: true },
   },
   {
+    path: '/regret/label/:label',
+    name: 'RegretLabelList',   // 라벨별 모아보기 (REGRET | SOSO | SATISFIED)
+    component: () => import('@/pages/regret/RegretLabelListPage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/regret/review',
     name: 'RegretReview',   // 소비 점호 태깅
     component: () => import('@/pages/regret/RegretReviewPage.vue'),

@@ -275,21 +275,6 @@ VALUES
 
 
 -- --------------------------------------------------------------------
---  [수연] 자취/법정동코드
---  테이블: region_code
--- --------------------------------------------------------------------
-INSERT INTO region_code (region_code, sido_name, sigungu_name, umd_name, sigungu_code, is_abolished, created_date, created_nm, del_yn) VALUES
-('1168010100', '서울특별시', '강남구',   '역삼동',  '11680', 'N', NOW(), 'suyeon', 'N'),
-('1168010300', '서울특별시', '강남구',   '개포동',  '11680', 'N', NOW(), 'suyeon', 'N'),
-('1171010100', '서울특별시', '송파구',   '잠실동',  '11710', 'N', NOW(), 'suyeon', 'N'),
-('1147010100', '서울특별시', '양천구',   '신정동',  '11470', 'N', NOW(), 'suyeon', 'N'),
-('2620010100', '부산광역시', '부산진구', '부전동',  '26200', 'N', NOW(), 'suyeon', 'N'),
-('2644010300', '부산광역시', '해운대구', '중동',    '26440', 'N', NOW(), 'suyeon', 'N'),
-('2647010100', '부산광역시', '사하구',   '괴정동',  '26470', 'N', NOW(), 'suyeon', 'N'),
-('4113510500', '경기도',     '성남시 분당구', '정자동', '41135', 'N', NOW(), 'suyeon', 'N');
-
-
--- --------------------------------------------------------------------
 --  [지원] 진로/취업·공무원 분류
 --  테이블: job_category
 -- --------------------------------------------------------------------
@@ -1313,39 +1298,14 @@ INSERT INTO travel_insurance (
 
 
 -- --------------------------------------------------------------------
---  [수연] 자취/월세 실거래 매물
---  테이블: rent_listing
+--  [수연] 자취 mock 제거 (실 API 적재로 대체)
+--    - rent_listing   : 실거래 매물은 ★ kb-data-rent-listing.sql ★ 로 분리 (이 파일 다음에 실행)
+--                       → 실 API로 적재한 실매물 시드(관악구 590건). 매번 배치 안 돌려도 재실행하면 복원됨.
+--                       지역 추가/재생성 방법은 kb-data-rent-listing.sql 헤더 참고
+--    - housing_product : 온통청년 OPEN API 로 적재 (POST /api/rent/admin/youth-sync 또는 매일 04:10 배치)
+--    - region_fee_stat : 폐기됨 (관리비는 UtilityService K-apt 면적앵커로 계산, 테이블 미사용)
+--    - housing_loan    : 폐기됨 (주거 금융상품은 housing_product 로 통합, 테이블 미사용)
 -- --------------------------------------------------------------------
-INSERT INTO rent_listing (listing_id, estate_type, sigungu_code, region_code, umd_name, jibun, building_name, built_year, floor, area_sqm, deposit, monthly_rent, deal_date, latitude, longitude, base_date, created_date, created_nm, del_yn) VALUES
-(1, 'OFFICETEL', '26200', '2620010100', '부전동', '168-1',  '부전현대',   2018, 5,  23.14, 5000000,  450000, '2026-05-12', 35.15784, 129.05903, '2026-07-15', NOW(), 'BATCH', 'N'),
-(2, 'OFFICETEL', '26200', '2620010100', '부전동', '505-3',  '서면SK뷰',   2020, 8,  28.50, 10000000, 550000, '2026-05-20', 35.15691, 129.05812, '2026-07-15', NOW(), 'BATCH', 'N'),
-(3, 'VILLA',     '26200', '2620010100', '부전동', '210-15', '한양빌라',   2015, 3,  33.20, 3000000,  380000, '2026-06-01', 35.15522, 129.06012, '2026-07-15', NOW(), 'BATCH', 'N'),
-(4, 'OFFICETEL', '11680', '1168010100', '역삼동', '736-40', '역삼래미안', 2019, 12, 25.72, 20000000, 900000, '2026-05-25', 37.49952, 127.03737, '2026-07-15', NOW(), 'BATCH', 'N'),
-(5, 'OFFICETEL', '11680', '1168010100', '역삼동', '825-4',  '역삼푸르지오', 2021, 15, 33.05, 30000000, 1200000, '2026-06-05', 37.50108, 127.03621, '2026-07-15', NOW(), 'BATCH', 'N'),
-(6, 'VILLA',     '11680', '1168010100', '역삼동', '619-2',  '역삼그린빌', 2012, 4,  39.60, 10000000, 750000, '2026-05-30', 37.50274, 127.03495, '2026-07-15', NOW(), 'BATCH', 'N'),
-(7, 'OFFICETEL', '11710', '1171010100', '잠실동', '40-1',   '잠실리센츠', 2020, 10, 26.80, 15000000, 850000, '2026-06-08', 37.51139, 127.09800, '2026-07-15', NOW(), 'BATCH', 'N'),
-(8, 'OFFICETEL', '26440', '2644010300', '중동',   '1394',   '해운대두산위브', 2022, 20, 30.11, 20000000, 950000, '2026-06-12', 35.16294, 129.16745, '2026-07-15', NOW(), 'BATCH', 'N');
-
-
--- --------------------------------------------------------------------
---  [수연] 자취/지역관리비통계
---  테이블: region_fee_stat
--- --------------------------------------------------------------------
-INSERT INTO region_fee_stat (stat_id, region_code, base_month, mgmt_fee_per_sqm, elec_fee_per_sqm, water_fee_per_sqm, heat_fee_per_sqm, sample_count, base_date, created_date, created_nm, del_yn) VALUES
-(1, '2620010100', '2026-06', 1420, 1180, 460, 780, 12, '2026-07-10', NOW(), 'BATCH', 'N'),
-(2, '1168010100', '2026-06', 1830, 1350, 520, 890, 25, '2026-07-10', NOW(), 'BATCH', 'N'),
-(3, '1171010100', '2026-06', 1710, 1290, 500, 850, 18, '2026-07-10', NOW(), 'BATCH', 'N');
-
-
--- --------------------------------------------------------------------
---  [수연] 자취/청년 주거 대출 상품
---  테이블: housing_loan
--- --------------------------------------------------------------------
-INSERT INTO housing_loan (loan_id, name, product_type, loan_type, provider, rate_summary, loan_limit, min_age, max_age, veteran_benefit, join_condition, detail, external_url, is_kb, base_date, created_date, created_nm, del_yn) VALUES
-(1, '청년전용 버팀목 전월세대출', 'POLICY', 'DEPOSIT', 'KB국민은행', '연 1.5% ~ 2.7%', 200000000, 19, 34, '병역 이행 시 최대 만 39세까지 연장', '연소득 5천만원 이하·무주택 세대주', '주택도시기금 재원 청년 전세자금 대출', 'https://nhuf.molit.go.kr/', TRUE, '2026-07-10', NOW(), 'ADMIN', 'N'),
-(2, '청년전용 보증부월세대출',   'POLICY', 'MONTHLY', 'KB국민은행', '보증금 연 1.3% / 월세 연 0%', 45000000, 19, 34, '병역 이행 시 최대 만 39세까지 연장', '연소득 5천만원 이하', '주택도시기금 청년 월세 대출', 'https://nhuf.molit.go.kr/', TRUE, '2026-07-10', NOW(), 'ADMIN', 'N'),
-(3, 'KB 청년 맞춤형 전세자금대출', 'BANK', 'DEPOSIT', 'KB국민은행', '연 3.8% ~ 5.5%', 200000000, 19, 34, '군필자 만 39세까지 연장', '재직 3개월 이상 또는 사업자 6개월 이상', 'KB국민은행 자체 상품', 'https://obank.kbstar.com/', TRUE, '2026-07-10', NOW(), 'ADMIN', 'N'),
-(4, '중소기업취업청년 전월세보증금대출', 'POLICY', 'DEPOSIT', '5개 시중은행', '연 1.5% 고정', 100000000, 19, 34, '병역 이행 시 최대 만 39세까지 연장', '중소·중견기업 재직 청년 / 연소득 3.5천만원 이하', '주택도시기금 정책 상품', 'https://nhuf.molit.go.kr/', TRUE, '2026-07-10', NOW(), 'ADMIN', 'N');
 
 
 -- --------------------------------------------------------------------
@@ -1826,14 +1786,9 @@ VALUES
 
 -- --------------------------------------------------------------------
 --  [수연] 자취/로드맵 추천 (2명)
---  테이블: school, rent_goal, rent_goal_region, rent_recommend, loan_recommend
+--  테이블: rent_goal, rent_goal_region, rent_recommend, loan_recommend
+--  (school 마스터는 master/school_sy.sql 로 이동)
 -- --------------------------------------------------------------------
---  학교 마스터 (Mock: 대학알리미 API 전환 전 임시 3건)
-INSERT INTO school (school_id, school_name, school_type, address, sigungu_code, region_code, latitude, longitude, created_date, created_nm, del_yn) VALUES
-(1, '부산대학교', 'UNIVERSITY', '부산광역시 금정구 부산대학로63번길 2', '26410', '2641010100', 35.2339000, 129.0806000, NOW(), 'suyeon', 'N'),
-(2, '부경대학교', 'UNIVERSITY', '부산광역시 남구 용소로 45',        '26290', '2629010100', 35.1336000, 129.1058000, NOW(), 'suyeon', 'N'),
-(3, '서울대학교', 'UNIVERSITY', '서울특별시 관악구 관악로 1',       '11620', '1162010100', 37.4599000, 126.9520000, NOW(), 'suyeon', 'N');
-
 --  월세 목표
 INSERT INTO rent_goal (goal_id, user_id, title, selection_mode, school_id, commute_radius_km, monthly_budget, residence_preset, residence_months, status, created_date, created_nm, del_yn) VALUES
 (1, 1, '전역 후 부산 자취', 'REGION', NULL, NULL, 700000,  'YEAR', 12, 'CONFIRMED', NOW(), 'suyeon', 'N'),

@@ -25,6 +25,16 @@
         AND del_yn = 'N'
     </update>
 
+    <update id="confirmGoal">
+        UPDATE car_goal
+        SET status = 'CONFIRMED',
+            modified_date = NOW(),
+            modified_nm = #{userId}
+        WHERE goal_id = #{goalId}
+        AND user_id = #{userId}
+        AND del_yn = 'N'
+    </update>
+
     <select id="selectCarGoalById" resultType="org.scoula.car.domain.CarGoalVO">
         SELECT *
         FROM car_goal

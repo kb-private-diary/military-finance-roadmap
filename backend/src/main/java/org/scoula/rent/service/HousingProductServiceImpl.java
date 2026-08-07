@@ -54,8 +54,9 @@ public class HousingProductServiceImpl implements HousingProductService {
         //    deposit/monthly 는 NULL 이면 0 으로 (한도 판정에서 항상 통과), area 는 NULL 그대로 전달(매퍼에서 통과 처리)
         Long deposit = listing.getDeposit() == null ? 0L : listing.getDeposit();
         Long monthlyRent = listing.getMonthlyRent() == null ? 0L : listing.getMonthlyRent();
+        // 지역(LOCAL) 매칭용 시도코드: 법정동코드(10자리) 우선, 매핑 실패로 NULL 이면 시군구코드(5자리)로 대체(매퍼 COALESCE)
         List<HousingProductVO> candidates = this.mapper.findProducts(
-                listing.getRegionCode(), deposit, monthlyRent, listing.getAreaSqm());
+                listing.getRegionCode(), listing.getSigunguCode(), deposit, monthlyRent, listing.getAreaSqm());
 
         // 4) 사용자 복무기간 계산 (병역 안내용, 명세 5장). 생년월일이 없어 나이 필터엔 쓰지 않는다
         MilitaryServiceVO service = this.mapper.findServicePeriodByUserId(userId);

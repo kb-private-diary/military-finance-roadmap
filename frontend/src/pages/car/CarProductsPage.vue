@@ -5,6 +5,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import carApi from '@/api/carApi';
 import BaseCard from '@/components/common/BaseCard.vue';
+import BaseModal from '@/components/common/BaseModal.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
 import { formatManwonUnit } from '@/util/format';
@@ -14,7 +15,6 @@ const router = useRouter();
 const goalId = computed(() => Number(route.params.goalId));
 
 const currentStep = 4;
-const progress = computed(() => (currentStep / 4) * 100);
 
 const goal = ref(null);
 const maintenanceCost = ref(null);
@@ -22,6 +22,9 @@ const evSubsidy = ref(null);
 const budgetStatus = ref(null);
 const loading = ref(true);
 const loadError = ref('');
+const completing = ref(false);
+const completeError = ref('');
+const isCompleteModalOpen = ref(false);
 
 const unwrap = (response) => response.data?.data;
 
@@ -69,7 +72,21 @@ const loadProductInfo = async () => {
 
 onMounted(loadProductInfo);
 
-const handleComplete = () => {
+const handleComplete = async () => {
+  if (completing.value) return;
+  completing.value = true;
+  completeError.value = '';
+  try {
+    await carApi.confirmGoal(goalId.value);
+    isCompleteModalOpen.value = true;
+  } catch (error) {
+    completeError.value = readErrorMessage(error, '저장하지 못했습니다.');
+  } finally {
+    completing.value = false;
+  }
+};
+
+const goToDetail = () => {
   router.push({ name: 'CarGoalDetail', params: { goalId: goalId.value } });
 };
 
@@ -80,7 +97,7 @@ const handlePrev = () => {
 
 <template>
   <div class="car-products">
-    <RoadmapCharacterSlider :progress="progress" label="자동차 로드맵" />
+    <RoadmapCharacterSlider :step="currentStep" label="자동차 로드맵" />
 
     <h2 class="car-products__title text-title">금융상품 추천</h2>
 
@@ -106,6 +123,17 @@ const handlePrev = () => {
               }}
             </p>
           </div>
+          <a
+            class="product-card__external"
+            href="https://direct.kbinsure.co.kr/"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="KB 손해보험 다이렉트 자동차보험 홈페이지 열기"
+          >
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+              <path d="M14 4h6v6M20 4l-9 9M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5" />
+            </svg>
+          </a>
         </BaseCard>
       </section>
 
@@ -156,15 +184,30 @@ const handlePrev = () => {
         <p class="car-products__guide-title text-label">지금까지 자동차 로드맵이었습니다.</p>
         <p class="car-products__guide-description">마음에 든다면 완료해주세요.</p>
       </div>
+
+      <p v-if="completeError" class="form-error text-caption" role="alert">
+        {{ completeError }}
+      </p>
     </template>
 
     <BottomButtonBar
-      primary-label="완료"
+      :primary-label="completing ? '저장 중...' : '완료'"
       secondary-label="이전"
-      :primary-disabled="loading || !!loadError"
+      :primary-disabled="loading || !!loadError || completing"
       @primary-click="handleComplete"
       @secondary-click="handlePrev"
     />
+
+    <BaseModal
+      v-model="isCompleteModalOpen"
+      title="알림"
+      confirm-text="확인"
+      @confirm="goToDetail"
+    >
+      <p class="car-products__modal-message">
+        선택한 자동차 목표가 저장되었습니다.
+      </p>
+    </BaseModal>
   </div>
 </template>
 
@@ -198,9 +241,35 @@ const handlePrev = () => {
 }
 
 .product-card {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 14px;
+}
+
+.product-card__external {
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: var(--text-strong);
+  text-decoration: none;
+  transform: translateY(-50%);
+  place-items: center;
+}
+
+.product-card__external:hover,
+.product-card__external:focus-visible {
+  background: var(--surface-muted);
+}
+
+.product-card__external svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
 }
 
 .product-card__icon {
@@ -217,6 +286,7 @@ const handlePrev = () => {
 
 .product-card__content {
   min-width: 0;
+  padding-right: 38px;
 }
 
 .product-card__name {
@@ -270,6 +340,10 @@ const handlePrev = () => {
   margin: 6px 0 0;
   color: var(--text-muted);
   font-size: 12px;
+}
+
+.car-products__modal-message {
+  margin: 0;
 }
 
 .car-products :deep(.bottom-button-bar) {

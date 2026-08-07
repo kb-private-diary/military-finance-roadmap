@@ -1,9 +1,11 @@
 <script setup>
 // SCR-CAR-01 · step1)  자동차 목표 등록  (담당: 호빈)
 // step1 - 예산·차종·신차/중고·거주지역·운전경력 입력
-import { computed, reactive, ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import carApi from '@/api/carApi';
+import { useCarStore } from '@/stores/car';
+import BaseCard from '@/components/common/BaseCard.vue';
 import BaseInput from '@/components/common/BaseInput.vue';
 import CategoryButton from '@/components/common/CategoryButton.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
@@ -11,6 +13,7 @@ import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.v
 import { toIsoDate } from '@/util/format';
 
 const router = useRouter();
+const carStore = useCarStore();
 
 const REGION_OPTIONS = [
   { value: '서울특별시', label: '서울특별시' },
@@ -42,15 +45,13 @@ const EXPERIENCE_OPTIONS = [
   { value: 5, label: '5년 이상' },
 ];
 
-const form = reactive({
-  isNew: true,
-  budget: '',
-  targetDate: '',
-  region: '',
-  experienceYears: null,
-});
+// 스토어에 담긴 값(위저드 '가방')을 그대로 폼으로 쓴다 — "이전"으로 되돌아와도 입력값이 유지된다.
+const form = carStore.draft;
 
 const today = toIsoDate(new Date());
+
+// 수동 예산 입력(자취 로드맵의 "반경 조정하기"와 동일한 토글 방식)
+const budgetOpen = ref(false);
 
 const submitError = ref('');
 const submitting = ref(false);
@@ -110,7 +111,7 @@ const submitGoal = async () => {
 
 <template>
   <div class="car-goal">
-    <RoadmapCharacterSlider :progress="0" label="자동차 로드맵" />
+    <RoadmapCharacterSlider :step="1" label="자동차 로드맵" />
 
     <h2 class="car-goal__title text-title">무엇을 준비하고 싶으신가요?</h2>
 
@@ -134,16 +135,25 @@ const submitGoal = async () => {
       </fieldset>
 
       <div class="field">
-        <BaseInput
-          v-model="form.budget"
-          type="amount"
-          label="수동 예산 입력 (선택)"
-          suffix="만원"
-          placeholder="입력 안 하면 군적금 만기예상액 기준으로 추천돼요"
-        />
-        <p class="field__hint">
-          만기예상액을 다 쓰지 않고 일부만 쓰고 싶다면, 원하는 한도를 입력해주세요.
-        </p>
+        <div class="row-between">
+          <button type="button" class="link-toggle" @click="budgetOpen = !budgetOpen">
+            수동 예산 입력 (선택) {{ budgetOpen ? '▲' : '▼' }}
+          </button>
+          <span class="field__hint-inline">
+            {{ form.budget ? `${form.budget}만원` : '군적금 만기예상액 기준' }}
+          </span>
+        </div>
+        <BaseCard v-if="budgetOpen" padding="12px 14px">
+          <BaseInput
+            v-model="form.budget"
+            type="amount"
+            suffix="만원"
+            placeholder="입력 안 하면 군적금 만기예상액 기준으로 추천돼요"
+          />
+          <p class="field__hint">
+            만기예상액을 다 쓰지 않고 일부만 쓰고 싶다면, 원하는 한도를 입력해주세요.
+          </p>
+        </BaseCard>
       </div>
 
       <label class="field">
@@ -227,6 +237,30 @@ const submitGoal = async () => {
   color: var(--text-hint);
   font-size: 12px;
   line-height: 1.5;
+}
+
+.row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.link-toggle {
+  align-self: flex-start;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.field__hint-inline {
+  font-size: 11px;
+  color: var(--text-hint);
 }
 
 .toggle-row {

@@ -242,7 +242,7 @@ const handlePrev = () => {
 
 <template>
   <div class="job-recommend">
-    <RoadmapCharacterSlider :progress="34" label="진로 로드맵" />
+    <RoadmapCharacterSlider :step="2" label="진로 로드맵" />
 
     <div class="job-recommend__heading">
       <h2 class="job-recommend__title">로드맵을 선택해주세요</h2>

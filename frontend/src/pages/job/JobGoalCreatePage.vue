@@ -255,7 +255,7 @@ const handleSubmit = async () => {
 
 <template>
   <div class="job-goal-create">
-    <RoadmapCharacterSlider :progress="0" label="진로 로드맵" />
+    <RoadmapCharacterSlider :step="1" label="진로 로드맵" />
 
     <h2 class="job-goal-create__title text-title">무엇을 준비하고 싶습니까?</h2>
 

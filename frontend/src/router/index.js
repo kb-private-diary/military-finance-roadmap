@@ -36,9 +36,15 @@ const router = createRouter({
   ],
 });
 
-// 인증이 필요한 화면(meta.requiresAuth) 접근 시 로그인 페이지로 이동
+// 라우팅 가드
 router.beforeEach((to) => {
   const auth = useAuthStore();
+  // 로그인 상태여도 Welcome(진입 페이지)은 그대로 보여준다(버튼 눌러야 Home 이동).
+  // Login 화면만 이미 로그인 상태면 건너뛰고 홈으로.
+  if (to.name === 'Login' && auth.isLogin) {
+    return { name: 'Home' };
+  }
+  // 인증 필요한 화면인데 로그인 안 됐으면 로그인 페이지로
   if (to.meta.requiresAuth && !auth.isLogin) {
     return { name: 'Login', query: { redirect: to.fullPath } };
   }
