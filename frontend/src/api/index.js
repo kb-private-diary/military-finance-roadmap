@@ -20,6 +20,15 @@ instance.interceptors.request.use((config) => {
   }
   return config;
 });
+// 액세스 토큰 만료(401)로 동시에 여러 요청이 실패할 수 있어서, 리프레시는 한 번만 실행하고
+// 그동안 들어온 다른 401 요청들은 대기시켰다가 새 토큰으로 같이 재시도한다.
+let isRefreshing = false;
+let waiters = [];
+const flushWaiters = (error, token) => {
+  waiters.forEach(({ resolve, reject }) => (error ? reject(error) : resolve(token)));
+  waiters = [];
+};
+
 instance.interceptors.response.use(
   (response) => {
     if (response.status === 200) {
@@ -32,8 +41,43 @@ instance.interceptors.response.use(
   },
   async (error) => {
     const status = error.response?.status;
+    const originalRequest = error.config;
 
-    // 401: 인증 만료 → 자동 로그아웃 + 로그인 이동
+    // 401: 액세스 토큰(30분) 만료 - 로그아웃시키기 전에 리프레시 토큰(14일)으로 먼저 재발급 시도.
+    // 리프레시 자체가 401이거나(리프레시 토큰도 만료) 이미 한 번 재시도한 요청이면 더 시도 안 하고 로그아웃.
+    if (status === 401 && !originalRequest?._retry && !originalRequest?.url?.includes('/api/users/refresh')) {
+      const authStore = useAuthStore();
+
+      if (isRefreshing) {
+        try {
+          const newToken = await new Promise((resolve, reject) => waiters.push({ resolve, reject }));
+          originalRequest._retry = true;
+          originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
+          return instance(originalRequest);
+        } catch {
+          return Promise.reject({ error: '로그인이 필요한 서비스입니다.' });
+        }
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+      try {
+        await authStore.refresh();
+        const newToken = authStore.getToken();
+        flushWaiters(null, newToken);
+        originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
+        return instance(originalRequest);
+      } catch (refreshError) {
+        flushWaiters(refreshError, null);
+        authStore.logout();
+        router.push({ name: 'Login', query: { redirect: router.currentRoute.value.fullPath } });
+        return Promise.reject({ error: '로그인이 필요한 서비스입니다.' });
+      } finally {
+        isRefreshing = false;
+      }
+    }
+
+    // 리프레시까지 실패했거나(위에서 못 걸러진 401) 재발급 자체가 불가능한 상황 → 로그아웃
     if (status === 401) {
       const { logout } = useAuthStore();
       logout();
