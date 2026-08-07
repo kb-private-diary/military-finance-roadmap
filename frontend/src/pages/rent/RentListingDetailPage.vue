@@ -39,18 +39,50 @@ const load = async () => {
     loading.value = false;
   }
 };
-onMounted(load);
+onMounted(() => {
+  load();
+  loadAffordability();
+});
 watch(months, (m) => (rentStore.months = m));
 
 const listing = computed(() => data.value?.listing);
 const monthlyCost = computed(() => (listing.value?.monthlyRent ?? 0) + (listing.value?.maintenanceFee ?? 0));
 const totalCost = computed(() => (listing.value?.deposit ?? 0) + monthlyCost.value * months.value);
-const affordText = computed(() => {
-  const t = totalCost.value, m = maturity.value;
-  if (m >= t * 1.2) return '딱 맞아요';
-  if (m >= t * 0.8) return '빠듯해요';
-  return '예산 초과';
+// 실제 소멸 비용: 돌려받지 못하고 나가는 돈 (월세+관리비)×개월. totalCost 에서 보증금을 뺀 값과 같다.
+const spentCost = computed(() => monthlyCost.value * months.value);
+// 보증금환산(원/월): 응답에 depositConverted 있으면 사용, 없으면 보증금×5.5%÷12 (전월세전환율 기준)
+const depositConverted = computed(() => {
+  const d = listing.value?.depositConverted;
+  if (d != null) return d;
+  return Math.round(((listing.value?.deposit ?? 0) * 0.055) / 12);
 });
+
+// 감당도 "보증금 포함/제외" 토글 — INCLUDE: 목돈으로 보증금까지 / EXCLUDE: 보증금은 전세대출로
+const depositMode = ref('INCLUDE');
+const affordability = ref(null);
+// 모드별 필요 자금: 포함=총 필요 자금, 제외=보증금 뺀 소멸 비용
+const requiredForMode = computed(() =>
+  depositMode.value === 'EXCLUDE' ? spentCost.value : totalCost.value,
+);
+const judge = (need, m) => {
+  if (m >= need * 1.2) return '딱 맞아요';
+  if (m >= need * 0.8) return '빠듯해요';
+  return '예산 초과';
+};
+// 백엔드 affordability 응답(affordText)이 오면 그 값을, 없으면 로컬 판정으로 폴백
+const affordText = computed(
+  () => affordability.value?.affordText ?? judge(requiredForMode.value, maturity.value),
+);
+
+const loadAffordability = async () => {
+  try {
+    const res = await rentApi.findAffordability(listingId, months.value, depositMode.value);
+    affordability.value = res || null;
+  } catch {
+    affordability.value = null;
+  }
+};
+watch([months, depositMode], loadAffordability);
 
 const goProducts = () => {
   router.push({ name: 'RentProducts', params: { goalId }, query: { listingId, months: months.value } });
@@ -90,15 +122,37 @@ const goPrev = () => {
     </section>
 
     <BaseCard padding="12px 14px">
-      <p class="cap">{{ months }}개월 예상 총 비용</p>
-      <p class="total">{{ formatManwon(totalCost) }}</p>
-      <div class="divider" />
-      <div class="row"><span>보증금</span><span>{{ formatManwon(listing.deposit) }}</span></div>
+      <p class="cap">{{ months }}개월간 실제로 나가는 돈</p>
+      <p class="total">{{ formatManwon(spentCost) }}</p>
       <div class="row"><span>월세 × {{ months }}</span><span>{{ formatManwon(listing.monthlyRent * months) }}</span></div>
       <div class="row"><span>관리비 × {{ months }}</span><span>{{ formatManwon(listing.maintenanceFee * months) }}</span></div>
+      <div class="divider" />
+      <div class="row"><span>보증금 (계약 끝나면 반환)</span><span>{{ formatManwon(listing.deposit) }}</span></div>
+      <p class="deposit-conv">보증금 {{ formatManwon(listing.deposit) }} = 월 {{ formatManwon(depositConverted) }} 상당 (전월세전환 5.5% 기준)</p>
+      <p class="deposit-note">보증금은 계약 종료 시 돌려받는 돈이라 실제 소멸 비용은 아니에요</p>
+      <div class="divider" />
+      <div class="row total-row"><span>총 필요 자금 (지금 마련)</span><span>{{ formatManwon(totalCost) }}</span></div>
+      <p class="link-note">보증금이 부담되면 다음 단계에서 전월세보증금대출을 확인하세요</p>
     </BaseCard>
 
     <div class="check">
+      <div class="seg" role="group" aria-label="보증금 감당 방식">
+        <button
+          type="button"
+          class="seg__btn"
+          :class="{ on: depositMode === 'INCLUDE' }"
+          :aria-pressed="depositMode === 'INCLUDE'"
+          @click="depositMode = 'INCLUDE'"
+        >보증금 포함</button>
+        <button
+          type="button"
+          class="seg__btn"
+          :class="{ on: depositMode === 'EXCLUDE' }"
+          :aria-pressed="depositMode === 'EXCLUDE'"
+          @click="depositMode = 'EXCLUDE'"
+        >보증금 제외</button>
+      </div>
+      <p class="seg__desc">{{ depositMode === 'INCLUDE' ? '목돈으로 보증금까지' : '보증금은 전세대출로' }}</p>
       <div class="check__t">내 재정 체크: {{ affordText }}</div>
       <div class="check__s">만기금 {{ formatManwon(maturity) }} 기준</div>
     </div>
@@ -208,11 +262,65 @@ const goPrev = () => {
   background: var(--line);
   margin: 6px 0;
 }
+.deposit-conv {
+  font-size: 11px;
+  color: var(--text-body);
+  line-height: 1.5;
+  margin: 3px 0 1px;
+}
+.deposit-note {
+  font-size: 10px;
+  color: var(--text-hint);
+  line-height: 1.5;
+  margin: 2px 0 1px;
+}
+.row.total-row span {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+.link-note {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
 .check {
   padding: 12px 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fafafa;
+}
+.seg {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.seg__btn {
+  flex: 1;
+  padding: 7px 0;
+  border: 0;
+  background: #fff;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+.seg__btn + .seg__btn {
+  border-left: 1px solid var(--line);
+}
+.seg__btn.on {
+  background: var(--kb-yellow);
+  color: var(--text-strong);
+}
+.seg__desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
 }
 .check__t {
   font-size: 13px;

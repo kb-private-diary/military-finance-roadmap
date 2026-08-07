@@ -52,6 +52,16 @@ export default {
     return data.data;
   },
 
+  // 감당도 조회 (Step3 재정 체크) — depositMode: INCLUDE(보증금 포함, 기본) | EXCLUDE(보증금은 전세대출로 제외)
+  //   GET /listings/{listingId}/affordability?months=&depositMode= → affordability
+  async findAffordability(listingId, months, depositMode = 'INCLUDE') {
+    const { data } = await instance.get(
+      `${BASE_URL}/listings/${listingId}/affordability`,
+      { params: { months, depositMode } },
+    );
+    return data.data;
+  },
+
   // 금융상품 조회 (Step4) — { months, gap, products[] }
   async findProducts(goalId, listingId, months) {
     const { data } = await instance.get(`${BASE_URL}/goals/${goalId}/products`, {

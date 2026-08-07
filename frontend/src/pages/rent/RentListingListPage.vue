@@ -72,6 +72,14 @@ const goNext = () => {
 };
 const priceLine = (l) =>
   `보증 ${formatManwon(l.deposit)} / 월 ${formatManwon(l.monthlyRent)} / 관리 ${formatManwon(l.maintenanceFee)}`;
+
+// 보증금환산(원/월): 응답에 depositConverted 있으면 사용, 없으면 보증금×5.5%÷12
+const depositConvertedOf = (l) =>
+  l.depositConverted ?? Math.round(((l.deposit ?? 0) * 0.055) / 12);
+// 실질 월부담(원/월): 응답에 effectiveMonthly 있으면 사용, 없으면 월세+관리비+보증금환산
+const effectiveMonthlyOf = (l) =>
+  l.effectiveMonthly ??
+  (l.monthlyRent ?? 0) + (l.maintenanceFee ?? 0) + depositConvertedOf(l);
 </script>
 
 <template>
@@ -106,7 +114,14 @@ const priceLine = (l) =>
           <span class="info">
             <span class="name">{{ l.buildingName }}</span>
             <span class="dong">{{ l.dongName }}</span>
+            <span class="eff">
+              <span class="eff-label">실질 월부담</span>
+              <span class="eff-val">{{ formatManwon(effectiveMonthlyOf(l)) }}</span>
+            </span>
             <span class="price">{{ priceLine(l) }}</span>
+            <span class="conv">
+              보증금 {{ formatManwon(l.deposit) }} (월 {{ formatManwon(depositConvertedOf(l)) }} 상당)
+            </span>
             <span class="tags">
               <span class="tag">{{ l.distanceText }}</span>
               <span class="tag">{{ l.affordText }}</span>
@@ -201,10 +216,30 @@ const priceLine = (l) =>
   font-size: 11px;
   color: var(--text-hint);
 }
+.eff {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 4px;
+}
+.eff-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.eff-val {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
 .price {
   margin-top: 2px;
   font-size: 11px;
   color: var(--text-muted);
+}
+.conv {
+  margin-top: 1px;
+  font-size: 10px;
+  color: var(--text-hint);
 }
 .tags {
   display: flex;
