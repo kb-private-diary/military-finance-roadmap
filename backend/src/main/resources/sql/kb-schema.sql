@@ -892,6 +892,104 @@ CREATE TABLE `rent_recommend` (
 );
 
 -- =====================================================================
+-- [수연] 자취/공과금·관리비 계수 인프라 (전기·난방·수도·관리비 추정)
+--   계수 실데이터는 master/utility_sy.sql 에 적재
+--   계산: 전기=누진표×(면적kWh×시도계수×월계수) / 난방=면적액×시도계수×월계수
+--        수도=1인월사용량×(상수도+하수도+물이용부담금) / 관리비=면적앵커단가×전용면적×시도계수
+-- =====================================================================
+DROP TABLE IF EXISTS `region_utility`;
+CREATE TABLE region_utility (
+  sido_code      CHAR(2)      NOT NULL,
+  effective_from DATE         NOT NULL,
+  effective_to   DATE                  COMMENT 'NULL이면 현행',
+  sido_name      VARCHAR(20)  NOT NULL,
+  elec_coef      DECIMAL(5,3) NOT NULL DEFAULT 1.000 COMMENT '전기 사용량 계수',
+  heat_coef      DECIMAL(5,3) NOT NULL DEFAULT 1.000 COMMENT '난방비 계수',
+  heat_sample    INT                   COMMENT '난방 계수 표본 가구수',
+  water_usage_m3 DECIMAL(5,2) NOT NULL COMMENT '1인 월 물사용량 ㎥',
+  water_rate     DECIMAL(8,1) NOT NULL COMMENT '상수도 원/㎥',
+  sewer_rate     DECIMAL(8,1) NOT NULL COMMENT '하수도 원/㎥',
+  PRIMARY KEY (sido_code, effective_from)
+) COMMENT '시도별 공과금 계수·단가';
+
+DROP TABLE IF EXISTS `area_usage_anchor`;
+CREATE TABLE area_usage_anchor (
+  anchor_seq TINYINT      NOT NULL PRIMARY KEY,
+  area_sqm   DECIMAL(6,1) NOT NULL COMMENT '대표 전용면적 ㎡ (구간 중앙값)',
+  elec_kwh   DECIMAL(8,2) NOT NULL COMMENT '월 전기 사용량 kWh',
+  heat_fee   INT          NOT NULL COMMENT '월 난방비 원 (전국 기준)',
+  sample_n   INT,
+  source     VARCHAR(60)
+) COMMENT 'HEPS 14차 마이크로데이터 면적 앵커 (중앙값, 단독제외)';
+
+DROP TABLE IF EXISTS `month_utility_coef`;
+CREATE TABLE month_utility_coef (
+  month     TINYINT      NOT NULL PRIMARY KEY,
+  elec_coef DECIMAL(4,2) NOT NULL,
+  heat_coef DECIMAL(4,2) NOT NULL
+) COMMENT '월별 사용량 계수';
+
+DROP TABLE IF EXISTS `electric_rate`;
+CREATE TABLE electric_rate (
+  season         VARCHAR(10)  NOT NULL COMMENT 'SUMMER(7~8월) / NORMAL',
+  tier           TINYINT      NOT NULL,
+  effective_from DATE         NOT NULL,
+  effective_to   DATE,
+  kwh_from       INT          NOT NULL,
+  kwh_to         INT                   COMMENT 'NULL=무제한',
+  base_fee       INT          NOT NULL,
+  unit_price     DECIMAL(6,1) NOT NULL,
+  PRIMARY KEY (season, tier, effective_from)
+) COMMENT '한국전력 주택용전력(저압)';
+
+DROP TABLE IF EXISTS `utility_constant`;
+CREATE TABLE utility_constant (
+  const_key   VARCHAR(40)   NOT NULL PRIMARY KEY,
+  const_value DECIMAL(12,4) NOT NULL,
+  unit        VARCHAR(20),
+  description VARCHAR(200),
+  source      VARCHAR(100)
+) COMMENT '공과금 계산 공통 상수';
+
+DROP TABLE IF EXISTS `region_mgmt_fee`;
+CREATE TABLE region_mgmt_fee (
+  sido_code      CHAR(2)      NOT NULL,
+  effective_from DATE         NOT NULL,
+  effective_to   DATE,
+  sido_name      VARCHAR(20)  NOT NULL,
+  mgmt_coef      DECIMAL(5,3) NOT NULL DEFAULT 1.000,
+  raw_per_sqm    INT                   COMMENT 'K-apt 중앙값 원/㎡',
+  sample_count   INT,
+  source         VARCHAR(100),
+  PRIMARY KEY (sido_code, effective_from)
+) COMMENT '시도별 공용관리비 지역계수';
+
+DROP TABLE IF EXISTS `area_mgmt_anchor`;
+CREATE TABLE area_mgmt_anchor (
+  anchor_seq   TINYINT      NOT NULL PRIMARY KEY,
+  area_sqm     DECIMAL(6,1) NOT NULL COMMENT '대표 전용면적 ㎡',
+  fee_per_sqm  DECIMAL(8,1) NOT NULL COMMENT '공용관리비 원/㎡',
+  sample_count INT
+) COMMENT 'K-apt 면적별 공용관리비 단가 앵커 (42㎡ 미만은 첫 앵커 고정)';
+
+DROP TABLE IF EXISTS `roadmap_utility_snapshot`;
+CREATE TABLE roadmap_utility_snapshot (
+  snapshot_id  BIGINT AUTO_INCREMENT PRIMARY KEY,
+  roadmap_id   BIGINT      NOT NULL,
+  month_seq    TINYINT     NOT NULL COMMENT '거주 N개월차',
+  calendar_ym  CHAR(7)     NOT NULL COMMENT 'yyyy-MM',
+  elec_kwh     DECIMAL(8,2),
+  elec_fee     INT         NOT NULL,
+  heat_fee     INT         NOT NULL,
+  water_fee    INT         NOT NULL,
+  mgmt_fee     INT         NOT NULL DEFAULT 0,
+  total_fee    INT         NOT NULL,
+  rate_base_dt DATE        NOT NULL COMMENT '적용 요금표 기준일',
+  created_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_roadmap (roadmap_id, month_seq)
+) COMMENT '로드맵별 월간 공과금·관리비 스냅샷';
+
+-- =====================================================================
 -- housing_product : 주거 금융상품 (월세 전용). KB 상품 + 정책/지자체 상품
 --   상세: housing_product2_schema.sql / 온통청년API_연동명세_v1.0.md
 --   온통청년 컬럼 3개(plcy_no/zip_cd/api_synced_at) 포함 (v2)

@@ -275,21 +275,6 @@ VALUES
 
 
 -- --------------------------------------------------------------------
---  [수연] 자취/법정동코드
---  테이블: region_code
--- --------------------------------------------------------------------
-INSERT INTO region_code (region_code, sido_name, sigungu_name, umd_name, sigungu_code, is_abolished, created_date, created_nm, del_yn) VALUES
-('1168010100', '서울특별시', '강남구',   '역삼동',  '11680', 'N', NOW(), 'suyeon', 'N'),
-('1168010300', '서울특별시', '강남구',   '개포동',  '11680', 'N', NOW(), 'suyeon', 'N'),
-('1171010100', '서울특별시', '송파구',   '잠실동',  '11710', 'N', NOW(), 'suyeon', 'N'),
-('1147010100', '서울특별시', '양천구',   '신정동',  '11470', 'N', NOW(), 'suyeon', 'N'),
-('2620010100', '부산광역시', '부산진구', '부전동',  '26200', 'N', NOW(), 'suyeon', 'N'),
-('2644010300', '부산광역시', '해운대구', '중동',    '26440', 'N', NOW(), 'suyeon', 'N'),
-('2647010100', '부산광역시', '사하구',   '괴정동',  '26470', 'N', NOW(), 'suyeon', 'N'),
-('4113510500', '경기도',     '성남시 분당구', '정자동', '41135', 'N', NOW(), 'suyeon', 'N');
-
-
--- --------------------------------------------------------------------
 --  [지원] 진로/취업·공무원 분류
 --  테이블: job_category
 -- --------------------------------------------------------------------
@@ -1801,14 +1786,9 @@ VALUES
 
 -- --------------------------------------------------------------------
 --  [수연] 자취/로드맵 추천 (2명)
---  테이블: school, rent_goal, rent_goal_region, rent_recommend, loan_recommend
+--  테이블: rent_goal, rent_goal_region, rent_recommend, loan_recommend
+--  (school 마스터는 master/school_sy.sql 로 이동)
 -- --------------------------------------------------------------------
---  학교 마스터 (Mock: 대학알리미 API 전환 전 임시 3건)
-INSERT INTO school (school_id, school_name, school_type, address, sigungu_code, region_code, latitude, longitude, created_date, created_nm, del_yn) VALUES
-(1, '부산대학교', 'UNIVERSITY', '부산광역시 금정구 부산대학로63번길 2', '26410', '2641010100', 35.2339000, 129.0806000, NOW(), 'suyeon', 'N'),
-(2, '부경대학교', 'UNIVERSITY', '부산광역시 남구 용소로 45',        '26290', '2629010100', 35.1336000, 129.1058000, NOW(), 'suyeon', 'N'),
-(3, '서울대학교', 'UNIVERSITY', '서울특별시 관악구 관악로 1',       '11620', '1162010100', 37.4599000, 126.9520000, NOW(), 'suyeon', 'N');
-
 --  월세 목표
 INSERT INTO rent_goal (goal_id, user_id, title, selection_mode, school_id, commute_radius_km, monthly_budget, residence_preset, residence_months, status, created_date, created_nm, del_yn) VALUES
 (1, 1, '전역 후 부산 자취', 'REGION', NULL, NULL, 700000,  'YEAR', 12, 'CONFIRMED', NOW(), 'suyeon', 'N'),
