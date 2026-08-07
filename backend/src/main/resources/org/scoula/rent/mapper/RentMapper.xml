@@ -111,4 +111,25 @@
          LIMIT 1
     </select>
 
+    <!-- 회원의 진행중(DRAFT) 목표 단건 조회 (재진입 시 이어보기, 없으면 결과 없음) -->
+    <select id="findCurrentGoalByUserId" parameterType="long" resultType="org.scoula.rent.domain.RentGoalVO">
+        SELECT goal_id, user_id, title, selection_mode, school_id, commute_radius_km,
+               monthly_budget, residence_preset, residence_months, status,
+               created_date, created_nm, modified_date, modified_nm, del_yn
+          FROM rent_goal
+         WHERE user_id = #{userId}
+           AND status = 'DRAFT'
+           AND del_yn = 'N'
+         ORDER BY goal_id DESC
+         LIMIT 1
+    </select>
+
+    <!-- 목표 단건 soft delete (goal_id 기준, 삭제자·삭제일시 기록) -->
+    <update id="deleteGoalById">
+        UPDATE rent_goal
+           SET del_yn = 'Y', modified_date = NOW(), modified_nm = #{modifiedNm}
+         WHERE goal_id = #{goalId}
+           AND del_yn = 'N'
+    </update>
+
 </mapper>
