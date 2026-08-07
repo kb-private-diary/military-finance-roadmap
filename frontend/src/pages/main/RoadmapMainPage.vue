@@ -16,6 +16,7 @@ import jobImage from '@/assets/images/roadmap/job.png';
 import rentImage from '@/assets/images/roadmap/rent.png';
 import roadmapApi from '@/api/roadmapApi';
 import EmptyState from '@/components/common/EmptyState.vue';
+import bookmarkApi from '@/api/bookmarkApi';
 
 const router = useRouter();
 
@@ -161,6 +162,7 @@ const mapRoadmapItem = (item) => {
 
   return {
     goalId: item.goalId,
+    bookmarkId: item.bookmarkId,
     categoryId: item.categoryId,
     categoryCode: category.code,
     categoryLabel: category.label,
@@ -184,6 +186,29 @@ const fetchRoadmaps = async (category = 'ALL') => {
     roadmaps.value = [];
   } finally {
     isLoading.value = false;
+  }
+};
+
+const toggleBookmark = async (roadmap) => {
+  try {
+    if (roadmap.liked) {
+      await bookmarkApi.deleteBookmark(roadmap.bookmarkId);
+
+      roadmap.liked = false;
+      roadmap.bookmarkId = null;
+    } else {
+      const bookmarkId = await bookmarkApi.createBookmark({
+        categoryId: roadmap.categoryId,
+        goalId: roadmap.goalId,
+      });
+
+      roadmap.bookmarkId = bookmarkId;
+      roadmap.liked = true;
+    }
+  } catch (error) {
+    console.error('관심 로드맵 처리 실패:', error);
+  } finally {
+    // 별도 로딩 상태 없음
   }
 };
 
@@ -343,7 +368,10 @@ onMounted(async () => {
               </div>
 
               <div @click.stop>
-                <LikeButton v-model="roadmap.liked" />
+                <LikeButton
+                  :model-value="roadmap.liked"
+                  @update:model-value="toggleBookmark(roadmap)"
+                />
               </div>
             </div>
           </BaseCard>
