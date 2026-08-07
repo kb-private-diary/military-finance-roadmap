@@ -8,16 +8,16 @@ import rentApi from '@/api/rentApi';
 import { useRentStore } from '@/stores/rent';
 import { useToast } from '@/composables/useToast';
 import BaseCard from '@/components/common/BaseCard.vue';
-import CategoryButton from '@/components/common/CategoryButton.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import BaseBottomSheet from '@/components/common/BaseBottomSheet.vue';
 import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
+import rentSchoolIcon from '@/assets/images/rent-school.png';
+import rentMapIcon from '@/assets/images/rent-map.png';
 
 const router = useRouter();
 const rentStore = useRentStore();
 const { show } = useToast();
 const draft = rentStore.draft;
-const maturityManwon = 720; // TODO: 오픈뱅킹/적금 데이터 연동
 
 // 학교 검색 — 정상 응답(배열)만 반영, 결과 없거나 실패 시 빈 목록(부산대 폴백 제거)
 const keyword = ref('');
@@ -141,8 +141,8 @@ const resetToSigungu = () => {
   selSigungu.value = '';
 };
 
-// 반경 (텍스트 링크로 펼침)
-const radiusOpen = ref(false);
+// 반경 (텍스트 링크로 펼침, 목업 기준 기본 펼침)
+const radiusOpen = ref(true);
 
 // 월 예산 슬라이더 채움(노랑) 표현 — 30~150 구간을 %로 환산해 트랙 배경에 그린다.
 const budgetFillStyle = computed(() => {
@@ -174,15 +174,9 @@ const goNext = async () => {
   <div class="rent-goal">
     <RoadmapCharacterSlider :step="1" label="자취 로드맵" />
 
-    <header>
-      <p class="step">STEP 1</p>
-      <h2 class="title">자취방 찾기</h2>
-      <p class="desc">위치와 예산만 입력하면 딱 맞는 매물을 찾아드려요</p>
-    </header>
-
-    <!-- 1. 어디에서 -->
+    <!-- 1. 어디에서 (목업: 페이지 제목은 질문 한 줄) -->
     <section class="field">
-      <p class="label">어디에 집을 구하고 싶습니까?</p>
+      <h2 class="page-title">어디에 집을 구하고 싶습니까?</h2>
       <div class="toggle-row">
         <button
           type="button"
@@ -190,7 +184,7 @@ const goNext = async () => {
           :class="{ 'is-active': draft.locationType === 'SCHOOL' }"
           @click="rentStore.setConditions({ locationType: 'SCHOOL' })"
         >
-          <span class="toggle-icon">🎓</span> 학교 근처
+          학교 근처 <img :src="rentSchoolIcon" class="toggle-icon" alt="" />
         </button>
         <button
           type="button"
@@ -198,7 +192,7 @@ const goNext = async () => {
           :class="{ 'is-active': draft.locationType === 'REGION' }"
           @click="rentStore.setConditions({ locationType: 'REGION' })"
         >
-          <span class="toggle-icon">📍</span> 지역으로
+          지역으로 <img :src="rentMapIcon" class="toggle-icon" alt="" />
         </button>
       </div>
 
@@ -233,15 +227,15 @@ const goNext = async () => {
           <span class="muted">최대 3개</span>
         </div>
         <BaseCard padding="12px 14px">
-          <div v-if="draft.regions.length" class="chips">
+          <div class="chips">
             <span v-for="r in draft.regions" :key="r.code" class="chip">
               {{ r.name }}
               <button class="chip__x" @click="rentStore.removeRegion(r.code)">×</button>
             </span>
+            <button v-if="draft.regions.length < 3" class="add-btn" @click="openRegionSheet">
+              지역 추가 +
+            </button>
           </div>
-          <button v-if="draft.regions.length < 3" class="add-btn" @click="openRegionSheet">
-            + 지역 추가
-          </button>
         </BaseCard>
       </template>
     </section>
@@ -254,15 +248,17 @@ const goNext = async () => {
         </button>
         <span class="muted">{{ draft.radiusKm }}km</span>
       </div>
-      <div v-if="radiusOpen" class="btn-row">
-        <CategoryButton
+      <div v-if="radiusOpen" class="radius-row">
+        <button
           v-for="km in [1, 3, 5]"
           :key="km"
-          variant="square-yellow"
-          :label="`${km}km`"
-          :active="draft.radiusKm === km"
+          type="button"
+          class="radius-btn"
+          :class="{ 'is-active': draft.radiusKm === km }"
           @click="rentStore.setConditions({ radiusKm: km })"
-        />
+        >
+          {{ km }}km
+        </button>
       </div>
     </section>
 
@@ -272,20 +268,12 @@ const goNext = async () => {
         <p class="label">월 예산 (월세 + 관리비)</p>
         <span class="budget-val">{{ draft.monthlyBudget }}<span class="budget-unit">만원</span></span>
       </div>
-      <BaseCard padding="14px 16px">
-        <input type="range" min="30" max="150" step="5" :value="draft.monthlyBudget" class="slider"
-          :style="budgetFillStyle"
-          @input="rentStore.setConditions({ monthlyBudget: Number($event.target.value) })" />
-        <div class="scale"><span>30만원</span><span>90만원</span><span>150만원</span></div>
-      </BaseCard>
+      <input type="range" min="30" max="150" step="5" :value="draft.monthlyBudget" class="slider"
+        :style="budgetFillStyle"
+        @input="rentStore.setConditions({ monthlyBudget: Number($event.target.value) })" />
+      <div class="scale"><span>30만원</span><span>90만원</span><span>150만원</span></div>
       <p class="hint">월세와 관리비를 합친 실질 월부담을 기준으로 매물을 추천해드려요</p>
     </section>
-
-    <!-- 만기금 안내 -->
-    <div class="maturity">
-      <div class="maturity__t">만기금 {{ maturityManwon }}만원 자동 반영</div>
-      <div class="maturity__s">오픈뱅킹 데이터 기반</div>
-    </div>
 
     <BottomButtonBar
       secondary-label="이전"
@@ -346,19 +334,12 @@ const goNext = async () => {
   flex-direction: column;
   gap: 18px;
 }
-.step {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-.title {
-  font-size: 20px;
+.page-title {
+  font-size: 22px;
   font-weight: 700;
   color: var(--text-strong);
-}
-.desc {
-  margin-top: 4px;
-  font-size: 13px;
-  color: var(--text-muted);
+  line-height: 1.35;
+  margin-bottom: 4px;
 }
 .field {
   display: flex;
@@ -384,9 +365,29 @@ const goNext = async () => {
   align-items: center;
   justify-content: space-between;
 }
-.btn-row {
+/* 반경 버튼 - 목업보다 작게 (3등분 소형 세그먼트) */
+.radius-row {
   display: flex;
   gap: 8px;
+}
+.radius-btn {
+  flex: 1;
+  padding: 9px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--kb-gray-pale);
+  color: var(--text-body);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.radius-btn.is-active {
+  background: var(--kb-yellow);
+  border-color: var(--kb-yellow);
+  color: var(--text-strong);
+  font-weight: 700;
 }
 /* 위치 토글 — 탭 스타일 (선택: 흰 배경+테두리 도드라짐 / 비선택: 연회색) */
 .toggle-row {
@@ -398,10 +399,10 @@ const goNext = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  padding: 12px 0;
+  gap: 6px;
+  padding: 14px 0;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 14px 14px 4px 4px;
   background: var(--kb-gray-pale);
   color: var(--text-hint);
   font-size: 14px;
@@ -415,11 +416,13 @@ const goNext = async () => {
   border-color: var(--line-strong);
   color: var(--text-strong);
   font-weight: 700;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
+/* 아이콘은 실제 이미지(학교/지도), 글자 뒤에 배치 */
 .toggle-icon {
-  font-size: 15px;
-  line-height: 1;
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
 }
 .search {
   position: relative;
@@ -447,23 +450,24 @@ const goNext = async () => {
   background: #fff;
 }
 .dropdown {
-  margin: 6px 0 0;
-  padding: 6px 0;
+  margin: 8px 0 0;
+  padding: 6px;
   list-style: none;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  max-height: 190px;
+  border-radius: 12px;
+  max-height: 210px;
   overflow-y: auto;
 }
 .dropdown li {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 9px 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
   cursor: pointer;
 }
 .dropdown li:hover {
-  background: #f7f7f8;
+  background: var(--kb-yellow-pale);
 }
 .dropdown strong {
   font-size: 13px;
@@ -491,8 +495,8 @@ const goNext = async () => {
 .chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 10px;
+  align-items: center;
+  gap: 8px;
 }
 .chip {
   display: inline-flex;
@@ -585,14 +589,15 @@ const goNext = async () => {
   font-size: 13px;
   color: var(--text-hint);
 }
+/* 지역 추가 - 칩과 같은 줄, 회색 pill */
 .add-btn {
-  align-self: flex-start;
-  padding: 9px 16px;
-  border: 1px solid var(--line-strong);
-  border-radius: 8px;
-  background: #fff;
+  padding: 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--kb-gray-pale);
   color: var(--text-body);
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
   font-family: inherit;
 }
@@ -653,23 +658,6 @@ const goNext = async () => {
   margin-left: 2px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--text-muted);
-}
-.maturity {
-  margin-top: auto;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fafafa;
-}
-.maturity__t {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-body);
-}
-.maturity__s {
-  margin-top: 3px;
-  font-size: 11px;
   color: var(--text-muted);
 }
 </style>
