@@ -150,10 +150,7 @@ const onComplete = () => {
   <div class="listings">
     <RoadmapCharacterSlider :step="2" label="자취 로드맵" />
 
-    <header class="head">
-      <h2 class="title">로드맵을 선택해주십니까?</h2>
-      <span class="step">STEP 2</span>
-    </header>
+    <h2 class="title">로드맵을 선택해주세요.</h2>
 
     <p v-if="loading" class="loading">불러오는 중...</p>
 
@@ -224,20 +221,12 @@ const onComplete = () => {
   flex-direction: column;
   gap: 10px;
 }
-.head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-}
 .title {
-  font-size: 18px;
+  font-size: 26px;
   font-weight: 700;
   color: var(--text-strong);
-}
-.step {
-  font-size: 12px;
-  color: var(--text-muted);
-  flex-shrink: 0;
+  line-height: 1.35;
+  margin-bottom: 2px;
 }
 .loading {
   padding: 40px 0;
@@ -290,10 +279,10 @@ const onComplete = () => {
 }
 .chip {
   flex-shrink: 0;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--kb-gray-pale);
-  color: var(--text-muted);
+  padding: 3px 9px;
+  border-radius: 5px;
+  background: #9d9d9d;
+  color: #fff;
   font-size: 10px;
   font-weight: 600;
 }
@@ -331,26 +320,31 @@ const onComplete = () => {
   border-radius: 999px;
   white-space: nowrap;
 }
-/* 뱃지 톤: 목업 색을 colors.css 토큰에서 파생(담백한 pill). */
+/* 뱃지 색: 수연 확정 스펙(목업 기준, 글자색 전부 #000) */
 .badge--blue {
-  background: color-mix(in srgb, var(--pastel-blue) 16%, #fff);
-  color: color-mix(in srgb, var(--pastel-blue) 78%, #000);
+  /* 도보/지하철 */
+  background: #d3e6ff;
+  color: #000;
 }
 .badge--brown {
-  background: var(--kb-gray-pale);
-  color: var(--brown-text);
+  /* 버스 */
+  background: #ffead3;
+  color: #000;
 }
 .badge--green {
-  background: var(--military-green-light);
-  color: var(--success);
+  /* 딱 맞아요 */
+  background: #e1f3e0;
+  color: #000;
 }
 .badge--amber {
-  background: color-mix(in srgb, var(--roadmap-active) 22%, #fff);
-  color: color-mix(in srgb, var(--roadmap-active) 80%, #000);
+  /* 빠듯해요 */
+  background: #ffffc3;
+  color: #000;
 }
 .badge--red {
-  background: color-mix(in srgb, var(--danger) 18%, #fff);
-  color: color-mix(in srgb, var(--danger) 72%, #000);
+  /* 예산 초과 */
+  background: #f4d1d1;
+  color: #000;
 }
 .cta {
   padding: 9px 18px;

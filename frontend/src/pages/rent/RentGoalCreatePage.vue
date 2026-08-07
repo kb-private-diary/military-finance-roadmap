@@ -335,7 +335,7 @@ const goNext = async () => {
   gap: 18px;
 }
 .page-title {
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 700;
   color: var(--text-strong);
   line-height: 1.35;
@@ -433,7 +433,7 @@ const goNext = async () => {
   padding: 13px 14px;
   border: 1px solid transparent;
   border-radius: 10px;
-  background: var(--kb-gray-pale);
+  background: #f5f6f8;
   font-size: 14px;
   color: var(--text-body);
   font-family: inherit;
@@ -505,7 +505,7 @@ const goNext = async () => {
   padding: 6px 12px;
   border: 1px solid var(--kb-yellow);
   border-radius: 999px;
-  background: var(--kb-yellow-pale);
+  background: #fff;
   color: var(--text-body);
   font-size: 12px;
   font-weight: 600;
@@ -589,13 +589,13 @@ const goNext = async () => {
   font-size: 13px;
   color: var(--text-hint);
 }
-/* 지역 추가 - 칩과 같은 줄, 회색 pill */
+/* 지역 추가 - 칩과 같은 줄, 연회색 pill */
 .add-btn {
   padding: 6px 14px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: var(--kb-gray-pale);
-  color: var(--text-body);
+  background: #f5f6f8;
+  color: var(--text-hint);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
