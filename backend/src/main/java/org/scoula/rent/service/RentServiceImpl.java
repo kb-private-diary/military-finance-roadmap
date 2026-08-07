@@ -305,7 +305,8 @@ public class RentServiceImpl implements RentService {
             }
 
             // 재정진단 뱃지 (공통, 6개월 거주 기준) - 만기금 vs 6개월 총필요자금
-            long totalNeed = calcSixMonthNeed(l, c.maintenanceFee());
+            long totalNeed = calcSixMonthNeed(l, c.maintenanceFee()); // 보증금 + (월세 + 관리비) × 6
+            dto.setTotalCost6M(totalNeed); // 프론트 "6개월 예상 N원" 표시용 - 재정진단 판정과 같은 6개월 총필요자금을 그대로 노출
             RentAffordability level = RentAffordability.judge(totalNeed, maturity);
             dto.setAffordLevel(toAffordLevel(level));
             dto.setAffordText(level.getLabel());
@@ -343,6 +344,15 @@ public class RentServiceImpl implements RentService {
     private String buildCommuteText(SchoolVO school, RentListingVO listing) {
         if (school == null || school.getLatitude() == null || school.getLongitude() == null
                 || listing.getLatitude() == null || listing.getLongitude() == null) {
+            // 좌표/학교가 하나라도 비면 통학시간 계산 불가 → null(프론트 뱃지 미표시).
+            //   findSchoolById 는 latitude/longitude 를 SELECT 하고 SchoolVO 에 게터도 있으므로
+            //   코드 경로는 정상이다. 그래도 null 이 나오면 원인은 데이터(학교/매물 좌표 미적재)이므로
+            //   어느 값이 비었는지 아래 로그로 바로 진단한다.
+            log.debug("통학시간 계산 불가 - schoolId={}, schoolLat={}, schoolLng={}, listingId={}, listingLat={}, listingLng={}",
+                    school == null ? null : school.getSchoolId(),
+                    school == null ? null : school.getLatitude(),
+                    school == null ? null : school.getLongitude(),
+                    listing.getListingId(), listing.getLatitude(), listing.getLongitude());
             return null;
         }
         double distanceM = haversineMeters(
