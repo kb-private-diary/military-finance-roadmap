@@ -57,4 +57,10 @@ export default {
     const { data } = await instance.get(`${BASE_URL}/military-types`);
     return data.data; // [{ typeId, typeName }]
   },
+
+  // 회원가입 - 군종별 부대 목록 조회 (MEM-API: GET /api/users/military-units?typeId=)
+  async findMilitaryUnits(typeId) {
+    const { data } = await instance.get(`${BASE_URL}/military-units`, { params: { typeId } });
+    return data.data; // [{ unitCode, unitName, typeId }]
+  },
 };
