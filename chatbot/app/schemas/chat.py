@@ -28,6 +28,7 @@ class MessageItem(CamelModel):
     content: str
     source: Optional[str]
     source_detail: Optional[str] = None
+    source_url: Optional[str] = None  # 출처를 클릭해서 실제 상품 페이지로 이동 (DB엔 저장 안 함, 응답 전용)
     is_ai_generated: bool = False
     intent: Optional[str] = None
     created_date: datetime
@@ -39,6 +40,14 @@ class MessageCreateRequest(CamelModel):
     # true면 의도분류(classify_intent)를 건너뛰고 무조건 정보성 질문으로 처리한다.
     # 자주 묻는 질문처럼 미리 큐레이션된 질문이 상담 등으로 잘못 튀지 않게 할 때 사용.
     force_info: bool = False
+
+
+class LogMessageRequest(CamelModel):
+    """버튼으로 진행하는 되묻기·상품 목록 등 - AI 호출 없이 화면에 이미 정해진 문구를 그대로 기록만 할 때 사용.
+    (자유 질문은 /messages가 Gemini 응답까지 함께 처리하므로 여긴 안 씀)"""
+    session_id: int
+    role: str  # 'user' | 'bot'
+    content: str
 
 
 class TopicItem(CamelModel):

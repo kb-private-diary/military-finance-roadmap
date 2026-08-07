@@ -46,4 +46,13 @@
         LIMIT 1
     </select>
 
+    <!-- min_limit은 은행 상품 하나당 고정값이라(구간마다 안 바뀜) 아무 행이나 1건이면 충분하다 -->
+    <select id="findMinLimit" resultType="Long">
+        SELECT min_limit
+        FROM military_saving_product
+        WHERE bank_code = #{bankCode}
+          AND del_yn = 'N'
+        LIMIT 1
+    </select>
+
 </mapper>

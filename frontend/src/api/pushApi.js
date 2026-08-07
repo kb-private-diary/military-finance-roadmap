@@ -12,4 +12,10 @@ export default {
   async unsubscribe(endpoint) {
     await instance.delete(`${BASE_URL}/subscriptions`, { params: { endpoint } });
   },
+
+  // 내 알림 이력 조회 (PUSH-API: GET /api/push/history)
+  async findHistoryList() {
+    const { data } = await instance.get(`${BASE_URL}/history`);
+    return data.data; // [{ historyId, title, body, category, status, sentAt }]
+  },
 };

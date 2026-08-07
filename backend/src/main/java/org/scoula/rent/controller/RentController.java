@@ -56,10 +56,25 @@ public class RentController {
         return ResponseEntity.ok(ApiResponse.success(service.findSchools(keyword)));
     }
 
+    // GET /api/rent/goals/current?userId=1 → 진행중(DRAFT) 목표 조회 (없으면 null)
+    // ※ /goals/{goalId} 보다 먼저 선언 - 리터럴 경로가 우선 매칭됨
+    @GetMapping("/goals/current")
+    public ResponseEntity<ApiResponse<RentGoalDetailResponseDTO>> findCurrentGoal(
+            @RequestParam Long userId) { // TODO: JWT 연동 후 SecurityContext 로 교체
+        return ResponseEntity.ok(ApiResponse.success(service.findCurrentGoal(userId)));
+    }
+
     // GET /api/rent/goals/{goalId} → 목표 상세 (목표 정보)
     @GetMapping("/goals/{goalId}")
     public ResponseEntity<ApiResponse<RentGoalDetailResponseDTO>> findGoal(@PathVariable Long goalId) {
         return ResponseEntity.ok(ApiResponse.success(service.findGoal(goalId)));
+    }
+
+    // DELETE /api/rent/goals/{goalId} → 목표 삭제 (soft delete)
+    @DeleteMapping("/goals/{goalId}")
+    public ResponseEntity<ApiResponse<Void>> deleteGoal(@PathVariable Long goalId) {
+        service.deleteGoal(goalId);
+        return ResponseEntity.ok(ApiResponse.success());
     }
 
     // GET /api/rent/goals/{goalId}/listings → 조건 매칭 매물 리스트 (Step2)
@@ -87,5 +102,11 @@ public class RentController {
     public ResponseEntity<ApiResponse<Integer>> loadListings(@RequestParam String dealYm) {
         int count = loadService.load(List.of("26410", "26230", "26440"), dealYm);
         return ResponseEntity.ok(ApiResponse.success(count));
+    }
+
+    // POST /api/rent/listings/load-nationwide?dealYm=202605 → 전국 매물 적재 (좌표 없이, REGION 검색용)
+    @PostMapping("/listings/load-nationwide")
+    public ResponseEntity<ApiResponse<Integer>> loadNationwide(@RequestParam String dealYm) {
+        return ResponseEntity.ok(ApiResponse.success(loadService.loadNationwide(dealYm)));
     }
 }

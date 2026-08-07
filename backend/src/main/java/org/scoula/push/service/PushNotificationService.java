@@ -1,5 +1,8 @@
 package org.scoula.push.service;
 
+import java.util.List;
+
+import org.scoula.push.dto.PushHistoryDTO;
 import org.scoula.push.dto.PushSubscriptionRequestDTO;
 
 // 웹푸시 공통 인프라 - 다른 도메인은 send()만 주입받아 쓰면 됨.
@@ -9,6 +12,10 @@ public interface PushNotificationService {
 
     void unsubscribe(Long userId, String endpoint, String modifiedNm);
 
-    // 다른 도메인이 알림 보낼 때 쓰는 진입점. 트리거 조건은 호출하는 쪽에서 판단
-    void send(Long userId, String title, String body);
+    // 다른 도메인이 알림 보낼 때 쓰는 진입점. 트리거 조건은 호출하는 쪽에서 판단.
+    // category는 프론트 아이콘 매핑용 자유 문자열 (예: "VACATION", "SAVING") - push 도메인은 값을 검증하지 않음
+    void send(Long userId, String title, String body, String category);
+
+    // 내 알림 이력 조회 (최신순)
+    List<PushHistoryDTO> findHistoryList(Long userId);
 }

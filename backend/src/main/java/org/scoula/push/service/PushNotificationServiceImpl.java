@@ -19,6 +19,7 @@ import org.scoula.common.exception.BusinessException;
 import org.scoula.push.client.WebPushClient;
 import org.scoula.push.domain.PushHistoryVO;
 import org.scoula.push.domain.PushSubscriptionVO;
+import org.scoula.push.dto.PushHistoryDTO;
 import org.scoula.push.dto.PushSubscriptionRequestDTO;
 import org.scoula.push.mapper.PushHistoryMapper;
 import org.scoula.push.mapper.PushSubscriptionMapper;
@@ -83,29 +84,30 @@ public class PushNotificationServiceImpl implements PushNotificationService {
     // 붙잡혀서, 외부 API가 느려지면 커넥션 풀 고갈로 이어질 수 있다.
     // 트랜잭션 밖에서 부른 경우(활성 트랜잭션 없음)는 그냥 바로 실행한다.
     @Override
-    public void send(Long userId, String title, String body) {
+    public void send(Long userId, String title, String body, String category) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(
                     new TransactionSynchronization() {
                         @Override
                         public void afterCommit() {
-                            doSend(userId, title, body);
+                            doSend(userId, title, body, category);
                         }
                     });
             return;
         }
-        this.doSend(userId, title, body);
+        this.doSend(userId, title, body, category);
     }
 
-    private void doSend(Long userId, String title, String body) {
+    private void doSend(Long userId, String title, String body, String category) {
         List<PushSubscriptionVO> subscriptions = this.subscriptionMapper.findListByUserId(userId);
         for (PushSubscriptionVO subscription : subscriptions) {
-            this.sendToSubscription(userId, subscription, title, body);
+            this.sendToSubscription(userId, subscription, title, body, category);
         }
     }
 
     private void sendToSubscription(
-            Long userId, PushSubscriptionVO subscription, String title, String body) {
+            Long userId, PushSubscriptionVO subscription, String title, String body,
+            String category) {
         String status = STATUS_FAILED;
         try {
             String payload = this.objectMapper.writeValueAsString(
@@ -133,10 +135,18 @@ public class PushNotificationServiceImpl implements PushNotificationService {
                 .userId(userId)
                 .title(title)
                 .body(body)
+                .category(category)
                 .status(status)
                 .sentAt(LocalDateTime.now())
                 .build();
         history.setCreatedNm(SYSTEM);
         this.historyMapper.insert(history);
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public List<PushHistoryDTO> findHistoryList(Long userId) {
+        return this.historyMapper.findListByUserId(userId).stream()
+                .map(PushHistoryDTO::of).toList();
     }
 }

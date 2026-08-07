@@ -1,11 +1,10 @@
 import logging
 
-from datetime import date, datetime
+from datetime import datetime
 
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Path, Query
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_admin_user_id, get_current_user_id
@@ -17,6 +16,7 @@ from app.schemas.chat import (
     FeedbackItem,
     GlossaryDetail,
     GlossaryItem,
+    LogMessageRequest,
     MessageCreateRequest,
     MessageItem,
     RecommendationItem,
@@ -53,28 +53,27 @@ TOPICS = [
 ]
 
 # CHAT-002: 대화 세션 관리 API
+# 유저당 세션을 하루에 하나씩 새로 만들지 않고 계속 재사용한다 - 대화가 날짜로 안 끊기고
+# 하나로 이어지는 게 맞다는 팀 결정(2026-08-06)에 따름. "이전 기록"은 세션을 여러 개 골라보는
+# 기능이 아니라, 이미 하나로 합쳐진 대화 안에서 날짜로 스크롤 이동하는 용도로 바뀜(프론트 담당).
 @router.post("/sessions", response_model=SessionResponse)
 def create_session(
     payload: SessionCreateRequest,
     current_user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
-    today_session = (
+    existing_session = (
         db.query(ChatSession)
-        .filter(
-            ChatSession.user_id == current_user_id,
-            ChatSession.del_yn == "N",
-            func.date(ChatSession.created_date) == date.today(),
-        )
+        .filter(ChatSession.user_id == current_user_id, ChatSession.del_yn == "N")
         .order_by(ChatSession.created_date.desc())
         .first()
     )
-    if today_session:
+    if existing_session:
         return SessionResponse(
-            session_id=today_session.session_id,
-            user_id=today_session.user_id,
-            title=today_session.title,
-            created_date=today_session.created_date,
+            session_id=existing_session.session_id,
+            user_id=existing_session.user_id,
+            title=existing_session.title,
+            created_date=existing_session.created_date,
             is_new=False,
         )
 
@@ -106,6 +105,29 @@ def list_sessions(current_user_id: int = Depends(get_current_user_id), db: Sessi
         .all()
     )
     return sessions
+
+
+# 유저가 그동안 나눈 대화 전체를 세션 구분 없이 다 합쳐서 날짜순으로 돌려준다.
+# 지금은 세션을 유저당 하나만 재사용하지만, 예전에(하루 단위로 세션을 나누던 시절에) 생긴
+# 계정은 세션이 여러 개로 흩어져 있을 수 있어서 - 그것까지 다 합쳐야 대화가 하나로 이어져 보인다.
+# 정적 경로(/history)라 동적 경로(/history/{sessionId})보다 먼저 선언해야 라우팅이 꼬이지 않는다.
+@router.get("/history", response_model=List[MessageItem])
+def get_all_history(current_user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)):
+    session_ids = [
+        row.session_id
+        for row in db.query(ChatSession.session_id)
+        .filter(ChatSession.user_id == current_user_id, ChatSession.del_yn == "N")
+        .all()
+    ]
+    if not session_ids:
+        return []
+    messages = (
+        db.query(ChatMessage)
+        .filter(ChatMessage.session_id.in_(session_ids), ChatMessage.del_yn == "N")
+        .order_by(ChatMessage.created_date.asc())
+        .all()
+    )
+    return messages
 
 
 @router.get("/history/{sessionId}", response_model=List[MessageItem])
@@ -176,12 +198,14 @@ def send_message(
     db.commit()
 
     try:
-        reply, source, source_detail, is_ai_generated, intent = gemini.generate_reply(
+        reply, source, source_detail, is_ai_generated, intent, source_url = gemini.generate_reply(
             content, history=history, force_intent="info" if payload.force_info else None
         )
     except Exception:
         logger.exception("Gemini 응답 생성 실패 (session_id=%s)", payload.session_id)
-        reply, source, source_detail, is_ai_generated, intent = GEMINI_FAILURE_MESSAGE, "오류 안내", None, False, "info"
+        reply, source, source_detail, is_ai_generated, intent, source_url = (
+            GEMINI_FAILURE_MESSAGE, "오류 안내", None, False, "info", None,
+        )
 
     bot_message = ChatMessage(
         session_id=payload.session_id,
@@ -196,9 +220,49 @@ def send_message(
     db.add(bot_message)
     db.commit()
     db.refresh(bot_message)
-    # intent는 DB에 저장하지 않는 응답 전용 값 - 프론트가 상담형 되묻기로 분기할지 판단하는 용도
+    # intent·source_url은 DB에 저장하지 않는 응답 전용 값 - intent는 상담형 되묻기 분기용,
+    # source_url은 그 자리에서만 링크를 붙여주면 되고 히스토리 조회 시엔 다시 안 씀
     bot_message.intent = intent
+    bot_message.source_url = source_url
     return bot_message
+
+
+# 버튼으로 진행하는 되묻기·상품 목록 등 화면 전용 대화 턴을 그대로 기록한다.
+# AI 호출이 없어서(Gemini 미사용) /messages보다 훨씬 가볍고, 새로고침·재로그인 후에도
+# 대화 내용이 안 사라지게 하려는 용도 - 응답 생성 없이 그냥 저장만 한다.
+@router.post("/messages/log", response_model=MessageItem)
+def log_message(
+    payload: LogMessageRequest,
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    if payload.role not in ("user", "bot"):
+        raise BusinessException("role은 user 또는 bot이어야 합니다", 400, "CHAT_006")
+    content = payload.content.strip()
+    if not content:
+        raise BusinessException("내용이 비어 있습니다", 400, "CHAT_007")
+
+    session = (
+        db.query(ChatSession)
+        .filter(ChatSession.session_id == payload.session_id, ChatSession.del_yn == "N")
+        .first()
+    )
+    if not session:
+        raise BusinessException("세션을 찾을 수 없습니다", 404, "CHAT_001")
+    if session.user_id != current_user_id:
+        raise BusinessException("본인의 세션에만 기록할 수 있습니다", 403, "AUTH_004")
+
+    message = ChatMessage(
+        session_id=payload.session_id,
+        role=payload.role,
+        content=content,
+        created_date=datetime.now(),
+        created_nm=str(current_user_id),
+    )
+    db.add(message)
+    db.commit()
+    db.refresh(message)
+    return message
 
 
 # CHAT-005: 초기 카테고리 메뉴 및 FAQ/상품/용어
@@ -278,6 +342,7 @@ def _find_fss_detail(name: str, categories: List[str]):
                     etc_note=product["etc_note"],
                     options=product["options"],
                     source=fss.SOURCE_LABEL,
+                    source_url=fss.SOURCE_URL.get(category),
                 ).model_dump(by_alias=True)
     return None
 

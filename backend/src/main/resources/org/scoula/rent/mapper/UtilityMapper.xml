@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+  공과금 계산용 조회 매퍼
+  핵심: 매물 법정동코드(10자리) 앞 2자리로 시도 계수를 찾는다.
+        LEFT(#{regionCode}, 2) — 인덱스를 타므로 함수 적용 방향에 주의
+-->
+<mapper namespace="org.scoula.rent.mapper.UtilityMapper">
+
+  <resultMap id="regionUtilityMap" type="org.scoula.rent.domain.RegionUtilityVO">
+    <result property="sidoCode"     column="sido_code"/>
+    <result property="sidoName"     column="sido_name"/>
+    <result property="elecCoef"     column="elec_coef"/>
+    <result property="heatCoef"     column="heat_coef"/>
+    <result property="heatSample"   column="heat_sample"/>
+    <result property="waterUsageM3" column="water_usage_m3"/>
+    <result property="waterRate"    column="water_rate"/>
+    <result property="sewerRate"    column="sewer_rate"/>
+    <result property="effectiveFrom" column="effective_from"/>
+  </resultMap>
+
+  <!-- 매물 법정동코드로 시도 계수 조회 (현행 요금 기준) -->
+  <select id="findRegionUtility" parameterType="string" resultMap="regionUtilityMap">
+    SELECT sido_code, sido_name, elec_coef, heat_coef, heat_sample,
+           water_usage_m3, water_rate, sewer_rate, effective_from
+      FROM region_utility
+     WHERE sido_code = LEFT(#{regionCode}, 2)
+       AND effective_to IS NULL
+  </select>
+
+  <!-- 면적 앵커 전량 조회 (5행). 보간은 애플리케이션에서 수행 -->
+  <select id="findAreaUsageAnchors" resultType="org.scoula.rent.domain.AreaUsageAnchorVO">
+    SELECT anchor_seq, area_sqm, elec_kwh, heat_fee, sample_n
+      FROM area_usage_anchor
+     ORDER BY area_sqm
+  </select>
+
+  <!-- 관리비 면적 앵커 전량 조회 (5행) -->
+  <select id="findAreaMgmtAnchors" resultType="org.scoula.rent.domain.AreaMgmtAnchorVO">
+    SELECT anchor_seq, area_sqm, fee_per_sqm, sample_count
+      FROM area_mgmt_anchor
+     ORDER BY area_sqm
+  </select>
+
+  <!-- 월별 계수 전체 (12행, Step5 진입 시 일괄 조회하여 프론트 캐싱) -->
+  <select id="findAllMonthCoef" resultType="org.scoula.rent.domain.MonthCoefVO">
+    SELECT month, elec_coef, heat_coef
+      FROM month_utility_coef
+     ORDER BY month
+  </select>
+
+  <!-- 전기 요금표 (현행) -->
+  <select id="findElectricRates" resultType="org.scoula.rent.domain.ElectricRateVO">
+    SELECT season, tier, kwh_from, kwh_to, base_fee, unit_price
+      FROM electric_rate
+     WHERE effective_to IS NULL
+     ORDER BY season, tier
+  </select>
+
+  <!-- 공통 상수 -->
+  <select id="findConstants" resultType="map">
+    SELECT const_key, const_value
+      FROM utility_constant
+  </select>
+
+  <!-- 관리비 지역계수 -->
+  <select id="findRegionMgmtFee" parameterType="string" resultType="org.scoula.rent.domain.RegionMgmtFeeVO">
+    SELECT sido_code, sido_name, mgmt_coef, sample_count
+      FROM region_mgmt_fee
+     WHERE sido_code = LEFT(#{regionCode}, 2)
+       AND effective_to IS NULL
+  </select>
+
+
+  <!-- 로드맵 저장 시 스냅샷 -->
+  <insert id="insertSnapshot" parameterType="java.util.List">
+    INSERT INTO roadmap_utility_snapshot
+      (roadmap_id, month_seq, calendar_ym, elec_kwh,
+       elec_fee, heat_fee, water_fee, mgmt_fee, total_fee, rate_base_dt)
+    VALUES
+    <foreach collection="list" item="s" separator=",">
+      (#{s.roadmapId}, #{s.monthSeq}, #{s.calendarYm}, #{s.elecKwh},
+       #{s.elecFee}, #{s.heatFee}, #{s.waterFee}, #{s.mgmtFee}, #{s.totalFee},
+       #{s.rateBaseDt})
+    </foreach>
+  </insert>
+
+  <select id="findSnapshotByRoadmap" parameterType="long" resultType="org.scoula.rent.domain.SnapshotVO">
+    SELECT month_seq, calendar_ym, elec_kwh,
+           elec_fee, heat_fee, water_fee, mgmt_fee, total_fee, rate_base_dt
+      FROM roadmap_utility_snapshot
+     WHERE roadmap_id = #{roadmapId}
+     ORDER BY month_seq
+  </select>
+
+</mapper>

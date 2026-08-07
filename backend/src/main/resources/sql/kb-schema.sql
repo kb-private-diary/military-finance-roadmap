@@ -67,6 +67,7 @@ CREATE TABLE `military_rank` (
   `rank_id` INT PRIMARY KEY NOT NULL COMMENT '계급ID (1: 이병, 2: 일병, 3: 상병, 4: 병장)',
   `rank_name` VARCHAR(30) NOT NULL COMMENT '계급 이름',
   `rank_salary` BIGINT NOT NULL COMMENT '계급 월급',
+  `service_months` INT NOT NULL COMMENT '이 계급이 시작되는 복무 개월차 (입대일이 속한 달을 1개월째로 계산)',
   `image_url` VARCHAR(500) COMMENT '계급 이미지',
   `created_date` DATETIME NOT NULL COMMENT '생성일시',
   `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
@@ -1002,6 +1003,21 @@ CREATE TABLE `spending` (
   `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
 );
 
+DROP TABLE IF EXISTS `income`;
+CREATE TABLE `income` (
+  `income_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '수입번호',
+  `user_id` BIGINT NOT NULL COMMENT '회원고유번호',
+  `source` VARCHAR(100) NOT NULL COMMENT '수입원 (예 국군재정관리단=급여)',
+  `category` VARCHAR(15) COMMENT '수입종류 (SALARY 등)',
+  `amount` BIGINT NOT NULL COMMENT '수입금액',
+  `received_at` DATETIME NOT NULL COMMENT '입금일시 (업무일 - 감사컬럼과 분리)',
+  `created_date` DATETIME NOT NULL COMMENT '생성일시',
+  `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+  `modified_date` DATETIME COMMENT '수정일시',
+  `modified_nm` VARCHAR(50) COMMENT '수정자',
+  `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
+);
+
 DROP TABLE IF EXISTS `spending_review`;
 CREATE TABLE `spending_review` (
   `review_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '회고번호',
@@ -1098,6 +1114,7 @@ CREATE TABLE `push_history` (
   `user_id` BIGINT NOT NULL COMMENT '회원고유번호',
   `title` VARCHAR(100) NOT NULL COMMENT '알림 제목',
   `body` VARCHAR(200) NOT NULL COMMENT '알림 내용',
+  `category` VARCHAR(20) COMMENT '알림 분류(프론트 아이콘 매핑용, 값은 호출하는 도메인이 자유롭게 정함)',
   `status` VARCHAR(10) NOT NULL COMMENT '발송상태(SUCCESS/FAILED)',
   `sent_at` DATETIME NOT NULL COMMENT '발송일시',
   `created_date` DATETIME NOT NULL COMMENT '생성일시',
