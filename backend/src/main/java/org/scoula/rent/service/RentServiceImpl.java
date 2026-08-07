@@ -17,6 +17,7 @@ import org.scoula.rent.dto.RentListingResponseDTO;
 import org.scoula.rent.dto.RentListingDetailResponseDTO;
 import org.scoula.rent.dto.RentCostResponseDTO;
 import org.scoula.rent.dto.RentAffordabilityResponseDTO;
+import org.scoula.rent.dto.MarketComparisonResponseDTO;
 import org.scoula.rent.dto.ListingSummaryDTO;
 import org.scoula.rent.dto.NearbyFacilityDTO;
 import org.scoula.rent.dto.PrecisionSimulationDTO;
@@ -32,6 +33,7 @@ import org.scoula.regret.dto.RegretSpendingSummaryDTO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -60,6 +62,11 @@ public class RentServiceImpl implements RentService {
 
     // findListings 노출 매물 최대 개수 (실질월부담 필터 후 상위 N개, 선택 피로 방지)
     private static final int LISTING_LIMIT = 30;
+
+    // --- 동네 시세 비교 (findMarketComparison) 상수 ---
+    private static final int MARKET_MIN_SAMPLE = 5;                    // 최소 표본 (미만이면 enough=false)
+    private static final int MARKET_TOTAL_ITEMS = 6;                  // 비교 항목 수 (고정)
+    private static final BigDecimal MARKET_AREA_BAND = BigDecimal.valueOf(5); // 유사 전용면적 비교구간 ±5㎡
 
     // --- Step2 카드 모드별 뱃지 상수 ---
     private static final int AFFORD_MONTHS = 6;    // 재정진단 기준 거주개월 (뱃지는 6개월 고정)
@@ -476,6 +483,181 @@ public class RentServiceImpl implements RentService {
                     vo.getRegionCode(), vo.getAreaSqm().doubleValue());
         }
         return RentListingDetailResponseDTO.of(vo, maintenanceFee);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public MarketComparisonResponseDTO findMarketComparison(Long listingId) {
+        RentListingVO vo = this.listingMapper.findById(listingId);
+        if (vo == null) {
+            throw BusinessException.notFound("매물을 찾을 수 없습니다.", "RENT_006");
+        }
+
+        // 유사 전용면적 비교구간 ±5㎡ (면적 없으면 구간 필터 생략 → 매퍼에서 area 조건 skip)
+        BigDecimal areaMin = null;
+        BigDecimal areaMax = null;
+        if (vo.getAreaSqm() != null) {
+            areaMin = vo.getAreaSqm().subtract(MARKET_AREA_BAND);
+            areaMax = vo.getAreaSqm().add(MARKET_AREA_BAND);
+        }
+
+        long mineRent = vo.getMonthlyRent() != null ? vo.getMonthlyRent() : 0L;
+
+        // 모집단 집계 (같은 법정동+종류+유사면적, 자기 자신 제외)
+        Map<String, Object> agg = this.listingMapper.aggregateMarketComparison(
+                listingId, vo.getEstateType(), vo.getRegionCode(), vo.getUmdName(),
+                areaMin, areaMax, mineRent);
+
+        int sampleCount = (int) toLong(agg.get("sampleCount"));
+        boolean enough = sampleCount >= MARKET_MIN_SAMPLE;
+
+        // 평균값: 금액·연도는 반올림 정수, 면적·층은 소수 1자리
+        long avgRent = Math.round(toDouble(agg.get("avgMonthlyRent")));
+        long avgDeposit = Math.round(toDouble(agg.get("avgDeposit")));
+        double avgArea = round1(toDouble(agg.get("avgAreaSqm")));
+        int avgBuiltYear = (int) Math.round(toDouble(agg.get("avgBuiltYear")));
+        double avgFloor = round1(toDouble(agg.get("avgFloor")));
+        long avgRentPerSqm = Math.round(toDouble(agg.get("avgRentPerSqm")));
+        long rentMin = toLong(agg.get("rentMin"));
+        long rentMax = toLong(agg.get("rentMax"));
+        long lowerCount = toLong(agg.get("lowerCount")); // 이 매물 월세보다 싼 표본 수
+
+        // 이 매물(mine) 값
+        long mineDeposit = vo.getDeposit() != null ? vo.getDeposit() : 0L;
+        double mineArea = vo.getAreaSqm() != null ? round1(vo.getAreaSqm().doubleValue()) : 0.0;
+        Integer mineBuiltYear = vo.getBuiltYear();
+        Integer mineFloor = vo.getFloor();
+        long mineRentPerSqm = (vo.getAreaSqm() != null && vo.getAreaSqm().doubleValue() > 0)
+                ? Math.round(mineRent / vo.getAreaSqm().doubleValue()) : 0L;
+
+        // 6개 항목 rows (순서 고정)
+        //   쌀수록 좋음(mine<avg): 월세·보증금·㎡당월세 / 클수록·최신일수록 좋음(mine>avg): 면적·건축년도·층수
+        List<MarketComparisonResponseDTO.Row> rows = new ArrayList<>(MARKET_TOTAL_ITEMS);
+        rows.add(marketRow("monthlyRent", "월세", mineRent, avgRent, mineRent < avgRent));
+        rows.add(marketRow("deposit", "보증금", mineDeposit, avgDeposit, mineDeposit < avgDeposit));
+        rows.add(marketRow("areaSqm", "전용면적", mineArea, avgArea, mineArea > avgArea));
+        rows.add(marketRow("builtYear", "건축년도", mineBuiltYear, avgBuiltYear,
+                mineBuiltYear != null && mineBuiltYear > avgBuiltYear));
+        rows.add(marketRow("floor", "층수", mineFloor, avgFloor,
+                mineFloor != null && mineFloor > avgFloor));
+        rows.add(marketRow("rentPerSqm", "㎡당 월세", mineRentPerSqm, avgRentPerSqm, mineRentPerSqm < avgRentPerSqm));
+
+        int betterCount = (int) rows.stream().filter(MarketComparisonResponseDTO.Row::isBetter).count();
+
+        // 월세 백분위 = 이 매물보다 싼 표본 비율(%) (낮을수록 저렴)
+        int rentPercentile = sampleCount > 0 ? (int) Math.round(lowerCount * 100.0 / sampleCount) : 0;
+
+        // 가성비 판정 (우위 개수 기준)
+        String verdict;
+        String verdictTitle;
+        if (betterCount >= 4) {
+            verdict = "GOOD";
+            verdictTitle = "가성비 좋은 매물이에요";
+        } else if (betterCount >= 2) {
+            verdict = "NORMAL";
+            verdictTitle = "무난한 매물이에요";
+        } else {
+            verdict = "BAD";
+            verdictTitle = "아쉬운 조건이 많아요";
+        }
+        String verdictText = buildMarketVerdictText(
+                mineRentPerSqm, avgRentPerSqm, mineDeposit, avgDeposit, mineRent, avgRent);
+
+        return MarketComparisonResponseDTO.builder()
+                .umdName(vo.getUmdName())
+                .estateTypeLabel(estateTypeLabel(vo.getEstateType()))
+                .sampleCount(sampleCount)
+                .enough(enough)
+                .betterCount(betterCount)
+                .totalItems(MARKET_TOTAL_ITEMS)
+                .rows(rows)
+                .rentMin(rentMin)
+                .rentMax(rentMax)
+                .rentAvg(avgRent)
+                .rentPercentile(rentPercentile)
+                .verdict(verdict)
+                .verdictTitle(verdictTitle)
+                .verdictText(verdictText)
+                .build();
+    }
+
+    /** 시세 비교 한 행 조립 (mine/avg 는 항목별 타입 그대로 Object 로 담아 JSON 직렬화) */
+    private MarketComparisonResponseDTO.Row marketRow(String key, String label,
+                                                      Object mine, Object avg, boolean better) {
+        return MarketComparisonResponseDTO.Row.builder()
+                .key(key).label(label).mine(mine).avg(avg).better(better).build();
+    }
+
+    /**
+     * 가성비 설명 문장 생성 (목업 톤).
+     * ㎡당 월세 차이%(핵심 지표) + 보증금 차액·회수개월(약점/강점)을 자연스러운 한 문장으로.
+     *   회수개월 = 보증금이 평균보다 높을 때, (보증금차액 ÷ 월세절감액) 올림 근사.
+     */
+    private String buildMarketVerdictText(long mineRentPerSqm, long avgRentPerSqm,
+                                          long mineDeposit, long avgDeposit,
+                                          long mineRent, long avgRent) {
+        StringBuilder sb = new StringBuilder();
+
+        // 1) ㎡당 월세 비교 (가성비 핵심)
+        if (avgRentPerSqm <= 0 || mineRentPerSqm <= 0) {
+            return "비교할 유사 매물 데이터가 충분하지 않아요.";
+        }
+        long perSqmDiff = avgRentPerSqm - mineRentPerSqm; // 양수면 이 매물이 평균보다 쌈
+        int perSqmPct = (int) Math.round(Math.abs(perSqmDiff) * 100.0 / avgRentPerSqm);
+        if (perSqmDiff > 0) {
+            sb.append("㎡당 월세가 평균보다 ").append(perSqmPct).append("% 낮아요.");
+        } else if (perSqmDiff < 0) {
+            sb.append("㎡당 월세가 평균보다 ").append(perSqmPct).append("% 높아요.");
+        } else {
+            sb.append("㎡당 월세가 평균과 비슷해요.");
+        }
+
+        // 2) 보증금 차액 + 회수개월
+        long depositDiff = mineDeposit - avgDeposit;                 // 양수면 보증금이 평균보다 높음(약점)
+        long manDiff = Math.round(Math.abs(depositDiff) / 10000.0);  // 만원 단위
+        long monthlyRentSaving = avgRent - mineRent;                 // 월세 절감액(양수면 이 매물이 쌈)
+        if (depositDiff > 0) {
+            sb.append(" 보증금이 ").append(manDiff).append("만 높은 점은 부담이지만, ");
+            if (monthlyRentSaving > 0) {
+                long recoverMonths = (long) Math.ceil((double) depositDiff / monthlyRentSaving);
+                sb.append(recoverMonths).append("개월 이상 살면 월세 차액으로 회수됩니다.");
+            } else {
+                sb.append("월세 차액이 크지 않아 회수까지는 시간이 걸립니다.");
+            }
+        } else if (depositDiff < 0) {
+            sb.append(" 보증금도 평균보다 ").append(manDiff).append("만 낮아 초기 부담이 적어요.");
+        } else {
+            sb.append(" 보증금은 평균과 비슷한 수준이에요.");
+        }
+        return sb.toString();
+    }
+
+    /** 매물종류 코드 → 한글 라벨 (APARTMENT/OFFICETEL/VILLA) */
+    private String estateTypeLabel(String type) {
+        if (type == null) {
+            return "";
+        }
+        switch (type) {
+            case "OFFICETEL": return "오피스텔";
+            case "APARTMENT": return "아파트";
+            case "VILLA":     return "빌라";
+            default:          return type;
+        }
+    }
+
+    /** 집계 map 값 → double (AVG=BigDecimal, COUNT/MIN/MAX=Long 등 혼재 → Number 로 통일) */
+    private double toDouble(Object o) {
+        return o == null ? 0.0 : ((Number) o).doubleValue();
+    }
+
+    /** 집계 map 값 → long */
+    private long toLong(Object o) {
+        return o == null ? 0L : ((Number) o).longValue();
+    }
+
+    /** 소수 1자리 반올림 (면적·층 표시용) */
+    private double round1(double v) {
+        return Math.round(v * 10) / 10.0;
     }
 
     @Override

@@ -10,6 +10,7 @@ import org.scoula.rent.dto.RentListingResponseDTO;
 import org.scoula.rent.dto.RentListingDetailResponseDTO;
 import org.scoula.rent.dto.RentCostResponseDTO;
 import org.scoula.rent.dto.RentAffordabilityResponseDTO;
+import org.scoula.rent.dto.MarketComparisonResponseDTO;
 import org.scoula.rent.service.RentService;
 import org.scoula.rent.service.RentListingLoadService;
 import org.scoula.security.account.domain.CustomUser;
@@ -91,6 +92,14 @@ public class RentController {
     @GetMapping("/listings/{listingId}")
     public ResponseEntity<ApiResponse<RentListingDetailResponseDTO>> findListingDetail(@PathVariable Long listingId) {
         return ResponseEntity.ok(ApiResponse.success(service.findListingDetail(listingId)));
+    }
+
+    // GET /api/rent/listings/{listingId}/market-comparison → 동네 시세 비교 (Step3 "동네 시세 상세보기")
+    //   JWT 불필요 (매물은 공개정보) - SecurityConfig 에서 이 경로만 permitAll 예외
+    @GetMapping("/listings/{listingId}/market-comparison")
+    public ResponseEntity<ApiResponse<MarketComparisonResponseDTO>> findMarketComparison(
+            @PathVariable Long listingId) {
+        return ResponseEntity.ok(ApiResponse.success(service.findMarketComparison(listingId)));
     }
 
     // GET /api/rent/listings/{listingId}/cost?months=12 → 총 필요자금 (보증금 + 월세×거주개월)
