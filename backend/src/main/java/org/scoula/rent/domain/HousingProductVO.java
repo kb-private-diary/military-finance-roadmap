@@ -53,4 +53,9 @@ public class HousingProductVO {
 
     private LocalDateTime createdAt; // 생성 시각
     private LocalDateTime updatedAt; // 수정 시각
+
+    // --- 온통청년 OPEN API 연동 컬럼 (연동명세 §5) ---
+    private String plcyNo;               // 온통청년 정책번호. NULL 이면 자체 등록(KB 수동 상품)
+    private String zipCd;                // API 원본 시군구코드 목록(콤마 구분). 지역 매칭용
+    private LocalDateTime apiSyncedAt;   // 마지막 API 동기화 시각
 }

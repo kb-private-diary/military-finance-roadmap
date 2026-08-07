@@ -28,4 +28,11 @@ public interface HousingProductMapper {
 
     /** 사용자 복무기간(입대일·전역예정일) 조회 - 병역 혜택 안내용 */
     MilitaryServiceVO findServicePeriodByUserId(@Param("userId") Long userId);
+
+    /**
+     * 온통청년 정책 UPSERT (연동명세 §5) - plcy_no(uk_plcy) 기준 ON DUPLICATE KEY UPDATE.
+     * plcy_no 가 있는 행만 넣으므로 plcy_no IS NULL(KB 수동 상품)은 절대 건드리지 않는다.
+     * INSERT/UPDATE 모두 api_synced_at 을 NOW() 로 갱신한다.
+     */
+    int upsertYouthPolicy(HousingProductVO vo);
 }

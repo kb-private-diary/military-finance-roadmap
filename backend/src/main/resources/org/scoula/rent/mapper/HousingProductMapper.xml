@@ -39,4 +39,60 @@
            AND del_yn = 'N'
     </select>
 
+    <!--
+      온통청년 정책 UPSERT (연동명세 §5)
+      - uk_plcy(plcy_no) 유니크키 기준 ON DUPLICATE KEY UPDATE
+      - plcy_no 가 채워진 API 상품만 넣으므로 plcy_no IS NULL(KB 수동상품)은 건드리지 않는다
+      - region_code 는 zip_cd 앞 2자리로 SyncService 가 채워, 기존 추천 쿼리(region_code 매칭)와 호환
+      - api_synced_at 은 INSERT/UPDATE 모두 NOW()
+    -->
+    <insert id="upsertYouthPolicy" parameterType="org.scoula.rent.domain.HousingProductVO">
+        INSERT INTO housing_product (
+            product_name, product_type, support_type, loan_type, provider, is_kb, region_code,
+            support_amount, support_months, loan_limit,
+            min_age, max_age, veteran_extend, veteran_note,
+            deposit_limit, area_limit, income_limit, join_condition,
+            exclusive_group, base_year, apply_start, apply_end, apply_cycle,
+            priority, detail, external_url,
+            plcy_no, zip_cd, api_synced_at
+        ) VALUES (
+            #{productName}, #{productType}, #{supportType}, #{loanType}, #{provider},
+            'N', #{regionCode},
+            #{supportAmount}, #{supportMonths}, #{loanLimit},
+            #{minAge}, #{maxAge}, #{veteranExtend}, #{veteranNote},
+            #{depositLimit}, #{areaLimit}, #{incomeLimit}, #{joinCondition},
+            #{exclusiveGroup}, #{baseYear}, #{applyStart}, #{applyEnd}, #{applyCycle},
+            #{priority}, #{detail}, #{externalUrl},
+            #{plcyNo}, #{zipCd}, NOW()
+        )
+        ON DUPLICATE KEY UPDATE
+            product_name    = VALUES(product_name),
+            product_type    = VALUES(product_type),
+            support_type    = VALUES(support_type),
+            loan_type       = VALUES(loan_type),
+            provider        = VALUES(provider),
+            region_code     = VALUES(region_code),
+            support_amount  = VALUES(support_amount),
+            support_months  = VALUES(support_months),
+            loan_limit      = VALUES(loan_limit),
+            min_age         = VALUES(min_age),
+            max_age         = VALUES(max_age),
+            veteran_extend  = VALUES(veteran_extend),
+            veteran_note    = VALUES(veteran_note),
+            deposit_limit   = VALUES(deposit_limit),
+            area_limit      = VALUES(area_limit),
+            income_limit    = VALUES(income_limit),
+            join_condition  = VALUES(join_condition),
+            exclusive_group = VALUES(exclusive_group),
+            base_year       = VALUES(base_year),
+            apply_start     = VALUES(apply_start),
+            apply_end       = VALUES(apply_end),
+            apply_cycle     = VALUES(apply_cycle),
+            priority        = VALUES(priority),
+            detail          = VALUES(detail),
+            external_url    = VALUES(external_url),
+            zip_cd          = VALUES(zip_cd),
+            api_synced_at   = NOW()
+    </insert>
+
 </mapper>
