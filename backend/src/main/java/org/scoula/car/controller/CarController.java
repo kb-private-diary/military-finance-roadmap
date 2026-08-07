@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import org.scoula.car.dto.CarAcquisitionTaxResponseDTO;
+import org.scoula.car.dto.CarBudgetStatusResponseDTO;
 import org.scoula.car.dto.CarEvSubsidyResponseDTO;
 import org.scoula.car.dto.CarGoalCreateRequestDTO;
 import org.scoula.car.dto.CarGoalCreateResponseDTO;
@@ -132,6 +133,17 @@ public class CarController {
         Long userId = customUser.getMember().getId();
         log.info("Calculating EV subsidy for goalId: {}, userId: {}", goalId, userId);
         CarEvSubsidyResponseDTO responseDTO = this.carService.calculateEvSubsidy(goalId, userId);
+        return ResponseEntity.ok(ApiResponse.success(responseDTO));
+    }
+
+    // CAR-API-14: 선택 차량 구매비용이 기준 예산을 넘는지 확인 (초과 시에만 대출상품 노출용)
+    @GetMapping("/goals/{goalId}/budget-status")
+    public ResponseEntity<ApiResponse<CarBudgetStatusResponseDTO>> getBudgetStatus(
+            @AuthenticationPrincipal CustomUser customUser,
+            @PathVariable Long goalId) {
+        Long userId = customUser.getMember().getId();
+        log.info("Checking budget status for goalId: {}, userId: {}", goalId, userId);
+        CarBudgetStatusResponseDTO responseDTO = this.carService.checkBudgetStatus(goalId, userId);
         return ResponseEntity.ok(ApiResponse.success(responseDTO));
     }
 }

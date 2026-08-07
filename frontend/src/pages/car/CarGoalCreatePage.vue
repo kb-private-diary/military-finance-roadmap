@@ -63,9 +63,11 @@ const readErrorMessage = (error, fallback) =>
   error.error ||
   fallback;
 
+// 예산은 선택 입력 — 안 넣으면 군적금 만기예상액 기준으로 추천된다.
+// 단, 값을 넣었다면 0보다는 커야 한다.
 const isFormValid = computed(
   () =>
-    Number(form.budget) > 0 &&
+    (form.budget === '' || Number(form.budget) > 0) &&
     !!form.targetDate &&
     form.targetDate >= today &&
     !!form.region &&
@@ -84,7 +86,7 @@ const submitGoal = async () => {
 
   try {
     const request = {
-      budget: Number(form.budget),
+      budget: form.budget === '' ? null : Number(form.budget),
       isNew: form.isNew,
       experienceYears: form.experienceYears,
       targetDate: form.targetDate,
@@ -131,13 +133,18 @@ const submitGoal = async () => {
         </div>
       </fieldset>
 
-      <BaseInput
-        v-model="form.budget"
-        type="amount"
-        label="예산"
-        suffix="만원"
-        placeholder="예: 2000"
-      />
+      <div class="field">
+        <BaseInput
+          v-model="form.budget"
+          type="amount"
+          label="수동 예산 입력 (선택)"
+          suffix="만원"
+          placeholder="입력 안 하면 군적금 만기예상액 기준으로 추천돼요"
+        />
+        <p class="field__hint">
+          만기예상액을 다 쓰지 않고 일부만 쓰고 싶다면, 원하는 한도를 입력해주세요.
+        </p>
+      </div>
 
       <label class="field">
         <span class="field__label text-label">목표 구매 시기</span>
@@ -213,6 +220,13 @@ const submitGoal = async () => {
 .field__label {
   margin: 0;
   padding: 0;
+}
+
+.field__hint {
+  margin: 2px 0 0;
+  color: var(--text-hint);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .toggle-row {

@@ -23,6 +23,7 @@ import org.scoula.car.domain.CarModelVO;
 import org.scoula.car.domain.CarTaxPrepayVO;
 import org.scoula.car.domain.CarTaxVO;
 import org.scoula.car.dto.CarAcquisitionTaxResponseDTO;
+import org.scoula.car.dto.CarBudgetStatusResponseDTO;
 import org.scoula.car.dto.CarEvSubsidyResponseDTO;
 import org.scoula.car.dto.CarGoalCreateRequestDTO;
 import org.scoula.car.dto.CarGoalCreateResponseDTO;
@@ -33,6 +34,8 @@ import org.scoula.car.dto.CarRecommendationResponseDTO;
 import org.scoula.car.dto.CarUsedPriceResponseDTO;
 import org.scoula.car.mapper.CarMapper;
 import org.scoula.common.exception.BusinessException;
+import org.scoula.dashboard.dto.DashboardSavingsResponseDTO;
+import org.scoula.dashboard.service.DashboardService;
 
 @Service
 @RequiredArgsConstructor
@@ -72,16 +75,19 @@ public class CarServiceImpl implements CarService {
     // 그 이상 연차를 가정해도 의미가 없다고 보고 상한을 4년으로 제한한다 (0.8^4 ≈ 41%)
     private static final int MAX_ASSUMED_AGE_YEARS = 4;
     // 추천 목록에서 허용하는 예산 초과 허용 오차(만원) — 이보다 많이 넘는 차량은 목록에서 제외
-    private static final long BUDGET_OVERFLOW_TOLERANCE_MANWON = 100L;
+    private static final long BUDGET_OVERFLOW_TOLERANCE_MANWON = 300L;
 
     private final CarMapper carMapper;
     private final OpinetClient opinetClient;
+    private final DashboardService dashboardService;
 
     @Override
     @Transactional
     public CarGoalCreateResponseDTO createCarGoal(Long userId, CarGoalCreateRequestDTO requestDTO) {
+        // 예산은 이제 필수 입력이 아니다 — 미입력 시 군적금 만기예상액을 기준으로 추천한다.
+        // 다만 입력했다면 0보다는 커야 한다.
         Long budget = requestDTO.getBudget();
-        if (budget == null || budget <= 0) {
+        if (budget != null && budget <= 0) {
             throw BusinessException.badRequest("예산은 0보다 커야 합니다", "CAR_001");
         }
 
@@ -99,11 +105,13 @@ public class CarServiceImpl implements CarService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<CarGoalResponseDTO> findCarGoals(Long userId) {
         return this.carMapper.selectCarGoalsByUserId(userId);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public CarGoalResponseDTO findCarGoalDetail(Long goalId, Long userId) {
         CarGoalResponseDTO goal = this.carMapper.selectCarGoalDetailById(goalId, userId);
         if (goal == null) {
@@ -113,11 +121,14 @@ public class CarServiceImpl implements CarService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<CarRecommendationResponseDTO> recommendCars(Long goalId, Long userId) {
         CarGoalVO goal = this.carMapper.selectCarGoalById(goalId, userId);
         if (goal == null) {
             throw BusinessException.notFound("목표를 찾을 수 없습니다", "CAR_003");
         }
+
+        long effectiveBudget = this.resolveEffectiveBudget(userId, goal.getBudget());
 
         // 목표 단계에서는 차종을 특정하지 않으므로 경차/준중형/SUV 전체 후보를 반환한다.
         // (차종별 취득세율이 달라 후보마다 자기 차종 기준으로 계산해야 함)
@@ -140,7 +151,7 @@ public class CarServiceImpl implements CarService {
                 estimatedPrice = model.getBasePrice();
             } else {
                 int age = this.estimateAgeFittingBudget(
-                        model.getBasePrice(), tax.getAcquisitionTaxRate(), goal.getBudget());
+                        model.getBasePrice(), tax.getAcquisitionTaxRate(), effectiveBudget);
                 assumedYear = currentYear - age;
                 estimatedPrice = BigDecimal.valueOf(model.getBasePrice())
                         .multiply(ANNUAL_RETENTION_RATE.pow(age))
@@ -164,19 +175,43 @@ public class CarServiceImpl implements CarService {
                     .estimatedPrice(estimatedPrice)
                     .acquisitionTaxAmount(acquisitionTaxAmount)
                     .totalPrice(totalPrice)
-                    .withinBudget(goal.getBudget() != null && totalPrice <= goal.getBudget())
+                    .withinBudget(totalPrice <= effectiveBudget)
                     .build());
         }
 
-        // 예산을 크게 벗어나는 차량은 추천 목록에서 아예 제외한다.
-        // 단, 예산을 살짝 넘는 차량은 "예산 초과" 배지를 단 채로 계속 보여준다 (허용 오차: +100만원).
-        if (goal.getBudget() != null) {
-            long maxAllowedPrice = goal.getBudget() + BUDGET_OVERFLOW_TOLERANCE_MANWON;
-            recommendations.removeIf(item -> item.getTotalPrice() > maxAllowedPrice);
-        }
+        // 기준 예산을 크게 벗어나는 차량은 추천 목록에서 아예 제외한다.
+        // 단, 살짝 넘는 차량은 "예산 초과" 배지를 단 채로 계속 보여준다 (허용 오차: +300만원).
+        long maxAllowedPrice = effectiveBudget + BUDGET_OVERFLOW_TOLERANCE_MANWON;
+        recommendations.removeIf(item -> item.getTotalPrice() > maxAllowedPrice);
 
         recommendations.sort(Comparator.comparingLong(CarRecommendationResponseDTO::getTotalPrice));
         return recommendations;
+    }
+
+    // 차량 추천 기준 예산 결정: 군적금 만기예상액이 기본값이고, 수동 예산을 입력했다면
+    // (만기금을 다 안 쓰고 일부만 쓰려는 것이므로) 수동 입력값을 그대로 상한으로 사용한다.
+    // 오픈뱅킹 연동이 안 돼 있으면 수동 예산만으로 판단하고, 둘 다 없으면 추천 자체가 불가능하다.
+    private long resolveEffectiveBudget(Long userId, Long manualBudget) {
+        // 수동 예산이 있으면 그걸로 상한이 확정되므로, 굳이 만기금 계산(여러 쿼리 필요)을 안 돌린다.
+        if (manualBudget != null) {
+            return manualBudget;
+        }
+
+        Long maturityManwon = null;
+        try {
+            DashboardSavingsResponseDTO savings = this.dashboardService.findSavingsStatus(userId);
+            if (savings != null && savings.getExpectedMaturityTotal() != null) {
+                maturityManwon = savings.getExpectedMaturityTotal() / 10_000;
+            }
+        } catch (BusinessException e) {
+            // 군적금 계좌 미연동 등 — 저축 데이터 없음
+        }
+
+        if (maturityManwon != null) {
+            return maturityManwon;
+        }
+        throw BusinessException.badRequest(
+                "예산 정보가 없습니다. 오픈뱅킹으로 군적금을 연동하거나 예산을 직접 입력해주세요", "CAR_013");
     }
 
     @Override
@@ -207,6 +242,7 @@ public class CarServiceImpl implements CarService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public CarMaintenanceCostResponseDTO calculateMaintenanceCost(Long goalId, Long userId) {
         CarGoalVO goal = this.carMapper.selectCarGoalById(goalId, userId);
         if (goal == null) {
@@ -282,6 +318,7 @@ public class CarServiceImpl implements CarService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public CarAcquisitionTaxResponseDTO calculateAcquisitionTax(Long goalId, Long userId) {
         CarGoalVO goal = this.carMapper.selectCarGoalById(goalId, userId);
         if (goal == null) {
@@ -316,6 +353,7 @@ public class CarServiceImpl implements CarService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public CarUsedPriceResponseDTO calculateUsedPrice(Long goalId, Long userId) {
         CarGoalVO goal = this.carMapper.selectCarGoalById(goalId, userId);
         if (goal == null) {
@@ -356,6 +394,7 @@ public class CarServiceImpl implements CarService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public CarEvSubsidyResponseDTO calculateEvSubsidy(Long goalId, Long userId) {
         CarGoalVO goal = this.carMapper.selectCarGoalById(goalId, userId);
         if (goal == null) {
@@ -390,12 +429,38 @@ public class CarServiceImpl implements CarService {
                 .build();
     }
 
-    // 예산 안에서 가장 최신 연식(연차가 가장 적은)을 추정 — 신차가가 이미 예산 이내면 0년(연식 그대로)
-    private int estimateAgeFittingBudget(long basePrice, BigDecimal acquisitionTaxRate, Long budget) {
-        if (budget == null) {
-            return DEFAULT_ASSUMED_AGE_YEARS;
+    @Override
+    @Transactional(readOnly = true)
+    public CarBudgetStatusResponseDTO checkBudgetStatus(Long goalId, Long userId) {
+        CarGoalVO goal = this.carMapper.selectCarGoalById(goalId, userId);
+        if (goal == null) {
+            throw BusinessException.notFound("목표를 찾을 수 없습니다", "CAR_003");
+        }
+        if (goal.getSelectedModelId() == null) {
+            throw BusinessException.badRequest("차량 모델을 먼저 선택해야 합니다", "CAR_004");
         }
 
+        long purchaseTotal;
+        if (Boolean.TRUE.equals(goal.getIsNew())) {
+            CarAcquisitionTaxResponseDTO tax = this.calculateAcquisitionTax(goalId, userId);
+            purchaseTotal = tax.getVehiclePrice() + tax.getAcquisitionTaxAmount();
+        } else {
+            CarUsedPriceResponseDTO used = this.calculateUsedPrice(goalId, userId);
+            purchaseTotal = used.getTotalPrice();
+        }
+
+        long effectiveBudget = this.resolveEffectiveBudget(userId, goal.getBudget());
+
+        return CarBudgetStatusResponseDTO.builder()
+                .goalId(goalId)
+                .effectiveBudget(effectiveBudget)
+                .purchaseTotal(purchaseTotal)
+                .withinBudget(purchaseTotal <= effectiveBudget)
+                .build();
+    }
+
+    // 예산 안에서 가장 최신 연식(연차가 가장 적은)을 추정 — 신차가가 이미 예산 이내면 0년(연식 그대로)
+    private int estimateAgeFittingBudget(long basePrice, BigDecimal acquisitionTaxRate, long budget) {
         double taxMultiplier = 1 + acquisitionTaxRate.doubleValue() / 100.0;
         double targetPrice = budget / taxMultiplier;
         double ratio = targetPrice / basePrice;

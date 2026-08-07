@@ -113,6 +113,24 @@
          LIMIT 1
     </select>
 
+    <!-- 전국 시군구코드 목록 (매물 전국 배치 적재용) -->
+    <select id="findAllSigunguCodes" resultType="string">
+        SELECT DISTINCT sigungu_code
+          FROM region_code
+         WHERE sigungu_code IS NOT NULL
+           AND del_yn = 'N' AND is_abolished = 'N'
+         ORDER BY sigungu_code
+    </select>
+
+    <!-- 시군구코드 → 시도명 (매물 좌표변환 주소 조합용) -->
+    <select id="findSidoNameBySigunguCode" parameterType="string" resultType="string">
+        SELECT sido_name
+          FROM region_code
+         WHERE sigungu_code = #{sigunguCode}
+           AND del_yn = 'N'
+         LIMIT 1
+    </select>
+
     <!-- 목표 단건 soft delete (goal_id 기준, 삭제자·삭제일시 기록) -->
     <update id="deleteGoalById">
         UPDATE rent_goal

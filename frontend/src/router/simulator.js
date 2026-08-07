@@ -13,4 +13,10 @@ export default [
     component: () => import('@/pages/simulator/SimulatorPage.vue'),
     meta: { requiresAuth: true, openCalc: true },
   },
+  {
+    path: '/simulator/products',
+    name: 'SimulatorProductList', // 예적금/정책 상품 전체 목록 (시뮬레이터 "더보기")
+    component: () => import('@/pages/simulator/SimulatorProductListPage.vue'),
+    meta: { requiresAuth: true },
+  },
 ];

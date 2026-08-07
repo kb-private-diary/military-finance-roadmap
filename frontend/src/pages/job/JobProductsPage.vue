@@ -17,9 +17,6 @@ const route = useRoute();
 const router = useRouter();
 const { show } = useToast();
 
-const currentStep = 4;
-const progress = computed(() => (currentStep / 4) * 100);
-
 const goalId = computed(() => Number(route.params.goalId));
 
 const loading = ref(false);
@@ -131,7 +128,7 @@ onMounted(() => {
 
 <template>
   <div class="job-products">
-    <RoadmapCharacterSlider :progress="progress" label="진로 로드맵" />
+    <RoadmapCharacterSlider :progress="100" label="진로 로드맵" />
 
     <h2 class="job-products__title text-title">금융상품 추천</h2>
 
