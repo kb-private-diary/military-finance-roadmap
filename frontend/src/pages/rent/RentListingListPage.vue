@@ -1,6 +1,6 @@
 <script setup>
 // SCR-RENT-02 · Step 2) 매물 리스트  담당: 수연
-// 디자인: UI/rent_ui_school_mode.html (매물 카드) — 담백 버전(색·이모지 제거)
+// 디자인: UI/rent_ui_(school|region)_mode.html (매물 카드) — 모드별 뱃지 2개(교통 + 재정진단)
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import rentApi from '@/api/rentApi';
@@ -24,20 +24,22 @@ const ESTATE_LABEL = {
   ROOM: '원룸',
 };
 
-// 시세 뱃지(지역·종류 평균 대비): tone 으로 톤만 구분 (긍정/중립/주의), 이모지 없음
-const PRICE_BADGE = {
-  CHEAP: { label: '지역 평균보다 저렴', tone: 'good' },
-  AVERAGE: { label: '평균 수준', tone: 'neutral' },
-  EXPENSIVE: { label: '평균보다 비쌈', tone: 'warn' },
+// 뱃지1) 교통: 모드별로 다른 필드 사용 (학교=commuteText / 지역=transitText)
+//   아이콘은 텍스트로 추정 — '버스'면 🚌, 아니면 학교 🚶 / 지역 🚇. 값 없으면 미표시.
+//   (시세·신선도 뱃지는 step2에서 제거 — 시세는 step3 담당)
+const transportBadgeOf = (l) => {
+  const text = l.selectionMode === 'SCHOOL' ? l.commuteText : l.transitText;
+  if (!text) return null;
+  let icon;
+  if (text.includes('버스')) icon = '🚌';
+  else icon = l.selectionMode === 'SCHOOL' ? '🚶' : '🚇';
+  return { icon, text };
 };
-// 실거래 신선도 뱃지 — 톤 구분 없이 담백하게 중립
-const FRESHNESS_BADGE = {
-  FRESH_1M: '1개월 내 실거래',
-  FRESH_3M: '3개월 내 실거래',
-  OLD_6M: '6개월+ 전 실거래',
-};
-const priceBadgeOf = (l) => PRICE_BADGE[l.priceLevel] || null;
-const freshnessLabelOf = (l) => FRESHNESS_BADGE[l.freshness] || null;
+// 뱃지2) 재정진단: affordLevel 로 톤(색) 구분, 텍스트는 affordText. 아이콘은 목업 수준으로 최소.
+const AFFORD_TONE = { ENOUGH: 'good', TIGHT: 'caution', OVER: 'danger' };
+const AFFORD_ICON = { ENOUGH: '👍', TIGHT: '⚠️', OVER: '❌' };
+const affordToneOf = (l) => AFFORD_TONE[l.affordLevel] || 'neutral';
+const affordIconOf = (l) => AFFORD_ICON[l.affordLevel] || '';
 
 const listings = ref([]);
 const loading = ref(true);
@@ -69,6 +71,8 @@ const selectedListingId = computed(() => rentStore.selectedListingId);
 
 const goDetail = (l) => {
   rentStore.selectedListingId = l.listingId;
+  // 시세(priceLevel)는 step3 단건 응답에 없으므로 여기서 store에 넘겨 시세 뱃지로 표시
+  rentStore.selectedPriceLevel = l.priceLevel ?? null;
   router.push({
     name: 'RentListingDetail',
     params: { listingId: l.listingId },
@@ -129,16 +133,17 @@ const effectiveMonthlyOf = (l) =>
           <span class="info">
             <span class="name">{{ l.buildingName }}</span>
             <span class="dong">{{ l.dongName }}</span>
-            <span v-if="priceBadgeOf(l) || freshnessLabelOf(l)" class="badges">
+            <span class="badges">
+              <span v-if="transportBadgeOf(l)" class="badge badge--neutral">
+                {{ transportBadgeOf(l).icon }} {{ transportBadgeOf(l).text }}
+              </span>
               <span
-                v-if="priceBadgeOf(l)"
+                v-if="l.affordText"
                 class="badge"
-                :class="`badge--${priceBadgeOf(l).tone}`"
-                >{{ priceBadgeOf(l).label }}</span
+                :class="`badge--${affordToneOf(l)}`"
               >
-              <span v-if="freshnessLabelOf(l)" class="badge badge--neutral">{{
-                freshnessLabelOf(l)
-              }}</span>
+                {{ affordIconOf(l) }} {{ l.affordText }}
+              </span>
             </span>
             <span class="eff">
               <span class="eff-label">실질 월부담</span>
@@ -147,10 +152,6 @@ const effectiveMonthlyOf = (l) =>
             <span class="price">{{ priceLine(l) }}</span>
             <span class="conv">
               보증금 {{ formatManwon(l.deposit) }} (월 {{ formatManwon(depositConvertedOf(l)) }} 상당)
-            </span>
-            <span class="tags">
-              <span class="tag">{{ l.distanceText }}</span>
-              <span class="tag">{{ l.affordText }}</span>
             </span>
             <span class="est">6개월 예상 {{ formatManwon(l.totalCost6M) }}</span>
           </span>
@@ -256,14 +257,20 @@ const effectiveMonthlyOf = (l) =>
   border-radius: 999px;
   color: var(--text-muted);
 }
+/* 재정진단 톤: ENOUGH(딱 맞아요) / TIGHT(빠듯해요) / OVER(예산 초과) */
 .badge--good {
   border-color: var(--military-green-light);
   color: var(--success);
 }
-.badge--warn {
+.badge--caution {
+  border-color: var(--roadmap-active);
+  color: var(--brown-text);
+}
+.badge--danger {
   border-color: var(--danger);
   color: var(--danger);
 }
+/* 교통 뱃지 등 중립 톤 */
 .badge--neutral {
   border-color: var(--line);
   color: var(--text-muted);
@@ -292,19 +299,6 @@ const effectiveMonthlyOf = (l) =>
   margin-top: 1px;
   font-size: 10px;
   color: var(--text-hint);
-}
-.tags {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-  margin-top: 5px;
-}
-.tag {
-  font-size: 10px;
-  padding: 2px 8px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  color: var(--text-muted);
 }
 .est {
   margin-top: 6px;

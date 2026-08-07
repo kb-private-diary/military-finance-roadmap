@@ -110,6 +110,38 @@ watch(selDong, (v) => {
   regionSheetOpen.value = false;
 });
 
+// 바텀시트 안에서 시/도 → 시/군/구 → 읍/면/동을 '스크롤 리스트' 단계별로 보여준다.
+// (커스텀 드롭다운 메뉴는 position:absolute라 시트 overflow에 잘려서 모바일에서 안 보임)
+const regionStep = computed(() => {
+  if (!selSido.value) return 'sido';
+  if (!selSigungu.value) return 'sigungu';
+  return 'dong';
+});
+const currentRegionOpts = computed(() => {
+  if (regionStep.value === 'sido') return sidoOpts.value;
+  if (regionStep.value === 'sigungu') return sigunguOpts.value;
+  return dongOpts.value;
+});
+const selSidoLabel = computed(
+  () => sidoOpts.value.find((o) => o.value === selSido.value)?.label || '',
+);
+const selSigunguLabel = computed(
+  () => sigunguOpts.value.find((o) => o.value === selSigungu.value)?.label || '',
+);
+// 현재 단계의 항목을 탭하면 해당 ref만 채우고, 나머지는 watch가 처리
+const selectRegionOption = (opt) => {
+  if (regionStep.value === 'sido') selSido.value = opt.value;
+  else if (regionStep.value === 'sigungu') selSigungu.value = opt.value;
+  else selDong.value = opt.value;
+};
+// 선택 경로(breadcrumb)를 탭해 상위 단계로 되돌리기 (watch가 하위 선택/옵션 초기화)
+const resetToSido = () => {
+  selSido.value = '';
+};
+const resetToSigungu = () => {
+  selSigungu.value = '';
+};
+
 // 반경 (텍스트 링크로 펼침)
 const radiusOpen = ref(false);
 
@@ -238,15 +270,45 @@ const goNext = async () => {
       @primary-click="goNext"
     />
 
-    <!-- 지역 선택 바텀시트 (시 → 군/구 → 동) -->
+    <!-- 지역 선택 바텀시트 (시/도 → 시/군/구 → 읍/면/동, 단계별 리스트) -->
     <BaseBottomSheet v-model="regionSheetOpen" title="지역 선택" confirm-text="닫기">
       <div class="cascade">
-        <div class="cascade-row">
-          <BaseInput type="select" v-model="selSido" :options="sidoOpts" placeholder="시/도" />
-          <BaseInput type="select" v-model="selSigungu" :options="sigunguOpts" placeholder="시/군/구" />
-          <BaseInput type="select" v-model="selDong" :options="dongOpts" placeholder="읍/면/동" />
+        <!-- 선택 경로: 탭하면 해당 단계로 되돌아감 -->
+        <div class="cascade-crumbs">
+          <button
+            type="button"
+            class="crumb"
+            :class="{ 'crumb--active': regionStep === 'sido' }"
+            @click="resetToSido"
+          >
+            {{ selSidoLabel || '시/도' }}
+          </button>
+          <span class="crumb-sep">›</span>
+          <button
+            type="button"
+            class="crumb"
+            :class="{ 'crumb--active': regionStep === 'sigungu' }"
+            :disabled="!selSido"
+            @click="resetToSigungu"
+          >
+            {{ selSigunguLabel || '시/군/구' }}
+          </button>
+          <span class="crumb-sep">›</span>
+          <span class="crumb" :class="{ 'crumb--active': regionStep === 'dong' }">읍/면/동</span>
         </div>
-        <p class="cascade-hint">시 · 군/구 · 동 순으로 선택하세요</p>
+
+        <!-- 현재 단계 옵션 리스트 (시트 안에서 스크롤) -->
+        <ul class="region-list">
+          <li
+            v-for="opt in currentRegionOpts"
+            :key="opt.value"
+            class="region-item"
+            @click="selectRegionOption(opt)"
+          >
+            {{ opt.label }}
+          </li>
+          <li v-if="!currentRegionOpts.length" class="region-empty">불러오는 중...</li>
+        </ul>
       </div>
     </BaseBottomSheet>
   </div>
@@ -385,15 +447,61 @@ const goNext = async () => {
 .cascade {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
-.cascade-row {
+.cascade-crumbs {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
 }
-.cascade-row > * {
-  flex: 1;
-  min-width: 0;
+.crumb {
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text-hint);
+  cursor: pointer;
+}
+.crumb:disabled {
+  cursor: default;
+}
+.crumb--active {
+  color: var(--text-body);
+  font-weight: 600;
+}
+.crumb-sep {
+  color: var(--text-hint);
+  font-size: 13px;
+}
+.region-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  max-height: 44vh;
+  overflow-y: auto;
+}
+.region-item {
+  padding: 13px 14px;
+  font-size: 15px;
+  color: var(--text-body);
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+.region-item:last-child {
+  border-bottom: 0;
+}
+.region-item:active {
+  background: var(--kb-yellow-pale);
+}
+.region-empty {
+  padding: 20px 14px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-hint);
 }
 .add-btn {
   align-self: flex-start;
@@ -405,10 +513,6 @@ const goNext = async () => {
   font-size: 13px;
   cursor: pointer;
   font-family: inherit;
-}
-.cascade-hint {
-  font-size: 11px;
-  color: var(--text-hint);
 }
 .slider {
   width: 100%;

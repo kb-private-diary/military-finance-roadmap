@@ -21,7 +21,8 @@ const maturity = computed(() => rentStore.maturityAmount || 7200000);
 // TODO: 백엔드 매물 상세 API(WIP) 준비되면 샘플 폴백 제거
 const SAMPLE = {
   listing: { buildingName: '부산대 앞 오피스텔', dongName: '부산 금정구 장전동', areaSqm: 23, floor: 5, buildYear: 2018, dealDate: '2026-06-15', deposit: 5000000, monthlyRent: 450000, maintenanceFee: 50000 },
-  propertyBadges: ['지역 평균보다 저렴', '1개월 전 실거래'],
+  // propertyBadges 는 신선도(실거래 시점)만 — 시세는 step2 priceLevel 로 별도 표시
+  propertyBadges: ['1개월 전 실거래'],
 };
 
 const data = ref(null);
@@ -46,6 +47,16 @@ onMounted(() => {
 watch(months, (m) => (rentStore.months = m));
 
 const listing = computed(() => data.value?.listing);
+
+// 시세 뱃지: step2에서 넘어온 priceLevel(CHEAP/AVERAGE/EXPENSIVE)로 표시.
+// step3 단건 응답은 지역평균을 못 줘서 시세가 없으므로 store 값에 의존.
+// step2를 안 거치고 직접 진입하면 priceLevel이 없어 시세 뱃지는 생략(신선도만 표시).
+const PRICE_BADGE = {
+  CHEAP: { text: '지역 평균보다 저렴', tone: 'good' },
+  AVERAGE: { text: '평균 수준', tone: 'neutral' },
+  EXPENSIVE: { text: '평균보다 비쌈', tone: 'danger' },
+};
+const priceBadge = computed(() => PRICE_BADGE[rentStore.selectedPriceLevel] || null);
 // 위치 좌표(국토부 실거래 API에 매물 이미지가 없어 지도로 대체). 좌표 있을 때만 안내 노출.
 const hasCoords = computed(
   () => listing.value?.latitude != null && listing.value?.longitude != null,
@@ -180,8 +191,10 @@ const goPrev = () => {
       <span v-else class="map__label">위치 정보 준비 중</span>
     </div>
 
+    <!-- 시세 뱃지(step2 priceLevel, 있을 때만) + 신선도 뱃지(응답 propertyBadges) -->
     <div class="pbadges">
-      <span v-for="(b, i) in (data.propertyBadges || SAMPLE.propertyBadges)" :key="i" class="tag">{{ b }}</span>
+      <span v-if="priceBadge" class="tag" :class="`tag--${priceBadge.tone}`">{{ priceBadge.text }}</span>
+      <span v-for="(b, i) in (data.propertyBadges || [])" :key="i" class="tag">{{ b }}</span>
     </div>
 
     <BaseCard padding="12px 14px">
@@ -304,6 +317,19 @@ const goPrev = () => {
   padding: 3px 10px;
   border: 1px solid var(--line);
   border-radius: 999px;
+  color: var(--text-muted);
+}
+/* 시세 뱃지 톤: 테두리+글자색으로만 담백하게 (step2 .badge 결과 맞춤) */
+.tag--good {
+  border-color: var(--military-green-light);
+  color: var(--success);
+}
+.tag--danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.tag--neutral {
+  border-color: var(--line);
   color: var(--text-muted);
 }
 .cap {
