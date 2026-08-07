@@ -5,6 +5,7 @@ import org.scoula.common.response.ApiResponse;
 import org.scoula.regret.dto.SpendingResponseDTO;
 import org.scoula.regret.dto.SpendingReviewRequestDTO;
 import org.scoula.regret.dto.RegretStatsResponseDTO;
+import org.scoula.regret.dto.RegretSpendingSummaryDTO;
 import org.scoula.regret.service.RegretService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -41,5 +42,13 @@ public class RegretController {
             @RequestParam Long userId,
             @RequestParam String yearMonth) { // TODO: JWT 연동 후 SecurityContext 로 교체
         return ResponseEntity.ok(ApiResponse.success(service.getMonthlyStats(userId, yearMonth)));
+    }
+
+    // GET /api/regret/spending/summary?userId=1&months=3 → 최근 N개월 월평균 지출·후회 (자취 Step5 연동)
+    @GetMapping("/spending/summary")
+    public ResponseEntity<ApiResponse<RegretSpendingSummaryDTO>> getSpendingSummary(
+            @RequestParam Long userId,
+            @RequestParam(defaultValue = "3") int months) { // TODO: JWT 연동 후 SecurityContext 로 교체
+        return ResponseEntity.ok(ApiResponse.success(service.getSpendingSummary(userId, months)));
     }
 }

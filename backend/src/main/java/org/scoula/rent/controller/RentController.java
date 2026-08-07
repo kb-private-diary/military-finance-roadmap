@@ -107,13 +107,15 @@ public class RentController {
         return ResponseEntity.ok(ApiResponse.success(service.findAffordability(listingId, userId, months)));
     }
 
-    // POST /api/rent/goals/{goalId}/confirm?userId=1&months=6 → 로드맵 저장 (DRAFT → CONFIRMED, months 선택)
+    // POST /api/rent/goals/{goalId}/confirm?userId=1&months=6&listingId=10 → 로드맵 저장 (DRAFT → CONFIRMED)
+    //   listingId = Step4에서 고른 확정 매물 (Step5 정밀 시뮬레이션 기준이 됨)
     @PostMapping("/goals/{goalId}/confirm")
     public ResponseEntity<ApiResponse<Void>> confirmGoal(
             @PathVariable Long goalId,
             @RequestParam Long userId, // TODO: JWT 연동 후 SecurityContext 로 교체
-            @RequestParam(required = false) Integer months) {
-        service.confirmGoal(goalId, userId, months);
+            @RequestParam(required = false) Integer months,
+            @RequestParam(required = false) Long listingId) {
+        service.confirmGoal(goalId, userId, months, listingId);
         return ResponseEntity.ok(ApiResponse.success());
     }
 
