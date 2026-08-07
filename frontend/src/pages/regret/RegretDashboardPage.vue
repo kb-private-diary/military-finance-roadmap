@@ -225,9 +225,9 @@ const goDay = (c) => {
     <BaseCard padding="16px 14px">
       <div class="hero">
         <div class="hero-num">
-          <p class="hero-amt">{{ formatManwon(stats.regretAmount) }}</p>
+          <p class="hero-cap">이번달 후회한 소비 총액</p>
+          <p class="hero-amt">{{ formatWon(stats.regretAmount) }}</p>
           <p v-if="ratioText" class="hero-sub">이번달 수입의 {{ ratioText }}</p>
-          <p v-else class="hero-sub">이번달 후회한 소비</p>
         </div>
         <DonutChart
           :items="donutItems"
@@ -411,6 +411,11 @@ const goDay = (c) => {
   justify-content: space-between;
   gap: 12px;
 }
+.hero-cap {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
 .hero-amt {
   font-size: 26px;
   font-weight: 800;
@@ -467,7 +472,7 @@ button.lg {
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 10px 4px;
+  padding: 7px 4px;
   border: 0;
   cursor: pointer;
   font-family: inherit;

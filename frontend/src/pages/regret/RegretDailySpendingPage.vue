@@ -87,7 +87,6 @@ const goBack = () => router.push({ name: 'RegretDashboard' });
 <template>
   <div class="daily">
     <header class="head">
-      <button class="back" aria-label="뒤로" @click="goBack">‹</button>
       <div class="htx">
         <p class="cap">일자별 지출</p>
         <h2 class="title">{{ formatDate(dateParam) }}</h2>
