@@ -222,7 +222,7 @@ const onComplete = () => {
   gap: 10px;
 }
 .title {
-  font-size: 26px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--text-strong);
   line-height: 1.35;
@@ -279,11 +279,11 @@ const onComplete = () => {
 }
 .chip {
   flex-shrink: 0;
-  padding: 3px 9px;
+  padding: 2px 6px;
   border-radius: 5px;
   background: #9d9d9d;
   color: #fff;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
 }
 .name {

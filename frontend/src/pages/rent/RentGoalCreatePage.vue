@@ -335,7 +335,7 @@ const goNext = async () => {
   gap: 18px;
 }
 .page-title {
-  font-size: 26px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--text-strong);
   line-height: 1.35;
