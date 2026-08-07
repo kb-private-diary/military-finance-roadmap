@@ -1,6 +1,6 @@
 <script setup>
 // SCR-COM-05 · 회원가입 - 군정보 (담당: 호빈)
-// 회원가입 2단계 - 군종·계급·부대·입대일·전역일 입력 → 계정 생성
+// 회원가입 2단계 - 군종·부대·입대일·전역일 입력 → 계정 생성 (계급은 입대일 기준으로 서버가 자동 산정)
 // 약관동의는 1단계(SignupInfoPage)에서 이미 받았으므로 여기서는 다루지 않는다.
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
@@ -12,14 +12,8 @@ import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 const router = useRouter();
 const signupStore = useSignupStore();
 
-// TODO: 계급조회 API 나오면 아래 하드코딩된 목록을 API 조회로 교체
-const MILITARY_RANKS = [
-  { rankId: 1, name: '이병' },
-  { rankId: 2, name: '일병' },
-  { rankId: 3, name: '상병' },
-  { rankId: 4, name: '병장' },
-];
-const rankOptions = MILITARY_RANKS.map((r) => ({ label: r.name, value: r.rankId }));
+// 계급은 입력받지 않는다 — 입대일 기준으로 서버 스케줄러(RankPromotionScheduler)가
+// military_rank.service_months 구간에 맞춰 자동으로 진급시켜준다 (수동 선택은 어차피 다음 배치 때 덮어써짐).
 
 // 복무기간(월). 군종 API 응답엔 없는 값이라 별도 유지 (병역 정책 문서 기준: 육군·해병대 18 / 해군 20 / 공군·공익 21 / 기타 24)
 const SERVICE_MONTHS_BY_TYPE_ID = { 1: 18, 2: 20, 3: 21, 4: 18, 5: 21, 6: 24 };
@@ -30,9 +24,18 @@ const loadMilitaryTypes = async () => {
   typeOptions.value = types.map((t) => ({ label: t.typeName, value: t.typeId }));
 };
 
+// 부대명은 군종 선택에 따라 목록이 바뀌는 종속 드롭다운 (부대코드는 화면에 안 보여주고 내부에서만 같이 들고 있는다)
+const unitOptions = ref([]);
+const loadMilitaryUnits = async (typeId) => {
+  form.unitName = '';
+  form.unitCode = '';
+  unitOptions.value = [];
+  if (!typeId) return;
+  const units = await memberApi.findMilitaryUnits(typeId);
+  unitOptions.value = units.map((u) => ({ label: u.unitName, value: u.unitCode }));
+};
 const form = reactive({
   typeId: null,
-  rankId: null,
   unitName: '',
   unitCode: '',
   enlistDate: '',
@@ -45,11 +48,25 @@ const errorMessage = ref('');
 const canSubmit = computed(
   () =>
     form.typeId &&
-    form.rankId &&
-    form.unitName &&
+    form.unitCode &&
     form.enlistDate &&
     form.dischargeDate &&
     !submitting.value,
+);
+
+// 군종이 바뀌면 부대 목록을 다시 불러온다 (해군 선택 시 해군 부대만, 육군 선택 시 육군 부대만)
+watch(
+  () => form.typeId,
+  (typeId) => loadMilitaryUnits(typeId),
+);
+
+// 부대명은 화면에 안 보이지만 선택된 부대코드에서 그대로 파생시켜 같이 제출한다
+watch(
+  () => form.unitCode,
+  (unitCode) => {
+    const unit = unitOptions.value.find((u) => u.value === unitCode);
+    form.unitName = unit ? unit.label : '';
+  },
 );
 
 // 군종 + 입대일이 정해지면 복무기간만큼 더한 전역예정일을 자동으로 채워준다 (수동으로 다시 고칠 수도 있음)
@@ -114,18 +131,12 @@ onMounted(() => {
 
       <BaseInput
         type="select"
-        v-model="form.rankId"
-        label="계급"
-        placeholder="계급을 선택하세요"
-        :options="rankOptions"
+        v-model="form.unitCode"
+        label="부대명"
+        :placeholder="form.typeId ? '부대를 선택하세요' : '군종을 먼저 선택하세요'"
+        :options="unitOptions"
       />
 
-      <BaseInput v-model="form.unitName" label="부대명" placeholder="예: 수도방위사령부" />
-      <BaseInput
-        v-model="form.unitCode"
-        label="부대코드"
-        placeholder="부대코드 (선택)"
-      />
       <BaseInput v-model="form.enlistDate" type="date" label="입대일" />
       <div class="signup-form__field">
         <BaseInput v-model="form.dischargeDate" type="date" label="전역예정일" />

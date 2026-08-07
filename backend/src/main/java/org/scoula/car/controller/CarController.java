@@ -146,4 +146,15 @@ public class CarController {
         CarBudgetStatusResponseDTO responseDTO = this.carService.checkBudgetStatus(goalId, userId);
         return ResponseEntity.ok(ApiResponse.success(responseDTO));
     }
+
+    // CAR-API-15: 자동차 목표 확정(완료) — status를 CONFIRMED로 전환
+    @PostMapping("/goals/{goalId}/confirm")
+    public ResponseEntity<ApiResponse<Void>> confirmGoal(
+            @AuthenticationPrincipal CustomUser customUser,
+            @PathVariable Long goalId) {
+        Long userId = customUser.getMember().getId();
+        log.info("Confirming car goal for goalId: {}, userId: {}", goalId, userId);
+        this.carService.confirmGoal(goalId, userId);
+        return ResponseEntity.ok(ApiResponse.success());
+    }
 }

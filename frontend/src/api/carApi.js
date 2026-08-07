@@ -42,4 +42,8 @@ export default {
   findBudgetStatus(goalId) {
     return api.get(`${BASE_URL}/goals/${goalId}/budget-status`);
   },
+
+  confirmGoal(goalId) {
+    return api.post(`${BASE_URL}/goals/${goalId}/confirm`);
+  },
 };

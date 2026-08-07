@@ -459,6 +459,21 @@ public class CarServiceImpl implements CarService {
                 .build();
     }
 
+    @Override
+    @Transactional
+    public void confirmGoal(Long goalId, Long userId) {
+        CarGoalVO goal = this.carMapper.selectCarGoalById(goalId, userId);
+        if (goal == null) {
+            throw BusinessException.notFound("목표를 찾을 수 없습니다", "CAR_003");
+        }
+        if (goal.getSelectedModelId() == null) {
+            throw BusinessException.badRequest("차량 모델을 먼저 선택해야 합니다", "CAR_004");
+        }
+        if (this.carMapper.confirmGoal(goalId, userId) == 0) {
+            throw BusinessException.conflict("목표를 저장하지 못했습니다", "CAR_015");
+        }
+    }
+
     // 예산 안에서 가장 최신 연식(연차가 가장 적은)을 추정 — 신차가가 이미 예산 이내면 0년(연식 그대로)
     private int estimateAgeFittingBudget(long basePrice, BigDecimal acquisitionTaxRate, long budget) {
         double taxMultiplier = 1 + acquisitionTaxRate.doubleValue() / 100.0;
