@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.scoula.main.mapper.MainMapper">
+
+    <!--
+        MAIN-API-01: 관심 등록 로드맵 목록 조회
+        - user_bookmark를 기준으로 카테고리별 관심 목표 조회
+        - 여행·진로·자동차의 예상 금액을 amount로 통일
+        - 자취는 최종 선택 매물이 저장되지 않아 amount를 NULL로 반환
+        - 카테고리별 관심 등록은 최대 1개로 제한
+    -->
+    <select
+            id="findFavoriteRoadmapList"
+            parameterType="long"
+            resultType="org.scoula.main.dto.MainFavoriteRoadmapDTO">
+
+        SELECT
+        favorite.goalId,
+        favorite.categoryId,
+        favorite.title,
+        favorite.amount
+        FROM (
+        <!-- 여행: 계산된 총 예상 경비 -->
+        SELECT
+        tg.goal_id AS goalId,
+        1 AS categoryId,
+        tg.title AS title,
+        COALESCE(tc.total_cost, 0) AS amount,
+        ub.created_date AS bookmarkedDate
+        FROM user_bookmark ub
+        INNER JOIN travel_goal tg
+        ON ub.goal_id = tg.goal_id
+        AND ub.category_id = 1
+        AND tg.del_yn = 'N'
+        LEFT JOIN travel_cost tc
+        ON tg.goal_id = tc.goal_id
+        AND tc.del_yn = 'N'
+        WHERE ub.user_id = #{userId}
+        AND ub.del_yn = 'N'
+        AND tg.status = 'CONFIRMED'
+
+        UNION ALL
+
+        <!-- 진로: 선택 자격증·어학 비용 + 선택 인강 비용 -->
+        SELECT
+        jg.goal_id AS goalId,
+        2 AS categoryId,
+        jc.category_name AS title,
+        (
+        COALESCE((
+        SELECT SUM(jgq.selected_cost)
+        FROM job_goal_qualification jgq
+        WHERE jgq.goal_id = jg.goal_id
+        AND jgq.del_yn = 'N'
+        ), 0)
+        +
+        COALESCE((
+        SELECT SUM(jgc.selected_cost)
+        FROM job_goal_course jgc
+        WHERE jgc.goal_id = jg.goal_id
+        AND jgc.del_yn = 'N'
+        ), 0)
+        ) AS amount,
+        ub.created_date AS bookmarkedDate
+        FROM user_bookmark ub
+        INNER JOIN job_goal jg
+        ON ub.goal_id = jg.goal_id
+        AND ub.category_id = 2
+        AND jg.del_yn = 'N'
+        LEFT JOIN job_category jc
+        ON jg.category_id = jc.category_id
+        AND jc.del_yn = 'N'
+        WHERE ub.user_id = #{userId}
+        AND ub.del_yn = 'N'
+        AND jg.status = 'CONFIRMED'
+
+        UNION ALL
+
+        <!--
+            자동차: 차량 기준가격 사용
+            car_model.base_price는 만원 단위이므로 원 단위로 변환
+        -->
+        SELECT
+        cg.goal_id AS goalId,
+        3 AS categoryId,
+        CONCAT(
+        cm.model_name,
+        CASE
+        WHEN cg.selected_year IS NOT NULL
+        THEN CONCAT(' (', cg.selected_year, ')')
+        ELSE ''
+        END
+        ) AS title,
+        COALESCE(cm.base_price * 10000, 0) AS amount,
+        ub.created_date AS bookmarkedDate
+        FROM user_bookmark ub
+        INNER JOIN car_goal cg
+        ON ub.goal_id = cg.goal_id
+        AND ub.category_id = 3
+        LEFT JOIN car_model cm
+        ON cg.selected_model_id = cm.model_id
+        AND cm.del_yn = 'N'
+        WHERE ub.user_id = #{userId}
+        AND ub.del_yn = 'N'
+        AND cg.status = 'confirmed'
+
+        UNION ALL
+
+        <!--
+            자취: 최종 선택 매물 정보가 DB에 저장되지 않음
+            추후 selected_listing_id 저장 구조 추가 후 금액 계산 예정
+        -->
+        SELECT
+        rg.goal_id AS goalId,
+        4 AS categoryId,
+        COALESCE(rg.title, '자취 목표') AS title,
+        NULL AS amount,
+        ub.created_date AS bookmarkedDate
+        FROM user_bookmark ub
+        INNER JOIN rent_goal rg
+        ON ub.goal_id = rg.goal_id
+        AND ub.category_id = 4
+        AND rg.del_yn = 'N'
+        WHERE ub.user_id = #{userId}
+        AND ub.del_yn = 'N'
+        AND rg.status = 'CONFIRMED'
+        ) favorite
+        ORDER BY favorite.bookmarkedDate DESC
+
+    </select>
+
+    <!--
+        MAIN-API-01: 다가오는 일정 조회
+        - 여행 출발일과 선택 자격증의 필기시험 시작일 통합 조회
+        - 오늘 이후 일정만 조회
+        - 날짜가 가까운 순으로 최대 2개 반환
+    -->
+    <select
+            id="findUpcomingScheduleList"
+            parameterType="long"
+            resultType="org.scoula.main.dto.MainUpcomingScheduleDTO">
+
+        SELECT
+        schedule.category AS category,
+        schedule.title AS title,
+        schedule.schedule_date AS scheduleDate,
+        DATEDIFF(schedule.schedule_date, CURDATE()) AS dDay
+        FROM (
+        <!-- 여행 목표 출발일 -->
+        SELECT
+        'TRAVEL' AS category,
+        tg.title AS title,
+        tg.start_date AS schedule_date
+        FROM travel_goal tg
+        WHERE tg.user_id = #{userId}
+        AND tg.status = 'CONFIRMED'
+        AND tg.del_yn = 'N'
+        AND tg.start_date >= CURDATE()
+
+        UNION ALL
+
+        <!-- 사용자가 선택한 자격증의 필기시험 시작일 -->
+        SELECT
+        'JOB' AS category,
+        jq.qual_name AS title,
+        jqs.written_exam_start_date AS schedule_date
+        FROM job_goal jg
+        INNER JOIN job_goal_qualification jgq
+        ON jg.goal_id = jgq.goal_id
+        AND jgq.del_yn = 'N'
+        INNER JOIN job_qualification jq
+        ON jgq.qual_id = jq.qual_id
+        AND jq.del_yn = 'N'
+        INNER JOIN job_qualification_schedule jqs
+        ON jq.qual_id = jqs.qual_id
+        WHERE jg.user_id = #{userId}
+        AND jg.status = 'CONFIRMED'
+        AND jg.del_yn = 'N'
+        AND jqs.written_exam_start_date >= CURDATE()
+        ) schedule
+        ORDER BY schedule.schedule_date ASC
+        LIMIT 2
+
+    </select>
+
+</mapper>
