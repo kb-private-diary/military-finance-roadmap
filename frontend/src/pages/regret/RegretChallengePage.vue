@@ -7,6 +7,7 @@ import { useRouter } from 'vue-router';
 import { formatWon, formatManwon } from '@/util/format';
 import BaseCard from '@/components/common/BaseCard.vue';
 import ProgressBar from '@/components/common/ProgressBar.vue';
+import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 
 const router = useRouter();
 const goBack = () => router.push({ name: 'RegretDashboard' });
@@ -138,13 +139,13 @@ const adjustGoal = (delta) => {
       </span>
     </div>
 
-    <button class="back-line" @click="goBack">이전</button>
+    <BottomButtonBar secondary-label="이전" @secondary-click="goBack" />
   </div>
 </template>
 
 <style scoped>
 .challenge {
-  padding: 20px 0 24px;
+  padding: 20px 0 88px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -357,17 +358,5 @@ const adjustGoal = (delta) => {
 .kk-tx span {
   font-size: 11px;
   color: var(--text-muted);
-}
-.back-line {
-  margin-top: 4px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fff;
-  color: var(--text-body);
-  font-size: 14px;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
 }
 </style>

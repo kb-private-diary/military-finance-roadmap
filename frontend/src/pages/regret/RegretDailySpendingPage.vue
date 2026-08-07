@@ -7,6 +7,7 @@ import regretApi from '@/api/regretApi';
 import { formatWon, formatDate } from '@/util/format';
 import BaseCard from '@/components/common/BaseCard.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
+import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -138,14 +139,15 @@ const goBack = () => router.push({ name: 'RegretDashboard' });
         <span class="ri-go">›</span>
       </button>
 
-      <button class="back-line" @click="goBack">이전</button>
     </template>
+
+    <BottomButtonBar secondary-label="이전" @secondary-click="goBack" />
   </div>
 </template>
 
 <style scoped>
 .daily {
-  padding: 20px 0 24px;
+  padding: 20px 0 88px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -324,16 +326,5 @@ const goBack = () => router.push({ name: 'RegretDashboard' });
   text-align: center;
   font-size: 13px;
   color: var(--text-hint);
-}
-.back-line {
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fff;
-  color: var(--text-body);
-  font-size: 14px;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
 }
 </style>
