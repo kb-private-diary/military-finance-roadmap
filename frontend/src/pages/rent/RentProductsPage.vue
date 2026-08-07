@@ -200,20 +200,16 @@ const saveRoadmap = async () => {
 
       <!-- 4. 조언 박스 -->
       <div v-if="hasSurplus" class="advice advice--good">
-        <span class="advice__emoji">💰</span>
         <div class="advice__body">
-          <p class="advice__t">{{ surplusMan }}만원이 남아요</p>
+          <p class="advice__t"><span class="advice__emoji">💰</span>{{ surplusMan }}만원이 남아요</p>
           <p class="advice__s">적금에 넣으면 12개월 뒤 이자 약 {{ savingsInterestMan }}만원 (연 3% 가정)</p>
         </div>
-        <span class="advice__arrow" aria-hidden="true">›</span>
       </div>
       <div v-else-if="hasShortfall" class="advice advice--warn">
-        <span class="advice__emoji">🏛</span>
         <div class="advice__body">
-          <p class="advice__t">{{ shortfallMan }}만원을 메워야 해요</p>
+          <p class="advice__t"><span class="advice__emoji">🏛</span>{{ shortfallMan }}만원을 메워야 해요</p>
           <p class="advice__s">버팀목 대출이면 월 이자 약 {{ loanMonthlyLabel }} (연 2.1% 가정)</p>
         </div>
-        <span class="advice__arrow" aria-hidden="true">›</span>
       </div>
 
       <!-- 5. 탭 -->
@@ -253,7 +249,6 @@ const saveRoadmap = async () => {
               :aria-pressed="isSelected(p.productId)"
               @click="toggleProduct(p.productId)"
             >
-              <img :src="rentPolicyIcon" class="prod__icon" alt="" />
               <span class="prod__body">
                 <span class="prod__name">{{ p.productName }}</span>
                 <span class="prod__desc">{{ productDesc(p) }}</span>
@@ -285,7 +280,6 @@ const saveRoadmap = async () => {
               :aria-pressed="isSelected(p.productId)"
               @click="toggleProduct(p.productId)"
             >
-              <img :src="rentPolicyIcon" class="prod__icon" alt="" />
               <span class="prod__body">
                 <span class="prod__name">{{ p.productName }}</span>
                 <span class="prod__desc">{{ productDesc(p) }}</span>
@@ -318,7 +312,6 @@ const saveRoadmap = async () => {
             :aria-pressed="isSelected(p.productId)"
             @click="toggleProduct(p.productId)"
           >
-            <img :src="rentKbIcon" class="prod__icon" alt="" />
             <span class="prod__body">
               <span class="prod__name">{{ p.productName }}</span>
               <span class="prod__desc">{{ productDesc(p) }}</span>
@@ -422,25 +415,13 @@ const saveRoadmap = async () => {
   justify-content: center;
   min-width: 0;
 }
-/* 초록 빗금(남음) */
+/* 남음 - 연초록 단색 (step2 "딱 맞아요" 톤과 통일) */
 .afbar__rest--surplus {
-  background: repeating-linear-gradient(
-    45deg,
-    #d6f0dd,
-    #d6f0dd 6px,
-    #a9dcb8 6px,
-    #a9dcb8 12px
-  );
+  background: #e1f3e0;
 }
-/* 빨강 빗금(부족) */
+/* 부족 - 연빨강 단색 (step2 "예산 초과" 톤과 통일) */
 .afbar__rest--short {
-  background: repeating-linear-gradient(
-    45deg,
-    #fbd9d9,
-    #fbd9d9 6px,
-    #f4b4b4 6px,
-    #f4b4b4 12px
-  );
+  background: #f4d1d1;
 }
 .afbar__txt {
   font-size: 11px;
@@ -481,8 +462,8 @@ const saveRoadmap = async () => {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 14px;
-  border-radius: 12px;
+  padding: 9px 12px;
+  border-radius: 10px;
 }
 .advice--good {
   background: var(--military-green-light);
@@ -491,29 +472,23 @@ const saveRoadmap = async () => {
   background: var(--kb-yellow-pale);
 }
 .advice__emoji {
-  font-size: 20px;
-  line-height: 1;
-  flex: none;
+  font-size: 15px;
+  margin-right: 5px;
 }
 .advice__body {
   flex: 1;
   min-width: 0;
 }
 .advice__t {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text-strong);
 }
 .advice__s {
-  margin-top: 3px;
+  margin-top: 2px;
   font-size: 11px;
   color: var(--text-muted);
-  line-height: 1.5;
-}
-.advice__arrow {
-  font-size: 20px;
-  color: var(--text-hint);
-  flex: none;
+  line-height: 1.45;
 }
 
 /* ── 탭 ───────────────────────────────────────────────── */
@@ -592,12 +567,6 @@ const saveRoadmap = async () => {
   border-color: var(--kb-yellow);
   box-shadow: 0 0 0 1.5px var(--kb-yellow);
 }
-.prod__icon {
-  width: 34px;
-  height: 34px;
-  object-fit: contain;
-  flex: none;
-}
 .prod__body {
   flex: 1;
   min-width: 0;
@@ -615,19 +584,14 @@ const saveRoadmap = async () => {
   color: var(--text-muted);
   line-height: 1.4;
 }
+/* 외부링크 - 회색 원 없이 화살표만 */
 .prod__link {
   flex: none;
-  width: 26px;
-  height: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: var(--kb-gray-pale);
-  color: var(--text-body);
-  font-size: 14px;
+  color: var(--text-muted);
+  font-size: 16px;
   font-weight: 700;
   text-decoration: none;
+  padding: 4px;
 }
 .prod__link--off {
   color: var(--text-hint);
