@@ -8,6 +8,7 @@ import java.util.UUID;
 
 import org.scoula.common.exception.BusinessException;
 import org.scoula.openbanking.client.OpenBankingClient;
+import org.scoula.openbanking.domain.IncomeVO;
 import org.scoula.openbanking.domain.OpenBankingLinkVO;
 import org.scoula.openbanking.domain.SavingAccountVO;
 import org.scoula.openbanking.domain.SavingHistoryVO;
@@ -17,6 +18,7 @@ import org.scoula.openbanking.dto.AuthUrlResponse;
 import org.scoula.openbanking.dto.LinkRequest;
 import org.scoula.openbanking.dto.TokenResponse;
 import org.scoula.openbanking.dto.TransactionInfo;
+import org.scoula.openbanking.mapper.IncomeWriteMapper;
 import org.scoula.openbanking.mapper.OpenBankingLinkMapper;
 import org.scoula.openbanking.mapper.SavingWriteMapper;
 import org.scoula.openbanking.mapper.SpendingMapper;
@@ -41,6 +43,7 @@ public class OpenBankingServiceImpl implements OpenBankingService {
     private final OpenBankingLinkMapper mapper;
     private final SpendingMapper spendingMapper;
     private final SavingWriteMapper savingWriteMapper;
+    private final IncomeWriteMapper incomeWriteMapper;
 
     // 분류 규칙(merchant_category)에 걸리지 않는 가맹점의 기본 카테고리
     private static final String DEFAULT_CATEGORY = "ETC";
@@ -162,6 +165,8 @@ public class OpenBankingServiceImpl implements OpenBankingService {
         account.setMonthlyCount(monthlyCount);
         account.setCurrAmount(acc.getBalance() == null ? 0L : acc.getBalance()); // 누적납입 = 잔액
         account.setAccountStatus("ACTIVE");
+        // 개설일 저장 (석윤 만기금 계산이 open_date를 개설일로 읽음, created_date 감사컬럼과 별개)
+        account.setOpenDate(acc.getOpenDate() != null ? LocalDate.parse(acc.getOpenDate()) : null);
         account.setCreatedNm(actor);
         savingWriteMapper.insertSavingAccount(account);
 
@@ -172,6 +177,8 @@ public class OpenBankingServiceImpl implements OpenBankingService {
             history.setAccountId(account.getAccountId());
             history.setPayRound(round++);
             history.setPayAmount(pay.getAmount());
+            // 실제 납입일 저장 (석윤 계산이 paid_date를 납입일로 읽어 firstPayDate 산출)
+            history.setPaidDate(pay.getTxDateTime() != null ? pay.getTxDateTime().toLocalDate() : null);
             history.setCreatedNm(actor);
             savingWriteMapper.insertSavingHistory(history);
         }
@@ -228,6 +235,40 @@ public class OpenBankingServiceImpl implements OpenBankingService {
         if (!toInsert.isEmpty()) {
             spendingMapper.insertSpendings(toInsert);
         }
+
+        // 급여(수입) income 적재 - 계급별 월급을 매월 저장 (진로·여행·자동차·후회소비 공용)
+        saveSalaries(userId, actor);
+
         return toInsert.size();
+    }
+
+    /**
+     * 계급별 월급을 income에 적재 (입대 다음달부터 현재까지 매월 10일, 재동기화 시 기존 급여 정리 후 재적재)
+     * 실제 군인 봉급은 국군재정관리단이 매월 10일 지급, 금액은 회원 계급의 rank_salary
+     */
+    private void saveSalaries(Long userId, String actor) {
+        Long monthlySalary = mapper.findMonthlySalaryByUserId(userId);
+        LocalDate enlistDate = mapper.findEnlistDateByUserId(userId);
+        if (monthlySalary == null || enlistDate == null) {
+            return; // 계급·입대일 없으면 급여 없음
+        }
+
+        // 재동기화 중복 방지 - 기존 급여 내역 정리 후 재적재
+        incomeWriteMapper.deleteSalariesByUserId(userId, actor);
+
+        // 입대 다음달 10일이 첫 봉급일, 현재까지 매월 적재 (실제 군 봉급 지급일 = 매월 10일)
+        LocalDate payDay = enlistDate.plusMonths(1).withDayOfMonth(10);
+        LocalDate today = LocalDate.now();
+        while (!payDay.isAfter(today)) {
+            IncomeVO income = new IncomeVO();
+            income.setUserId(userId);
+            income.setSource("국군재정관리단");
+            income.setCategory("SALARY");
+            income.setAmount(monthlySalary);
+            income.setReceivedAt(payDay.atTime(9, 0)); // 10일 09:00 입금
+            income.setCreatedNm(actor);
+            incomeWriteMapper.insertIncome(income);
+            payDay = payDay.plusMonths(1);
+        }
     }
 }

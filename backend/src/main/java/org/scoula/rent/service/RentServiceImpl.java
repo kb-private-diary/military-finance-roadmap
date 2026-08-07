@@ -18,7 +18,6 @@ import org.scoula.rent.mapper.RentListingMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -31,6 +30,7 @@ public class RentServiceImpl implements RentService {
 
     private final RentMapper mapper;
     private final RentListingMapper listingMapper;
+    private final UtilityService utilityService; // Step3 관리비 = 새 공과금 방식(region_fee_stat 대체)
 
     @Override
     @Transactional(readOnly = true)
@@ -167,16 +167,31 @@ public class RentServiceImpl implements RentService {
         long deposit = vo.getDeposit() == null ? 0L : vo.getDeposit();
         long monthlyRent = vo.getMonthlyRent() == null ? 0L : vo.getMonthlyRent();
 
-        // 예상 관리비 = 지역 면적당 요금 × 전용면적 (region_fee_stat 데이터 없으면 0)
-        long monthlyFee = 0L;
-        Long feePerSqm = this.mapper.findMonthlyFeePerSqmByRegionCode(vo.getRegionCode());
-        if (feePerSqm != null && vo.getAreaSqm() != null) {
-            monthlyFee = BigDecimal.valueOf(feePerSqm).multiply(vo.getAreaSqm()).longValue();
-        }
+        // 예상 관리비 = K-apt 면적앵커 보간 단가 × 전용면적 × 시도계수 (공용관리비, UtilityService로 통일)
+        long monthlyFee = utilityService.calcManagementFee(
+                vo.getRegionCode(), vo.getAreaSqm() != null ? vo.getAreaSqm().doubleValue() : 0);
 
         long livingCost = (monthlyRent + monthlyFee) * months; // 월주거비 = (월세 + 관리비) × 개월
         long totalRequired = deposit + livingCost;             // 보증금(반환) + 월주거비
         return RentCostResponseDTO.of(vo, months, monthlyFee, livingCost, totalRequired);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public RentGoalDetailResponseDTO findCurrentGoal(Long userId) {
+        RentGoalVO goal = this.mapper.findCurrentGoalByUserId(userId);
+        return goal == null ? null : RentGoalDetailResponseDTO.of(goal);
+    }
+
+    @Override
+    @Transactional
+    public void deleteGoal(Long goalId) {
+        RentGoalVO goal = this.mapper.findGoalById(goalId);
+        if (goal == null) {
+            throw BusinessException.notFound("목표를 찾을 수 없습니다.", "RENT_005");
+        }
+        // TODO: JWT 연동 후 로그인 사용자명으로 교체
+        this.mapper.deleteGoalById(goalId, "user:" + goal.getUserId());
     }
 
     /** SCHOOL / REGION 모드별 필수값 검증 (모드에 따라 달라지는 조건이라 @Valid 대신 여기서) */

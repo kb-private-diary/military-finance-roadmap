@@ -268,7 +268,8 @@ VALUES
 	-- 업적
 	(5, '진행률 50% 뱃지',  '/images/badge/prog_50.png',  NOW(), 'jotaeseok', 'N'),
 	(6, '진행률 75% 뱃지',  '/images/badge/prog_75.png',  NOW(), 'jotaeseok', 'N'),
-	(7, '진행률 100% 뱃지', '/images/badge/prog_100.png', NOW(), 'jotaeseok', 'N');
+	(7, '진행률 100% 뱃지', '/images/badge/prog_100.png', NOW(), 'jotaeseok', 'N'),
+    (8, '절약 달인 뱃지', '/images/badge/saving_master.png', NOW(), 'jotaeseok', 'N');
 
 
 -- --------------------------------------------------------------------
