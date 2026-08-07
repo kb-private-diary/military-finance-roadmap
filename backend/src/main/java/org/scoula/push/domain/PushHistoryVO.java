@@ -21,6 +21,7 @@ public class PushHistoryVO extends BaseVO {
     private Long userId;
     private String title;
     private String body;
+    private String category; // 프론트 아이콘 매핑용, 값은 호출하는 도메인이 자유롭게 정함
     private String status;   // SUCCESS / FAILED
     private LocalDateTime sentAt;
 }

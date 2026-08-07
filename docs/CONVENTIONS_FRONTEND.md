@@ -81,9 +81,9 @@ src/
 └── config/index.js                # 메뉴/타이틀
 ```
 
-### 라우트 도메인 (13개) · 화면 53개
+### 라우트 도메인 (14개) · 화면 54개
 
-`member`(10) · `rent`(7) · `travel`(6) · `car`(5) · `job`(5) · `regret`(5) · `main`(3) · `openbanking`(3) · `dashboard`(3) · `simulator`(2) · `product`(2) · `social`(1) · `chat`(1)
+`member`(10) · `rent`(7) · `travel`(6) · `car`(5) · `job`(5) · `regret`(5) · `main`(3) · `openbanking`(3) · `dashboard`(3) · `simulator`(2) · `product`(2) · `social`(1) · `chat`(1) · `push`(1)
 
 > 백엔드(15개)와 다른 이유: `bookmark`·`roadmap`·`saving` 은 **화면 없이 API만**, `chat` 은 **프론트 화면 + FastAPI 서버**
 

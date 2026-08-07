@@ -39,6 +39,9 @@ public interface RentMapper {
     // 재등록 시 기존 DRAFT 목표 soft delete (회원당 DRAFT 1건 유지)
     void deleteDraftGoalByUserId(@Param("userId") Long userId, @Param("modifiedNm") String modifiedNm);
 
-    // 지역 면적당 월 관리비·공과금 합 (region_fee_stat 최신 기준월, 데이터 없으면 null)
-    Long findMonthlyFeePerSqmByRegionCode(String regionCode);
+    // 회원의 진행중(DRAFT) 목표 단건 조회 (없으면 null)
+    RentGoalVO findCurrentGoalByUserId(Long userId);
+
+    // 목표 단건 soft delete (goal_id 기준)
+    void deleteGoalById(@Param("goalId") Long goalId, @Param("modifiedNm") String modifiedNm);
 }
