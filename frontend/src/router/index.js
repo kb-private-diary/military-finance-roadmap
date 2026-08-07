@@ -39,8 +39,9 @@ const router = createRouter({
 // 라우팅 가드
 router.beforeEach((to) => {
   const auth = useAuthStore();
-  // 이미 로그인(토큰 살아있음)이면 진입 페이지(Welcome)·로그인 화면은 건너뛰고 홈으로
-  if ((to.name === 'Welcome' || to.name === 'Login') && auth.isLogin) {
+  // 로그인 상태여도 Welcome(진입 페이지)은 그대로 보여준다(버튼 눌러야 Home 이동).
+  // Login 화면만 이미 로그인 상태면 건너뛰고 홈으로.
+  if (to.name === 'Login' && auth.isLogin) {
     return { name: 'Home' };
   }
   // 인증 필요한 화면인데 로그인 안 됐으면 로그인 페이지로
