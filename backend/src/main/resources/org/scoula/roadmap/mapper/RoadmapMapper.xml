@@ -12,21 +12,35 @@
 
         SELECT
         tg.goal_id AS goalId,
+        ub.bookmark_id AS bookmarkId,
         1 AS categoryId,
         tg.title AS title,
         DATE_FORMAT(tg.start_date, '%Y.%m.%d') AS targetDate,
         NULL AS detail,
-        FALSE AS bookmarked
+        CASE
+        WHEN ub.bookmark_id IS NOT NULL THEN TRUE
+        ELSE FALSE
+        END AS bookmarked
         FROM travel_goal tg
+
+        LEFT JOIN user_bookmark ub
+        ON ub.user_id = tg.user_id
+        AND ub.category_id = 1
+        AND ub.goal_id = tg.goal_id
+        AND ub.del_yn = 'N'
+
         WHERE tg.user_id = #{userId}
         AND tg.status = 'CONFIRMED'
         AND tg.del_yn = 'N'
         AND (#{category} = 'all' OR #{category} = 'travel')
 
+
         UNION ALL
+
 
         SELECT
         jg.goal_id AS goalId,
+        ub.bookmark_id AS bookmarkId,
         2 AS categoryId,
 
         CASE
@@ -58,7 +72,10 @@
         ELSE NULL
         END AS detail,
 
-        FALSE AS bookmarked
+        CASE
+        WHEN ub.bookmark_id IS NOT NULL THEN TRUE
+        ELSE FALSE
+        END AS bookmarked
 
         FROM job_goal jg
 
@@ -82,16 +99,26 @@
         ON jtm.major_code = jtmc.major_code
         AND jtmc.del_yn = 'N'
 
+        LEFT JOIN user_bookmark ub
+        ON ub.user_id = jg.user_id
+        AND ub.category_id = 2
+        AND ub.goal_id = jg.goal_id
+        AND ub.del_yn = 'N'
+
         WHERE jg.user_id = #{userId}
         AND jg.status = 'CONFIRMED'
         AND jg.del_yn = 'N'
         AND (#{category} = 'all' OR #{category} = 'job')
 
+
         UNION ALL
+
 
         SELECT
         cg.goal_id AS goalId,
+        ub.bookmark_id AS bookmarkId,
         3 AS categoryId,
+
         COALESCE(
         CONCAT(
         cm.model_name,
@@ -103,28 +130,57 @@
         ),
         '자동차 구매 목표'
         ) AS title,
+
         DATE_FORMAT(cg.target_date, '%Y.%m.%d') AS targetDate,
         NULL AS detail,
-        FALSE AS bookmarked
+
+        CASE
+        WHEN ub.bookmark_id IS NOT NULL THEN TRUE
+        ELSE FALSE
+        END AS bookmarked
+
         FROM car_goal cg
+
         LEFT JOIN car_model cm
         ON cg.selected_model_id = cm.model_id
         AND cm.del_yn = 'N'
+
+        LEFT JOIN user_bookmark ub
+        ON ub.user_id = cg.user_id
+        AND ub.category_id = 3
+        AND ub.goal_id = cg.goal_id
+        AND ub.del_yn = 'N'
+
         WHERE cg.user_id = #{userId}
         AND cg.status = 'CONFIRMED'
         AND cg.del_yn = 'N'
         AND (#{category} = 'all' OR #{category} = 'car')
 
+
         UNION ALL
+
 
         SELECT
         rg.goal_id AS goalId,
+        ub.bookmark_id AS bookmarkId,
         4 AS categoryId,
         COALESCE(rg.title, '자취 목표') AS title,
         NULL AS targetDate,
         CONCAT(rg.residence_months, '개월 거주') AS detail,
-        FALSE AS bookmarked
+
+        CASE
+        WHEN ub.bookmark_id IS NOT NULL THEN TRUE
+        ELSE FALSE
+        END AS bookmarked
+
         FROM rent_goal rg
+
+        LEFT JOIN user_bookmark ub
+        ON ub.user_id = rg.user_id
+        AND ub.category_id = 4
+        AND ub.goal_id = rg.goal_id
+        AND ub.del_yn = 'N'
+
         WHERE rg.user_id = #{userId}
         AND rg.status = 'CONFIRMED'
         AND rg.del_yn = 'N'

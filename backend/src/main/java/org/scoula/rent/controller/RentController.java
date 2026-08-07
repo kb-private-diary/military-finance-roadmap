@@ -9,6 +9,7 @@ import org.scoula.rent.dto.RentGoalDetailResponseDTO;
 import org.scoula.rent.dto.RentListingResponseDTO;
 import org.scoula.rent.dto.RentListingDetailResponseDTO;
 import org.scoula.rent.dto.RentCostResponseDTO;
+import org.scoula.rent.dto.RentAffordabilityResponseDTO;
 import org.scoula.rent.service.RentService;
 import org.scoula.rent.service.RentListingLoadService;
 import org.scoula.security.account.domain.CustomUser;
@@ -98,6 +99,28 @@ public class RentController {
             @PathVariable Long listingId,
             @RequestParam int months) {
         return ResponseEntity.ok(ApiResponse.success(service.calculateCost(listingId, months)));
+    }
+
+    // GET /api/rent/listings/{listingId}/affordability?months=6 → 부족분·감당도 (Step4 빨간 카드)
+    @GetMapping("/listings/{listingId}/affordability")
+    public ResponseEntity<ApiResponse<RentAffordabilityResponseDTO>> findAffordability(
+            @PathVariable Long listingId,
+            @AuthenticationPrincipal CustomUser customUser,
+            @RequestParam int months) {
+        return ResponseEntity.ok(ApiResponse.success(
+                service.findAffordability(listingId, customUser.getMember().getId(), months)));
+    }
+
+    // POST /api/rent/goals/{goalId}/confirm?months=6&listingId=10 → 로드맵 저장 (DRAFT → CONFIRMED)
+    //   listingId = Step4에서 고른 확정 매물 (Step5 정밀 시뮬레이션 기준이 됨)
+    @PostMapping("/goals/{goalId}/confirm")
+    public ResponseEntity<ApiResponse<Void>> confirmGoal(
+            @PathVariable Long goalId,
+            @AuthenticationPrincipal CustomUser customUser,
+            @RequestParam(required = false) Integer months,
+            @RequestParam(required = false) Long listingId) {
+        service.confirmGoal(goalId, customUser.getMember().getId(), months, listingId);
+        return ResponseEntity.ok(ApiResponse.success());
     }
 
     // POST /api/rent/listings/load?dealYm=202605 → 국토부 실거래가 매물 적재 (개발용, 대상 시군구 3개)

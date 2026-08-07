@@ -10,6 +10,8 @@ import lombok.NoArgsConstructor;
 public class RoadmapListResponseDTO {
 
     private Long goalId;
+    private Long bookmarkId;
+
     private Integer categoryId;
     private String title;
     private String targetDate;
