@@ -18,24 +18,20 @@ const router = useRouter();
 const rentStore = useRentStore();
 const { show } = useToast();
 const draft = rentStore.draft;
-const TEMP_USER_ID = 1; // TODO: JWT 연동 후 제거
 const maturityManwon = 720; // TODO: 오픈뱅킹/적금 데이터 연동
 
-// 학교 검색
+// 학교 검색 — 정상 응답(배열)만 반영, 결과 없거나 실패 시 빈 목록(부산대 폴백 제거)
 const keyword = ref('');
 const schoolResults = ref([]);
 const searching = ref(false);
-const SAMPLE_SCHOOLS = [
-  { schoolId: 1, schoolName: '부산대학교', address: '부산 금정구 장전동' },
-];
 const searchSchools = async () => {
   if (keyword.value.trim().length < 2) return (schoolResults.value = []);
   searching.value = true;
   try {
     const data = await rentApi.searchSchools(keyword.value.trim());
-    schoolResults.value = data?.length ? data : SAMPLE_SCHOOLS;
+    schoolResults.value = Array.isArray(data) ? data : [];
   } catch {
-    schoolResults.value = SAMPLE_SCHOOLS;
+    schoolResults.value = [];
   } finally {
     searching.value = false;
   }
@@ -47,58 +43,104 @@ const selectSchool = (s) => {
   keyword.value = ''; // 검색창 초기화 (선택된 학교는 아래 카드에 표시됨)
 };
 
-// 지역 (최대 3개) — 바텀시트에서 시 → 군/구 → 동 계층 선택
-// TODO: 백엔드 regions 계층(level) 안정화되면 실데이터로 교체 (지금은 샘플)
-const SAMPLE_REGIONS = {
-  sido: [
-    { value: '26', label: '부산광역시' },
-    { value: '11', label: '서울특별시' },
-  ],
-  sigungu: {
-    26: [
-      { value: '26410', label: '금정구' },
-      { value: '26230', label: '부산진구' },
-      { value: '26290', label: '남구' },
-    ],
-    11: [{ value: '11680', label: '강남구' }],
-  },
-  dong: {
-    26410: [
-      { value: '2641010100', label: '장전동' },
-      { value: '2641010200', label: '구서동' },
-    ],
-    26230: [{ value: '2623010100', label: '부전동' }],
-    26290: [{ value: '2629010100', label: '대연동' }],
-    11680: [{ value: '1168010100', label: '역삼동' }],
-  },
-};
+// 지역 (최대 3개) — 바텀시트에서 시도 → 시군구 → 동 계층 선택 (rentApi.findRegions 실 API)
+// 백엔드 RegionResponseDTO { code, name } → BaseInput 옵션 { value, label } 로 매핑
+// 흐름: findRegions({}) 시도 → findRegions({ sido }) 시군구 → findRegions({ sigunguCode }) 동
+const toOpts = (list) =>
+  (list || []).map((r) => ({ value: r.code, label: r.name }));
+
 const regionSheetOpen = ref(false);
 const selSido = ref('');
 const selSigungu = ref('');
 const selDong = ref('');
-const sidoOpts = SAMPLE_REGIONS.sido;
-const sigunguOpts = computed(() => SAMPLE_REGIONS.sigungu[selSido.value] || []);
-const dongOpts = computed(() => SAMPLE_REGIONS.dong[selSigungu.value] || []);
-watch(selSido, () => {
+const sidoOpts = ref([]);
+const sigunguOpts = ref([]);
+const dongOpts = ref([]);
+
+// API 실패 시에만 쓰는 최소 폴백 (에러 안전)
+const SAMPLE_SIDO = [{ value: '부산광역시', label: '부산광역시' }];
+
+const loadSido = async () => {
+  try {
+    sidoOpts.value = toOpts(await rentApi.findRegions({}));
+  } catch {
+    sidoOpts.value = SAMPLE_SIDO;
+  }
+};
+// 시도 선택 → 시군구 로드 (하위 선택 초기화)
+watch(selSido, async (sido) => {
   selSigungu.value = '';
   selDong.value = '';
+  sigunguOpts.value = [];
+  dongOpts.value = [];
+  if (!sido) return;
+  try {
+    sigunguOpts.value = toOpts(await rentApi.findRegions({ sido }));
+  } catch {
+    sigunguOpts.value = [];
+  }
 });
-watch(selSigungu, () => (selDong.value = ''));
+// 시군구 선택 → 동 로드 (하위 선택 초기화)
+watch(selSigungu, async (sigunguCode) => {
+  selDong.value = '';
+  dongOpts.value = [];
+  if (!sigunguCode) return;
+  try {
+    dongOpts.value = toOpts(await rentApi.findRegions({ sigunguCode }));
+  } catch {
+    dongOpts.value = [];
+  }
+});
 const openRegionSheet = () => {
   selSido.value = '';
   selSigungu.value = '';
   selDong.value = '';
+  sigunguOpts.value = [];
+  dongOpts.value = [];
+  if (!sidoOpts.value.length) loadSido();
   regionSheetOpen.value = true;
 };
-// 동까지 고르면 칩으로 추가 + 시트 닫기
+// 동까지 고르면 칩으로 추가 + 시트 닫기 (region_code = 법정동코드, 기존 addRegion 유지)
 watch(selDong, (v) => {
   if (!v) return;
-  const sido = sidoOpts.find((o) => o.value === selSido.value)?.label || '';
+  const sido = sidoOpts.value.find((o) => o.value === selSido.value)?.label || '';
   const gu = sigunguOpts.value.find((o) => o.value === selSigungu.value)?.label || '';
   const dong = dongOpts.value.find((o) => o.value === v)?.label || '';
-  rentStore.addRegion({ code: v, name: `${sido} ${gu} ${dong}` });
+  rentStore.addRegion({ code: v, name: `${sido} ${gu} ${dong}`.trim() });
   regionSheetOpen.value = false;
 });
+
+// 바텀시트 안에서 시/도 → 시/군/구 → 읍/면/동을 '스크롤 리스트' 단계별로 보여준다.
+// (커스텀 드롭다운 메뉴는 position:absolute라 시트 overflow에 잘려서 모바일에서 안 보임)
+const regionStep = computed(() => {
+  if (!selSido.value) return 'sido';
+  if (!selSigungu.value) return 'sigungu';
+  return 'dong';
+});
+const currentRegionOpts = computed(() => {
+  if (regionStep.value === 'sido') return sidoOpts.value;
+  if (regionStep.value === 'sigungu') return sigunguOpts.value;
+  return dongOpts.value;
+});
+const selSidoLabel = computed(
+  () => sidoOpts.value.find((o) => o.value === selSido.value)?.label || '',
+);
+const selSigunguLabel = computed(
+  () => sigunguOpts.value.find((o) => o.value === selSigungu.value)?.label || '',
+);
+// 현재 단계의 항목을 탭하면 해당 ref만 채우고, 나머지는 watch가 처리
+const selectRegionOption = (opt) => {
+  if (regionStep.value === 'sido') selSido.value = opt.value;
+  else if (regionStep.value === 'sigungu') selSigungu.value = opt.value;
+  else selDong.value = opt.value;
+};
+// 선택 경로(breadcrumb)를 탭해 상위 단계로 되돌리기 (watch가 하위 선택/옵션 초기화)
+const resetToSido = () => {
+  selSido.value = '';
+};
+const resetToSigungu = () => {
+  selSigungu.value = '';
+};
 
 // 반경 (텍스트 링크로 펼침)
 const radiusOpen = ref(false);
@@ -111,7 +153,7 @@ const goNext = async () => {
   if (!canProceed.value || submitting.value) return;
   submitting.value = true;
   try {
-    const goalId = await rentStore.createGoal(TEMP_USER_ID);
+    const goalId = await rentStore.createGoal();
     await router.push({ name: 'RentListingList', params: { goalId } });
   } catch {
     show('조건 저장에 실패했어요. 다시 시도해주세요.', 'error');
@@ -133,16 +175,18 @@ const goNext = async () => {
 
     <!-- 1. 어디에서 -->
     <section class="field">
-      <p class="label">1. 어디에서 찾을까요?</p>
+      <p class="label">어디에 집을 구하고 싶습니까?</p>
       <div class="btn-row">
         <CategoryButton
           variant="square-yellow"
+          icon="🎓"
           label="학교 근처"
           :active="draft.locationType === 'SCHOOL'"
           @click="rentStore.setConditions({ locationType: 'SCHOOL' })"
         />
         <CategoryButton
           variant="square-yellow"
+          icon="📍"
           label="지역으로"
           :active="draft.locationType === 'REGION'"
           @click="rentStore.setConditions({ locationType: 'REGION' })"
@@ -159,6 +203,7 @@ const goNext = async () => {
             </li>
           </ul>
           <p v-else-if="searching" class="hint">검색 중...</p>
+          <p v-else-if="keyword.trim().length >= 2" class="hint">검색 결과가 없어요</p>
         </div>
         <BaseCard v-if="draft.schoolId" padding="12px 14px">
           <div class="picked-name">{{ draft.schoolName }}</div>
@@ -186,7 +231,7 @@ const goNext = async () => {
       </template>
     </section>
 
-    <!-- 반경 (제목 없이, 조정 링크 + 현재값 한 줄) -->
+    <!-- 반경 (조정 링크로 펼침 → 1km/3km/5km 세그먼트 버튼) -->
     <section class="field">
       <div class="row-between">
         <button class="link-add" @click="radiusOpen = !radiusOpen">
@@ -194,22 +239,30 @@ const goNext = async () => {
         </button>
         <span class="muted">{{ draft.radiusKm }}km</span>
       </div>
-      <BaseCard v-if="radiusOpen" padding="12px 14px">
-        <input type="range" min="1" max="5" step="1" :value="draft.radiusKm" class="slider"
-          @input="rentStore.setConditions({ radiusKm: Number($event.target.value) })" />
-        <div class="scale"><span>1km</span><span>5km</span></div>
-      </BaseCard>
+      <div v-if="radiusOpen" class="btn-row">
+        <CategoryButton
+          v-for="km in [1, 3, 5]"
+          :key="km"
+          variant="square-yellow"
+          :label="`${km}km`"
+          :active="draft.radiusKm === km"
+          @click="rentStore.setConditions({ radiusKm: km })"
+        />
+      </div>
     </section>
 
-    <!-- 2. 월예산 -->
+    <!-- 2. 월 예산 (월세 + 관리비) — 매물 추천은 실질 월부담(월세+관리비+보증금환산) 기준 -->
     <section class="field">
-      <p class="label">2. 월 예산 (월세 + 관리비)</p>
+      <div class="row-between">
+        <p class="label">월 예산 (월세 + 관리비)</p>
+        <span class="budget-val">{{ draft.monthlyBudget }}만원</span>
+      </div>
       <BaseCard padding="14px 16px">
-        <div class="budget-val">{{ draft.monthlyBudget }}만원</div>
         <input type="range" min="30" max="150" step="5" :value="draft.monthlyBudget" class="slider"
           @input="rentStore.setConditions({ monthlyBudget: Number($event.target.value) })" />
-        <div class="scale"><span>30만</span><span>150만</span></div>
+        <div class="scale"><span>30만원</span><span>90만원</span><span>150만원</span></div>
       </BaseCard>
+      <p class="hint">월세와 관리비를 합친 실질 월부담을 기준으로 매물을 추천해드려요</p>
     </section>
 
     <!-- 만기금 안내 -->
@@ -219,20 +272,52 @@ const goNext = async () => {
     </div>
 
     <BottomButtonBar
-      :primary-label="submitting ? '불러오는 중...' : '매물 보기'"
+      secondary-label="이전"
+      :primary-label="submitting ? '불러오는 중...' : '추천 받기'"
       :primary-disabled="!canProceed || submitting"
+      @secondary-click="router.push({ name: 'Home' })"
       @primary-click="goNext"
     />
 
-    <!-- 지역 선택 바텀시트 (시 → 군/구 → 동) -->
+    <!-- 지역 선택 바텀시트 (시/도 → 시/군/구 → 읍/면/동, 단계별 리스트) -->
     <BaseBottomSheet v-model="regionSheetOpen" title="지역 선택" confirm-text="닫기">
       <div class="cascade">
-        <div class="cascade-row">
-          <BaseInput type="select" v-model="selSido" :options="sidoOpts" placeholder="시/도" />
-          <BaseInput type="select" v-model="selSigungu" :options="sigunguOpts" placeholder="시/군/구" />
-          <BaseInput type="select" v-model="selDong" :options="dongOpts" placeholder="읍/면/동" />
+        <!-- 선택 경로: 탭하면 해당 단계로 되돌아감 -->
+        <div class="cascade-crumbs">
+          <button
+            type="button"
+            class="crumb"
+            :class="{ 'crumb--active': regionStep === 'sido' }"
+            @click="resetToSido"
+          >
+            {{ selSidoLabel || '시/도' }}
+          </button>
+          <span class="crumb-sep">›</span>
+          <button
+            type="button"
+            class="crumb"
+            :class="{ 'crumb--active': regionStep === 'sigungu' }"
+            :disabled="!selSido"
+            @click="resetToSigungu"
+          >
+            {{ selSigunguLabel || '시/군/구' }}
+          </button>
+          <span class="crumb-sep">›</span>
+          <span class="crumb" :class="{ 'crumb--active': regionStep === 'dong' }">읍/면/동</span>
         </div>
-        <p class="cascade-hint">시 · 군/구 · 동 순으로 선택하세요</p>
+
+        <!-- 현재 단계 옵션 리스트 (시트 안에서 스크롤) -->
+        <ul class="region-list">
+          <li
+            v-for="opt in currentRegionOpts"
+            :key="opt.value"
+            class="region-item"
+            @click="selectRegionOption(opt)"
+          >
+            {{ opt.label }}
+          </li>
+          <li v-if="!currentRegionOpts.length" class="region-empty">불러오는 중...</li>
+        </ul>
       </div>
     </BaseBottomSheet>
   </div>
@@ -371,15 +456,61 @@ const goNext = async () => {
 .cascade {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
-.cascade-row {
+.cascade-crumbs {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
 }
-.cascade-row > * {
-  flex: 1;
-  min-width: 0;
+.crumb {
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text-hint);
+  cursor: pointer;
+}
+.crumb:disabled {
+  cursor: default;
+}
+.crumb--active {
+  color: var(--text-body);
+  font-weight: 600;
+}
+.crumb-sep {
+  color: var(--text-hint);
+  font-size: 13px;
+}
+.region-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  max-height: 44vh;
+  overflow-y: auto;
+}
+.region-item {
+  padding: 13px 14px;
+  font-size: 15px;
+  color: var(--text-body);
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+.region-item:last-child {
+  border-bottom: 0;
+}
+.region-item:active {
+  background: var(--kb-yellow-pale);
+}
+.region-empty {
+  padding: 20px 14px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-hint);
 }
 .add-btn {
   align-self: flex-start;
@@ -391,10 +522,6 @@ const goNext = async () => {
   font-size: 13px;
   cursor: pointer;
   font-family: inherit;
-}
-.cascade-hint {
-  font-size: 11px;
-  color: var(--text-hint);
 }
 .slider {
   width: 100%;

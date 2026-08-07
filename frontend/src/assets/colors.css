@@ -80,6 +80,11 @@
   --pastel-yellow: #fbd55b;
   --pastel-green: #9cd495;
   --pastel-pink: #f8a5a5;
+  --rent-pink: #e85d84; /* 자취 테마 핑크 — 흰 글씨 대비 확보한 진한 핑크(카테고리 칩) */
+
+  /* 자취 매물 상세 뱃지 글자색 - 파스텔 테두리와 대비 확보 (step3) */
+  --info-blue: #2f80c4; /* 시세 '지역 평균 수준' 파랑 */
+  --purple: #8b46c8; /* 신선도 '최근 실거래' 보라 */
 
   /* 알림 */
   --notification: #ff3b30; /* 읽지 않은 알림 배지 */

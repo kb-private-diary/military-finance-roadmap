@@ -20,6 +20,9 @@ export const useRentStore = defineStore('rent', () => {
   const currentGoalId = ref(null);
   const maturityAmount = ref(0); // 오픈뱅킹 만기금(서버가 알려줌, 원)
   const selectedListingId = ref(null);
+  // Step2 매물의 시세(CHEAP/AVERAGE/EXPENSIVE) → Step3 시세 뱃지 표시용
+  // (백엔드 step3 단건은 지역평균 계산 불가라 시세를 안 줌 → step2 값을 넘겨서 표시)
+  const selectedPriceLevel = ref(null);
   const months = ref(6); // Step3 거주기간 → Step4~5 유지
 
   // ── setter ────────────────────────────────────────────────
@@ -47,11 +50,12 @@ export const useRentStore = defineStore('rent', () => {
     currentGoalId.value = null;
     maturityAmount.value = 0;
     selectedListingId.value = null;
+    selectedPriceLevel.value = null;
     months.value = 6;
   };
 
   // ── 목표 생성 (매물 보기) → { goalId, maturityAmount } ─────
-  const createGoal = async (userId) => {
+  const createGoal = async () => {
     // 백엔드 실계약: { selectionMode, schoolId, commuteRadiusKm, regionCodes, monthlyBudget(원), residencePreset }
     const isSchool = draft.value.locationType === 'SCHOOL';
     const payload = {
@@ -62,7 +66,7 @@ export const useRentStore = defineStore('rent', () => {
       monthlyBudget: draft.value.monthlyBudget * 10000, // 만원 → 원
       residencePreset: 'YEAR', // 거주기간은 Step3에서 조정, 생성 시 기본값
     };
-    const data = await rentApi.createGoal(payload, userId);
+    const data = await rentApi.createGoal(payload);
     const goalId = typeof data === 'object' && data !== null ? data.goalId : data;
     currentGoalId.value = goalId;
     if (data?.maturityAmount != null) maturityAmount.value = data.maturityAmount;
@@ -74,6 +78,7 @@ export const useRentStore = defineStore('rent', () => {
     currentGoalId,
     maturityAmount,
     selectedListingId,
+    selectedPriceLevel,
     months,
     setConditions,
     addRegion,

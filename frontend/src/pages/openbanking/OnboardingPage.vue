@@ -10,7 +10,6 @@ import soldierImg from '@/assets/images/soldier-salute.png';
 
 const router = useRouter();
 const { show } = useToast();
-const TEMP_USER_ID = 1; // TODO: JWT 연동 후 제거
 
 const step = ref(1); // 1 환영 · 2 약관 · 3 계좌선택 · 4 완료
 
@@ -67,7 +66,7 @@ const linkAccounts = async () => {
   linking.value = true;
   const nums = [...selected.value];
   try {
-    const linked = await openbankingApi.link(TEMP_USER_ID, {
+    const linked = await openbankingApi.link({
       code: 'mock',
       state: 'mock',
       selectedFintechNums: nums,
