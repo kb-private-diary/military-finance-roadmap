@@ -176,6 +176,24 @@ public class RentServiceImpl implements RentService {
         return RentCostResponseDTO.of(vo, months, monthlyFee, livingCost, totalRequired);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public RentGoalDetailResponseDTO findCurrentGoal(Long userId) {
+        RentGoalVO goal = this.mapper.findCurrentGoalByUserId(userId);
+        return goal == null ? null : RentGoalDetailResponseDTO.of(goal);
+    }
+
+    @Override
+    @Transactional
+    public void deleteGoal(Long goalId) {
+        RentGoalVO goal = this.mapper.findGoalById(goalId);
+        if (goal == null) {
+            throw BusinessException.notFound("목표를 찾을 수 없습니다.", "RENT_005");
+        }
+        // TODO: JWT 연동 후 로그인 사용자명으로 교체
+        this.mapper.deleteGoalById(goalId, "user:" + goal.getUserId());
+    }
+
     /** SCHOOL / REGION 모드별 필수값 검증 (모드에 따라 달라지는 조건이라 @Valid 대신 여기서) */
     private void validateSelectionMode(RentGoalCreateRequestDTO request) {
         String mode = request.getSelectionMode();

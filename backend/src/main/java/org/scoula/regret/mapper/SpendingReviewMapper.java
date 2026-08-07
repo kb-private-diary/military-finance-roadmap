@@ -29,4 +29,8 @@ public interface SpendingReviewMapper {
     // 월별 카테고리별 후회 금액 (후회 많은 카테고리 순)
     List<CategoryAmountDTO> findCategoryRegrets(@Param("userId") Long userId,
                                                 @Param("yearMonth") String yearMonth);
+
+    // 월별 총 수입 (income 합계, 수입 대비 후회소비 비율 계산용) income은 오픈뱅킹 저장, 여기선 조회만
+    Long findMonthlyIncomeByUserId(@Param("userId") Long userId,
+                                   @Param("yearMonth") String yearMonth);
 }
