@@ -31,6 +31,15 @@ public class RegretServiceImpl implements RegretService {
         RegretStatsResponseDTO stats = this.mapper.findMonthlyStats(userId, yearMonth);
         // 카테고리별 후회 순위는 별도 쿼리로 조회해 세팅
         stats.setCategoryRegrets(this.mapper.findCategoryRegrets(userId, yearMonth));
+
+        // 수입 대비 후회소비 비율 - income(오픈뱅킹 저장)을 조회해 계산
+        Long monthlyIncome = this.mapper.findMonthlyIncomeByUserId(userId, yearMonth);
+        stats.setMonthlyIncome(monthlyIncome);
+        long regret = stats.getRegretAmount() != null ? stats.getRegretAmount() : 0L;
+        // 수입이 있어야 비율 산출 (없으면 0), 소수 첫째 자리까지
+        stats.setRegretRatio(monthlyIncome != null && monthlyIncome > 0
+                ? Math.round(regret * 1000.0 / monthlyIncome) / 10.0
+                : 0.0);
         return stats;
     }
 

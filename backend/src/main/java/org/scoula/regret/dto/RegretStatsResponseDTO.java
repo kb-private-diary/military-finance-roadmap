@@ -17,4 +17,6 @@ public class RegretStatsResponseDTO {
     private Integer satisfiedCount; // 만족 건수
     private Integer untaggedCount;  // 아직 태깅 안 한 건수
     private List<CategoryAmountDTO> categoryRegrets; // 카테고리별 후회 (금액 내림차순)
+    private Long monthlyIncome;                      // 해당 월 총 수입 (income 합계)
+    private Double regretRatio;                      // 수입 대비 후회소비 비율 (%) = 후회금액 / 월수입 × 100
 }
