@@ -39,7 +39,7 @@ const login = async () => {
   <div class="login-page">
     <h1 class="text-title mt-4 mb-4">로그인</h1>
 
-    <form class="login-form" @submit.prevent="login">
+    <form class="login-form" @submit.prevent="login" @keydown.enter.prevent="login">
       <BaseInput
         v-model="member.username"
         label="아이디"

@@ -129,7 +129,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 .antMatchers(HttpMethod.POST, "/api/rent/listings/load",
                         "/api/rent/listings/load-nationwide").permitAll()
                 .antMatchers("/api/simulator/**", "/api/dashboard/**", "/api/push/**",
-                        "/api/travel/**", "/api/rent/**", "/api/regret/**",
+                        "/api/travel/**", "/api/car/**", "/api/rent/**", "/api/regret/**",
                         "/api/openbanking/**").authenticated()
                 .anyRequest().permitAll();
     }
