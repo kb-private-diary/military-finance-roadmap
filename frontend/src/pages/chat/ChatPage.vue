@@ -643,10 +643,12 @@ const openCounsel = () => {
   }, TYPING_DELAY_MS);
 };
 
-const startCounsel = () => {
+// introText: 자유입력에서 상담으로 분류됐을 때 백엔드가 주는 안내 문구("자세한 상담을 위해...")를
+// 별도 말풍선으로 안 띄우고 이 카드 문구 앞줄에 합친다 - 안내와 되묻기가 나눠 뜰 필요가 없다(2026-08-08 피드백)
+const startCounsel = (introText = null) => {
   pushBot({
     title: '자금 상담',
-    text: '몇 가지만 여쭤볼게요.\n어떤 목적으로 목돈을 활용하고 싶으세요?',
+    text: `${introText || '몇 가지만 여쭤볼게요.'}\n어떤 목적으로 목돈을 활용하고 싶으세요?`,
     // 되묻기는 질문의 일부라서 답변 카드 밖으로 안 빼고 카드 안에서 바로 고르게 한다(2026-08-06 피드백)
     menuInCard: true,
     menu: COUNSEL_GOALS.map((g) => ({ label: g.label, onClick: () => askGoal(g), action: 'askGoal', args: [g] })),
@@ -1037,12 +1039,14 @@ const askBackend = async (text, { title, extraMenu = [], forceInfo = false } = {
     // 되묻기 플로우로 분기한다 (WBS-6) - 가이드 화면의 "목돈 상담받기" 버튼과 동일한 흐름 재사용.
     // 텍스트에 목적이 이미 드러나 있으면(예: "투자해보고싶어") 목적 질문은 건너뛴다.
     if (botMsg.intent === 'counsel') {
-      pushBot({ text: botMsg.content });
       const matchedGoal = detectCounselGoal(text);
       if (matchedGoal) {
+        // 목적이 이미 텍스트에서 추론된 경우엔 되묻기 카드가 따로 없어서 합칠 대상이 없다 -> 안내만 먼저 띄운다
+        pushBot({ text: botMsg.content });
         askGoal(matchedGoal, { announce: false });
       } else {
-        startCounsel();
+        // 목적 되묻기 카드와 안내 문구를 한 말풍선으로 합친다(2026-08-08 피드백)
+        startCounsel(botMsg.content);
       }
       return;
     }
@@ -1050,19 +1054,23 @@ const askBackend = async (text, { title, extraMenu = [], forceInfo = false } = {
     const menu = [...extraMenu];
     const answerText = botMsg.content;
 
-    // 답변에서 특정 상품이 언급됐으면 "더 자세한 내용 확인해보기" 버튼을 붙인다.
-    // 고정된 FAQ를 다시 보여주는 게 아니라, 실제로 백엔드에 새 질문을 보내서
-    // (멀티턴 문맥 덕분에) 지금까지 대화 주제에 맞는 답변을 받아오게 한다.
+    // 답변에서 특정 상품이 언급됐으면, 그 상품의 큐레이션된 후속 질문들을 바로 붙인다.
+    // 예전엔 "더 자세한 내용 확인해보기"로 뭉뚱그려서 물어봤는데, 그럼 백엔드가 뭘 더 알고
+    // 싶은 건지 몰라서 "은행연합회 가서 확인하라"는 식으로 떠넘기는 답이 나왔다(2026-08-07 피드백).
     // 이미 그 상품의 되묻기 메뉴(extraMenu)가 붙어있으면(=이미 상품 Q&A 흐름 안) 중복이라 스킵
     if (!extraMenu.length) {
       const relatedProduct = Object.keys(PRODUCT_QUESTIONS).find(
         (name) => botMsg.content.includes(name) || (botMsg.sourceDetail || '').includes(name),
       );
       if (relatedProduct) {
-        menu.unshift({
-          label: '더 자세한 내용 확인해보기',
-          onClick: () => askBackend('더 자세한 내용을 확인하고 싶어요'),
-        });
+        menu.push(
+          ...PRODUCT_QUESTIONS[relatedProduct].map((q) => ({
+            label: q,
+            onClick: () => askProductQuestion(relatedProduct, q),
+            action: 'askProductQuestion',
+            args: [relatedProduct, q],
+          })),
+        );
       }
     }
 
@@ -1109,6 +1117,7 @@ const askBackend = async (text, { title, extraMenu = [], forceInfo = false } = {
 // 여기 없는 액션은 그냥 못 누르는 문구로만 남는다(치명적이지 않음 - 텍스트는 항상 보존됨).
 const ACTIONS = {
   selectProductCategory,
+  askProductQuestion,
   openDoc,
   showLiveProductDetail,
   goTo,
@@ -1231,8 +1240,12 @@ const deriveHistoryMenu = (history, index) => {
     (name) => m.content.includes(name) || (m.sourceDetail || '').includes(name),
   );
   if (relatedProduct) {
+    // askBackend와 동일하게 뭉뚱그린 재질문 대신 그 상품의 큐레이션된 후속 질문을 그대로 복원(2026-08-07)
     return {
-      menu: [{ label: '더 자세한 내용 확인해보기', onClick: () => askBackend('더 자세한 내용을 확인하고 싶어요') }],
+      menu: PRODUCT_QUESTIONS[relatedProduct].map((q) => ({
+        label: q,
+        onClick: () => askProductQuestion(relatedProduct, q),
+      })),
     };
   }
   return { menu: [] };
@@ -1286,8 +1299,9 @@ const toBubble = (m, history, index) => {
     source: m.source,
     sourceDetail: m.sourceDetail,
     isAiGenerated: m.isAiGenerated,
-    // deriveHistoryMenu는 항상 자유질문 답변 뒤 후속 선택지라 카드 안 스타일로 통일
-    menuInCard: menu.length > 0,
+    // 실시간 렌더링에서 이런 되묻기(상품 후속질문 등)는 카드 밖 태그칩 스타일(menuFit)로 뜨는데,
+    // 여기가 menuInCard였어서 새로고침 후 히스토리 복원 때만 카드 안으로 잘못 들어가 보였다(2026-08-07 피드백)
+    menuFit: menu.length > 0,
     menu,
   };
 };
