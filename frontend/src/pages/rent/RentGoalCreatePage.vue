@@ -212,15 +212,16 @@ const goNext = async () => {
       </BaseCard>
     </section>
 
-    <!-- 2. 월예산 -->
+    <!-- 2. 월세 예산 (관리비 제외 - 매물별로 관리비 산정이 달라 월세 기준으로 검색) -->
     <section class="field">
-      <p class="label">2. 월 예산 (월세 + 관리비)</p>
+      <p class="label">2. 월세 예산</p>
       <BaseCard padding="14px 16px">
         <div class="budget-val">{{ draft.monthlyBudget }}만원</div>
         <input type="range" min="30" max="150" step="5" :value="draft.monthlyBudget" class="slider"
           @input="rentStore.setConditions({ monthlyBudget: Number($event.target.value) })" />
         <div class="scale"><span>30만</span><span>150만</span></div>
       </BaseCard>
+      <p class="hint">관리비는 매물마다 달라, 매물 상세에서 예상 관리비를 따로 확인할 수 있어요</p>
     </section>
 
     <!-- 만기금 안내 -->
