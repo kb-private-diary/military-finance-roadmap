@@ -6,6 +6,8 @@ import org.scoula.common.exception.BusinessException;
 import org.scoula.rent.domain.RentGoalVO;
 import org.scoula.rent.domain.RentGoalRegionVO;
 import org.scoula.rent.domain.RentListingVO;
+import org.scoula.rent.domain.RentAffordability;
+import org.scoula.rent.domain.SchoolVO;
 import org.scoula.rent.domain.ResidencePreset;
 import org.scoula.rent.dto.RegionResponseDTO;
 import org.scoula.rent.dto.RentGoalCreateRequestDTO;
@@ -20,8 +22,10 @@ import org.scoula.rent.dto.NearbyFacilityDTO;
 import org.scoula.rent.dto.PrecisionSimulationDTO;
 import org.scoula.rent.dto.UtilityEstimateResponseDTO;
 import org.scoula.rent.client.KakaoLocalClient;
+import org.scoula.rent.dto.NearestStationDTO;
 import org.scoula.rent.mapper.RentMapper;
 import org.scoula.rent.mapper.RentListingMapper;
+import org.scoula.rent.mapper.StationMapper;
 import org.scoula.dashboard.service.DashboardService;
 import org.scoula.regret.service.RegretService;
 import org.scoula.regret.dto.RegretSpendingSummaryDTO;
@@ -57,8 +61,16 @@ public class RentServiceImpl implements RentService {
     // findListings 노출 매물 최대 개수 (실질월부담 필터 후 상위 N개, 선택 피로 방지)
     private static final int LISTING_LIMIT = 30;
 
+    // --- Step2 카드 모드별 뱃지 상수 ---
+    private static final int AFFORD_MONTHS = 6;    // 재정진단 기준 거주개월 (뱃지는 6개월 고정)
+    private static final int WALK_M_PER_MIN = 80;  // 도보 환산 (부동산 관례 1분 = 80m)
+    private static final int BUS_M_PER_MIN = 200;  // 버스 환산 대략 (정차·대기 포함 시속 ≈ 12km = 200m/분)
+    private static final int WALK_RADIUS_M = 800;  // 도보권 상한 (도보 10분) - 초과 시 버스권으로 표시
+    private static final double EARTH_RADIUS_M = 6_371_000; // 하버사인 지구 반지름(m)
+
     private final RentMapper mapper;
     private final RentListingMapper listingMapper;
+    private final StationMapper stationMapper; // Step2 지역 모드 대중교통 뱃지 (매물 800m 내 최근접 지하철역)
     private final UtilityService utilityService; // Step3 관리비 = 새 공과금 방식(region_fee_stat 대체)
     // 만기금(군적금 예상 만기 수령액) 조회용 - rent → dashboard 단방향 주입 (dashboard는 rent 미참조, 순환 없음)
     private final DashboardService dashboardService;
@@ -267,13 +279,116 @@ public class RentServiceImpl implements RentService {
                         RentListingVO::getEstateType,
                         Collectors.averagingLong(RentListingVO::getMonthlyRent)));
 
-        // 4) DTO 변환 (뱃지 + 관리비·보증금환산·실질월부담 값 담기)
-        return affordable.stream()
-                .map(c -> RentListingResponseDTO.of(
-                        c.listing(),
-                        avgRentByType.get(c.listing().getEstateType()),
-                        c.maintenanceFee(), c.depositConverted(), c.effectiveMonthly()))
-                .toList();
+        // 4) 모드별 뱃지용 공통 데이터 (매물 루프 밖에서 1회 준비)
+        String mode = goal.getSelectionMode();
+        // 재정진단 만기금(군적금 예상 만기 수령액) - 매물마다 동일하므로 1회 조회
+        //   온보딩에서 군적금 가입을 강제하므로 미가입(DASH_002)은 정상 흐름에 없음 - 예외는 그대로 전파
+        long maturity = this.dashboardService.findSavingsStatus(goal.getUserId()).getExpectedMaturityTotal();
+        // 학교 모드면 통학시간 계산용 학교 좌표를 1회 조회 (지역 모드면 불필요 → null)
+        SchoolVO school = MODE_SCHOOL.equals(mode) ? this.mapper.findSchoolById(goal.getSchoolId()) : null;
+
+        // 5) DTO 변환 (기존 뱃지·실질월부담 + 모드별 뱃지 3종: 통학/대중교통·재정진단)
+        List<RentListingResponseDTO> result = new ArrayList<>(affordable.size());
+        for (ListingCost c : affordable) {
+            RentListingVO l = c.listing();
+            RentListingResponseDTO dto = RentListingResponseDTO.of(
+                    l, avgRentByType.get(l.getEstateType()),
+                    c.maintenanceFee(), c.depositConverted(), c.effectiveMonthly());
+
+            dto.setSelectionMode(mode); // 프론트 뱃지 분기용
+
+            // 통학/대중교통 뱃지 - 모드에 해당하는 것 하나만 채움 (다른 하나는 null 유지)
+            if (MODE_SCHOOL.equals(mode)) {
+                dto.setCommuteText(buildCommuteText(school, l));   // 학교↔매물 도보/버스
+            } else {
+                dto.setTransitText(buildTransitText(l));           // 매물 800m 내 최근접 지하철역
+            }
+
+            // 재정진단 뱃지 (공통, 6개월 거주 기준) - 만기금 vs 6개월 총필요자금
+            long totalNeed = calcSixMonthNeed(l, c.maintenanceFee());
+            RentAffordability level = RentAffordability.judge(totalNeed, maturity);
+            dto.setAffordLevel(toAffordLevel(level));
+            dto.setAffordText(level.getLabel());
+
+            result.add(dto);
+        }
+        return result;
+    }
+
+    /**
+     * 6개월 거주 총필요자금 = 보증금 + (월세 + 관리비) × 6 (재정진단 뱃지 기준).
+     * findAffordability(총 필요자금 = 보증금 + 월주거비)와 동일한 개념을 6개월 고정으로 적용한다.
+     */
+    private long calcSixMonthNeed(RentListingVO l, long maintenanceFee) {
+        long deposit = l.getDeposit() != null ? l.getDeposit() : 0L;
+        long monthlyRent = l.getMonthlyRent() != null ? l.getMonthlyRent() : 0L;
+        return deposit + (monthlyRent + maintenanceFee) * AFFORD_MONTHS;
+    }
+
+    /**
+     * 감당도 판정(RentAffordability) → 프론트 계약 코드 매핑.
+     * 판정 로직은 findAffordability 와 동일하게 RentAffordability.judge 재사용,
+     * 코드만 SUFFICIENT → ENOUGH 로 바꿔 프론트 계약(ENOUGH/TIGHT/OVER)에 맞춘다. (라벨은 enum 그대로)
+     */
+    private String toAffordLevel(RentAffordability level) {
+        return level == RentAffordability.SUFFICIENT ? "ENOUGH" : level.name();
+    }
+
+    /**
+     * [학교 모드] 통학시간 뱃지 텍스트.
+     * 학교↔매물 직선거리(하버사인)를 구해 800m(도보 10분) 이하면 "도보 N분", 초과면 "버스 N분".
+     *   도보 N = 거리 ÷ 80 (부동산 관례 1분=80m), 버스 N = 거리 ÷ 200 (정차·대기 포함 대략)
+     * 학교/매물 좌표가 없으면 계산 불가 → null (프론트에서 뱃지 미표시)
+     */
+    private String buildCommuteText(SchoolVO school, RentListingVO listing) {
+        if (school == null || school.getLatitude() == null || school.getLongitude() == null
+                || listing.getLatitude() == null || listing.getLongitude() == null) {
+            return null;
+        }
+        double distanceM = haversineMeters(
+                school.getLatitude().doubleValue(), school.getLongitude().doubleValue(),
+                listing.getLatitude().doubleValue(), listing.getLongitude().doubleValue());
+        if (distanceM <= WALK_RADIUS_M) {
+            int walkMin = Math.max(1, (int) Math.round(distanceM / WALK_M_PER_MIN));
+            return "도보 " + walkMin + "분";
+        }
+        int busMin = Math.max(1, (int) Math.round(distanceM / BUS_M_PER_MIN));
+        return "버스 " + busMin + "분";
+    }
+
+    /**
+     * [지역 모드] 대중교통 뱃지 텍스트.
+     * 매물 800m 내 최근접 지하철역이 있으면 "OO역 도보 N분"(N = 거리 ÷ 80), 없으면 "버스 이용 지역".
+     * (역 조회는 매물마다 1회 - 노출 매물 최대 30개라 부담이 크지 않음. 필요 시 좌표 반올림 캐시로 고도화)
+     * 원본 역명이 이미 '역'으로 끝나면(예: 양촌역) '역'을 덧붙이지 않아 "양촌역역" 중복을 막는다.
+     */
+    private String buildTransitText(RentListingVO listing) {
+        if (listing.getLatitude() == null || listing.getLongitude() == null) {
+            return "버스 이용 지역"; // 좌표 없으면 역 검색 불가 → 버스권으로 표시
+        }
+        NearestStationDTO station = this.stationMapper.findNearestStation(
+                listing.getLatitude(), listing.getLongitude());
+        if (station == null || station.getDistanceM() == null) {
+            return "버스 이용 지역";
+        }
+        int walkMin = Math.max(1, (int) Math.round(station.getDistanceM() / WALK_M_PER_MIN));
+        String name = station.getStationName();
+        String label = name.endsWith("역") ? name : name + "역";
+        return label + " 도보 " + walkMin + "분";
+    }
+
+    /**
+     * 두 위경도 사이 직선거리(m) - 하버사인 공식.
+     * SQL 의 ST_Distance_Sphere 와 동일 개념이며, 학교 거리는 매물마다 SQL 재조회 대신
+     * 학교 좌표 1회 조회 후 인메모리로 계산한다(N+1 회피).
+     */
+    private double haversineMeters(double lat1, double lng1, double lat2, double lng2) {
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLng = Math.toRadians(lng2 - lng1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        return EARTH_RADIUS_M * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
     /**

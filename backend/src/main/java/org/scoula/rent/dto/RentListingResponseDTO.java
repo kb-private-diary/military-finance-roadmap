@@ -35,6 +35,13 @@ public class RentListingResponseDTO {
     private Long depositConverted; // 보증금환산액 = 보증금 × 전월세전환율 ÷ 12 (원/월)
     private Long effectiveMonthly; // 실질 월부담 = 월세 + 관리비 + 보증금환산 (반전세 공정 비교 기준)
 
+    // --- Step2 카드 모드별 뱃지 (findListings 에서 채움, 프론트 계약) ---
+    private String selectionMode; // 위치 모드 SCHOOL / REGION (프론트 뱃지 분기용)
+    private String commuteText;   // [학교 모드만] 통학시간 "도보 N분" / "버스 N분" (학교↔매물), 좌표 없으면 null
+    private String transitText;   // [지역 모드만] 대중교통 "OO역 도보 N분" / "버스 이용 지역"
+    private String affordLevel;   // [공통] 재정진단 코드 ENOUGH / TIGHT / OVER (6개월 거주 기준)
+    private String affordText;    // [공통] 재정진단 라벨 딱 맞아요 / 빠듯해요 / 예산 초과
+
     /** 뱃지 없는 기본 매핑 */
     public static RentListingResponseDTO of(RentListingVO vo) {
         return RentListingResponseDTO.builder()

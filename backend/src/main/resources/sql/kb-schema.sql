@@ -819,6 +819,23 @@ CREATE TABLE `school` (
   `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
 );
 
+-- 지하철역 마스터 (자취 지역 모드 대중교통 뱃지 - 매물 800m 내 최근접 역 도보시간)
+DROP TABLE IF EXISTS `station`;
+CREATE TABLE `station` (
+  `station_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '역고유번호',
+  `station_name` VARCHAR(100) NOT NULL COMMENT '역명',
+  `line_name` VARCHAR(60) COMMENT '노선명',
+  `latitude` DECIMAL(10,7) NOT NULL COMMENT '위도',
+  `longitude` DECIMAL(10,7) NOT NULL COMMENT '경도',
+  `created_date` DATETIME NOT NULL COMMENT '생성일시',
+  `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+  `modified_date` DATETIME COMMENT '수정일시',
+  `modified_nm` VARCHAR(50) COMMENT '수정자',
+  `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부',
+  -- 매물 좌표 최근접 역 검색(ST_Distance_Sphere) 시 위경도 범위 선필터용 (선택 인덱스)
+  INDEX `idx_station_lat_lng` (`latitude`, `longitude`)
+);
+
 DROP TABLE IF EXISTS `region_code`;
 CREATE TABLE `region_code` (
   `region_code` VARCHAR(10) PRIMARY KEY NOT NULL COMMENT '법정동코드',
@@ -1388,6 +1405,8 @@ ALTER TABLE `rent_goal` COMMENT = '전역 후 월세(자취) 주거에 대한 �
 ALTER TABLE `rent_goal_region` COMMENT = '목표별 희망 지역(읍·면·동) 정보';
 
 ALTER TABLE `school` COMMENT = '통학 반경 매물 검색을 위한 학교 마스터';
+
+ALTER TABLE `station` COMMENT = '자취 지역 모드 대중교통 뱃지용 지하철역 마스터(매물 800m 내 최근접 역 도보시간)';
 
 ALTER TABLE `region_code` COMMENT = '지역 선택 및 매물 조회에 사용하는 법정동 코드 마스터';
 
