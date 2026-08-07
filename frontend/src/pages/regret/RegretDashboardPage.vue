@@ -237,30 +237,24 @@ const goDay = (c) => {
         />
       </div>
       <div class="legend">
-        <button class="lg" @click="goLabel('REGRET')"><i class="dot" style="background: var(--danger)" />후회 {{ formatWon(stats.regretAmount) }}<span class="lg-go">›</span></button>
-        <button class="lg" @click="goLabel('SOSO')"><i class="dot" style="background: var(--soso)" />애매 {{ formatWon(stats.sosoAmount) }}<span class="lg-go">›</span></button>
-        <button class="lg" @click="goLabel('SATISFIED')"><i class="dot" style="background: var(--success)" />만족 {{ formatWon(stats.satisfiedAmount) }}<span class="lg-go">›</span></button>
+        <span class="lg"><i class="dot" style="background: var(--danger)" />후회 {{ formatWon(stats.regretAmount) }}</span>
+        <span class="lg"><i class="dot" style="background: var(--soso)" />애매 {{ formatWon(stats.sosoAmount) }}</span>
+        <span class="lg"><i class="dot" style="background: var(--success)" />만족 {{ formatWon(stats.satisfiedAmount) }}</span>
       </div>
     </BaseCard>
 
-    <div class="mini-row">
-      <button class="mini-btn" @click="goLabel('REGRET')">
-        <BaseCard padding="12px">
-          <p class="mini-n">{{ stats.regretCount }}건</p>
-          <p class="mini-c">후회 ›</p>
-        </BaseCard>
+    <div class="count-card">
+      <button class="count-cell count-cell--regret" @click="goLabel('REGRET')">
+        <span class="count-n">{{ stats.regretCount }}건</span>
+        <span class="count-l">후회 ›</span>
       </button>
-      <button class="mini-btn" @click="goLabel('SOSO')">
-        <BaseCard padding="12px">
-          <p class="mini-n">{{ stats.sosoCount }}건</p>
-          <p class="mini-c">애매 ›</p>
-        </BaseCard>
+      <button class="count-cell count-cell--soso" @click="goLabel('SOSO')">
+        <span class="count-n">{{ stats.sosoCount }}건</span>
+        <span class="count-l">애매 ›</span>
       </button>
-      <button class="mini-btn" @click="goLabel('SATISFIED')">
-        <BaseCard padding="12px">
-          <p class="mini-n">{{ stats.satisfiedCount }}건</p>
-          <p class="mini-c">만족 ›</p>
-        </BaseCard>
+      <button class="count-cell count-cell--satisfied" @click="goLabel('SATISFIED')">
+        <span class="count-n">{{ stats.satisfiedCount }}건</span>
+        <span class="count-l">만족 ›</span>
       </button>
     </div>
 
@@ -460,28 +454,41 @@ button.lg {
   border-radius: 999px;
   display: inline-block;
 }
-.mini-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  text-align: center;
+/* 후회/애매/만족 건수 - 한 카드 3색 통합(세로 축소) */
+.count-card {
+  display: flex;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--line);
 }
-.mini-btn {
+.count-cell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 4px;
   border: 0;
-  padding: 0;
-  background: transparent;
-  font-family: inherit;
   cursor: pointer;
+  font-family: inherit;
 }
-.mini-n {
+.count-cell--regret {
+  background: #f4d1d1;
+}
+.count-cell--soso {
+  background: #ffffc3;
+}
+.count-cell--satisfied {
+  background: #e1f3e0;
+}
+.count-n {
   font-size: 16px;
   font-weight: 700;
   color: var(--text-strong);
 }
-.mini-c {
-  margin-top: 2px;
+.count-l {
   font-size: 11px;
-  color: var(--text-muted);
+  color: var(--text-body);
 }
 .sec {
   font-size: 12px;
@@ -711,9 +718,9 @@ button.lg {
   gap: 12px;
   width: 100%;
   padding: 14px 16px;
-  border: 1px solid var(--line);
+  border: none;
   border-radius: 12px;
-  background: var(--surface-default);
+  background: #FFCC00; /* 점호박스와 통일(시연 지정색) */
   cursor: pointer;
   font-family: inherit;
   text-align: left;
@@ -749,7 +756,7 @@ button.lg {
   padding: 15px 16px;
   border: 0;
   border-radius: 12px;
-  background: #FFD337; /* 시연 요청 지정색 (진한 노랑) */
+  background: #FFCC00; /* 시연 요청 지정색 (R225 G204 B0) */
   cursor: pointer;
   font-family: inherit;
   text-align: left;

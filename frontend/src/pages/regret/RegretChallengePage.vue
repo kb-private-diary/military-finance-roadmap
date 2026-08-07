@@ -139,7 +139,7 @@ const adjustGoal = (delta) => {
       </span>
     </div>
 
-    <BottomButtonBar secondary-label="이전" @secondary-click="goBack" />
+    <BottomButtonBar primary-label="확인" @primary-click="goBack" />
   </div>
 </template>
 

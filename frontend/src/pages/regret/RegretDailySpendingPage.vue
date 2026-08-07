@@ -141,7 +141,7 @@ const goBack = () => router.push({ name: 'RegretDashboard' });
 
     </template>
 
-    <BottomButtonBar secondary-label="이전" @secondary-click="goBack" />
+    <BottomButtonBar primary-label="확인" @primary-click="goBack" />
   </div>
 </template>
 
