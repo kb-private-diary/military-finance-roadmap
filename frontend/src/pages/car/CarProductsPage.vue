@@ -106,6 +106,17 @@ const handlePrev = () => {
               }}
             </p>
           </div>
+          <a
+            class="product-card__external"
+            href="https://direct.kbinsure.co.kr/"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="KB 손해보험 다이렉트 자동차보험 홈페이지 열기"
+          >
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+              <path d="M14 4h6v6M20 4l-9 9M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5" />
+            </svg>
+          </a>
         </BaseCard>
       </section>
 
@@ -198,9 +209,35 @@ const handlePrev = () => {
 }
 
 .product-card {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 14px;
+}
+
+.product-card__external {
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: var(--text-strong);
+  text-decoration: none;
+  transform: translateY(-50%);
+  place-items: center;
+}
+
+.product-card__external:hover,
+.product-card__external:focus-visible {
+  background: var(--surface-muted);
+}
+
+.product-card__external svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
 }
 
 .product-card__icon {
@@ -217,6 +254,7 @@ const handlePrev = () => {
 
 .product-card__content {
   min-width: 0;
+  padding-right: 38px;
 }
 
 .product-card__name {
