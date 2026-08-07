@@ -44,7 +44,4 @@ public interface RentMapper {
 
     // 목표 단건 soft delete (goal_id 기준)
     void deleteGoalById(@Param("goalId") Long goalId, @Param("modifiedNm") String modifiedNm);
-
-    // 지역 면적당 월 관리비·공과금 합 (region_fee_stat 최신 기준월, 데이터 없으면 null)
-    Long findMonthlyFeePerSqmByRegionCode(String regionCode);
 }
