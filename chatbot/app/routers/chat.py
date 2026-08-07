@@ -29,6 +29,8 @@ from app.schemas.chat import (
 from app.schemas.product import (
     FundDetail,
     FundItem,
+    LoanDetail,
+    LoanItem,
     ProductDetail,
     ProductItem,
     SubscriptionDetail,
@@ -199,7 +201,10 @@ def send_message(
 
     try:
         reply, source, source_detail, is_ai_generated, intent, source_url = gemini.generate_reply(
-            content, history=history, force_intent="info" if payload.force_info else None
+            content,
+            history=history,
+            force_intent="info" if payload.force_info else None,
+            product_context=payload.product_context,
         )
     except Exception:
         logger.exception("Gemini 응답 생성 실패 (session_id=%s)", payload.session_id)
@@ -271,7 +276,11 @@ def get_topics():
     return TOPICS
 
 
-ALL_CATEGORIES = ["savings", "deposit", "subscription", "investment"]
+# insurance는 실시간 API가 없는 고정(RAG 문서) 카테고리라 여기 목록 API에는 안 걸림 -
+# 프론트가 전부 openDoc/RAG 검색으로만 처리한다. 그래도 /messages의 product_context 흐름과
+# 카테고리 검증(ALL_CATEGORIES)에는 걸려야 해서 이름만 포함시켜둔다.
+LOAN_CATEGORIES = ["mortgage", "jeonse", "creditLoan"]
+ALL_CATEGORIES = ["savings", "deposit", "subscription", "investment", *LOAN_CATEGORIES, "insurance"]
 
 
 def _fss_items(category: str) -> List[dict]:
@@ -310,6 +319,18 @@ def _fund_items() -> List[dict]:
     ]
 
 
+def _loan_items(category: str) -> List[dict]:
+    return [
+        LoanItem(
+            fin_prdt_cd=product["fin_prdt_cd"],
+            kor_co_nm=product["kor_co_nm"],
+            fin_prdt_nm=product["fin_prdt_nm"],
+            rate=fss.representative_loan_rate(product),
+        ).model_dump(by_alias=True)
+        for product in fss.fetch_loan_products(category)
+    ]
+
+
 @router.get("/products")
 def list_products(category: Optional[str] = Query(default=None)):
     categories = [category] if category else ALL_CATEGORIES
@@ -325,6 +346,8 @@ def list_products(category: Optional[str] = Query(default=None)):
             items.extend(_subscription_items())
         elif c == "investment":
             items.extend(_fund_items())
+        elif c in LOAN_CATEGORIES:
+            items.extend(_loan_items(c))
     return items
 
 
@@ -347,6 +370,25 @@ def _find_fss_detail(name: str, categories: List[str]):
     return None
 
 
+def _find_loan_detail(name: str, categories: List[str]):
+    for category in categories:
+        for product in fss.fetch_loan_products(category):
+            if product["fin_prdt_nm"] == name:
+                return LoanDetail(
+                    fin_prdt_cd=product["fin_prdt_cd"],
+                    kor_co_nm=product["kor_co_nm"],
+                    fin_prdt_nm=product["fin_prdt_nm"],
+                    join_way=product["join_way"],
+                    loan_lmt=product.get("loan_lmt"),
+                    erly_rpay_fee=product.get("erly_rpay_fee"),
+                    cb_name=product.get("cb_name"),
+                    options=product["options"],
+                    source=fss.SOURCE_LABEL,
+                    source_url=fss.SOURCE_URL.get(category),
+                ).model_dump(by_alias=True)
+    return None
+
+
 @router.get("/products/{name}")
 def get_product(name: str, category: Optional[str] = Query(default=None)):
     """category를 알고 있으면 반드시 넘길 것 — 생략하면 전체 카테고리를 순차 조회해서 훨씬 느려짐."""
@@ -358,6 +400,12 @@ def get_product(name: str, category: Optional[str] = Query(default=None)):
     )
     if fss_categories:
         result = _find_fss_detail(name, fss_categories)
+        if result:
+            return result
+
+    loan_categories = [category] if category in LOAN_CATEGORIES else (LOAN_CATEGORIES if category is None else [])
+    if loan_categories:
+        result = _find_loan_detail(name, loan_categories)
         if result:
             return result
 

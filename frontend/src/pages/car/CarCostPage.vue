@@ -1,11 +1,14 @@
 <script setup>
 // SCR-CAR-03 · step3) 자동차 비용 계산  (담당: 호빈)
 // step3 - 취득세 포함 구매비용 + 연간 유지비 + 3년 총비용
+// UI는 여행 로드맵 비용 페이지(TravelCostPage)와 동일한 형식(도넛차트+범례+막대그래프)으로 맞춤
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import carApi from '@/api/carApi';
 import BaseCard from '@/components/common/BaseCard.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
+import DonutChart from '@/components/common/DonutChart.vue';
+import ProgressBar from '@/components/common/ProgressBar.vue';
 import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
 import { formatManwonUnit } from '@/util/format';
 
@@ -34,6 +37,33 @@ const maintenanceTotalMin = computed(() => maintenanceCost.value?.totalMaintenan
 const maintenanceTotalMax = computed(() => maintenanceCost.value?.totalMaintenanceCostMax ?? 0);
 const threeYearTotalMin = computed(() => purchaseTotal.value + maintenanceTotalMin.value * 3);
 const threeYearTotalMax = computed(() => purchaseTotal.value + maintenanceTotalMax.value * 3);
+
+// 도넛차트는 하나의 값만 받을 수 있어 보험료는 min~max 중간값으로 대표한다.
+const insuranceMidAnnual = computed(() => {
+  const min = maintenanceCost.value?.insurancePremiumMin ?? 0;
+  const max = maintenanceCost.value?.insurancePremiumMax ?? 0;
+  return (min + max) / 2;
+});
+const fuelTaxAnnual = computed(
+  () =>
+    (maintenanceCost.value?.estimatedFuelCostAnnual ?? 0) +
+    (maintenanceCost.value?.annualVehicleTaxAfterDiscount ?? 0),
+);
+
+const costItems = computed(() => [
+  { label: '구매비용', value: purchaseTotal.value, color: 'var(--chart-1)' },
+  { label: '세금·연료비', value: fuelTaxAnnual.value * 3, color: 'var(--chart-3)' },
+  { label: '보험료', value: insuranceMidAnnual.value * 3, color: 'var(--chart-4)' },
+]);
+
+const chartTotal = computed(() =>
+  costItems.value.reduce((sum, item) => sum + item.value, 0),
+);
+
+const percentOf = (value) => {
+  if (!chartTotal.value) return 0;
+  return Math.round((value / chartTotal.value) * 100);
+};
 
 const loadCost = async () => {
   loading.value = true;
@@ -77,63 +107,72 @@ const handlePrev = () => {
   <div class="car-cost">
     <RoadmapCharacterSlider :step="currentStep" label="자동차 로드맵" />
 
-    <h2 class="car-cost__title text-title">비용 계산</h2>
+    <div v-if="loading" class="status-box text-caption" role="status">
+      예상 비용을 계산하고 있습니다.
+    </div>
 
-    <div v-if="loading" class="car-cost__status text-caption">불러오는 중...</div>
-    <p v-else-if="loadError" class="form-error text-caption" role="alert">
-      {{ loadError }}
-    </p>
+    <div
+      v-else-if="loadError"
+      class="status-box status-box--error text-caption"
+      role="alert"
+    >
+      <p>{{ loadError }}</p>
+      <button type="button" @click="handlePrev">이전 화면으로</button>
+    </div>
 
     <template v-else>
-      <section class="purchase-summary">
-        <div class="purchase-summary__icon" aria-hidden="true">&#128176;</div>
-        <div class="purchase-summary__content">
-          <p class="purchase-summary__label">구매 비용</p>
-          <strong class="purchase-summary__amount">{{ formatManwonUnit(purchaseTotal) }}</strong>
-          <p class="purchase-summary__desc">
-            {{ formatManwonUnit(purchase?.price) }} + 취득세 {{ formatManwonUnit(purchase?.tax) }}
-          </p>
-        </div>
-      </section>
+      <h2 class="car-cost__title text-title">
+        3년간 예상되는<br />총 준비 비용입니다.
+      </h2>
+      <p class="car-cost__total">
+        {{ formatManwonUnit(threeYearTotalMin) }}~{{ formatManwonUnit(threeYearTotalMax) }}
+      </p>
 
-      <BaseCard v-if="maintenanceCost" padding="16px">
-        <h3 class="section-title">연간 유지비 구성</h3>
-        <ul class="cost-list">
-          <li class="cost-row">
-            <span class="cost-row__name">연료비</span>
-            <strong>{{ formatManwonUnit(maintenanceCost.estimatedFuelCostAnnual) }}</strong>
-          </li>
-          <li class="cost-row">
-            <span class="cost-row__name">자동차세</span>
-            <strong>{{ formatManwonUnit(maintenanceCost.annualVehicleTaxAfterDiscount) }}</strong>
-          </li>
-          <li class="cost-row">
-            <span class="cost-row__name">보험료</span>
-            <strong>
-              {{ formatManwonUnit(maintenanceCost.insurancePremiumMin) }}~{{
-                formatManwonUnit(maintenanceCost.insurancePremiumMax)
-              }}
-            </strong>
+      <BaseCard
+        class="cost-card"
+        padding="29px 22px 31px"
+        aria-label="자동차 비용 상세"
+      >
+        <div class="chart-area">
+          <DonutChart
+            :items="costItems"
+            :size="174"
+            :thickness="38"
+            chart-label="구매비용, 세금·연료비, 보험료 비율"
+          />
+
+          <ul class="legend">
+            <li v-for="item in costItems" :key="item.label">
+              <span
+                class="legend__swatch"
+                :style="{ backgroundColor: item.color }"
+              />
+              <span class="text-caption">{{ item.label }}</span>
+            </li>
+          </ul>
+        </div>
+
+        <ul class="breakdown">
+          <li v-for="item in costItems" :key="item.label">
+            <span class="breakdown__label text-caption">{{ item.label }}</span>
+            <ProgressBar
+              :value="item.value"
+              :total="chartTotal"
+              :color="item.color"
+              :height="6"
+            />
+            <strong>{{ percentOf(item.value) }}%</strong>
           </li>
         </ul>
-        <div class="cost-list__total">
-          연간 합계 {{ formatManwonUnit(maintenanceTotalMin) }}~{{ formatManwonUnit(maintenanceTotalMax) }}
-        </div>
-      </BaseCard>
 
-      <BaseCard padding="18px" class="total-card">
-        <h3 class="section-title">3년 총비용</h3>
-        <p class="total-card__desc">구매 비용 + 연간 유지비 × 3년 기준</p>
-        <strong class="total-card__amount">
-          {{ formatManwonUnit(threeYearTotalMin) }}~{{ formatManwonUnit(threeYearTotalMax) }}
-        </strong>
+        <p class="cost-card__hint">구매 비용 + 3년치 세금·연료비·보험료 기준</p>
       </BaseCard>
     </template>
 
     <BottomButtonBar
+      v-if="!loading && !loadError"
       primary-label="다음"
       secondary-label="이전"
-      :primary-disabled="loading || !!loadError"
       @primary-click="handleNext"
       @secondary-click="handlePrev"
     />
@@ -142,134 +181,139 @@ const handlePrev = () => {
 
 <style scoped>
 .car-cost {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 18px 0 96px;
+  min-height: 100%;
+  padding: 18px 0 88px;
   color: var(--text-strong);
 }
 
+.car-cost :deep(.character-slider) {
+  margin-bottom: 28px;
+}
+
 .car-cost__title {
-  margin: 0;
-}
-
-.car-cost__status {
-  padding: 40px 0;
+  margin: 0 0 14px;
+  line-height: 1.35;
   text-align: center;
-  color: var(--text-muted);
 }
 
-.form-error {
-  margin: 0;
-  color: var(--danger);
+.car-cost__total {
+  margin: 0 0 18px;
+  color: var(--kb-gray);
+  font-size: 27px;
+  font-weight: 500;
+  line-height: 1.25;
+  text-align: center;
 }
 
-.purchase-summary {
+.cost-card {
+  border-radius: 13px;
+}
+
+.chart-area {
   display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 16px;
-  border-radius: 16px;
-  background: var(--kb-yellow-pale);
-}
-
-.purchase-summary__icon {
-  display: flex;
-  width: 48px;
-  height: 48px;
-  flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  border-radius: 14px;
-  background: var(--kb-yellow);
-  font-size: 22px;
+  gap: 23px;
+  margin-bottom: 36px;
 }
 
-.purchase-summary__label {
-  margin: 0;
-  color: var(--brand-gold);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.purchase-summary__amount {
-  display: block;
-  margin-top: 4px;
-  font-size: 20px;
-  font-weight: 800;
-}
-
-.purchase-summary__desc {
-  margin: 4px 0 0;
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
-.section-title {
-  margin: 0 0 12px;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-body);
-  display: block;
-}
-
-.cost-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+.legend,
+.breakdown {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.cost-row {
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.legend li {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  font-size: 13px;
+  gap: 6px;
+  color: var(--text-body);
+  font-size: 11px;
+  white-space: nowrap;
 }
 
-.cost-row__name {
-  color: var(--text-muted);
+.legend__swatch {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
 }
 
-.cost-list__total {
-  margin-top: 14px;
+.breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.breakdown li {
+  display: grid;
+  grid-template-columns: 68px minmax(0, 1fr) 38px;
+  align-items: center;
+  gap: 9px;
+  color: var(--kb-gray);
+  font-size: 12px;
+}
+
+.breakdown__label {
+  font-weight: 500;
+}
+
+.breakdown strong {
+  color: var(--text-body);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.cost-card__hint {
+  margin: 18px 0 0;
   padding-top: 12px;
   border-top: 1px solid var(--line);
   color: var(--text-hint);
-  font-size: 12px;
+  font-size: 11px;
   text-align: center;
 }
 
-.total-card {
-  text-align: center;
-}
-
-.total-card__desc {
-  margin: 0 0 10px;
+.status-box {
+  margin-top: 80px;
   color: var(--text-muted);
-  font-size: 12px;
+  text-align: center;
 }
 
-.total-card__amount {
-  font-size: 20px;
-  font-weight: 800;
-  color: var(--kb-yellow-deep);
+.status-box--error {
+  color: var(--danger);
+}
+
+.status-box p {
+  margin: 0 0 16px;
+}
+
+.status-box button {
+  padding: 9px 16px;
+  border: 0;
+  background: var(--military-green);
+  color: var(--surface-default);
+  font-family: inherit;
+  font-size: 12px;
 }
 
 .car-cost :deep(.bottom-button-bar) {
   background: var(--surface-default);
 }
 
+.car-cost :deep(.bottom-button-bar .bar-button.secondary) {
+  background: var(--kb-gray-pale);
+  color: var(--text-body);
+}
+
 .car-cost :deep(.bottom-button-bar .bar-button.primary) {
   background: var(--kb-yellow);
   color: var(--text-strong);
-}
-
-.car-cost :deep(.bottom-button-bar .bar-button.primary:disabled) {
-  background: var(--kb-gray-pale);
-  color: var(--text-hint);
-  cursor: not-allowed;
 }
 </style>

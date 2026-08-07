@@ -5,6 +5,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import carApi from '@/api/carApi';
 import BaseCard from '@/components/common/BaseCard.vue';
+import BaseModal from '@/components/common/BaseModal.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
 import { formatManwonUnit } from '@/util/format';
@@ -21,6 +22,9 @@ const evSubsidy = ref(null);
 const budgetStatus = ref(null);
 const loading = ref(true);
 const loadError = ref('');
+const completing = ref(false);
+const completeError = ref('');
+const isCompleteModalOpen = ref(false);
 
 const unwrap = (response) => response.data?.data;
 
@@ -68,7 +72,21 @@ const loadProductInfo = async () => {
 
 onMounted(loadProductInfo);
 
-const handleComplete = () => {
+const handleComplete = async () => {
+  if (completing.value) return;
+  completing.value = true;
+  completeError.value = '';
+  try {
+    await carApi.confirmGoal(goalId.value);
+    isCompleteModalOpen.value = true;
+  } catch (error) {
+    completeError.value = readErrorMessage(error, '저장하지 못했습니다.');
+  } finally {
+    completing.value = false;
+  }
+};
+
+const goToDetail = () => {
   router.push({ name: 'CarGoalDetail', params: { goalId: goalId.value } });
 };
 
@@ -166,15 +184,30 @@ const handlePrev = () => {
         <p class="car-products__guide-title text-label">지금까지 자동차 로드맵이었습니다.</p>
         <p class="car-products__guide-description">마음에 든다면 완료해주세요.</p>
       </div>
+
+      <p v-if="completeError" class="form-error text-caption" role="alert">
+        {{ completeError }}
+      </p>
     </template>
 
     <BottomButtonBar
-      primary-label="완료"
+      :primary-label="completing ? '저장 중...' : '완료'"
       secondary-label="이전"
-      :primary-disabled="loading || !!loadError"
+      :primary-disabled="loading || !!loadError || completing"
       @primary-click="handleComplete"
       @secondary-click="handlePrev"
     />
+
+    <BaseModal
+      v-model="isCompleteModalOpen"
+      title="알림"
+      confirm-text="확인"
+      @confirm="goToDetail"
+    >
+      <p class="car-products__modal-message">
+        선택한 자동차 목표가 저장되었습니다.
+      </p>
+    </BaseModal>
   </div>
 </template>
 
@@ -307,6 +340,10 @@ const handlePrev = () => {
   margin: 6px 0 0;
   color: var(--text-muted);
   font-size: 12px;
+}
+
+.car-products__modal-message {
+  margin: 0;
 }
 
 .car-products :deep(.bottom-button-bar) {

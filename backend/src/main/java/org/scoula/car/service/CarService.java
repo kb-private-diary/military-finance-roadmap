@@ -43,4 +43,8 @@ public interface CarService {
 
     // CAR-API-14: 선택 차량 구매비용이 기준 예산(수동입력 또는 군적금 만기예상액)을 넘는지 확인
     CarBudgetStatusResponseDTO checkBudgetStatus(Long goalId, Long userId);
+
+    // CAR-API-15: 자동차 목표 확정(완료) — status를 CONFIRMED로 전환한다.
+    // 로드맵(관심 목록)에서 자동차 목표가 노출되는 조건이 이 상태다.
+    void confirmGoal(Long goalId, Long userId);
 }

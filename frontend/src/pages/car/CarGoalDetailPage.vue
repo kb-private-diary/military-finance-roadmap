@@ -6,9 +6,8 @@ import { useRoute, useRouter } from 'vue-router';
 import carApi from '@/api/carApi';
 import dashboardApi from '@/api/dashboardApi';
 import BaseCard from '@/components/common/BaseCard.vue';
-import BaseTag from '@/components/common/BaseTag.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
-import { formatManwonUnit } from '@/util/format';
+import { formatDate, formatManwonUnit } from '@/util/format';
 
 const route = useRoute();
 const router = useRouter();
@@ -108,6 +107,10 @@ const selectTab = (key) => {
 const goToList = () => {
   router.push({ name: 'CarRecommend', params: { goalId: goalId.value } });
 };
+
+const goToRoadmap = () => {
+  router.push({ name: 'RoadmapMain' });
+};
 </script>
 
 <template>
@@ -118,19 +121,14 @@ const goToList = () => {
     </p>
 
     <template v-else>
-      <div class="car-detail__header">
-        <h2 class="car-detail__title text-title">
-          {{ goal.selectedModelName ? `${goal.selectedModelName} 목표` : '자동차 목표' }}
-        </h2>
-        <BaseTag
-          v-if="goal.status === 'SELECTED'"
-          label="선택 완료"
-          variant="yellow"
-        />
-      </div>
-      <p class="car-detail__subtitle text-caption">
-        목표 구매 시기 {{ goal.targetDate }} · {{ goal.region }}
-      </p>
+      <BaseCard padding="16px 18px" class="car-detail__header">
+        <span class="car-detail__category">자동차</span>
+        <h2 class="car-detail__name">{{ goal.selectedModelName || '자동차 목표' }}</h2>
+        <p class="car-detail__date">{{ formatDate(goal.targetDate) }}</p>
+        <p class="car-detail__route">
+          {{ goal.region }} · {{ goal.isNew ? '신차' : '중고' }}
+        </p>
+      </BaseCard>
 
       <p v-if="!hasSelectedModel" class="car-detail__empty text-caption">
         아직 선택한 차량이 없어요. 추천 목록에서 먼저 차량을 골라주세요.
@@ -299,13 +297,13 @@ const goToList = () => {
         </div>
       </template>
 
-      <p class="car-detail__back text-caption" @click="goToList">목록으로</p>
+      <p class="car-detail__back text-caption" @click="goToList">추천 목록 다시 보기</p>
     </template>
 
     <BottomButtonBar
       primary-label="확인"
       secondary-label="삭제"
-      @primary-click="goToList"
+      @primary-click="goToRoadmap"
     />
   </div>
 </template>
@@ -333,17 +331,38 @@ const goToList = () => {
 
 .car-detail__header {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
-.car-detail__title {
-  margin: 0;
+.car-detail__category {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--pastel-purple);
+  color: var(--surface-default);
+  font-size: 11px;
+  font-weight: 700;
 }
 
-.car-detail__subtitle {
-  margin: -8px 0 0;
+.car-detail__name {
+  margin: 10px 0 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.car-detail__date {
+  margin: 8px 0 0;
   color: var(--text-muted);
+  font-size: 13px;
+}
+
+.car-detail__route {
+  margin: 4px 0 0;
+  color: var(--text-body);
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .savings-card__head {
