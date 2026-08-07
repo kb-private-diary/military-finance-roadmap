@@ -21,6 +21,7 @@ SET FOREIGN_KEY_CHECKS = 0;   -- FK 체크 OFF (여기서부터)
 -- 파일 준비되면 주석(--) 풀어서 추가. 파일명 규칙: 도메인_이니셜.sql
 SOURCE master/region_sy.sql;      -- 법정동 (수연)
 SOURCE master/school_sy.sql;      -- 학교 (수연)
+SOURCE master/station_sy.sql;     -- 지하철역 (수연)
 SOURCE master/utility_sy.sql;     -- 공과금 계수 (수연)
 -- SOURCE master/rank_xx.sql;     -- 계급/급여
 -- SOURCE master/car_hb.sql;      -- 자동차 (호빈)
