@@ -60,14 +60,23 @@ const SAMPLE_MONTHS = [
 const stats = ref(null);
 const months = ref(SAMPLE_MONTHS);
 const loading = ref(true);
+// 실 통계 API 성공 여부 (실패 시 SAMPLE 폴백 → "미리보기" 뱃지 표시)
+const usingSample = ref(false);
 
 const load = async () => {
   loading.value = true;
   try {
     const d = await regretApi.getMonthlyStats(yearMonth);
-    stats.value = d && d.totalSpending != null ? d : SAMPLE;
+    if (d && d.totalSpending != null) {
+      stats.value = d;
+      usingSample.value = false;
+    } else {
+      stats.value = SAMPLE;
+      usingSample.value = true;
+    }
   } catch {
     stats.value = SAMPLE; // TODO: 폴백 제거
+    usingSample.value = true;
   } finally {
     loading.value = false;
   }
@@ -136,6 +145,53 @@ const calendarCells = computed(() => {
 
 const goReview = () => router.push({ name: 'RegretReview' });
 
+// 라벨 클릭 → 라벨별 모아보기 (REGRET | SOSO | SATISFIED)
+const goLabel = (label) =>
+  router.push({ name: 'RegretLabelList', params: { label } });
+
+// ── "이만큼 아끼면?" 로드맵 연결 ────────────────────────────────
+// 이번달 후회소비를 절감액으로 보고, 4개 로드맵 목표에 보탰을 때 효과 환산
+// TODO(백엔드): 각 로드맵 목표 잔여액 API 연동되면 가정치 대신 실값으로 계산
+const ASSUMED_MONTHLY_RENT = 530000; // 자취 실질월부담 가정 (매물 샘플 기준)
+const saveMonthly = computed(() => stats.value?.regretAmount ?? 0);
+const saveYear = computed(() => saveMonthly.value * 12);
+const extraRentMonths = computed(() =>
+  Math.max(Math.floor(saveYear.value / ASSUMED_MONTHLY_RENT), 1),
+);
+
+const roadmapCards = computed(() => [
+  {
+    key: 'rent',
+    icon: '🏠',
+    name: '자취',
+    desc: `1년 모으면 자취 ${extraRentMonths.value}개월 더`,
+    route: 'RentGoalCreate',
+  },
+  {
+    key: 'job',
+    icon: '🎓',
+    name: '진로',
+    desc: `학원비·응시료에 ${formatManwon(saveYear.value)} 보태기`,
+    route: 'JobGoalCreate',
+  },
+  {
+    key: 'car',
+    icon: '🚗',
+    name: '자동차',
+    desc: `차량 구입 자금 +${formatManwon(saveYear.value)}`,
+    route: 'CarGoalCreate',
+  },
+  {
+    key: 'travel',
+    icon: '✈️',
+    name: '여행',
+    desc: `여행 경비 +${formatManwon(saveYear.value)}`,
+    route: 'TravelGoalCreate',
+  },
+]);
+
+const goRoadmap = (name) => router.push({ name });
+
 // 캘린더 셀 클릭 → 해당 일자 지출 목록으로 이동 (void 셀은 무시)
 const goDay = (c) => {
   if (c.void) return;
@@ -149,7 +205,10 @@ const goDay = (c) => {
 <template>
   <div v-if="stats" class="dash">
     <header class="head">
-      <p class="cap">후회소비 리포트</p>
+      <p class="cap">
+        후회소비 리포트
+        <span v-if="usingSample" class="preview-tag">미리보기 · 샘플 데이터예요</span>
+      </p>
       <h2 class="title">{{ monthLabel }} 후회한 소비</h2>
     </header>
 
@@ -178,25 +237,31 @@ const goDay = (c) => {
         />
       </div>
       <div class="legend">
-        <span class="lg"><i class="dot" style="background: var(--danger)" />후회 {{ formatWon(stats.regretAmount) }}</span>
-        <span class="lg"><i class="dot" style="background: var(--soso)" />애매 {{ formatWon(stats.sosoAmount) }}</span>
-        <span class="lg"><i class="dot" style="background: var(--success)" />만족 {{ formatWon(stats.satisfiedAmount) }}</span>
+        <button class="lg" @click="goLabel('REGRET')"><i class="dot" style="background: var(--danger)" />후회 {{ formatWon(stats.regretAmount) }}<span class="lg-go">›</span></button>
+        <button class="lg" @click="goLabel('SOSO')"><i class="dot" style="background: var(--soso)" />애매 {{ formatWon(stats.sosoAmount) }}<span class="lg-go">›</span></button>
+        <button class="lg" @click="goLabel('SATISFIED')"><i class="dot" style="background: var(--success)" />만족 {{ formatWon(stats.satisfiedAmount) }}<span class="lg-go">›</span></button>
       </div>
     </BaseCard>
 
     <div class="mini-row">
-      <BaseCard padding="12px">
-        <p class="mini-n">{{ stats.regretCount }}건</p>
-        <p class="mini-c">후회</p>
-      </BaseCard>
-      <BaseCard padding="12px">
-        <p class="mini-n">{{ stats.sosoCount }}건</p>
-        <p class="mini-c">애매</p>
-      </BaseCard>
-      <BaseCard padding="12px">
-        <p class="mini-n">{{ stats.satisfiedCount }}건</p>
-        <p class="mini-c">만족</p>
-      </BaseCard>
+      <button class="mini-btn" @click="goLabel('REGRET')">
+        <BaseCard padding="12px">
+          <p class="mini-n">{{ stats.regretCount }}건</p>
+          <p class="mini-c">후회 ›</p>
+        </BaseCard>
+      </button>
+      <button class="mini-btn" @click="goLabel('SOSO')">
+        <BaseCard padding="12px">
+          <p class="mini-n">{{ stats.sosoCount }}건</p>
+          <p class="mini-c">애매 ›</p>
+        </BaseCard>
+      </button>
+      <button class="mini-btn" @click="goLabel('SATISFIED')">
+        <BaseCard padding="12px">
+          <p class="mini-n">{{ stats.satisfiedCount }}건</p>
+          <p class="mini-c">만족 ›</p>
+        </BaseCard>
+      </button>
     </div>
 
     <BaseCard padding="14px">
@@ -258,14 +323,28 @@ const goDay = (c) => {
       </div>
     </BaseCard>
 
-    <button class="link-banner" @click="router.push({ name: 'RentGoalCreate' })">
-      <span class="lb-ico">🏠</span>
-      <span class="lb-tx">
-        <b>후회 소비 {{ formatManwon(stats.regretAmount) }}이면</b>
-        <span>자취 로드맵에서 절감 효과를 확인해보세요</span>
-      </span>
-      <span class="lb-go">›</span>
-    </button>
+    <!-- ── 이만큼 아끼면? (4개 로드맵 연결) ── -->
+    <BaseCard padding="14px">
+      <div class="save-head">
+        <p class="sec">이만큼 아끼면?</p>
+        <span class="more">1년이면 {{ formatManwon(saveYear) }}</span>
+      </div>
+      <p class="save-lead">
+        이번달 후회 소비 <b>{{ formatManwon(saveMonthly) }}</b>을 아껴 로드맵 목표에 보태보세요
+      </p>
+      <div class="save-grid">
+        <button
+          v-for="c in roadmapCards"
+          :key="c.key"
+          class="save-card"
+          @click="goRoadmap(c.route)"
+        >
+          <span class="sc-ico">{{ c.icon }}</span>
+          <span class="sc-name">{{ c.name }}</span>
+          <span class="sc-desc">{{ c.desc }}</span>
+        </button>
+      </div>
+    </BaseCard>
   </div>
   <p v-else class="loading">불러오는 중...</p>
 </template>
@@ -293,8 +372,19 @@ const goDay = (c) => {
   gap: 2px;
 }
 .cap {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   font-size: 12px;
   color: var(--text-muted);
+}
+.preview-tag {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--kb-yellow-pale);
+  color: var(--brand-gold);
 }
 .title {
   font-size: 18px;
@@ -332,6 +422,18 @@ const goDay = (c) => {
   font-size: 11px;
   color: var(--text-muted);
 }
+/* 범례를 버튼으로 (라벨별 모아보기 이동) */
+button.lg {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-family: inherit;
+  cursor: pointer;
+}
+.lg-go {
+  color: var(--text-hint);
+  font-size: 13px;
+}
 .dot {
   width: 8px;
   height: 8px;
@@ -343,6 +445,13 @@ const goDay = (c) => {
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   text-align: center;
+}
+.mini-btn {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
 }
 .mini-n {
   font-size: 16px;
@@ -516,41 +625,59 @@ const goDay = (c) => {
   padding-top: 10px;
   border-top: 1px solid var(--line);
 }
-/* ── 자취 연동 배너 ── */
-.link-banner {
+/* ── 이만큼 아끼면? (로드맵 연결) ── */
+.save-head {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--kb-yellow-pale);
-  cursor: pointer;
-  font-family: inherit;
-  text-align: left;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
 }
-.lb-ico {
-  font-size: 22px;
-}
-.lb-tx {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.lb-tx b {
+.save-head .sec {
+  margin-bottom: 0;
   font-size: 13px;
   font-weight: 700;
   color: var(--text-strong);
 }
-.lb-tx span {
+.save-lead {
   font-size: 11px;
   color: var(--text-muted);
+  margin-bottom: 12px;
+  line-height: 1.5;
 }
-.lb-go {
-  font-size: 18px;
-  color: var(--text-hint);
+.save-lead b {
+  color: var(--text-strong);
+  font-weight: 800;
+}
+.save-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.save-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--kb-yellow-pale);
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+}
+.sc-ico {
+  font-size: 20px;
+}
+.sc-name {
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-strong);
+}
+.sc-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
 }
 /* ── 점호 유도 배너 (주 액션) ── */
 .review-invite {
