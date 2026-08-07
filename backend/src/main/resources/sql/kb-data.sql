@@ -1314,9 +1314,9 @@ INSERT INTO travel_insurance (
 
 -- --------------------------------------------------------------------
 --  [수연] 자취 mock 제거 (실 API 적재로 대체)
---    - rent_listing   : 국토부 실거래가 API 로 적재. 시연 전 아래 배치 호출 필요
---        · REGION 검색용(전국, 좌표X) : POST /api/rent/listings/load-nationwide?dealYm=202606
---        · SCHOOL 검색용(학교 시군구, 좌표O): POST /api/rent/listings/load?dealYm=202606&sigunguCodes=11620
+--    - rent_listing   : 실거래 매물은 ★ kb-data-rent-listing.sql ★ 로 분리 (이 파일 다음에 실행)
+--                       → 실 API로 적재한 실매물 시드(관악구 590건). 매번 배치 안 돌려도 재실행하면 복원됨.
+--                       지역 추가/재생성 방법은 kb-data-rent-listing.sql 헤더 참고
 --    - housing_product : 온통청년 OPEN API 로 적재 (POST /api/rent/admin/youth-sync 또는 매일 04:10 배치)
 --    - region_fee_stat : 폐기됨 (관리비는 UtilityService K-apt 면적앵커로 계산, 테이블 미사용)
 --    - housing_loan    : 폐기됨 (주거 금융상품은 housing_product 로 통합, 테이블 미사용)
