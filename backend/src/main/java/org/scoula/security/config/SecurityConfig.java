@@ -125,8 +125,12 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 .antMatchers(HttpMethod.GET, "/api/users/terms", "/api/users/military-types",
                         "/api/users/military-units").permitAll()
                 .antMatchers("/api/users/me", "/api/users/password").authenticated()
+                // 자취 매물 적재는 개발·배치용(로그인 무관) → 인증 예외로 열어둔다.
+                .antMatchers(HttpMethod.POST, "/api/rent/listings/load",
+                        "/api/rent/listings/load-nationwide").permitAll()
                 .antMatchers("/api/simulator/**", "/api/dashboard/**", "/api/push/**",
-                        "/api/travel/**").authenticated()
+                        "/api/travel/**", "/api/rent/**", "/api/regret/**",
+                        "/api/openbanking/**").authenticated()
                 .anyRequest().permitAll();
     }
 

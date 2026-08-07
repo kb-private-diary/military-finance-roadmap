@@ -7,8 +7,10 @@ import org.scoula.openbanking.dto.AccountInfo;
 import org.scoula.openbanking.dto.AuthUrlResponse;
 import org.scoula.openbanking.dto.LinkRequest;
 import org.scoula.openbanking.service.OpenBankingService;
+import org.scoula.security.account.domain.CustomUser;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import lombok.RequiredArgsConstructor;
@@ -26,37 +28,43 @@ public class OpenBankingController {
 
     // GET /api/openbanking/status → 연동 여부 (온보딩 분기용, true면 서비스 이용 가능)
     @GetMapping("/status")
-    public ResponseEntity<ApiResponse<Boolean>> status(@RequestParam Long userId) { // TODO: JWT 연동
-        return ResponseEntity.ok(ApiResponse.success(service.hasLink(userId)));
+    public ResponseEntity<ApiResponse<Boolean>> status(
+            @AuthenticationPrincipal CustomUser customUser) {
+        return ResponseEntity.ok(ApiResponse.success(
+                service.hasLink(customUser.getMember().getId())));
     }
 
     // GET /api/openbanking/auth-url → 인증 URL 발급 (프론트가 이 URL로 리다이렉트)
     @GetMapping("/auth-url")
-    public ResponseEntity<ApiResponse<AuthUrlResponse>> authUrl(@RequestParam Long userId) { // TODO: JWT 연동
-        return ResponseEntity.ok(ApiResponse.success(service.getAuthUrl(userId)));
+    public ResponseEntity<ApiResponse<AuthUrlResponse>> authUrl(
+            @AuthenticationPrincipal CustomUser customUser) {
+        return ResponseEntity.ok(ApiResponse.success(
+                service.getAuthUrl(customUser.getMember().getId())));
     }
 
     // POST /api/openbanking/link → 선택한 계좌 연동 (연동된 계좌 목록 반환)
     @PostMapping("/link")
     public ResponseEntity<ApiResponse<List<AccountInfo>>> link(
-            @RequestParam Long userId, // TODO: JWT 연동
+            @AuthenticationPrincipal CustomUser customUser,
             @RequestBody LinkRequest request) {
 
-        List<AccountInfo> linked = service.linkAccounts(userId, request);
+        List<AccountInfo> linked = service.linkAccounts(customUser.getMember().getId(), request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(linked));
     }
 
     // DELETE /api/openbanking/link → 연동 전체 해제
     @DeleteMapping("/link")
-    public ResponseEntity<ApiResponse<Void>> unlink(@RequestParam Long userId) { // TODO: JWT 연동
-        service.unlink(userId);
+    public ResponseEntity<ApiResponse<Void>> unlink(
+            @AuthenticationPrincipal CustomUser customUser) {
+        service.unlink(customUser.getMember().getId());
         return ResponseEntity.ok(ApiResponse.success());
     }
 
     // POST /api/openbanking/sync → 거래내역을 지출로 동기화 (적재된 건수 반환)
     @PostMapping("/sync")
-    public ResponseEntity<ApiResponse<Integer>> syncTransactions(@RequestParam Long userId) { // TODO: JWT 연동
-        int count = service.syncTransactions(userId);
+    public ResponseEntity<ApiResponse<Integer>> syncTransactions(
+            @AuthenticationPrincipal CustomUser customUser) {
+        int count = service.syncTransactions(customUser.getMember().getId());
         return ResponseEntity.ok(ApiResponse.success(count));
     }
 }
