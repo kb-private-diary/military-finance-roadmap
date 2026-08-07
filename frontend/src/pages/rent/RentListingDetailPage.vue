@@ -2,7 +2,7 @@
 // SCR-RENT-03 · Step 3) 매물 상세 + 내 재정 체크  담당: 수연
 // 디자인: UI/rent_ui_school_mode.html — 담백 버전(색·이모지 제거)
 // 거주기간 슬라이더(6~24) 조작 → 총비용/재정체크 실시간 갱신됨, months 는 Step4~5로 이어짐
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import rentApi from '@/api/rentApi';
 import { useRentStore } from '@/stores/rent';
@@ -46,6 +46,74 @@ onMounted(() => {
 watch(months, (m) => (rentStore.months = m));
 
 const listing = computed(() => data.value?.listing);
+// 위치 좌표(국토부 실거래 API에 매물 이미지가 없어 지도로 대체). 좌표 있을 때만 안내 노출.
+const hasCoords = computed(
+  () => listing.value?.latitude != null && listing.value?.longitude != null,
+);
+const coordText = computed(() =>
+  hasCoords.value
+    ? `위도 ${Number(listing.value.latitude).toFixed(4)}, 경도 ${Number(listing.value.longitude).toFixed(4)}`
+    : '',
+);
+
+// 카카오맵: 앱키는 .env(VITE_KAKAO_MAP_KEY)에서만, 하드코딩 금지
+const KAKAO_KEY = import.meta.env.VITE_KAKAO_MAP_KEY;
+const mapEl = ref(null);
+// 지도 표시 조건: 앱키 있고 좌표 있을 때만. 아니면 좌표 안내 폴백
+const showMap = computed(() => !!KAKAO_KEY && hasCoords.value);
+let mapReady = false; // 중복 초기화 방지
+
+// SDK 동적 로드(한 번만). window.kakao.maps 있으면 재사용, 없으면 script 주입
+const loadKakaoSdk = () =>
+  new Promise((resolve, reject) => {
+    if (window.kakao?.maps) return resolve();
+    const existing = document.getElementById('kakao-map-sdk');
+    if (existing) {
+      existing.addEventListener('load', () => resolve());
+      existing.addEventListener('error', reject);
+      return;
+    }
+    const script = document.createElement('script');
+    script.id = 'kakao-map-sdk';
+    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_KEY}&autoload=false`;
+    script.onload = () => resolve();
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+
+// 좌표로 지도 생성 + 마커
+const initMap = () => {
+  if (!mapEl.value || !hasCoords.value) return;
+  const { kakao } = window;
+  const pos = new kakao.maps.LatLng(
+    Number(listing.value.latitude),
+    Number(listing.value.longitude),
+  );
+  const map = new kakao.maps.Map(mapEl.value, { center: pos, level: 3 });
+  new kakao.maps.Marker({ position: pos, map });
+};
+
+const setupMap = async () => {
+  if (mapReady || !showMap.value) return;
+  mapReady = true;
+  try {
+    await loadKakaoSdk();
+    window.kakao.maps.load(initMap);
+  } catch {
+    mapReady = false; // 로드 실패 시 폴백 유지(showMap은 여전히 true라 컨테이너만 비어보임)
+  }
+};
+
+// listing 이 비동기로 채워지므로 좌표 준비되면 DOM 렌더 후 초기화
+watch(
+  showMap,
+  async (ok) => {
+    if (!ok) return;
+    await nextTick();
+    setupMap();
+  },
+  { immediate: true },
+);
 const monthlyCost = computed(() => (listing.value?.monthlyRent ?? 0) + (listing.value?.maintenanceFee ?? 0));
 const totalCost = computed(() => (listing.value?.deposit ?? 0) + monthlyCost.value * months.value);
 // 실제 소멸 비용: 돌려받지 못하고 나가는 돈 (월세+관리비)×개월. totalCost 에서 보증금을 뺀 값과 같다.
@@ -102,7 +170,15 @@ const goPrev = () => {
       <p class="meta">{{ listing.dongName }} · {{ listing.floor }}층 · {{ listing.areaSqm }}㎡</p>
     </header>
 
-    <div class="map">지도</div>
+    <!-- 카카오맵: 앱키(.env VITE_KAKAO_MAP_KEY)+좌표 있으면 지도, 아니면 좌표 안내 폴백 -->
+    <div v-if="showMap" ref="mapEl" class="map map--live"></div>
+    <div v-else class="map">
+      <template v-if="hasCoords">
+        <span class="map__label">매물 위치</span>
+        <span class="map__coord">{{ coordText }}</span>
+      </template>
+      <span v-else class="map__label">위치 정보 준비 중</span>
+    </div>
 
     <div class="pbadges">
       <span v-for="(b, i) in (data.propertyBadges || SAMPLE.propertyBadges)" :key="i" class="tag">{{ b }}</span>
@@ -192,13 +268,31 @@ const goPrev = () => {
 }
 .map {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 3px;
   height: 100px;
   border-radius: 8px;
   background: var(--kb-gray-pale);
   color: var(--text-muted);
   font-size: 13px;
+}
+/* 실제 카카오맵 컨테이너: 타일이 보이도록 높이 확보 */
+.map--live {
+  display: block;
+  height: 200px;
+  background: var(--kb-gray-pale);
+  overflow: hidden;
+}
+.map__label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.map__coord {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-body);
 }
 .pbadges {
   display: flex;

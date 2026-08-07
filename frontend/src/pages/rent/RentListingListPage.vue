@@ -24,6 +24,21 @@ const ESTATE_LABEL = {
   ROOM: '원룸',
 };
 
+// 시세 뱃지(지역·종류 평균 대비): tone 으로 톤만 구분 (긍정/중립/주의), 이모지 없음
+const PRICE_BADGE = {
+  CHEAP: { label: '지역 평균보다 저렴', tone: 'good' },
+  AVERAGE: { label: '평균 수준', tone: 'neutral' },
+  EXPENSIVE: { label: '평균보다 비쌈', tone: 'warn' },
+};
+// 실거래 신선도 뱃지 — 톤 구분 없이 담백하게 중립
+const FRESHNESS_BADGE = {
+  FRESH_1M: '1개월 내 실거래',
+  FRESH_3M: '3개월 내 실거래',
+  OLD_6M: '6개월+ 전 실거래',
+};
+const priceBadgeOf = (l) => PRICE_BADGE[l.priceLevel] || null;
+const freshnessLabelOf = (l) => FRESHNESS_BADGE[l.freshness] || null;
+
 const listings = ref([]);
 const loading = ref(true);
 
@@ -114,6 +129,17 @@ const effectiveMonthlyOf = (l) =>
           <span class="info">
             <span class="name">{{ l.buildingName }}</span>
             <span class="dong">{{ l.dongName }}</span>
+            <span v-if="priceBadgeOf(l) || freshnessLabelOf(l)" class="badges">
+              <span
+                v-if="priceBadgeOf(l)"
+                class="badge"
+                :class="`badge--${priceBadgeOf(l).tone}`"
+                >{{ priceBadgeOf(l).label }}</span
+              >
+              <span v-if="freshnessLabelOf(l)" class="badge badge--neutral">{{
+                freshnessLabelOf(l)
+              }}</span>
+            </span>
             <span class="eff">
               <span class="eff-label">실질 월부담</span>
               <span class="eff-val">{{ formatManwon(effectiveMonthlyOf(l)) }}</span>
@@ -215,6 +241,32 @@ const effectiveMonthlyOf = (l) =>
 .dong {
   font-size: 11px;
   color: var(--text-hint);
+}
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+/* 담백 톤: 배경 없이 테두리+글자색으로만 톤 구분 (기존 .tag 결과 맞춤) */
+.badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text-muted);
+}
+.badge--good {
+  border-color: var(--military-green-light);
+  color: var(--success);
+}
+.badge--warn {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.badge--neutral {
+  border-color: var(--line);
+  color: var(--text-muted);
 }
 .eff {
   display: flex;
