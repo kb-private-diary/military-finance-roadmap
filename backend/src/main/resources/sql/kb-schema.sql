@@ -1156,6 +1156,15 @@ CREATE TABLE `chat_feedback` (
   `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
 );
 
+-- 챗봇 조회 패턴에 맞춘 인덱스(2026-08-08, 멘토 피드백 반영):
+-- - 세션 목록/이전기록 조회(list_sessions, get_all_history): user_id + del_yn 로 필터
+-- - 메시지 조회(get_history, send_message의 최근 N건): session_id + del_yn 로 필터, created_date로 정렬
+-- - 피드백 조회(get_recommendation 등): session_id, message_id로 필터
+ALTER TABLE `chat_session` ADD INDEX `idx_chat_session_user` (`user_id`, `del_yn`);
+ALTER TABLE `chat_message` ADD INDEX `idx_chat_message_session` (`session_id`, `del_yn`, `created_date`);
+ALTER TABLE `chat_feedback` ADD INDEX `idx_chat_feedback_session` (`session_id`);
+ALTER TABLE `chat_feedback` ADD INDEX `idx_chat_feedback_message` (`message_id`);
+
 DROP TABLE IF EXISTS `openbanking_link`;
 CREATE TABLE `openbanking_link` (
   `link_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '연동번호',
