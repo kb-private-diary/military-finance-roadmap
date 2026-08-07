@@ -21,4 +21,5 @@ public class RentGoalVO extends BaseVO {
     private String residencePreset;  // 거주기간 프리셋 SEMESTER / YEAR / GRADUATE
     private Integer residenceMonths; // 거주 개월수 6 / 12 / 24 (프리셋 매핑값)
     private String status;           // 진행상태 DRAFT / CONFIRMED / ARCHIVED
+    private Long confirmedListingId; // 확정 매물번호 (Step5 저장 시 선택 매물, DRAFT면 null)
 }
