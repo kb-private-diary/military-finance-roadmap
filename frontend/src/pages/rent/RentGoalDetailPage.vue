@@ -34,6 +34,14 @@ const FACILITY_META = {
   HOSPITAL: { label: '병원', emoji: '🏥' },
 };
 
+// 생활 인프라 충족도: 1인 가구 기준 4대 시설 종류(있음/없음만 판정)
+const INFRA_TYPES = [
+  { type: 'SUBWAY', emoji: '🚇', label: '역' },
+  { type: 'CONVENIENCE', emoji: '🏪', label: '편의점' },
+  { type: 'MART', emoji: '🛒', label: '마트' },
+  { type: 'HOSPITAL', emoji: '🏥', label: '병원' },
+];
+
 // 시세 뱃지: priceLevel(CHEAP/AVERAGE/EXPENSIVE) → 배경 채운 pill
 const PRICE_BADGE = {
   CHEAP: { label: '✅ 지역 평균보다 저렴', cls: 'pill--cheap' },
@@ -289,6 +297,48 @@ const facilityMeta = (type) => FACILITY_META[type] || { label: '기타', emoji: 
 const facilityDistance = (f) =>
   `도보 ${f.walkMinutes}분 · ${(f.walkMinutes * 80).toLocaleString('ko-KR')}m`;
 
+// ── 생활 인프라 충족도 (계산만, 하드코딩 없음) ─────────────
+// 4대 시설 종류별 존재 여부 → 충족 개수(0~4). facilities 비면 카드 자체를 숨김.
+const infraStatus = computed(() =>
+  INFRA_TYPES.map((t) => ({
+    ...t,
+    has: facilities.value.some((f) => f?.type === t.type),
+  })),
+);
+const infraCount = computed(() => infraStatus.value.filter((i) => i.has).length);
+
+// ── 이 집의 강점 요약 (해당하는 태그만 노출) ──────────────
+const strengthTags = computed(() => {
+  const l = listing.value;
+  if (!l) return [];
+  const tags = [];
+  // 시세 저렴
+  if (l.priceLevel === 'CHEAP') tags.push('✅ 시세 저렴');
+  // 역세권: SUBWAY 도보 10분 이내
+  const subway = facilities.value.find((f) => f?.type === 'SUBWAY');
+  if (subway && subway.walkMinutes != null && subway.walkMinutes <= 10) {
+    tags.push('✅ 역세권');
+  }
+  // 편의시설 인접: 편의점 또는 마트 존재
+  if (facilities.value.some((f) => f?.type === 'CONVENIENCE' || f?.type === 'MART')) {
+    tags.push('✅ 편의시설 인접');
+  }
+  // 최근 실거래: dealDate 6개월 이내
+  if (l.dealDate) {
+    const deal = new Date(l.dealDate);
+    if (!Number.isNaN(deal.getTime())) {
+      const monthsAgo = (Date.now() - deal.getTime()) / (1000 * 60 * 60 * 24 * 30);
+      if (monthsAgo >= 0 && monthsAgo <= 6) tags.push('✅ 최근 실거래');
+    }
+  }
+  // 신축급: buildYear 10년 이내
+  if (l.buildYear) {
+    const age = new Date().getFullYear() - Number(l.buildYear);
+    if (age >= 0 && age <= 10) tags.push('✅ 신축급');
+  }
+  return tags;
+});
+
 // ── 후회소비 인사이트 (킬러) ─────────────────────────────
 const showRegretInsight = computed(
   () => !!sim.value && (sim.value.userSpending?.avgRegretSpending ?? 0) > 0,
@@ -465,6 +515,37 @@ const goConfirm = () => router.push({ name: 'RoadmapMain' });
 
     <!-- 탭 1: 나의 매물 -->
     <section v-show="activeTab === 'listing'" class="pane">
+      <!-- 생활 인프라 충족도 (데이터 없으면 숨김) -->
+      <BaseCard v-if="facilities.length" padding="14px">
+        <div class="infra-head">
+          <p class="cap cap--m0">1인 가구 생활 인프라</p>
+          <span class="infra-count">{{ infraCount }}/4 충족</span>
+        </div>
+        <div class="infra-gauge">
+          <span class="infra-gauge__fill" :style="{ width: (infraCount / 4) * 100 + '%' }"></span>
+        </div>
+        <div class="infra-chips">
+          <span
+            v-for="it in infraStatus"
+            :key="it.type"
+            class="infra-chip"
+            :class="{ 'infra-chip--on': it.has }"
+          >
+            <span v-if="it.has" class="infra-chip__check">✓</span>
+            <span class="infra-chip__icon">{{ it.emoji }}</span>
+            <span class="infra-chip__label">{{ it.label }}</span>
+          </span>
+        </div>
+      </BaseCard>
+
+      <!-- 이 집의 강점 (해당 태그 없으면 숨김) -->
+      <BaseCard v-if="strengthTags.length" padding="14px">
+        <p class="cap">이 집의 강점</p>
+        <div class="strength-tags">
+          <span v-for="(t, i) in strengthTags" :key="i" class="pill strength-pill">{{ t }}</span>
+        </div>
+      </BaseCard>
+
       <!-- 주변 교통시설 -->
       <BaseCard padding="14px">
         <p class="cap">주변 교통시설</p>
@@ -908,6 +989,85 @@ const goConfirm = () => router.push({ name: 'RoadmapMain' });
 .fac__dist {
   font-size: 10px;
   color: var(--text-muted);
+}
+
+/* 생활 인프라 충족도 */
+.infra-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.infra-count {
+  font-size: 13px;
+  font-weight: 800;
+  color: #f0a500; /* 강조 노랑(기존 cost-total 톤 재사용) */
+}
+.infra-gauge {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--kb-gray-pale);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.infra-gauge__fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: #f0a500;
+  transition: width 0.3s;
+}
+.infra-chips {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.infra-chip {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 4px;
+  border-radius: 10px;
+  background: var(--kb-gray-pale);
+  color: var(--text-hint);
+}
+.infra-chip__icon {
+  font-size: 18px;
+  filter: grayscale(1);
+  opacity: 0.45;
+}
+.infra-chip__label {
+  font-size: 11px;
+  font-weight: 600;
+}
+.infra-chip--on {
+  background: #e1f3e0; /* 기존 pill--cheap 연초록 재사용 */
+  color: #2e9e5b; /* 기존 insight__hl 초록 재사용 */
+}
+.infra-chip--on .infra-chip__icon {
+  filter: none;
+  opacity: 1;
+}
+.infra-chip__check {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  color: #2e9e5b;
+}
+
+/* 이 집의 강점 pill */
+.strength-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.strength-pill {
+  background: #e1f3e0; /* 연초록 재사용 */
+  color: #2e9e5b; /* 초록 재사용 */
 }
 
 /* 후회소비 인사이트 카드 */
