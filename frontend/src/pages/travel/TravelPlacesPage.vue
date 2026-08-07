@@ -171,7 +171,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="travel-places">
-    <RoadmapCharacterSlider :progress="67" label="여행 로드맵" />
+    <RoadmapCharacterSlider :step="3" label="여행 로드맵" />
 
     <header class="page-header">
       <h1 class="text-title">어디를 둘러볼까요?</h1>

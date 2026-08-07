@@ -14,7 +14,6 @@ const router = useRouter();
 const goalId = computed(() => Number(route.params.goalId));
 
 const currentStep = 3;
-const progress = computed(() => (currentStep / 4) * 100);
 
 const goal = ref(null);
 const purchase = ref(null); // { price, tax }
@@ -76,7 +75,7 @@ const handlePrev = () => {
 
 <template>
   <div class="car-cost">
-    <RoadmapCharacterSlider :progress="progress" label="자동차 로드맵" />
+    <RoadmapCharacterSlider :step="currentStep" label="자동차 로드맵" />
 
     <h2 class="car-cost__title text-title">비용 계산</h2>
 

@@ -148,7 +148,7 @@ const onComplete = () => {
 
 <template>
   <div class="listings">
-    <RoadmapCharacterSlider :progress="40" label="자취 로드맵" />
+    <RoadmapCharacterSlider :step="2" label="자취 로드맵" />
 
     <header class="head">
       <h2 class="title">로드맵을 선택해주십니까?</h2>

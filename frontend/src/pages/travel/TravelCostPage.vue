@@ -106,7 +106,7 @@ const goNext = () =>
 
 <template>
   <div class="travel-cost">
-    <RoadmapCharacterSlider :progress="34" label="여행 로드맵" />
+    <RoadmapCharacterSlider :step="2" label="여행 로드맵" />
 
     <div v-if="loading" class="status-box text-caption" role="status">
       예상 비용을 계산하고 있습니다.

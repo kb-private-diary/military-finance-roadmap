@@ -87,7 +87,7 @@ const saveRoadmap = async () => {
 
 <template>
   <div class="products">
-    <RoadmapCharacterSlider :progress="80" label="자취 로드맵" />
+    <RoadmapCharacterSlider :step="4" label="자취 로드맵" />
     <header>
       <p class="step">STEP 4</p>
       <h2 class="title">추천 금융상품</h2>

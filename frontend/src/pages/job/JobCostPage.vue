@@ -134,7 +134,7 @@ onMounted(() => {
 
 <template>
   <div class="job-cost">
-    <RoadmapCharacterSlider :progress="67" label="진로 로드맵" />
+    <RoadmapCharacterSlider :step="3" label="진로 로드맵" />
 
     <div v-if="isLoading" class="job-cost__loading">
       비용 정보를 불러오고 있습니다.

@@ -184,7 +184,7 @@ const goPrev = () => {
 
 <template>
   <div v-if="listing" class="detail">
-    <RoadmapCharacterSlider :progress="60" label="자취 로드맵" />
+    <RoadmapCharacterSlider :step="3" label="자취 로드맵" />
     <header>
       <p class="step">STEP 3</p>
       <h2 class="name">{{ listing.buildingName }}</h2>

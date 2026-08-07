@@ -165,7 +165,7 @@ const goNext = async () => {
 
 <template>
   <div class="rent-goal">
-    <RoadmapCharacterSlider :progress="20" label="자취 로드맵" />
+    <RoadmapCharacterSlider :step="1" label="자취 로드맵" />
 
     <header>
       <p class="step">STEP 1</p>
