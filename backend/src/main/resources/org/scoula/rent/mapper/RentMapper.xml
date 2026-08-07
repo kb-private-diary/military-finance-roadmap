@@ -59,7 +59,16 @@
         FROM school
         WHERE school_name LIKE CONCAT('%', #{keyword}, '%')
           AND del_yn = 'N'
-        ORDER BY school_name
+        ORDER BY
+          -- 정확히 일치(0) > 이름이 검색어로 시작(1) > 그 외 부분일치(2) 순으로 정렬
+          -- 예: "서울대" 검색 시 "서울대학교"(시작일치)가 "남서울대학교"(부분일치)보다 위로
+          CASE
+            WHEN school_name = #{keyword} THEN 0
+            WHEN school_name LIKE CONCAT(#{keyword}, '%') THEN 1
+            ELSE 2
+          END,
+          CHAR_LENGTH(school_name),  -- 같은 순위면 짧은 이름 우선(본교가 대학원/분교보다 위)
+          school_name
         LIMIT 20
     </select>
 

@@ -34,6 +34,8 @@ public class RentListingResponseDTO {
     private Long maintenanceFee;   // 월 예상 관리비 (면적앵커 보간 단가 × 전용면적 × 시도계수, 없으면 0)
     private Long depositConverted; // 보증금환산액 = 보증금 × 전월세전환율 ÷ 12 (원/월)
     private Long effectiveMonthly; // 실질 월부담 = 월세 + 관리비 + 보증금환산 (반전세 공정 비교 기준)
+    private Long totalCost6M;      // 6개월 거주 총필요자금 = 보증금 + (월세 + 관리비) × 6 (원) - 프론트 "6개월 예상" 표시용
+                                   //   재정진단 뱃지(affordText) 판정에 쓰는 6개월 총필요자금과 동일한 값을 그대로 담는다.
 
     // --- Step2 카드 모드별 뱃지 (findListings 에서 채움, 프론트 계약) ---
     private String selectionMode; // 위치 모드 SCHOOL / REGION (프론트 뱃지 분기용)
