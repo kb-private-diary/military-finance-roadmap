@@ -30,6 +30,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -237,7 +239,15 @@ public class RentServiceImpl implements RentService {
                     ? List.of()
                     : this.listingMapper.findListingsByRegions(regionCodes, goal.getMonthlyBudget());
         }
-        return listings.stream().map(RentListingResponseDTO::of).toList();
+        // 시세 상대평가 뱃지용: 조회된 매물의 종류별 평균 월세 (같은 조건 매물끼리 비교)
+        Map<String, Double> avgRentByType = listings.stream()
+                .filter(l -> l.getMonthlyRent() != null && l.getEstateType() != null)
+                .collect(Collectors.groupingBy(
+                        RentListingVO::getEstateType,
+                        Collectors.averagingLong(RentListingVO::getMonthlyRent)));
+        return listings.stream()
+                .map(l -> RentListingResponseDTO.of(l, avgRentByType.get(l.getEstateType())))
+                .toList();
     }
 
     @Override
@@ -308,6 +318,10 @@ public class RentServiceImpl implements RentService {
     @Override
     @Transactional
     public void confirmGoal(Long goalId, Long userId, Integer months, Long listingId) {
+        // 0) 저장할 확정 매물 필수 (Step4에서 고른 매물 = Step5 정밀 시뮬레이션 기준)
+        if (listingId == null) {
+            throw BusinessException.badRequest("저장할 매물을 선택해주세요.", "RENT_011");
+        }
         // 1) 목표 조회 (없으면 404)
         RentGoalVO goal = this.mapper.findGoalById(goalId);
         if (goal == null) {
@@ -321,10 +335,14 @@ public class RentServiceImpl implements RentService {
         if (!STATUS_DRAFT.equals(goal.getStatus())) {
             throw BusinessException.conflict("이미 저장된 목표입니다.", "RENT_009");
         }
+        // 4) 회원당 저장된 로드맵(CONFIRMED) 1건만 - 이미 있으면 기존 것 삭제 후 저장
+        if (this.mapper.countGoalByUserIdAndStatus(userId, "CONFIRMED") > 0) {
+            throw BusinessException.conflict("이미 저장된 로드맵이 있습니다. 기존 로드맵을 삭제 후 저장해주세요.", "RENT_010");
+        }
 
         String modifier = "user:" + userId; // TODO: JWT 연동 후 로그인 사용자명으로 교체
 
-        // 4) 상태 DRAFT → CONFIRMED 확정 (months=거주개월, listingId=Step4에서 고른 확정 매물)
+        // 5) 상태 DRAFT → CONFIRMED 확정 (months=거주개월, listingId=Step4에서 고른 확정 매물)
         this.mapper.confirmGoal(goalId, months, listingId, modifier);
 
         // 참고: Step5 정밀 시뮬레이션은 findGoal 조회 시 확정 매물 기준으로 실시간 계산한다

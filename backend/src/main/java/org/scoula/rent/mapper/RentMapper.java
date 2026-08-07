@@ -39,6 +39,9 @@ public interface RentMapper {
     // 재등록 시 기존 DRAFT 목표 soft delete (회원당 DRAFT 1건 유지)
     void deleteDraftGoalByUserId(@Param("userId") Long userId, @Param("modifiedNm") String modifiedNm);
 
+    // 회원의 특정 상태 목표 건수 (회원당 CONFIRMED 1건 검증용)
+    int countGoalByUserIdAndStatus(@Param("userId") Long userId, @Param("status") String status);
+
     // 전국 시군구코드 목록 (매물 전국 배치 적재용)
     List<String> findAllSigunguCodes();
 

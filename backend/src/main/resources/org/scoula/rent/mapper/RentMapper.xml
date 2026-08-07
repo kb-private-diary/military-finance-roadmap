@@ -82,6 +82,15 @@
           AND del_yn = 'N'
     </update>
 
+    <!-- 회원의 특정 상태 목표 건수 (회원당 CONFIRMED 1건 검증용) -->
+    <select id="countGoalByUserIdAndStatus" resultType="int">
+        SELECT COUNT(*)
+          FROM rent_goal
+         WHERE user_id = #{userId}
+           AND status = #{status}
+           AND del_yn = 'N'
+    </select>
+
     <!-- 목표의 희망 지역 법정동코드 목록 (REGION 모드 매물 조회용) -->
     <select id="findRegionCodesByGoalId" parameterType="long" resultType="string">
         SELECT region_code
