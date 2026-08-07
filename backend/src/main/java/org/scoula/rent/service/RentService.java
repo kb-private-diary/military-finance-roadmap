@@ -41,5 +41,5 @@ public interface RentService {
     RentAffordabilityResponseDTO findAffordability(Long listingId, Long userId, int months);
 
     // 로드맵 저장 (Step4 저장 버튼) - rent_goal 상태 DRAFT → CONFIRMED 확정
-    void confirmGoal(Long goalId, Long userId, Integer months);
+    void confirmGoal(Long goalId, Long userId, Integer months, Long listingId);
 }

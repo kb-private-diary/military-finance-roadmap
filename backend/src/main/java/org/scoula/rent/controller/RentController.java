@@ -111,13 +111,15 @@ public class RentController {
                 service.findAffordability(listingId, customUser.getMember().getId(), months)));
     }
 
-    // POST /api/rent/goals/{goalId}/confirm?months=6 → 로드맵 저장 (DRAFT → CONFIRMED, months 선택)
+    // POST /api/rent/goals/{goalId}/confirm?months=6&listingId=10 → 로드맵 저장 (DRAFT → CONFIRMED)
+    //   listingId = Step4에서 고른 확정 매물 (Step5 정밀 시뮬레이션 기준이 됨)
     @PostMapping("/goals/{goalId}/confirm")
     public ResponseEntity<ApiResponse<Void>> confirmGoal(
             @PathVariable Long goalId,
             @AuthenticationPrincipal CustomUser customUser,
-            @RequestParam(required = false) Integer months) {
-        service.confirmGoal(goalId, customUser.getMember().getId(), months);
+            @RequestParam(required = false) Integer months,
+            @RequestParam(required = false) Long listingId) {
+        service.confirmGoal(goalId, customUser.getMember().getId(), months, listingId);
         return ResponseEntity.ok(ApiResponse.success());
     }
 

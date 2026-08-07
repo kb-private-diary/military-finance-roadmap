@@ -7,6 +7,7 @@ import org.scoula.regret.domain.SpendingReviewVO;
 import org.scoula.regret.dto.SpendingResponseDTO;
 import org.scoula.regret.dto.SpendingReviewRequestDTO;
 import org.scoula.regret.dto.RegretStatsResponseDTO;
+import org.scoula.regret.dto.RegretSpendingSummaryDTO;
 import org.scoula.regret.mapper.SpendingReviewMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +42,14 @@ public class RegretServiceImpl implements RegretService {
                 ? Math.round(regret * 1000.0 / monthlyIncome) / 10.0
                 : 0.0);
         return stats;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public RegretSpendingSummaryDTO getSpendingSummary(Long userId, int months) {
+        // 개월수는 1 이상 (0 나눗셈 방지)
+        int safeMonths = Math.max(months, 1);
+        return this.mapper.findSpendingSummary(userId, safeMonths);
     }
 
     @Override
