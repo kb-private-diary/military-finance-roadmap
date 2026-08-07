@@ -122,13 +122,17 @@ const sortedListings = computed(() => {
   return arr; // recommend: 응답 순서 유지
 });
 
-// ── 상세 이동 + 선택(priceLevel) 저장 ─────────────────────────
-const goDetail = (l) => {
+// ── 카드 클릭 = 선택만(상세 이동 X). priceLevel 도 store 에 저장해 step3 시세뱃지에서 사용 ──
+const selectListing = (l) => {
   rentStore.selectedListingId = l.listingId;
+  rentStore.selectedPriceLevel = l.priceLevel ?? null;
+};
+
+// ── 상세 이동(하단 "매물 선택" 버튼에서만 호출) ─────────────────
+const goDetail = (l) => {
   router.push({
     name: 'RentListingDetail',
     params: { listingId: l.listingId },
-    // priceLevel 저장: 상세/이후 단계에서 참조하도록 query로 이어줌
     query: {
       goalId,
       months: rentStore.months,
@@ -176,8 +180,13 @@ const onComplete = () => {
         <span class="filter">{{ filterText }}</span>
       </div>
 
-      <BaseCard v-for="l in sortedListings" :key="l.listingId" padding="12px">
-        <button class="listing-card" @click="goDetail(l)">
+      <BaseCard
+        v-for="l in sortedListings"
+        :key="l.listingId"
+        padding="12px"
+        :class="{ 'card-selected': rentStore.selectedListingId === l.listingId }"
+      >
+        <button class="listing-card" @click="selectListing(l)">
           <span class="name-row">
             <span class="chip">{{ ESTATE_LABEL[l.estateType] || '매물' }}</span>
             <span class="name">{{ l.buildingName }}</span>
@@ -258,6 +267,12 @@ const onComplete = () => {
 .filter {
   font-size: 11px;
   color: var(--text-muted);
+}
+/* 선택된 매물 카드 강조 (하단 버튼으로 넘어가기 전 표시) */
+.card-selected {
+  outline: 2px solid var(--kb-yellow-deep);
+  outline-offset: -1px;
+  border-radius: 12px;
 }
 .listing-card {
   display: flex;

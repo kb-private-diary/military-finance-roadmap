@@ -193,17 +193,33 @@ const judge = (need, m) => {
   if (m >= need * 0.8) return '빠듯해요';
   return '예산 초과';
 };
-// 백엔드 affordability 응답(affordText)이 오면 그 값을, 없으면 로컬 판정으로 폴백
+// 백엔드 affordability 응답(affordabilityLabel: "딱 맞아요" 등)을 우선, 없으면 로컬 판정으로 폴백
 const affordText = computed(
-  () => affordability.value?.affordText ?? judge(requiredForMode.value, maturity.value),
+  () => affordability.value?.affordabilityLabel ?? judge(requiredForMode.value, maturity.value),
 );
-// 재정 체크 박스: affordText 값에 따라 배경색/제목 매핑
+// 재정 체크 박스: 배경색 + 아이콘 + 헤드라인(헤드라인만 볼드, "내 재정 체크"는 별도 라벨)
 const AFFORD = {
-  '딱 맞아요': { cls: 'afford--ok', title: '내 재정 체크 👍 딱 맞아요' },
-  '빠듯해요': { cls: 'afford--tight', title: '내 재정 체크 ⚠️ 빠듯해요' },
-  '예산 초과': { cls: 'afford--over', title: '내 재정 체크 ❌ 예산 초과' },
+  '딱 맞아요': { cls: 'afford--ok', icon: '👍', headline: '딱 맞아요' },
+  '빠듯해요': { cls: 'afford--tight', icon: '⚠️', headline: '빠듯해요' },
+  '예산 초과': { cls: 'afford--over', icon: '❌', headline: '예산 초과' },
 };
 const affordMeta = computed(() => AFFORD[affordText.value] || AFFORD['빠듯해요']);
+
+// 재정 분석 문구: 만기금으로 몇 개월 가능 + 남는 돈/부족분
+// (백엔드 surplus/shortfall 응답을 우선, 없으면 로컬 계산으로 폴백)
+const analysisText = computed(() => {
+  const a = affordability.value;
+  const mat = formatManwon(maturity.value);
+  if (affordText.value === '딱 맞아요') {
+    const surplus = a?.surplus ?? Math.max(0, maturity.value - requiredForMode.value);
+    return `만기금 ${mat}으로 ${months.value}개월 거주가 가능해요. 남는 돈 ${formatManwon(surplus)}은 비상금으로 두는 걸 추천합니다.`;
+  }
+  if (affordText.value === '빠듯해요') {
+    return `만기금 ${mat}으로 ${months.value}개월 거주는 가능하지만 여유가 빠듯해요. 예비비를 넉넉히 준비하는 걸 추천해요.`;
+  }
+  const shortfall = a?.shortfall ?? Math.max(0, requiredForMode.value - maturity.value);
+  return `${months.value}개월 거주하려면 ${formatManwon(shortfall)}이 부족해요. 거주기간을 줄이거나 전월세보증금대출을 확인해보세요.`;
+});
 
 const loadAffordability = async () => {
   try {
@@ -363,8 +379,9 @@ const goPrev = () => {
 
     <!-- 내 재정 체크 -->
     <div class="afford" :class="affordMeta.cls">
-      <p class="afford__t">{{ affordMeta.title }}</p>
-      <p class="afford__s">만기금 {{ formatManwon(maturity) }} 기준으로 판단했어요</p>
+      <p class="afford__label">내 재정 체크</p>
+      <p class="afford__t">{{ affordMeta.icon }} {{ affordMeta.headline }}</p>
+      <p class="afford__s">{{ analysisText }}</p>
     </div>
 
     <!-- N개월 거주 한다면? (비율 막대그래프) -->
@@ -612,6 +629,7 @@ const goPrev = () => {
 
 /* ── 섹션 제목 ─────────────────────────────────────────── */
 .sec-title {
+  margin-top: 10px;
   font-size: 15px;
   font-weight: 700;
   color: var(--text-strong);
@@ -708,14 +726,23 @@ const goPrev = () => {
 .afford--over {
   background: #f4d1d1;
 }
+/* "내 재정 체크" 라벨 - 볼드 아님, 작은 회색 */
+.afford__label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-bottom: 3px;
+}
+/* 헤드라인(👍 딱 맞아요)만 볼드 */
 .afford__t {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--text-strong);
 }
 .afford__s {
-  margin-top: 4px;
-  font-size: 11px;
+  margin-top: 5px;
+  font-size: 12px;
+  line-height: 1.6;
   color: var(--text-body);
 }
 
