@@ -48,6 +48,7 @@ import javax.sql.DataSource;
         "org.scoula.social.mapper",
         "org.scoula.bookmark.mapper",
         "org.scoula.push.mapper",
+        "org.scoula.roadmap.mapper",
         "org.scoula.kakao.mapper"
 })
 @ComponentScan(basePackages = {
@@ -72,6 +73,7 @@ import javax.sql.DataSource;
         "org.scoula.bookmark.service",
         "org.scoula.push.service",
         "org.scoula.push.client",
+        "org.scoula.roadmap.service",
         "org.scoula.kakao.service"
 })
 // application-secret.properties 는 API 키 등 비밀값 (gitignore 대상).

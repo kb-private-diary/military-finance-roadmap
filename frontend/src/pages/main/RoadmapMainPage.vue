@@ -1,7 +1,7 @@
 <script setup>
 // SCR-ROAD-01 · 로드맵 메인  (담당: 지원)
 // 카테고리별 목표 진입 + 저장된 로드맵 게시판 (관심등록)
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 
 import { useRouter } from 'vue-router';
 
@@ -14,11 +14,65 @@ import travelImage from '@/assets/images/roadmap/travel.png';
 import carImage from '@/assets/images/roadmap/car.png';
 import jobImage from '@/assets/images/roadmap/job.png';
 import rentImage from '@/assets/images/roadmap/rent.png';
+import roadmapApi from '@/api/roadmapApi';
+import EmptyState from '@/components/common/EmptyState.vue';
 
 const router = useRouter();
 
 const selectedCategory = ref('');
 const selectedRoadmapCategory = ref('ALL');
+
+const roadmaps = ref([]);
+const isLoading = ref(false);
+const visibleCount = ref(4);
+
+const emptyStateTitle = computed(
+  () => emptyStateMap[selectedRoadmapCategory.value].title,
+);
+
+const emptyStateDescription = computed(
+  () => emptyStateMap[selectedRoadmapCategory.value].description,
+);
+
+const emptyStateImage = computed(
+  () => emptyStateMap[selectedRoadmapCategory.value].image,
+);
+
+const visibleRoadmaps = computed(() =>
+  roadmaps.value.slice(0, visibleCount.value),
+);
+
+const hasMoreRoadmaps = computed(
+  () => visibleCount.value < roadmaps.value.length,
+);
+
+const emptyStateMap = {
+  ALL: {
+    title: '아직 저장한 목표가 없어요',
+    description: '위의 관심있는 카테고리를 눌러 나만의 로드맵을 시작해보세요',
+    image: null,
+  },
+  TRAVEL: {
+    title: '여행 목표가 아직 없어요',
+    description: '여행 카드에서 목표를 등록하면 여기에 표시돼요',
+    image: travelImage,
+  },
+  JOB: {
+    title: '진로 목표가 아직 없어요',
+    description: '진로 카드에서 목표를 등록하면 여기에 표시돼요',
+    image: jobImage,
+  },
+  CAR: {
+    title: '자동차 목표가 아직 없어요',
+    description: '자동차 카드에서 목표를 등록하면 여기에 표시돼요',
+    image: carImage,
+  },
+  RENT: {
+    title: '자취 목표가 아직 없어요',
+    description: '자취 카드에서 목표를 등록하면 여기에 표시돼요',
+    image: rentImage,
+  },
+};
 
 const categories = [
   {
@@ -83,55 +137,93 @@ const roadmapFilters = [
   },
 ];
 
-const roadmaps = ref([
-  {
-    goalId: 1,
-    categoryCode: 'JOB',
-    categoryLabel: '진로',
-    title: '웹개발',
-    description: '2027.03',
-    liked: false,
+const categoryMap = {
+  1: {
+    code: 'TRAVEL',
+    label: '여행',
   },
-  {
-    goalId: 2,
-    categoryCode: 'TRAVEL',
-    categoryLabel: '여행',
-    title: '후쿠오카 여행',
-    description: '2026.12',
-    liked: true,
+  2: {
+    code: 'JOB',
+    label: '진로',
   },
-  {
-    goalId: 3,
-    categoryCode: 'CAR',
-    categoryLabel: '자동차',
-    title: '모닝',
-    description: '2027.01',
-    liked: false,
+  3: {
+    code: 'CAR',
+    label: '자동차',
   },
-  {
-    goalId: 4,
-    categoryCode: 'RENT',
-    categoryLabel: '자취',
-    title: '서울 원룸',
-    description: '2026.11',
-    liked: false,
+  4: {
+    code: 'RENT',
+    label: '자취',
   },
-]);
+};
 
-const filteredRoadmaps = computed(() => {
-  if (selectedRoadmapCategory.value === 'ALL') {
-    return roadmaps.value;
+const mapRoadmapItem = (item) => {
+  const category = categoryMap[item.categoryId];
+
+  return {
+    goalId: item.goalId,
+    categoryId: item.categoryId,
+    categoryCode: category.code,
+    categoryLabel: category.label,
+    title: item.title,
+    description: item.targetDate,
+    detail: item.detail,
+    liked: item.bookmarked,
+  };
+};
+
+const fetchRoadmaps = async (category = 'ALL') => {
+  isLoading.value = true;
+
+  try {
+    const result = await roadmapApi.findRoadmapList(category.toLowerCase());
+
+    roadmaps.value = result.map(mapRoadmapItem);
+    visibleCount.value = 4;
+  } catch (e) {
+    console.error(e);
+    roadmaps.value = [];
+  } finally {
+    isLoading.value = false;
   }
+};
 
-  return roadmaps.value.filter(
-    (roadmap) => roadmap.categoryCode === selectedRoadmapCategory.value,
-  );
-});
+const showMoreRoadmaps = () => {
+  visibleCount.value += 4;
+};
 
 const goRoadmapDetail = (roadmap) => {
-  console.log(roadmap);
+  switch (roadmap.categoryCode) {
+    case 'TRAVEL':
+      router.push({
+        name: 'TravelGoalDetail',
+        params: { goalId: roadmap.goalId },
+      });
+      break;
 
-  // TODO API 연결
+    case 'JOB':
+      router.push({
+        name: 'JobGoalDetail',
+        params: { goalId: roadmap.goalId },
+      });
+      break;
+
+    case 'CAR':
+      router.push({
+        name: 'CarGoalDetail',
+        params: { goalId: roadmap.goalId },
+      });
+      break;
+
+    case 'RENT':
+      router.push({
+        name: 'RentGoalDetail',
+        params: { goalId: roadmap.goalId },
+      });
+      break;
+
+    default:
+      console.warn('지원하지 않는 카테고리입니다.', roadmap);
+  }
 };
 
 const selectCategory = (category) => {
@@ -142,9 +234,17 @@ const selectCategory = (category) => {
   });
 };
 
-const selectRoadmapCategory = (categoryCode) => {
+const selectRoadmapCategory = async (categoryCode) => {
   selectedRoadmapCategory.value = categoryCode;
+
+  visibleCount.value = 4;
+
+  await fetchRoadmaps(categoryCode);
 };
+
+onMounted(async () => {
+  await fetchRoadmaps('ALL');
+});
 </script>
 
 <template>
@@ -199,33 +299,63 @@ const selectRoadmapCategory = (categoryCode) => {
       </div>
 
       <div class="roadmap-main__saved-list">
-        <BaseCard
-          v-for="roadmap in filteredRoadmaps"
-          :key="roadmap.goalId"
-          padding="12px 14px"
-          class="roadmap-main__saved-card"
-          @click="goRoadmapDetail(roadmap)"
+        <p v-if="isLoading" class="roadmap-main__status">불러오는 중...</p>
+
+        <EmptyState
+          v-else-if="roadmaps.length === 0"
+          :title="emptyStateTitle"
+          :description="emptyStateDescription"
         >
-          <div class="saved-card">
-            <div class="saved-card__content">
-              <span class="saved-card__category">
-                {{ roadmap.categoryLabel }}
-              </span>
+          <template v-if="selectedRoadmapCategory !== 'ALL'" #icon>
+            <img
+              :src="emptyStateImage"
+              :alt="`${emptyStateTitle} 아이콘`"
+              class="roadmap-main__empty-image"
+            />
+          </template>
+        </EmptyState>
 
-              <strong class="saved-card__title">
-                {{ roadmap.title }}
-              </strong>
+        <template v-else>
+          <BaseCard
+            v-for="roadmap in visibleRoadmaps"
+            :key="`${roadmap.categoryId}-${roadmap.goalId}`"
+            padding="12px 14px"
+            class="roadmap-main__saved-card"
+            @click="goRoadmapDetail(roadmap)"
+          >
+            <div class="saved-card">
+              <div class="saved-card__content">
+                <span class="saved-card__category">
+                  {{ roadmap.categoryLabel }}
+                </span>
 
-              <p class="saved-card__description">
-                {{ roadmap.description }}
-              </p>
+                <strong class="saved-card__title">
+                  {{ roadmap.title }}
+                </strong>
+
+                <p v-if="roadmap.description" class="saved-card__description">
+                  {{ roadmap.description }}
+                </p>
+
+                <p v-if="roadmap.detail" class="saved-card__description">
+                  {{ roadmap.detail }}
+                </p>
+              </div>
+
+              <div @click.stop>
+                <LikeButton v-model="roadmap.liked" />
+              </div>
             </div>
-
-            <div @click.stop>
-              <LikeButton v-model="roadmap.liked" />
-            </div>
-          </div>
-        </BaseCard>
+          </BaseCard>
+          <button
+            v-if="hasMoreRoadmaps"
+            type="button"
+            class="roadmap-main__more-button"
+            @click="showMoreRoadmaps"
+          >
+            + 더보기
+          </button>
+        </template>
       </div>
     </section>
   </div>
@@ -383,5 +513,27 @@ const selectRoadmapCategory = (categoryCode) => {
   color: var(--text-muted);
   font-size: 11px;
   line-height: 1.3;
+}
+
+.roadmap-main__empty-image {
+  width: 24px;
+  height: 24px;
+}
+
+.roadmap-main__more-button {
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--text-body);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.roadmap-main__more-button:hover {
+  background: var(--background);
 }
 </style>
