@@ -8,8 +8,11 @@ import { formatManwon, formatWon } from '@/util/format';
 import BaseCard from '@/components/common/BaseCard.vue';
 import DonutChart from '@/components/common/DonutChart.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
+import EmptyState from '@/components/common/EmptyState.vue';
+import { useToast } from '@/composables/useToast';
 
 const router = useRouter();
+const { show: showToast } = useToast();
 
 const CATEGORY_LABEL = {
   FOOD: '식비',
@@ -36,63 +39,34 @@ const isThisMonth = computed(
     cursor.value.getMonth() === now.getMonth(),
 );
 
-// TODO: 백엔드 통계 API 연동 확인되면 샘플 폴백 제거
-const SAMPLE = {
-  totalSpending: 430000,
-  regretAmount: 120000,
-  sosoAmount: 60000,
-  satisfiedAmount: 250000,
-  regretCount: 5,
-  sosoCount: 2,
-  satisfiedCount: 9,
-  categoryRegrets: [
-    { category: 'SHOPPING', amount: 58000, count: 2, satisfied: 12000 },
-    { category: 'CAFE', amount: 32000, count: 2, satisfied: 8000 },
-    { category: 'FOOD', amount: 18000, count: 1, satisfied: 96000 },
-    { category: 'ETC', amount: 30000, count: 1, satisfied: 14000 },
-    { category: 'CULTURE', amount: 0, count: 0, satisfied: 45000 },
-  ],
-};
-
-// 인사이트 문구용 지난달 대비(샘플). TODO: 실연동 시 전월 stats 조회로 계산
-const SAMPLE_PREV_REGRET = 150000;
-
 const stats = ref(null);
-const prevRegret = ref(SAMPLE_PREV_REGRET);
+const prevRegret = ref(0);
 const loading = ref(true);
-// 실 통계 API 성공 여부 (실패 시 SAMPLE 폴백 → "미리보기" 뱃지 표시)
-const usingSample = ref(false);
 
 const load = async () => {
   loading.value = true;
   stats.value = null;
   try {
     const d = await regretApi.getMonthlyStats(yearMonth.value);
-    if (d && d.totalSpending != null) {
-      stats.value = d;
-      usingSample.value = false;
-    } else {
-      stats.value = SAMPLE;
-      usingSample.value = true;
-    }
+    // 실데이터 없거나 형식 미달이면 null 유지 → 템플릿이 빈 상태로 방어
+    stats.value = d && d.totalSpending != null ? d : null;
   } catch {
-    stats.value = SAMPLE; // TODO: 폴백 제거
-    usingSample.value = true;
+    stats.value = null;
+    showToast('월별 리포트를 불러오지 못했어요', 'error');
   } finally {
     loading.value = false;
   }
 };
 
-// 전월 후회금액 (인사이트 "N% 줄었어요" 계산용)
+// 전월 후회금액 (인사이트 "N% 줄었어요" 계산용). 없으면 0 → 비교 문구 생략
 const loadPrev = async () => {
   const p = new Date(cursor.value.getFullYear(), cursor.value.getMonth() - 1, 1);
   const ym = `${p.getFullYear()}${String(p.getMonth() + 1).padStart(2, '0')}`;
   try {
     const d = await regretApi.getMonthlyStats(ym);
-    prevRegret.value =
-      d && d.regretAmount != null ? d.regretAmount : SAMPLE_PREV_REGRET;
+    prevRegret.value = d && d.regretAmount != null ? d.regretAmount : 0;
   } catch {
-    prevRegret.value = SAMPLE_PREV_REGRET;
+    prevRegret.value = 0;
   }
 };
 
@@ -174,10 +148,7 @@ const goBack = () => router.push({ name: 'RegretDashboard' });
 <template>
   <div class="report">
     <header class="head">
-      <p class="cap">
-        후회소비 리포트
-        <span v-if="usingSample" class="preview-tag">미리보기 · 샘플 데이터예요</span>
-      </p>
+      <p class="cap">후회소비 리포트</p>
       <div class="month-nav">
         <button class="nav-btn" aria-label="이전 달" @click="move(-1)">‹</button>
         <h2 class="title">{{ monthLabel }} 리포트</h2>
@@ -259,6 +230,12 @@ const goBack = () => router.push({ name: 'RegretDashboard' });
 
     </template>
 
+    <EmptyState
+      v-else
+      :title="`${monthLabel} 리포트 데이터가 없어요`"
+      description="이 달의 소비/점호 기록이 쌓이면 리포트를 볼 수 있어요"
+    />
+
     <BottomButtonBar primary-label="확인" @primary-click="goBack" />
   </div>
 </template>
@@ -285,14 +262,6 @@ const goBack = () => router.push({ name: 'RegretDashboard' });
   gap: 7px;
   font-size: 12px;
   color: var(--text-muted);
-}
-.preview-tag {
-  font-size: 9px;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 999px;
-  background: var(--kb-yellow-pale);
-  color: var(--brand-gold);
 }
 .month-nav {
   display: flex;
