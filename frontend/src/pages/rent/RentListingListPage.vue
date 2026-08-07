@@ -129,9 +129,11 @@ const effectiveMonthlyOf = (l) =>
     <template v-else>
       <BaseCard v-for="l in listings" :key="l.listingId" padding="12px">
         <button class="listing-card" @click="goDetail(l)">
-          <span class="thumb">{{ ESTATE_LABEL[l.estateType] || '매물' }}</span>
           <span class="info">
-            <span class="name">{{ l.buildingName }}</span>
+            <span class="name">
+              <span class="estate">{{ ESTATE_LABEL[l.estateType] || '매물' }}</span>
+              {{ l.buildingName }}
+            </span>
             <span class="dong">{{ l.dongName }}</span>
             <span class="badges">
               <span v-if="transportBadgeOf(l)" class="badge badge--neutral">
@@ -205,9 +207,8 @@ const effectiveMonthlyOf = (l) =>
 }
 .listing-card {
   display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 12px;
+  flex-direction: column;
+  align-items: stretch;
   width: 100%;
   padding: 0;
   border: 0;
@@ -215,18 +216,6 @@ const effectiveMonthlyOf = (l) =>
   text-align: left;
   cursor: pointer;
   font-family: inherit;
-}
-.thumb {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 8px;
-  background: var(--kb-gray-pale);
-  color: var(--text-muted);
-  font-size: 11px;
-  flex-shrink: 0;
 }
 .info {
   display: flex;
@@ -238,6 +227,17 @@ const effectiveMonthlyOf = (l) =>
   font-size: 13px;
   font-weight: 700;
   color: var(--text-body);
+}
+.estate {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--kb-gray-pale);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  vertical-align: middle;
 }
 .dong {
   font-size: 11px;
