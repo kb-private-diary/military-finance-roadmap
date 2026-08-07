@@ -39,4 +39,12 @@ public interface RentListingMapper {
                                                   @Param("areaMin") java.math.BigDecimal areaMin,
                                                   @Param("areaMax") java.math.BigDecimal areaMax,
                                                   @Param("monthlyRent") Long monthlyRent);
+
+    // 시세 등급(priceLevel)용 동네 평균 월세 (Step3 상세 시세뱃지)
+    //   같은 법정동(regionCode, 없으면 umdName) + 같은 estateType + del_yn='N', 자기 자신 제외.
+    //   면적 필터는 걸지 않는다(시세뱃지는 넓게 동네 평균). 표본 없으면 null.
+    Double selectAvgRentForPriceLevel(@Param("listingId") Long listingId,
+                                      @Param("estateType") String estateType,
+                                      @Param("regionCode") String regionCode,
+                                      @Param("umdName") String umdName);
 }

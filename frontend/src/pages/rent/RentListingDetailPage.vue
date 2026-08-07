@@ -20,7 +20,11 @@ const router = useRouter();
 const rentStore = useRentStore();
 const listingId = Number(route.params.listingId);
 const goalId = Number(route.query.goalId) || rentStore.currentGoalId;
-const maturity = computed(() => rentStore.maturityAmount || 7200000);
+// 만기금: 감당도 응답(백엔드 실제 계산값) 우선 → store → 0.
+// (하드코딩 폴백을 쓰면 "만기금 720만원인데 남는 돈 776만원" 같은 앞뒤 안 맞는 문구가 나옴)
+const maturity = computed(
+  () => affordability.value?.maturityAmount ?? rentStore.maturityAmount ?? 0,
+);
 
 // TODO: 백엔드 매물 상세 API(WIP) 준비되면 샘플 폴백 제거
 const SAMPLE = {
@@ -67,7 +71,10 @@ const PRICE_BADGE = {
   AVERAGE: { label: '✔ 지역 평균 수준', cls: 'pill--average' },
   EXPENSIVE: { label: '⛔ 지역 평균보다 비쌈', cls: 'pill--expensive' },
 };
-const priceBadge = computed(() => PRICE_BADGE[rentStore.selectedPriceLevel] || null);
+// 시세뱃지: 백엔드 상세 응답 priceLevel 우선(항상 계산됨), 없으면 step2에서 넘긴 store 값
+const priceBadge = computed(
+  () => PRICE_BADGE[listing.value?.priceLevel || rentStore.selectedPriceLevel] || null,
+);
 
 // 신선도 뱃지: 백엔드 propertyBadges 원문("1개월 전 실거래" 등)을 그대로 노랑 pill(⭐)로 노출.
 const freshBadges = computed(() => data.value?.propertyBadges || []);
@@ -629,8 +636,8 @@ const goPrev = () => {
 
 /* ── 섹션 제목 ─────────────────────────────────────────── */
 .sec-title {
-  margin-top: 10px;
-  font-size: 15px;
+  margin-top: 18px;
+  font-size: 17px;
   font-weight: 700;
   color: var(--text-strong);
 }

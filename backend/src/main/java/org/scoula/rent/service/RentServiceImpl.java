@@ -482,7 +482,28 @@ public class RentServiceImpl implements RentService {
             maintenanceFee = utilityService.calcManagementFee(
                     vo.getRegionCode(), vo.getAreaSqm().doubleValue());
         }
-        return RentListingDetailResponseDTO.of(vo, maintenanceFee);
+
+        // 시세 등급(priceLevel): 같은 동네(법정동, 없으면 읍면동)+같은 종류 평균 월세 대비 판정 (표본 없으면 null)
+        //   면적 필터 없이 넓게 동네 평균으로 비교 → 상세 시세뱃지가 항상 뜨도록 백엔드에서 직접 계산해 내려준다.
+        Double avgRent = this.listingMapper.selectAvgRentForPriceLevel(
+                listingId, vo.getEstateType(), vo.getRegionCode(), vo.getUmdName());
+        String priceLevel = judgePriceLevel(vo.getMonthlyRent(), avgRent);
+
+        return RentListingDetailResponseDTO.of(vo, maintenanceFee, priceLevel);
+    }
+
+    /**
+     * 시세 상대평가 (RentListingResponseDTO.priceLevel 과 동일 규칙 - 리스트/상세 뱃지 일관성 유지)
+     *   avgRent 가 null/0 → null. ratio = 월세/평균; ratio &lt;= 0.9 CHEAP / &gt; 1.1 EXPENSIVE / 그 외 AVERAGE.
+     */
+    private String judgePriceLevel(Long monthlyRent, Double avgRent) {
+        if (monthlyRent == null || avgRent == null || avgRent <= 0) {
+            return null;
+        }
+        double ratio = monthlyRent / avgRent;
+        if (ratio <= 0.9) return "CHEAP";
+        if (ratio > 1.1) return "EXPENSIVE";
+        return "AVERAGE";
     }
 
     @Override

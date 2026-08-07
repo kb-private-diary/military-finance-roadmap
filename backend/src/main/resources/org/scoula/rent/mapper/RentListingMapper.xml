@@ -114,4 +114,25 @@
         </if>
     </select>
 
+    <!--
+      시세 등급(priceLevel)용 동네 평균 월세 (Step3 상세 시세뱃지)
+      모집단: 같은 법정동(region_code, 없으면 umd_name) + 같은 estate_type + del_yn='N', 자기 자신 제외.
+      면적 필터는 걸지 않는다(시세뱃지는 넓게 동네 평균으로 비교). 표본이 없으면 AVG 는 null 반환.
+    -->
+    <select id="selectAvgRentForPriceLevel" resultType="java.lang.Double">
+        SELECT AVG(l.monthly_rent)
+          FROM rent_listing l
+         WHERE l.del_yn = 'N'
+           AND l.listing_id != #{listingId}
+           AND l.estate_type = #{estateType}
+        <choose>
+            <when test="regionCode != null">
+               AND l.region_code = #{regionCode}
+            </when>
+            <otherwise>
+               AND l.umd_name = #{umdName}
+            </otherwise>
+        </choose>
+    </select>
+
 </mapper>
