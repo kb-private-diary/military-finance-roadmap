@@ -8,7 +8,6 @@ import rentApi from '@/api/rentApi';
 import { useRentStore } from '@/stores/rent';
 import { useToast } from '@/composables/useToast';
 import BaseCard from '@/components/common/BaseCard.vue';
-import BaseInput from '@/components/common/BaseInput.vue';
 import CategoryButton from '@/components/common/CategoryButton.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import BaseBottomSheet from '@/components/common/BaseBottomSheet.vue';
@@ -145,6 +144,14 @@ const resetToSigungu = () => {
 // 반경 (텍스트 링크로 펼침)
 const radiusOpen = ref(false);
 
+// 월 예산 슬라이더 채움(노랑) 표현 — 30~150 구간을 %로 환산해 트랙 배경에 그린다.
+const budgetFillStyle = computed(() => {
+  const pct = ((draft.monthlyBudget - 30) / (150 - 30)) * 100;
+  return {
+    background: `linear-gradient(to right, var(--kb-yellow) 0%, var(--kb-yellow) ${pct}%, var(--kb-gray-pale) ${pct}%, var(--kb-gray-pale) 100%)`,
+  };
+});
+
 const canProceed = computed(() =>
   draft.locationType === 'SCHOOL' ? !!draft.schoolId : draft.regions.length > 0,
 );
@@ -176,27 +183,35 @@ const goNext = async () => {
     <!-- 1. 어디에서 -->
     <section class="field">
       <p class="label">어디에 집을 구하고 싶습니까?</p>
-      <div class="btn-row">
-        <CategoryButton
-          variant="square-yellow"
-          icon="🎓"
-          label="학교 근처"
-          :active="draft.locationType === 'SCHOOL'"
+      <div class="toggle-row">
+        <button
+          type="button"
+          class="toggle-item"
+          :class="{ 'is-active': draft.locationType === 'SCHOOL' }"
           @click="rentStore.setConditions({ locationType: 'SCHOOL' })"
-        />
-        <CategoryButton
-          variant="square-yellow"
-          icon="📍"
-          label="지역으로"
-          :active="draft.locationType === 'REGION'"
+        >
+          <span class="toggle-icon">🎓</span> 학교 근처
+        </button>
+        <button
+          type="button"
+          class="toggle-item"
+          :class="{ 'is-active': draft.locationType === 'REGION' }"
           @click="rentStore.setConditions({ locationType: 'REGION' })"
-        />
+        >
+          <span class="toggle-icon">📍</span> 지역으로
+        </button>
       </div>
 
       <!-- 학교 모드 -->
       <template v-if="draft.locationType === 'SCHOOL'">
+        <p class="label">학교 선택</p>
         <div class="search">
-          <BaseInput v-model="keyword" placeholder="학교 이름 검색 (예: 부산대)" />
+          <input
+            v-model="keyword"
+            type="text"
+            class="search-input"
+            placeholder="학교 이름 검색"
+          />
           <ul v-if="schoolResults.length" class="dropdown">
             <li v-for="s in schoolResults" :key="s.schoolId" @click="selectSchool(s)">
               <strong>{{ s.schoolName }}</strong><span>{{ s.address }}</span>
@@ -255,10 +270,11 @@ const goNext = async () => {
     <section class="field">
       <div class="row-between">
         <p class="label">월 예산 (월세 + 관리비)</p>
-        <span class="budget-val">{{ draft.monthlyBudget }}만원</span>
+        <span class="budget-val">{{ draft.monthlyBudget }}<span class="budget-unit">만원</span></span>
       </div>
       <BaseCard padding="14px 16px">
         <input type="range" min="30" max="150" step="5" :value="draft.monthlyBudget" class="slider"
+          :style="budgetFillStyle"
           @input="rentStore.setConditions({ monthlyBudget: Number($event.target.value) })" />
         <div class="scale"><span>30만원</span><span>90만원</span><span>150만원</span></div>
       </BaseCard>
@@ -372,8 +388,63 @@ const goNext = async () => {
   display: flex;
   gap: 8px;
 }
+/* 위치 토글 — 탭 스타일 (선택: 흰 배경+테두리 도드라짐 / 비선택: 연회색) */
+.toggle-row {
+  display: flex;
+  gap: 6px;
+}
+.toggle-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 12px 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--kb-gray-pale);
+  color: var(--text-hint);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.toggle-item.is-active {
+  background: #fff;
+  border-color: var(--line-strong);
+  color: var(--text-strong);
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+.toggle-icon {
+  font-size: 15px;
+  line-height: 1;
+}
 .search {
   position: relative;
+}
+/* 학교 검색창 — 연회색 배경, 포커스 시 흰 배경+노랑 테두리 */
+.search-input {
+  width: 100%;
+  padding: 13px 14px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: var(--kb-gray-pale);
+  font-size: 14px;
+  color: var(--text-body);
+  font-family: inherit;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+.search-input::placeholder {
+  color: var(--text-hint);
+}
+.search-input:focus {
+  border-color: var(--kb-yellow-deep);
+  background: #fff;
 }
 .dropdown {
   margin: 6px 0 0;
@@ -427,19 +498,21 @@ const goNext = async () => {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 5px 10px;
-  border: 1px solid var(--line-strong);
+  padding: 6px 12px;
+  border: 1px solid var(--kb-yellow);
   border-radius: 999px;
-  background: #fff;
+  background: var(--kb-yellow-pale);
   color: var(--text-body);
   font-size: 12px;
+  font-weight: 600;
 }
 .chip__x {
   border: 0;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 1;
   padding: 0;
 }
 .link-add {
@@ -523,10 +596,47 @@ const goNext = async () => {
   cursor: pointer;
   font-family: inherit;
 }
+/* 월 예산 슬라이더 — 채움(노랑)은 인라인 배경, 핸들은 흰 원+노랑 테두리 */
 .slider {
+  -webkit-appearance: none;
+  appearance: none;
   width: 100%;
-  margin: 10px 0 4px;
-  accent-color: var(--kb-yellow-deep);
+  height: 6px;
+  border-radius: 3px;
+  margin: 12px 0 8px;
+  background: var(--kb-gray-pale);
+  cursor: pointer;
+}
+.slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: transparent;
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--kb-yellow-deep);
+  box-shadow: 0 1px 3px var(--shadow-thumb);
+  cursor: pointer;
+}
+.slider::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: transparent;
+}
+.slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--kb-yellow-deep);
+  box-shadow: 0 1px 3px var(--shadow-thumb);
+  cursor: pointer;
 }
 .scale {
   display: flex;
@@ -535,9 +645,15 @@ const goNext = async () => {
   color: var(--text-hint);
 }
 .budget-val {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--text-strong);
+}
+.budget-unit {
+  margin-left: 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
 }
 .maturity {
   margin-top: auto;
