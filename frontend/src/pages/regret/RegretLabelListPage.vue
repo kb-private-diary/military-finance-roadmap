@@ -129,7 +129,6 @@ watch(label, () => window.scrollTo({ top: 0 }));
 <template>
   <div class="label-list">
     <header class="head">
-      <button class="back" aria-label="뒤로" @click="goBack">‹</button>
       <div class="htx">
         <p class="cap">
           모아보기
@@ -192,7 +191,7 @@ watch(label, () => window.scrollTo({ top: 0 }));
       />
     </template>
 
-    <BottomButtonBar secondary-label="이전" @secondary-click="goBack" />
+    <BottomButtonBar primary-label="확인" @primary-click="goBack" />
   </div>
 </template>
 

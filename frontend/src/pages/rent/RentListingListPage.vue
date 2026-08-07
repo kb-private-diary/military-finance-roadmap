@@ -6,6 +6,7 @@ import { useRoute, useRouter } from 'vue-router';
 import rentApi from '@/api/rentApi';
 import { useRentStore } from '@/stores/rent';
 import { formatManwon } from '@/util/format';
+import { useToast } from '@/composables/useToast';
 import BaseCard from '@/components/common/BaseCard.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
@@ -14,6 +15,7 @@ import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.v
 const route = useRoute();
 const router = useRouter();
 const rentStore = useRentStore();
+const { show: showToast } = useToast();
 const goalId = Number(route.params.goalId);
 if (!rentStore.currentGoalId) rentStore.currentGoalId = goalId;
 
@@ -23,13 +25,6 @@ const ESTATE_LABEL = {
   VILLA: '빌라',
   ROOM: '원룸',
 };
-
-// TODO: 백엔드 매물 API(WIP) 준비되면 샘플 폴백 제거
-const SAMPLE = [
-  { listingId: 1, estateType: 'OFFICETEL', buildingName: '부산대 앞 오피스텔', umdName: '부산 금정구 장전동', areaSqm: 31.7, floor: 11, deposit: 5000000, monthlyRent: 450000, maintenanceFee: 50000, selectionMode: 'SCHOOL', commuteText: '도보 12분', transitText: null, affordLevel: 'ENOUGH', affordText: '딱 맞아요', effectiveMonthly: 530000, totalCost6M: 8000000, priceLevel: 'LOW' },
-  { listingId: 2, estateType: 'ROOM', buildingName: '장전동 원룸', umdName: '부산 금정구 장전동', areaSqm: 23.1, floor: 3, deposit: 3000000, monthlyRent: 400000, maintenanceFee: 30000, selectionMode: 'SCHOOL', commuteText: '도보 8분', transitText: null, affordLevel: 'ENOUGH', affordText: '딱 맞아요', effectiveMonthly: 480000, totalCost6M: 5580000, priceLevel: 'MID' },
-  { listingId: 3, estateType: 'VILLA', buildingName: '부곡동 신축 빌라', umdName: '부산 금정구 부곡동', areaSqm: 39.6, floor: 2, deposit: 8000000, monthlyRent: 500000, maintenanceFee: 50000, selectionMode: 'SCHOOL', commuteText: '버스 15분', transitText: null, affordLevel: 'TIGHT', affordText: '빠듯해요', effectiveMonthly: 620000, totalCost6M: 11300000, priceLevel: 'HIGH' },
-];
 
 const listings = ref([]);
 const loading = ref(true);
@@ -50,9 +45,10 @@ const load = async () => {
     const data = await rentApi.findListings(goalId);
     // 백엔드 계약: { totalCount, listings[] } — 배열로 바로 오는 경우도 방어
     const arr = Array.isArray(data) ? data : (data?.listings ?? []);
-    listings.value = arr.length ? arr : SAMPLE;
+    listings.value = arr;
   } catch {
-    listings.value = SAMPLE; // TODO: 폴백 제거
+    listings.value = [];
+    showToast('매물을 불러오지 못했어요', 'error');
   } finally {
     loading.value = false;
   }

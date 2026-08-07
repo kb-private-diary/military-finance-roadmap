@@ -25,24 +25,6 @@ const months = Number(route.query.months) || rentStore.months || 6;
 // 만원 정수 변환(표시·계산 공용). 입력은 "원" 단위.
 const toMan = (won) => Math.round((won ?? 0) / 10000).toLocaleString('ko-KR');
 
-// TODO: 백엔드 금융상품 API(WIP) 준비되면 SAMPLE 폴백 제거
-const SAMPLE_PRODUCTS = {
-  veteran: true,
-  serviceMonths: 18,
-  serviceYears: 1,
-  monthlySubsidy: [
-    { productId: 1, productName: '청년 월세 특별지원', productType: 'POLICY', supportType: 'GRANT', provider: '국토교통부', kb: false, rateSummary: null, supportAmount: 200000, supportMonths: 12, regionCode: null, externalUrl: 'https://www.gov.kr' },
-  ],
-  depositLoan: [
-    { productId: 2, productName: '버팀목 전세자금대출', productType: 'POLICY', supportType: 'LOAN', provider: '주택도시기금', kb: false, rateSummary: '연 1.8~2.7%', supportAmount: null, supportMonths: null, regionCode: null, externalUrl: 'https://nhuf.molit.go.kr' },
-    { productId: 3, productName: '부산 청년 임차보증금 이자지원', productType: 'LOCAL', supportType: 'INTEREST', provider: '부산광역시', kb: false, rateSummary: '이자 최대 2%p 지원', supportAmount: null, supportMonths: null, regionCode: '26', externalUrl: 'https://www.busan.go.kr' },
-  ],
-  free: [
-    { productId: 4, productName: 'KB 청년전세 든든대출', productType: 'BANK', supportType: 'LOAN', provider: 'KB국민은행', kb: true, rateSummary: '연 3.4~4.1%', supportAmount: null, supportMonths: null, regionCode: null, externalUrl: 'https://obank.kbstar.com' },
-  ],
-};
-const SAMPLE_AFFORD = { totalRequired: 8000000, maturityAmount: 7200000, surplus: 0, shortfall: 800000, affordabilityLabel: '빠듯해요' };
-
 const recommend = ref(null); // findProducts 응답 원본
 const affordability = ref(null); // findAffordability 응답
 const loading = ref(true);
@@ -80,7 +62,9 @@ const productDesc = (p) => {
 };
 
 // ── 감당도 요약 ────────────────────────────────────────────
-const af = computed(() => affordability.value || SAMPLE_AFFORD);
+// 감당도 응답이 없으면 빈 객체(모든 파생값이 0/기본으로 안전 처리됨).
+// 요약/조언 섹션 자체는 template 에서 affordability 있을 때만 노출한다.
+const af = computed(() => affordability.value || {});
 const pct = computed(() => {
   const req = af.value.totalRequired ?? 0;
   return req > 0 ? Math.round(((af.value.maturityAmount ?? 0) / req) * 100) : 0;
@@ -130,9 +114,10 @@ const toggleProduct = (id) => {
 const loadProducts = async () => {
   try {
     const data = await rentApi.findProducts(goalId, listingId, months);
-    recommend.value = data && (data.monthlySubsidy || data.depositLoan || data.free) ? data : SAMPLE_PRODUCTS;
+    recommend.value = data && (data.monthlySubsidy || data.depositLoan || data.free) ? data : null;
   } catch {
-    recommend.value = SAMPLE_PRODUCTS;
+    recommend.value = null;
+    show('금융상품을 불러오지 못했어요', 'error');
   }
 };
 const loadAffordability = async () => {
@@ -140,7 +125,7 @@ const loadAffordability = async () => {
     const data = await rentApi.findAffordability(listingId, months, rentStore.depositMode);
     affordability.value = data || null;
   } catch {
-    affordability.value = null; // computed af 가 SAMPLE 로 폴백
+    affordability.value = null; // 요약/조언 섹션은 template 에서 숨김
   }
 };
 onMounted(async () => {
@@ -160,14 +145,14 @@ const saveRoadmap = async () => {
   try {
     await rentApi.confirmGoal(goalId, { listingId, months, selectedProductIds: selectedProductIds.value });
   } catch {
-    // TODO(데모용/임시): 백엔드 confirm 엔드포인트(POST /api/rent/goals/{goalId}/confirm) 준비 전이라 404임
-    //   정식 연동되면 이 catch 를 에러 토스트 + return 으로 되돌릴 것
-    console.warn('[데모] confirmGoal 실패(백엔드 미구현) - 저장 없이 목표 상세로 이동만 진행');
-  } finally {
-    show('로드맵을 저장했어요', 'success');
-    await router.push({ name: 'RentGoalDetail', params: { goalId } });
+    // 저장 실패를 숨기지 않고 정직하게 에러 노출 후 중단(이동 안 함)
+    show('로드맵을 저장하지 못했어요', 'error');
     saving.value = false;
+    return;
   }
+  show('로드맵을 저장했어요', 'success');
+  await router.push({ name: 'RentGoalDetail', params: { goalId } });
+  saving.value = false;
 };
 </script>
 
@@ -179,8 +164,8 @@ const saveRoadmap = async () => {
     <p v-if="loading" class="loading">불러오는 중...</p>
 
     <template v-else>
-      <!-- 3. 감당도 요약 카드 -->
-      <BaseCard padding="14px 16px 16px">
+      <!-- 3. 감당도 요약 카드 (감당도 응답 있을 때만) -->
+      <BaseCard v-if="affordability" padding="14px 16px 16px">
         <div class="af-head">
           <span class="af-head__label">필요 금액 대비 내 만기금</span>
         </div>

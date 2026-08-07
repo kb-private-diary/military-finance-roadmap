@@ -53,66 +53,11 @@ const PRICE_BADGE = {
 // 1인 가구 월 평균 통신비 추정치(과기정통부 가계통신비 통계 참고). 실데이터 연동 시 교체.
 const MONTHLY_TELECOM_FEE = 55000;
 
-// TODO: 백엔드 findGoal 이 확정매물까지 채워주면 폴백 제거 (지금은 API 실패 시 데모용)
-const SAMPLE = {
-  goal: { goalId: 0, residenceMonths: 6, status: 'CONFIRMED', confirmedListingId: 1 },
-  listing: {
-    listingId: 1,
-    buildingName: '부산대 앞 오피스텔',
-    dongName: '부산 금정구 장전동',
-    estateType: 'OFFICETEL',
-    floor: 5,
-    areaSqm: 23.1,
-    dealDate: '2026-06-15',
-    buildYear: 2018,
-    deposit: 5000000,
-    monthlyRent: 450000,
-    maintenanceFee: 50000,
-    latitude: 35.2314,
-    longitude: 129.0846,
-    priceLevel: 'CHEAP',
-  },
-  nearbyFacilities: [
-    { type: 'SUBWAY', name: '부산대역', walkMinutes: 8 },
-    { type: 'BUS', name: '장전동 정류장', walkMinutes: 3 },
-    { type: 'CONVENIENCE', name: 'GS25 장전점', walkMinutes: 2 },
-    { type: 'MART', name: '홈플러스 장전점', walkMinutes: 15 },
-    { type: 'HOSPITAL', name: '금정한마음병원', walkMinutes: 10 },
-  ],
-  precisionSimulation: {
-    monthlyHousingCost: { rentAndFee: 500000, utilityFee: 80000, total: 580000 },
-    userSpending: { avgMonthlySpending: 430000, avgRegretSpending: 120000 },
-    totalMonthlyNeed: 1010000,
-    possibleMonths: 7.1,
-    reducedMonthlyNeed: 890000,
-    reducedPossibleMonths: 8.5,
-  },
-};
-
-// 주거 금융상품 SAMPLE (월세지원 / 보증금대출·이자지원)
-// TODO: 백엔드 GET /goals/{id}/products 실데이터로 교체
-const SAMPLE_PRODUCTS = [
-  {
-    caption: '월세 지원',
-    items: [
-      { name: '청년월세 특별지원', org: '국토교통부 · 월 최대 20만원 (12개월)', link: 'https://www.myhome.go.kr' },
-      { name: '부산 청년 월세 지원금', org: '부산광역시 · 월 10만원 (10개월)', link: 'https://www.busan.go.kr' },
-    ],
-  },
-  {
-    caption: '보증금 대출·이자지원',
-    items: [
-      { name: '중소기업취업청년 전월세보증금대출', org: '주택도시기금 · 연 1.5%', link: 'https://nhuf.molit.go.kr' },
-      { name: '청년전용 버팀목 전세자금대출', org: '주택도시기금 · 연 2%대', link: 'https://nhuf.molit.go.kr' },
-    ],
-  },
-];
-
 const goal = ref(null);
 const listing = ref(null);
 const facilities = ref([]);
 const sim = ref(null);
-const productSections = ref(SAMPLE_PRODUCTS);
+const productSections = ref([]);
 const loading = ref(true);
 const activeTab = ref('listing');
 
@@ -122,9 +67,9 @@ const TABS = [
   { key: 'products', label: '금융상품' },
 ];
 
-// findProducts(대출 상품) 응답 → 섹션 레이아웃 정규화. 실패/빈값이면 SAMPLE 유지.
+// findProducts(대출 상품) 응답 → 섹션 레이아웃 정규화. 실패/빈값이면 빈 배열.
 const normalizeProducts = (data) => {
-  if (!data?.products?.length) return SAMPLE_PRODUCTS;
+  if (!data?.products?.length) return [];
   return [
     {
       caption: '관련 금융상품',
@@ -156,26 +101,27 @@ const load = async () => {
   loading.value = true;
   try {
     const d = await rentApi.findGoal(goalId);
-    const src = normalize(d) || SAMPLE;
-    goal.value = src.goal;
-    listing.value = src.listing;
-    facilities.value = src.nearbyFacilities || [];
-    sim.value = src.precisionSimulation;
+    const src = normalize(d);
+    if (src) {
+      goal.value = src.goal;
+      listing.value = src.listing;
+      facilities.value = src.nearbyFacilities || [];
+      sim.value = src.precisionSimulation;
+    } else {
+      showToast('로드맵을 불러오지 못했어요', 'error');
+    }
   } catch {
-    goal.value = SAMPLE.goal;
-    listing.value = SAMPLE.listing;
-    facilities.value = SAMPLE.nearbyFacilities;
-    sim.value = SAMPLE.precisionSimulation;
+    showToast('로드맵을 불러오지 못했어요', 'error');
   }
 
-  // 금융상품은 별도 시도 → 실패/없으면 SAMPLE
+  // 금융상품은 별도 시도 → 실패/없으면 빈 배열(빈 상태 문구)
   try {
     const lid = listing.value?.listingId || goal.value?.confirmedListingId;
     const months = goal.value?.residenceMonths || rentStore.months || 6;
     const p = await rentApi.findProducts(goalId, lid, months);
     productSections.value = normalizeProducts(p);
   } catch {
-    productSections.value = SAMPLE_PRODUCTS;
+    productSections.value = [];
   } finally {
     loading.value = false;
   }
@@ -365,6 +311,42 @@ const fixedCostTotal = computed(() =>
 
 // 보증금 포함/제외 토글 — DB 저장 안 함, 세션 store(depositMode) 있으면 그 값, 없으면 OFF
 const includeDeposit = ref(rentStore.depositMode ? rentStore.depositMode === 'INCLUDE' : false);
+
+// ── 부동산 중개비(중개보수) 계산 ──────────────────────────
+// 주택 임대차 법정 중개보수 "상한". 하드코딩 금액이 아니라 요율표 상수 → 계산으로 도출.
+// 출처: 공인중개사법 시행규칙 별표(주택 임대차 상한 요율·한도). 실데이터 연동 아님.
+// 거래금액을 구간별 요율에 곱하고, 한도 있는 구간은 min 처리.
+const BROKERAGE_BRACKETS = [
+  { max: 50_000_000, rate: 0.005, cap: 200_000 }, // 5천만원 미만: 0.5% (한도 20만원)
+  { max: 100_000_000, rate: 0.004, cap: 300_000 }, // 5천만~1억 미만: 0.4% (한도 30만원)
+  { max: 300_000_000, rate: 0.003, cap: null }, // 1억~3억 미만: 0.3% (한도 없음)
+  { max: 600_000_000, rate: 0.004, cap: null }, // 3억~6억 미만: 0.4%
+  { max: Infinity, rate: 0.006, cap: null }, // 6억 이상: 0.6%
+];
+// 월세 환산 배수: 기본 ×100, 거래금액이 5천만원 미만이면 ×70으로 재계산(법 규정)
+const RENT_MULTIPLIER_DEFAULT = 100;
+const RENT_MULTIPLIER_LOW = 70;
+const LOW_DEAL_THRESHOLD = 50_000_000;
+
+// 거래금액(보증금 + 월세환산) → 구간 요율/한도로 중개보수 산출. deposit/monthlyRent null → 0.
+const brokerageFee = computed(() => {
+  const deposit = listing.value?.deposit ?? 0;
+  const monthlyRent = listing.value?.monthlyRent ?? 0;
+  // 1) 거래금액 = 보증금 + 월세 × 100
+  let dealAmount = deposit + monthlyRent * RENT_MULTIPLIER_DEFAULT;
+  // 2) 거래금액이 5천만원 미만이면 월세 환산을 ×70 으로 다시 계산(법 규정)
+  if (dealAmount < LOW_DEAL_THRESHOLD) {
+    dealAmount = deposit + monthlyRent * RENT_MULTIPLIER_LOW;
+  }
+  // 3) 거래금액이 속한 구간의 요율/한도 선택 (max 는 상한 미만 기준)
+  const bracket =
+    BROKERAGE_BRACKETS.find((b) => dealAmount < b.max) ??
+    BROKERAGE_BRACKETS[BROKERAGE_BRACKETS.length - 1];
+  // 4) 중개비 = 거래금액 × 요율, 한도 있는 구간만 min 적용, 원 단위 반올림
+  const raw = dealAmount * bracket.rate;
+  const fee = bracket.cap != null ? Math.min(raw, bracket.cap) : raw;
+  return Math.round(fee);
+});
 
 // ── 동네 시세 상세보기 바텀시트 (step3 이식) ───────────────
 const marketSheetOpen = ref(false);
@@ -635,6 +617,16 @@ const goConfirm = () => router.push({ name: 'RoadmapMain' });
           </div>
         </BaseCard>
 
+        <!-- 계약 시 초기 비용: 중개비는 1회성이라 월 고정비 "합계"와 분리해 별도 카드로 항상 표기 -->
+        <BaseCard v-if="listing" padding="16px">
+          <p class="cap cap--m0">계약 시 초기 비용</p>
+          <div class="deposit-box brokerage-box">
+            <span class="deposit-box__l">중개비 (예상) <span class="cost-sub">법정 상한 요율 기준</span></span>
+            <strong class="deposit-box__v">{{ formatManwon(brokerageFee) }}</strong>
+          </div>
+          <p class="brokerage-note">월 고정비와 별개로 계약 시 1회 발생하는 비용이에요.</p>
+        </BaseCard>
+
         <p class="note">계산 결과는 예상 금액이며 실제와 다를 수 있습니다.</p>
       </template>
       <BaseCard v-else padding="20px">
@@ -661,13 +653,14 @@ const goConfirm = () => router.push({ name: 'RoadmapMain' });
           <span class="p-link" aria-hidden="true">↗</span>
         </a>
       </BaseCard>
+      <BaseCard v-if="!productSections.length" padding="20px">
+        <p class="empty">추천 가능한 금융상품이 없어요.</p>
+      </BaseCard>
       <p class="veteran-note">군 복무 기간만큼 청년 지원 나이 요건이 연장돼요</p>
     </section>
 
     <BottomButtonBar
-      secondary-label="삭제"
       primary-label="확인"
-      @secondary-click="handleDelete"
       @primary-click="goConfirm"
     />
 
@@ -738,7 +731,8 @@ const goConfirm = () => router.push({ name: 'RoadmapMain' });
       </template>
     </BaseBottomSheet>
   </div>
-  <p v-else class="loading">불러오는 중...</p>
+  <p v-else-if="loading" class="loading">불러오는 중...</p>
+  <p v-else class="loading">로드맵을 불러오지 못했어요</p>
 </template>
 
 <style scoped>
@@ -1043,8 +1037,9 @@ const goConfirm = () => router.push({ name: 'RoadmapMain' });
   font-weight: 600;
 }
 .infra-chip--on {
-  background: #e1f3e0; /* 기존 pill--cheap 연초록 재사용 */
-  color: #2e9e5b; /* 기존 insight__hl 초록 재사용 */
+  background: #fff;
+  border: 1px solid var(--kb-yellow);
+  color: var(--text-body);
 }
 .infra-chip--on .infra-chip__icon {
   filter: none;
@@ -1066,8 +1061,8 @@ const goConfirm = () => router.push({ name: 'RoadmapMain' });
   gap: 6px;
 }
 .strength-pill {
-  background: #e1f3e0; /* 연초록 재사용 */
-  color: #2e9e5b; /* 초록 재사용 */
+  background: #f5f6f8;
+  color: var(--text-body);
 }
 
 /* 후회소비 인사이트 카드 */
@@ -1192,6 +1187,19 @@ const goConfirm = () => router.push({ name: 'RoadmapMain' });
   font-size: 14px;
   font-weight: 700;
   color: var(--text-strong);
+}
+/* 계약 시 초기 비용(중개비) — 보증금 박스와 동일 톤, 핑크 강조로 1회성 구분 */
+.brokerage-box {
+  margin-top: 0;
+}
+.brokerage-box .deposit-box__v {
+  color: var(--rent-pink);
+}
+.brokerage-note {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-hint);
+  line-height: 1.5;
 }
 .note {
   font-size: 10px;

@@ -345,6 +345,26 @@ const goDay = (c) => {
         </button>
       </div>
     </BaseCard>
+
+    <!-- ── 리포트 / 절감목표 진입 ── -->
+    <div class="nav-grid">
+      <button class="nav-card" @click="goRoadmap('RegretReport')">
+        <span class="nc-ico">📊</span>
+        <span class="nc-tx">
+          <b>이번달 리포트 보기</b>
+          <span>월별 후회소비 자세히 분석</span>
+        </span>
+        <span class="nc-go">›</span>
+      </button>
+      <button class="nav-card" @click="goRoadmap('RegretChallenge')">
+        <span class="nc-ico">🎯</span>
+        <span class="nc-tx">
+          <b>절감 목표 세우기</b>
+          <span>이번달 절감 목표 + 적금 추천</span>
+        </span>
+        <span class="nc-go">›</span>
+      </button>
+    </div>
   </div>
   <p v-else class="loading">불러오는 중...</p>
 </template>
@@ -679,6 +699,47 @@ button.lg {
   color: var(--text-muted);
   line-height: 1.4;
 }
+/* ── 리포트 / 절감목표 진입 카드 ── */
+.nav-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+.nav-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-default);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+.nc-ico {
+  font-size: 20px;
+}
+.nc-tx {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.nc-tx b {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-strong);
+}
+.nc-tx span {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.nc-go {
+  font-size: 18px;
+  color: var(--text-hint);
+}
 /* ── 점호 유도 배너 (주 액션) ── */
 .review-invite {
   display: flex;
@@ -688,7 +749,7 @@ button.lg {
   padding: 15px 16px;
   border: 0;
   border-radius: 12px;
-  background: var(--kb-yellow);
+  background: #FFD337; /* 시연 요청 지정색 (진한 노랑) */
   cursor: pointer;
   font-family: inherit;
   text-align: left;

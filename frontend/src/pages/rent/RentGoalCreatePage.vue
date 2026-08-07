@@ -56,14 +56,11 @@ const sidoOpts = ref([]);
 const sigunguOpts = ref([]);
 const dongOpts = ref([]);
 
-// API 실패 시에만 쓰는 최소 폴백 (에러 안전)
-const SAMPLE_SIDO = [{ value: '부산광역시', label: '부산광역시' }];
-
 const loadSido = async () => {
   try {
     sidoOpts.value = toOpts(await rentApi.findRegions({}));
   } catch {
-    sidoOpts.value = SAMPLE_SIDO;
+    sidoOpts.value = []; // 시연: 가짜 폴백 제거, 실패 시 빈 목록
   }
 };
 // 시도 선택 → 시군구 로드 (하위 선택 초기화)

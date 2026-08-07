@@ -26,13 +26,6 @@ const maturity = computed(
   () => affordability.value?.maturityAmount ?? rentStore.maturityAmount ?? 0,
 );
 
-// TODO: 백엔드 매물 상세 API(WIP) 준비되면 샘플 폴백 제거
-const SAMPLE = {
-  listing: { buildingName: '부산대 앞 오피스텔', dongName: '부산 금정구 장전동', areaSqm: 23, floor: 5, buildYear: 2018, dealDate: '2026-06-15', deposit: 5000000, monthlyRent: 450000, maintenanceFee: 50000 },
-  // propertyBadges 는 신선도(실거래 시점)만 — 시세는 step2 priceLevel 로 별도 표시
-  propertyBadges: ['1개월 전 실거래'],
-};
-
 const data = ref(null);
 const loading = ref(true);
 const months = ref(rentStore.months || 6);
@@ -41,9 +34,10 @@ const load = async () => {
   loading.value = true;
   try {
     const res = await rentApi.findListingDetail(listingId, goalId, months.value);
-    data.value = res?.listing ? res : SAMPLE;
+    data.value = res?.listing ? res : null;
   } catch {
-    data.value = SAMPLE;
+    data.value = null;
+    showToast('매물 정보를 불러오지 못했어요', 'error');
   } finally {
     loading.value = false;
   }
@@ -515,7 +509,8 @@ const goPrev = () => {
       </template>
     </BaseBottomSheet>
   </div>
-  <p v-else class="loading">불러오는 중...</p>
+  <p v-else-if="loading" class="loading">불러오는 중...</p>
+  <p v-else class="loading">매물 정보를 불러오지 못했어요</p>
 </template>
 
 <style scoped>
