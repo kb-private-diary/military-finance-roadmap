@@ -52,11 +52,21 @@ const listing = computed(() => data.value?.listing);
 // step3 단건 응답은 지역평균을 못 줘서 시세가 없으므로 store 값에 의존.
 // step2를 안 거치고 직접 진입하면 priceLevel이 없어 시세 뱃지는 생략(신선도만 표시).
 const PRICE_BADGE = {
-  CHEAP: { text: '지역 평균보다 저렴', tone: 'good' },
-  AVERAGE: { text: '평균 수준', tone: 'neutral' },
-  EXPENSIVE: { text: '평균보다 비쌈', tone: 'danger' },
+  CHEAP: { label: '💰 지역 평균보다 저렴', tone: 'good' }, // 초록
+  AVERAGE: { label: '💰 지역 평균 수준', tone: 'info' }, // 파랑
+  EXPENSIVE: { label: '⚠️ 지역 평균보다 비쌈', tone: 'warn' }, // 노랑
 };
 const priceBadge = computed(() => PRICE_BADGE[rentStore.selectedPriceLevel] || null);
+
+// 신선도 뱃지: 백엔드 propertyBadges 텍스트("1개월 전 실거래" 등)에서 개월 수를 읽어 이모지+색 매핑.
+// 1/3개월 = 최근 실거래(✨ 보라), 6개월+ = 오래된 실거래(📅 회색). 그 외는 텍스트 그대로(중립).
+const freshBadge = (raw) => {
+  const t = String(raw ?? '');
+  if (t.includes('6개월')) return { label: '📅 6개월 이상 전', tone: 'old' };
+  if (t.includes('1개월') || t.includes('3개월')) return { label: `✨ ${t}`, tone: 'fresh' };
+  return { label: t, tone: 'neutral' };
+};
+const freshBadges = computed(() => (data.value?.propertyBadges || []).map(freshBadge));
 // 위치 좌표(국토부 실거래 API에 매물 이미지가 없어 지도로 대체). 좌표 있을 때만 안내 노출.
 const hasCoords = computed(
   () => listing.value?.latitude != null && listing.value?.longitude != null,
@@ -193,8 +203,8 @@ const goPrev = () => {
 
     <!-- 시세 뱃지(step2 priceLevel, 있을 때만) + 신선도 뱃지(응답 propertyBadges) -->
     <div class="pbadges">
-      <span v-if="priceBadge" class="tag" :class="`tag--${priceBadge.tone}`">{{ priceBadge.text }}</span>
-      <span v-for="(b, i) in (data.propertyBadges || [])" :key="i" class="tag">{{ b }}</span>
+      <span v-if="priceBadge" class="tag" :class="`tag--${priceBadge.tone}`">{{ priceBadge.label }}</span>
+      <span v-for="(b, i) in freshBadges" :key="i" class="tag" :class="`tag--${b.tone}`">{{ b.label }}</span>
     </div>
 
     <BaseCard padding="12px 14px">
@@ -319,14 +329,31 @@ const goPrev = () => {
   border-radius: 999px;
   color: var(--text-muted);
 }
-/* 시세 뱃지 톤: 테두리+글자색으로만 담백하게 (step2 .badge 결과 맞춤) */
+/* 뱃지 톤: 테두리+글자색으로 (기존 .tag 결 유지, 색만 명세대로) */
+/* 시세 CHEAP - 초록 */
 .tag--good {
   border-color: var(--military-green-light);
   color: var(--success);
 }
-.tag--danger {
-  border-color: var(--danger);
-  color: var(--danger);
+/* 시세 AVERAGE - 파랑 */
+.tag--info {
+  border-color: var(--pastel-blue);
+  color: var(--info-blue);
+}
+/* 시세 EXPENSIVE - 노랑(amber) */
+.tag--warn {
+  border-color: var(--roadmap-active);
+  color: var(--roadmap-active);
+}
+/* 신선도 1/3개월 - 보라 */
+.tag--fresh {
+  border-color: var(--pastel-purple);
+  color: var(--purple);
+}
+/* 신선도 6개월+ - 회색 */
+.tag--old {
+  border-color: var(--line);
+  color: var(--text-hint);
 }
 .tag--neutral {
   border-color: var(--line);
