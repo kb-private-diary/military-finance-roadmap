@@ -153,7 +153,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="travel-products">
-    <RoadmapCharacterSlider :progress="100" label="여행 로드맵" />
+    <RoadmapCharacterSlider :step="4" label="여행 로드맵" />
 
     <header class="page-header">
       <h1 class="text-title">금융상품 추천</h1>

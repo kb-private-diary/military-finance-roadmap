@@ -8,6 +8,7 @@ import org.scoula.rent.dto.RentListingResponseDTO;
 import org.scoula.rent.dto.RentListingDetailResponseDTO;
 import org.scoula.rent.dto.RentCostResponseDTO;
 import org.scoula.rent.dto.RentAffordabilityResponseDTO;
+import org.scoula.rent.dto.MarketComparisonResponseDTO;
 import java.util.List;
 
 public interface RentService {
@@ -27,6 +28,9 @@ public interface RentService {
 
     // 매물 상세 (Step3)
     RentListingDetailResponseDTO findListingDetail(Long listingId);
+
+    // 동네 시세 비교 (Step3 "동네 시세 상세보기") - 같은 동네 유사 매물 대비 이 매물 시세 비교
+    MarketComparisonResponseDTO findMarketComparison(Long listingId);
 
     // 총 필요자금 계산 (보증금 + 월세×거주개월)
     RentCostResponseDTO calculateCost(Long listingId, int months);

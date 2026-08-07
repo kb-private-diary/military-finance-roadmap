@@ -107,7 +107,7 @@ const handlePrev = () => {
 
 <template>
   <div class="car-recommend">
-    <RoadmapCharacterSlider :progress="50" label="자동차 로드맵" />
+    <RoadmapCharacterSlider :step="2" label="자동차 로드맵" />
 
     <h2 class="car-recommend__title text-title">차량을 추천해드려요</h2>
     <p v-if="goal" class="car-recommend__subtitle text-caption">

@@ -62,7 +62,10 @@ const adjustGoal = (delta) => {
 <template>
   <div class="challenge">
     <header class="head">
-      <p class="cap">절감 챌린지</p>
+      <p class="cap">
+        절감 챌린지
+        <span class="preview-tag">미리보기 · 샘플 데이터예요</span>
+      </p>
       <h2 class="title">{{ SAMPLE.monthLabel }} 후회 소비 줄이기</h2>
       <p class="dev-note">⚠️ 준비 중인 기능이에요 (미리보기)</p>
     </header>
@@ -139,7 +142,7 @@ const adjustGoal = (delta) => {
       </span>
     </div>
 
-    <BottomButtonBar secondary-label="이전" @secondary-click="goBack" />
+    <BottomButtonBar primary-label="확인" @primary-click="goBack" />
   </div>
 </template>
 
@@ -160,8 +163,19 @@ const adjustGoal = (delta) => {
   gap: 3px;
 }
 .cap {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   font-size: 12px;
   color: var(--text-muted);
+}
+.preview-tag {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--kb-yellow-pale);
+  color: var(--brand-gold);
 }
 .title {
   font-size: 18px;

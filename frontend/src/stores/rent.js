@@ -24,6 +24,7 @@ export const useRentStore = defineStore('rent', () => {
   // (백엔드 step3 단건은 지역평균 계산 불가라 시세를 안 줌 → step2 값을 넘겨서 표시)
   const selectedPriceLevel = ref(null);
   const months = ref(6); // Step3 거주기간 → Step4~5 유지
+  const depositMode = ref('INCLUDE'); // Step3 보증금 포함/제외 → Step4~5 감당도 계산 통일
 
   // ── setter ────────────────────────────────────────────────
   const setConditions = (payload) => Object.assign(draft.value, payload);
@@ -52,6 +53,7 @@ export const useRentStore = defineStore('rent', () => {
     selectedListingId.value = null;
     selectedPriceLevel.value = null;
     months.value = 6;
+    depositMode.value = 'INCLUDE';
   };
 
   // ── 목표 생성 (매물 보기) → { goalId, maturityAmount } ─────
@@ -80,6 +82,7 @@ export const useRentStore = defineStore('rent', () => {
     selectedListingId,
     selectedPriceLevel,
     months,
+    depositMode,
     setConditions,
     addRegion,
     removeRegion,

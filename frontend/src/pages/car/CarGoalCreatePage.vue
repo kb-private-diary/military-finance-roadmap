@@ -111,7 +111,7 @@ const submitGoal = async () => {
 
 <template>
   <div class="car-goal">
-    <RoadmapCharacterSlider :progress="0" label="자동차 로드맵" />
+    <RoadmapCharacterSlider :step="1" label="자동차 로드맵" />
 
     <h2 class="car-goal__title text-title">무엇을 준비하고 싶으신가요?</h2>
 

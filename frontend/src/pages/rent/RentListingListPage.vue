@@ -6,6 +6,7 @@ import { useRoute, useRouter } from 'vue-router';
 import rentApi from '@/api/rentApi';
 import { useRentStore } from '@/stores/rent';
 import { formatManwon } from '@/util/format';
+import { useToast } from '@/composables/useToast';
 import BaseCard from '@/components/common/BaseCard.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
@@ -14,6 +15,7 @@ import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.v
 const route = useRoute();
 const router = useRouter();
 const rentStore = useRentStore();
+const { show: showToast } = useToast();
 const goalId = Number(route.params.goalId);
 if (!rentStore.currentGoalId) rentStore.currentGoalId = goalId;
 
@@ -23,13 +25,6 @@ const ESTATE_LABEL = {
   VILLA: '빌라',
   ROOM: '원룸',
 };
-
-// TODO: 백엔드 매물 API(WIP) 준비되면 샘플 폴백 제거
-const SAMPLE = [
-  { listingId: 1, estateType: 'OFFICETEL', buildingName: '부산대 앞 오피스텔', umdName: '부산 금정구 장전동', areaSqm: 31.7, floor: 11, deposit: 5000000, monthlyRent: 450000, maintenanceFee: 50000, selectionMode: 'SCHOOL', commuteText: '도보 12분', transitText: null, affordLevel: 'ENOUGH', affordText: '딱 맞아요', effectiveMonthly: 530000, totalCost6M: 8000000, priceLevel: 'LOW' },
-  { listingId: 2, estateType: 'ROOM', buildingName: '장전동 원룸', umdName: '부산 금정구 장전동', areaSqm: 23.1, floor: 3, deposit: 3000000, monthlyRent: 400000, maintenanceFee: 30000, selectionMode: 'SCHOOL', commuteText: '도보 8분', transitText: null, affordLevel: 'ENOUGH', affordText: '딱 맞아요', effectiveMonthly: 480000, totalCost6M: 5580000, priceLevel: 'MID' },
-  { listingId: 3, estateType: 'VILLA', buildingName: '부곡동 신축 빌라', umdName: '부산 금정구 부곡동', areaSqm: 39.6, floor: 2, deposit: 8000000, monthlyRent: 500000, maintenanceFee: 50000, selectionMode: 'SCHOOL', commuteText: '버스 15분', transitText: null, affordLevel: 'TIGHT', affordText: '빠듯해요', effectiveMonthly: 620000, totalCost6M: 11300000, priceLevel: 'HIGH' },
-];
 
 const listings = ref([]);
 const loading = ref(true);
@@ -50,9 +45,10 @@ const load = async () => {
     const data = await rentApi.findListings(goalId);
     // 백엔드 계약: { totalCount, listings[] } — 배열로 바로 오는 경우도 방어
     const arr = Array.isArray(data) ? data : (data?.listings ?? []);
-    listings.value = arr.length ? arr : SAMPLE;
+    listings.value = arr;
   } catch {
-    listings.value = SAMPLE; // TODO: 폴백 제거
+    listings.value = [];
+    showToast('매물을 불러오지 못했어요', 'error');
   } finally {
     loading.value = false;
   }
@@ -122,13 +118,17 @@ const sortedListings = computed(() => {
   return arr; // recommend: 응답 순서 유지
 });
 
-// ── 상세 이동 + 선택(priceLevel) 저장 ─────────────────────────
-const goDetail = (l) => {
+// ── 카드 클릭 = 선택만(상세 이동 X). priceLevel 도 store 에 저장해 step3 시세뱃지에서 사용 ──
+const selectListing = (l) => {
   rentStore.selectedListingId = l.listingId;
+  rentStore.selectedPriceLevel = l.priceLevel ?? null;
+};
+
+// ── 상세 이동(하단 "매물 선택" 버튼에서만 호출) ─────────────────
+const goDetail = (l) => {
   router.push({
     name: 'RentListingDetail',
     params: { listingId: l.listingId },
-    // priceLevel 저장: 상세/이후 단계에서 참조하도록 query로 이어줌
     query: {
       goalId,
       months: rentStore.months,
@@ -148,12 +148,9 @@ const onComplete = () => {
 
 <template>
   <div class="listings">
-    <RoadmapCharacterSlider :progress="40" label="자취 로드맵" />
+    <RoadmapCharacterSlider :step="2" label="자취 로드맵" />
 
-    <header class="head">
-      <h2 class="title">로드맵을 선택해주십니까?</h2>
-      <span class="step">STEP 2</span>
-    </header>
+    <h2 class="title">로드맵을 선택해주세요.</h2>
 
     <p v-if="loading" class="loading">불러오는 중...</p>
 
@@ -179,8 +176,13 @@ const onComplete = () => {
         <span class="filter">{{ filterText }}</span>
       </div>
 
-      <BaseCard v-for="l in sortedListings" :key="l.listingId" padding="12px">
-        <button class="listing-card" @click="goDetail(l)">
+      <BaseCard
+        v-for="l in sortedListings"
+        :key="l.listingId"
+        padding="12px"
+        :class="{ 'card-selected': rentStore.selectedListingId === l.listingId }"
+      >
+        <button class="listing-card" @click="selectListing(l)">
           <span class="name-row">
             <span class="chip">{{ ESTATE_LABEL[l.estateType] || '매물' }}</span>
             <span class="name">{{ l.buildingName }}</span>
@@ -224,20 +226,12 @@ const onComplete = () => {
   flex-direction: column;
   gap: 10px;
 }
-.head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-}
 .title {
   font-size: 18px;
   font-weight: 700;
   color: var(--text-strong);
-}
-.step {
-  font-size: 12px;
-  color: var(--text-muted);
-  flex-shrink: 0;
+  line-height: 1.35;
+  margin-bottom: 2px;
 }
 .loading {
   padding: 40px 0;
@@ -270,6 +264,12 @@ const onComplete = () => {
   font-size: 11px;
   color: var(--text-muted);
 }
+/* 선택된 매물 카드 강조 (하단 버튼으로 넘어가기 전 표시) */
+.card-selected {
+  outline: 2px solid var(--kb-yellow-deep);
+  outline-offset: -1px;
+  border-radius: 12px;
+}
 .listing-card {
   display: flex;
   flex-direction: column;
@@ -290,11 +290,11 @@ const onComplete = () => {
 }
 .chip {
   flex-shrink: 0;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--kb-gray-pale);
-  color: var(--text-muted);
-  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: #9d9d9d;
+  color: #fff;
+  font-size: 9px;
   font-weight: 600;
 }
 .name {
@@ -331,26 +331,31 @@ const onComplete = () => {
   border-radius: 999px;
   white-space: nowrap;
 }
-/* 뱃지 톤: 목업 색을 colors.css 토큰에서 파생(담백한 pill). */
+/* 뱃지 색: 수연 확정 스펙(목업 기준, 글자색 전부 #000) */
 .badge--blue {
-  background: color-mix(in srgb, var(--pastel-blue) 16%, #fff);
-  color: color-mix(in srgb, var(--pastel-blue) 78%, #000);
+  /* 도보/지하철 */
+  background: #d3e6ff;
+  color: #000;
 }
 .badge--brown {
-  background: var(--kb-gray-pale);
-  color: var(--brown-text);
+  /* 버스 */
+  background: #ffead3;
+  color: #000;
 }
 .badge--green {
-  background: var(--military-green-light);
-  color: var(--success);
+  /* 딱 맞아요 */
+  background: #e1f3e0;
+  color: #000;
 }
 .badge--amber {
-  background: color-mix(in srgb, var(--roadmap-active) 22%, #fff);
-  color: color-mix(in srgb, var(--roadmap-active) 80%, #000);
+  /* 빠듯해요 */
+  background: #ffffc3;
+  color: #000;
 }
 .badge--red {
-  background: color-mix(in srgb, var(--danger) 18%, #fff);
-  color: color-mix(in srgb, var(--danger) 72%, #000);
+  /* 예산 초과 */
+  background: #f4d1d1;
+  color: #000;
 }
 .cta {
   padding: 9px 18px;

@@ -129,6 +129,8 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 .antMatchers(HttpMethod.POST, "/api/rent/listings/load",
                         "/api/rent/listings/load-nationwide",
                         "/api/rent/admin/youth-sync").permitAll()
+                // 동네 시세 비교는 공개정보(매물 시세)라 비로그인 허용 → /api/rent/** authenticated 규칙보다 먼저 예외
+                .antMatchers(HttpMethod.GET, "/api/rent/listings/*/market-comparison").permitAll()
                 .antMatchers("/api/simulator/**", "/api/dashboard/**", "/api/push/**",
                         "/api/travel/**", "/api/car/**", "/api/rent/**", "/api/regret/**",
                         "/api/openbanking/**").authenticated()

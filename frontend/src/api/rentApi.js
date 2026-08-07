@@ -62,6 +62,18 @@ export default {
     return data.data;
   },
 
+  // 동네 시세 상세 비교 (Step3 바텀시트) — market-comparison
+  //   GET /listings/{listingId}/market-comparison
+  //   → { umdName, estateTypeLabel, sampleCount, enough, betterCount, totalItems,
+  //       rows[{key,label,mine,avg,better}], rentMin, rentMax, rentAvg,
+  //       rentPercentile, verdict, verdictTitle, verdictText }
+  async findMarketComparison(listingId) {
+    const { data } = await instance.get(
+      `${BASE_URL}/listings/${listingId}/market-comparison`,
+    );
+    return data.data;
+  },
+
   // 금융상품 조회 (Step4) — { months, gap, products[] }
   async findProducts(goalId, listingId, months) {
     const { data } = await instance.get(`${BASE_URL}/goals/${goalId}/products`, {

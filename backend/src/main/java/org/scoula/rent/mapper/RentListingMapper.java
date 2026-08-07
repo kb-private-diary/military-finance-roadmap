@@ -3,6 +3,7 @@ package org.scoula.rent.mapper;
 import org.apache.ibatis.annotations.Param;
 import org.scoula.rent.domain.RentListingVO;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 월세 매물(rent_listing) 매퍼 - 배치 적재 + 조회
@@ -26,4 +27,24 @@ public interface RentListingMapper {
 
     // 매물 단건 조회 (Step3 상세)
     RentListingVO findById(Long listingId);
+
+    // 동네 시세 비교 집계 (Step3 "동네 시세 상세보기")
+    //   모집단: 같은 법정동(regionCode, 없으면 umdName) + 같은 estateType + 전용면적 ±5㎡ + del_yn='N', 자기 자신 제외
+    //   반환(map): sampleCount, avgMonthlyRent, avgDeposit, avgAreaSqm, avgBuiltYear, avgFloor,
+    //             avgRentPerSqm, rentMin, rentMax, lowerCount(이 매물 월세보다 싼 표본 수)
+    Map<String, Object> aggregateMarketComparison(@Param("listingId") Long listingId,
+                                                  @Param("estateType") String estateType,
+                                                  @Param("regionCode") String regionCode,
+                                                  @Param("umdName") String umdName,
+                                                  @Param("areaMin") java.math.BigDecimal areaMin,
+                                                  @Param("areaMax") java.math.BigDecimal areaMax,
+                                                  @Param("monthlyRent") Long monthlyRent);
+
+    // 시세 등급(priceLevel)용 동네 평균 월세 (Step3 상세 시세뱃지)
+    //   같은 법정동(regionCode, 없으면 umdName) + 같은 estateType + del_yn='N', 자기 자신 제외.
+    //   면적 필터는 걸지 않는다(시세뱃지는 넓게 동네 평균). 표본 없으면 null.
+    Double selectAvgRentForPriceLevel(@Param("listingId") Long listingId,
+                                      @Param("estateType") String estateType,
+                                      @Param("regionCode") String regionCode,
+                                      @Param("umdName") String umdName);
 }

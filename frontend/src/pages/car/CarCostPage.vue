@@ -17,7 +17,6 @@ const router = useRouter();
 const goalId = computed(() => Number(route.params.goalId));
 
 const currentStep = 3;
-const progress = computed(() => (currentStep / 4) * 100);
 
 const goal = ref(null);
 const purchase = ref(null); // { price, tax }
@@ -106,7 +105,7 @@ const handlePrev = () => {
 
 <template>
   <div class="car-cost">
-    <RoadmapCharacterSlider :progress="progress" label="자동차 로드맵" />
+    <RoadmapCharacterSlider :step="currentStep" label="자동차 로드맵" />
 
     <div v-if="loading" class="status-box text-caption" role="status">
       예상 비용을 계산하고 있습니다.

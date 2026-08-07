@@ -40,13 +40,15 @@ public class RentListingDetailResponseDTO {
         private Long maintenanceFee;      // 예상 관리비(원) - UtilityService 계산값
         private BigDecimal latitude;      // 위도 (지도용)
         private BigDecimal longitude;     // 경도 (지도용)
+        private String priceLevel;        // 시세 상대평가 CHEAP / AVERAGE / EXPENSIVE (동네 평균 대비, 표본 없으면 null)
     }
 
     /**
      * @param vo             매물 VO
      * @param maintenanceFee 서비스에서 UtilityService 로 계산한 예상 관리비(regionCode·areaSqm 없으면 0)
+     * @param priceLevel     서비스에서 동네 평균 월세 대비 판정한 시세 등급(CHEAP/AVERAGE/EXPENSIVE), 표본 없으면 null
      */
-    public static RentListingDetailResponseDTO of(RentListingVO vo, long maintenanceFee) {
+    public static RentListingDetailResponseDTO of(RentListingVO vo, long maintenanceFee, String priceLevel) {
         Listing listing = Listing.builder()
                 .listingId(vo.getListingId())
                 .buildingName(vo.getBuildingName())
@@ -60,6 +62,7 @@ public class RentListingDetailResponseDTO {
                 .maintenanceFee(maintenanceFee)
                 .latitude(vo.getLatitude())
                 .longitude(vo.getLongitude())
+                .priceLevel(priceLevel)
                 .build();
 
         return RentListingDetailResponseDTO.builder()

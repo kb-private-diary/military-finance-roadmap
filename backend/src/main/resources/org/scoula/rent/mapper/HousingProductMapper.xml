@@ -16,7 +16,10 @@
 
     <!--
       매물 조건 기반 금융상품 추천 (명세 3장 필터)
-      - 지역: region_code IS NULL(전국) OR region_code = LEFT(매물 법정동코드, 2) (공과금과 동일 방식)
+      - 지역: region_code IS NULL(전국) OR region_code = 매물 시도코드 2자리
+              시도코드는 매물 법정동코드(10자리) 앞 2자리를 우선 쓰되, 법정동코드가 NULL(코드 매핑 실패)이면
+              항상 채워지는 시군구코드(LAWD_CD, 5자리) 앞 2자리로 대체한다 (COALESCE). 그러지 않으면
+              법정동 매핑이 실패한 매물(예: 부산 기장군)은 LEFT(NULL,2)=NULL 이라 지역(LOCAL) 상품이 모두 누락된다.
       - 매물조건: 한도 컬럼이 NULL 이면 제한 없음(통과), 값이 있으면 매물값이 한도를 초과할 때만 제외
       - 나이 필터 없음 (생년월일 부재)
       - ORDER BY priority (만료 상품 하단 배치는 서비스단에서 isOpen 으로 재정렬)
@@ -24,7 +27,7 @@
     <select id="findProducts" resultType="org.scoula.rent.domain.HousingProductVO">
         SELECT <include refid="productColumns"/>
           FROM housing_product
-         WHERE (region_code IS NULL OR region_code = LEFT(#{regionCode}, 2))
+         WHERE (region_code IS NULL OR region_code = LEFT(COALESCE(#{regionCode}, #{sigunguCode}), 2))
            AND (deposit_limit IS NULL OR #{deposit} &lt;= deposit_limit)
            AND (monthly_limit IS NULL OR #{monthlyRent} &lt;= monthly_limit)
            AND (area_limit    IS NULL OR #{areaSqm} IS NULL OR #{areaSqm} &lt;= area_limit)

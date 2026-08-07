@@ -60,15 +60,24 @@ const SAMPLE_PREV_REGRET = 150000;
 const stats = ref(null);
 const prevRegret = ref(SAMPLE_PREV_REGRET);
 const loading = ref(true);
+// 실 통계 API 성공 여부 (실패 시 SAMPLE 폴백 → "미리보기" 뱃지 표시)
+const usingSample = ref(false);
 
 const load = async () => {
   loading.value = true;
   stats.value = null;
   try {
     const d = await regretApi.getMonthlyStats(yearMonth.value);
-    stats.value = d && d.totalSpending != null ? d : SAMPLE;
+    if (d && d.totalSpending != null) {
+      stats.value = d;
+      usingSample.value = false;
+    } else {
+      stats.value = SAMPLE;
+      usingSample.value = true;
+    }
   } catch {
     stats.value = SAMPLE; // TODO: 폴백 제거
+    usingSample.value = true;
   } finally {
     loading.value = false;
   }
@@ -165,7 +174,10 @@ const goBack = () => router.push({ name: 'RegretDashboard' });
 <template>
   <div class="report">
     <header class="head">
-      <p class="cap">후회소비 리포트</p>
+      <p class="cap">
+        후회소비 리포트
+        <span v-if="usingSample" class="preview-tag">미리보기 · 샘플 데이터예요</span>
+      </p>
       <div class="month-nav">
         <button class="nav-btn" aria-label="이전 달" @click="move(-1)">‹</button>
         <h2 class="title">{{ monthLabel }} 리포트</h2>
@@ -247,7 +259,7 @@ const goBack = () => router.push({ name: 'RegretDashboard' });
 
     </template>
 
-    <BottomButtonBar secondary-label="이전" @secondary-click="goBack" />
+    <BottomButtonBar primary-label="확인" @primary-click="goBack" />
   </div>
 </template>
 
@@ -268,8 +280,19 @@ const goBack = () => router.push({ name: 'RegretDashboard' });
   gap: 6px;
 }
 .cap {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   font-size: 12px;
   color: var(--text-muted);
+}
+.preview-tag {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--kb-yellow-pale);
+  color: var(--brand-gold);
 }
 .month-nav {
   display: flex;

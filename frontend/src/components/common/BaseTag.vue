@@ -73,4 +73,10 @@ defineProps({
   background-color: var(--brown-active-bg);
   color: var(--text-strong);
 }
+
+/* 자취(rent) 테마 핑크 배지용 */
+.base-tag--pink {
+  background-color: var(--rent-pink);
+  color: var(--surface-default);
+}
 </style>

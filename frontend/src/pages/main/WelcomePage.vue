@@ -4,16 +4,19 @@
 // 로그인 전 단계라 공통 헤더(서비스 3아이콘 메뉴)는 hideHeader로 끄고
 // 진입 전용 최소 헤더(나가기 + 앱명)만 노출함
 import { useRouter } from 'vue-router';
+import { useAuthStore } from '@/stores/auth';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
-import soldierImg from '@/assets/images/soldier-salute.png';
+import welcomeImg from '@/assets/images/welcome-kbfriends.png';
 
 const router = useRouter();
+const auth = useAuthStore();
 
 const goExit = () => {
   // TODO: KB Star Banking 네이티브 브릿지(KBBridge.exit())로 교체 예정, 지금은 웹 시뮬레이션임
   if (window.history.length > 1) router.back();
 };
-const goStart = () => router.push({ name: 'Login' });
+// 로그인 상태면 바로 홈, 아니면 로그인 화면으로
+const goStart = () => router.push({ name: auth.isLogin ? 'Home' : 'Login' });
 </script>
 
 <template>
@@ -31,7 +34,7 @@ const goStart = () => router.push({ name: 'Login' });
 
     <!-- 서비스 홍보 -->
     <div class="promo">
-      <img :src="soldierImg" alt="텅장일병 마스코트" class="promo__mascot" />
+      <img :src="welcomeImg" alt="텅장일병 마스코트" class="promo__mascot" />
       <h1 class="promo__name">텅장일병구하기</h1>
       <p class="promo__tagline">전역까지, 텅장 탈출 대작전<br />군적금부터 자취까지 한 번에</p>
     </div>
