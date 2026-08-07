@@ -46,6 +46,8 @@ const SAMPLE = [
 
 const items = ref([]);
 const loading = ref(true);
+// 실 지출 API 성공 여부 (SAMPLE 폴백 시 "미리보기" 뱃지 표시)
+const usingSample = ref(false);
 
 // 그날 지출만 필터 (spentAt 앞 10자리 == dateParam)
 const load = async () => {
@@ -53,13 +55,18 @@ const load = async () => {
   try {
     const d = await regretApi.findSpendings();
     const list = d?.length ? d : SAMPLE;
+    usingSample.value = !d?.length; // 실데이터 없으면 SAMPLE
     items.value = list.filter(
       (s) => (s.spentAt || '').slice(0, 10) === dateParam,
     );
     // 실데이터에 해당 날짜가 하나도 없으면 화면 확인용 샘플로 폴백
-    if (!items.value.length) items.value = SAMPLE; // TODO: 폴백 제거
+    if (!items.value.length) {
+      items.value = SAMPLE; // TODO: 폴백 제거
+      usingSample.value = true;
+    }
   } catch {
     items.value = SAMPLE; // TODO: 폴백 제거
+    usingSample.value = true;
   } finally {
     loading.value = false;
   }
@@ -88,7 +95,10 @@ const goBack = () => router.push({ name: 'RegretDashboard' });
   <div class="daily">
     <header class="head">
       <div class="htx">
-        <p class="cap">일자별 지출</p>
+        <p class="cap">
+          일자별 지출
+          <span v-if="usingSample" class="preview-tag">미리보기 · 샘플 데이터예요</span>
+        </p>
         <h2 class="title">{{ formatDate(dateParam) }}</h2>
       </div>
     </header>
@@ -185,8 +195,19 @@ const goBack = () => router.push({ name: 'RegretDashboard' });
   gap: 2px;
 }
 .cap {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   font-size: 12px;
   color: var(--text-muted);
+}
+.preview-tag {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--kb-yellow-pale);
+  color: var(--brand-gold);
 }
 .title {
   font-size: 18px;
