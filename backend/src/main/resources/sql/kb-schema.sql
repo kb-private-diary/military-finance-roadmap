@@ -67,6 +67,7 @@ CREATE TABLE `military_rank` (
   `rank_id` INT PRIMARY KEY NOT NULL COMMENT '계급ID (1: 이병, 2: 일병, 3: 상병, 4: 병장)',
   `rank_name` VARCHAR(30) NOT NULL COMMENT '계급 이름',
   `rank_salary` BIGINT NOT NULL COMMENT '계급 월급',
+  `service_months` INT NOT NULL COMMENT '이 계급이 시작되는 복무 개월차 (입대일이 속한 달을 1개월째로 계산)',
   `image_url` VARCHAR(500) COMMENT '계급 이미지',
   `created_date` DATETIME NOT NULL COMMENT '생성일시',
   `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',

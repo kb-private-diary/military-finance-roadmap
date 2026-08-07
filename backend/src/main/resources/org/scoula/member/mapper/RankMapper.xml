@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.scoula.member.mapper.RankMapper">
+
+    <!-- 입대일이 있고 아직 전역일이 지나지 않은 활성 유저만 진급 재계산 대상으로 삼는다. -->
+    <select id="findActiveEnlistedUsers" resultType="org.scoula.member.dto.UserRankInfoDTO">
+        SELECT id, enlist_date AS enlistDate, rank_id AS rankId
+        FROM `user`
+        WHERE del_yn = 'N'
+          AND status = 'ACTIVE'
+          AND enlist_date IS NOT NULL
+          AND (discharge_date IS NULL OR discharge_date >= CURDATE())
+    </select>
+
+    <!--
+        계급별 진급 개월차(service_months) 구간 매칭.
+        monthsSinceEnlist 이하인 것들 중 가장 큰 service_months를 가진 계급이 현재 계급이다.
+    -->
+    <select id="findRankIdByServiceMonths" resultType="Integer">
+        SELECT rank_id
+        FROM military_rank
+        WHERE service_months &lt;= #{monthsSinceEnlist}
+          AND del_yn = 'N'
+        ORDER BY service_months DESC
+        LIMIT 1
+    </select>
+
+    <update id="updateRankId">
+        UPDATE `user`
+        SET rank_id       = #{rankId},
+            modified_date = NOW(),
+            modified_nm   = #{modifiedNm}
+        WHERE id = #{userId}
+          AND del_yn = 'N'
+    </update>
+
+</mapper>

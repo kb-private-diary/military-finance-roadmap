@@ -70,7 +70,8 @@ import javax.sql.DataSource;
         "org.scoula.social.service",
         "org.scoula.bookmark.service",
         "org.scoula.push.service",
-        "org.scoula.push.client"
+        "org.scoula.push.client",
+        "org.scoula.member.scheduler"
 })
 // application-secret.properties 는 API 키 등 비밀값 (gitignore 대상).
 // 파일이 없어도 서버가 뜨도록 ignoreResourceNotFound = true
