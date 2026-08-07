@@ -1,5 +1,7 @@
--- 전국 법정동 실데이터 (국토교통부_전국 법정동_20260630.csv → 리 제외)
--- kb-schema→kb-data 실행 후 이 파일 실행. FK 참조(school·rent_listing·region_fee_stat) 때문에 FK 체크 잠깐 끔
+-- --------------------------------------------------------------------
+--  [수연] 자취/법정동 코드 마스터 (실데이터)
+--  테이블: region_code / 출처: 국토교통부 전국 법정동 20260630 (리 제외)
+-- --------------------------------------------------------------------
 SET FOREIGN_KEY_CHECKS = 0;
 DELETE FROM region_code;
 INSERT INTO region_code (region_code, sido_name, sigungu_name, umd_name, sigungu_code, is_abolished, created_date, created_nm, del_yn) VALUES

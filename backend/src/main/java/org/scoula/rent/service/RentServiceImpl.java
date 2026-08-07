@@ -6,6 +6,8 @@ import org.scoula.common.exception.BusinessException;
 import org.scoula.rent.domain.RentGoalVO;
 import org.scoula.rent.domain.RentGoalRegionVO;
 import org.scoula.rent.domain.RentListingVO;
+import org.scoula.rent.domain.RentAffordability;
+import org.scoula.rent.domain.SchoolVO;
 import org.scoula.rent.domain.ResidencePreset;
 import org.scoula.rent.dto.RegionResponseDTO;
 import org.scoula.rent.dto.RentGoalCreateRequestDTO;
@@ -20,8 +22,10 @@ import org.scoula.rent.dto.NearbyFacilityDTO;
 import org.scoula.rent.dto.PrecisionSimulationDTO;
 import org.scoula.rent.dto.UtilityEstimateResponseDTO;
 import org.scoula.rent.client.KakaoLocalClient;
+import org.scoula.rent.dto.NearestStationDTO;
 import org.scoula.rent.mapper.RentMapper;
 import org.scoula.rent.mapper.RentListingMapper;
+import org.scoula.rent.mapper.StationMapper;
 import org.scoula.dashboard.service.DashboardService;
 import org.scoula.regret.service.RegretService;
 import org.scoula.regret.dto.RegretSpendingSummaryDTO;
@@ -29,6 +33,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -43,8 +49,28 @@ public class RentServiceImpl implements RentService {
     private static final String MODE_REGION = "REGION";
     private static final int SPENDING_MONTHS = 3; // 소비 패턴 집계 기간 (최근 3개월)
 
+    // 전월세전환율 (연 5.5%). 보증금환산액 = deposit × 0.055 ÷ 12 (원/월)
+    //   반전세(보증금 크고 월세 낮음)를 순수 월세와 공정 비교하려고 보증금을 월부담으로 환산한다.
+    //   근거: 주택임대차보호법 법정 전월세전환율 상한(기준금리+2%) 근처 + 한국부동산원 서울 오피스텔 실무값 ≈ 5.5%
+    //   저장 위치: utility_constant 는 지역계수·요금표 중심 key-value 라 법정 도메인 상수는 코드에서 단일 관리
+    private static final double JEONSE_CONVERSION_RATE = 0.055;
+
+    // 보증금 감당 토글 (findAffordability) - 기본 INCLUDE
+    private static final String DEPOSIT_MODE_EXCLUDE = "EXCLUDE"; // 보증금 대출 전제 → 필요목돈에서 제외
+
+    // findListings 노출 매물 최대 개수 (실질월부담 필터 후 상위 N개, 선택 피로 방지)
+    private static final int LISTING_LIMIT = 30;
+
+    // --- Step2 카드 모드별 뱃지 상수 ---
+    private static final int AFFORD_MONTHS = 6;    // 재정진단 기준 거주개월 (뱃지는 6개월 고정)
+    private static final int WALK_M_PER_MIN = 80;  // 도보 환산 (부동산 관례 1분 = 80m)
+    private static final int BUS_M_PER_MIN = 200;  // 버스 환산 대략 (정차·대기 포함 시속 ≈ 12km = 200m/분)
+    private static final int WALK_RADIUS_M = 800;  // 도보권 상한 (도보 10분) - 초과 시 버스권으로 표시
+    private static final double EARTH_RADIUS_M = 6_371_000; // 하버사인 지구 반지름(m)
+
     private final RentMapper mapper;
     private final RentListingMapper listingMapper;
+    private final StationMapper stationMapper; // Step2 지역 모드 대중교통 뱃지 (매물 800m 내 최근접 지하철역)
     private final UtilityService utilityService; // Step3 관리비 = 새 공과금 방식(region_fee_stat 대체)
     // 만기금(군적금 예상 만기 수령액) 조회용 - rent → dashboard 단방향 주입 (dashboard는 rent 미참조, 순환 없음)
     private final DashboardService dashboardService;
@@ -227,27 +253,212 @@ public class RentServiceImpl implements RentService {
             throw BusinessException.notFound("목표를 찾을 수 없습니다.", "RENT_005");
         }
 
-        List<RentListingVO> listings;
+        // 1) 후보 매물 조회 (SQL 은 지역/학교반경 + 월세 느슨한 상한까지만, LIMIT 없음)
+        List<RentListingVO> candidates;
         if (MODE_SCHOOL.equals(goal.getSelectionMode())) {
             // 학교 좌표 기준 반경 내 매물
-            listings = this.listingMapper.findListingsBySchool(
+            candidates = this.listingMapper.findListingsBySchool(
                     goal.getSchoolId(), goal.getCommuteRadiusKm(), goal.getMonthlyBudget());
         } else {
             // 희망 지역(법정동코드)에 속한 매물
             List<String> regionCodes = this.mapper.findRegionCodesByGoalId(goalId);
-            listings = regionCodes.isEmpty()
+            candidates = regionCodes.isEmpty()
                     ? List.of()
                     : this.listingMapper.findListingsByRegions(regionCodes, goal.getMonthlyBudget());
         }
-        // 시세 상대평가 뱃지용: 조회된 매물의 종류별 평균 월세 (같은 조건 매물끼리 비교)
-        Map<String, Double> avgRentByType = listings.stream()
+
+        // 2) 실질월부담(월세+관리비+보증금환산) 계산 → 월예산 이하만 남기고 오름차순 상위 30개
+        long budget = goal.getMonthlyBudget() != null ? goal.getMonthlyBudget() : 0L;
+        List<ListingCost> affordable = filterByEffectiveMonthly(candidates, budget);
+
+        // 3) 시세 상대평가 뱃지용: 최종 노출 매물의 종류별 평균 월세 (같은 조건 매물끼리 비교)
+        Map<String, Double> avgRentByType = affordable.stream()
+                .map(ListingCost::listing)
                 .filter(l -> l.getMonthlyRent() != null && l.getEstateType() != null)
                 .collect(Collectors.groupingBy(
                         RentListingVO::getEstateType,
                         Collectors.averagingLong(RentListingVO::getMonthlyRent)));
-        return listings.stream()
-                .map(l -> RentListingResponseDTO.of(l, avgRentByType.get(l.getEstateType())))
-                .toList();
+
+        // 4) 모드별 뱃지용 공통 데이터 (매물 루프 밖에서 1회 준비)
+        String mode = goal.getSelectionMode();
+        // 재정진단 만기금(군적금 예상 만기 수령액) - 매물마다 동일하므로 1회 조회
+        //   온보딩에서 군적금 가입을 강제하므로 미가입(DASH_002)은 정상 흐름에 없음 - 예외는 그대로 전파
+        long maturity = this.dashboardService.findSavingsStatus(goal.getUserId()).getExpectedMaturityTotal();
+        // 학교 모드면 통학시간 계산용 학교 좌표를 1회 조회 (지역 모드면 불필요 → null)
+        SchoolVO school = MODE_SCHOOL.equals(mode) ? this.mapper.findSchoolById(goal.getSchoolId()) : null;
+
+        // 5) DTO 변환 (기존 뱃지·실질월부담 + 모드별 뱃지 3종: 통학/대중교통·재정진단)
+        List<RentListingResponseDTO> result = new ArrayList<>(affordable.size());
+        for (ListingCost c : affordable) {
+            RentListingVO l = c.listing();
+            RentListingResponseDTO dto = RentListingResponseDTO.of(
+                    l, avgRentByType.get(l.getEstateType()),
+                    c.maintenanceFee(), c.depositConverted(), c.effectiveMonthly());
+
+            dto.setSelectionMode(mode); // 프론트 뱃지 분기용
+
+            // 통학/대중교통 뱃지 - 모드에 해당하는 것 하나만 채움 (다른 하나는 null 유지)
+            if (MODE_SCHOOL.equals(mode)) {
+                dto.setCommuteText(buildCommuteText(school, l));   // 학교↔매물 도보/버스
+            } else {
+                dto.setTransitText(buildTransitText(l));           // 매물 800m 내 최근접 지하철역
+            }
+
+            // 재정진단 뱃지 (공통, 6개월 거주 기준) - 만기금 vs 6개월 총필요자금
+            long totalNeed = calcSixMonthNeed(l, c.maintenanceFee()); // 보증금 + (월세 + 관리비) × 6
+            dto.setTotalCost6M(totalNeed); // 프론트 "6개월 예상 N원" 표시용 - 재정진단 판정과 같은 6개월 총필요자금을 그대로 노출
+            RentAffordability level = RentAffordability.judge(totalNeed, maturity);
+            dto.setAffordLevel(toAffordLevel(level));
+            dto.setAffordText(level.getLabel());
+
+            result.add(dto);
+        }
+        return result;
+    }
+
+    /**
+     * 6개월 거주 총필요자금 = 보증금 + (월세 + 관리비) × 6 (재정진단 뱃지 기준).
+     * findAffordability(총 필요자금 = 보증금 + 월주거비)와 동일한 개념을 6개월 고정으로 적용한다.
+     */
+    private long calcSixMonthNeed(RentListingVO l, long maintenanceFee) {
+        long deposit = l.getDeposit() != null ? l.getDeposit() : 0L;
+        long monthlyRent = l.getMonthlyRent() != null ? l.getMonthlyRent() : 0L;
+        return deposit + (monthlyRent + maintenanceFee) * AFFORD_MONTHS;
+    }
+
+    /**
+     * 감당도 판정(RentAffordability) → 프론트 계약 코드 매핑.
+     * 판정 로직은 findAffordability 와 동일하게 RentAffordability.judge 재사용,
+     * 코드만 SUFFICIENT → ENOUGH 로 바꿔 프론트 계약(ENOUGH/TIGHT/OVER)에 맞춘다. (라벨은 enum 그대로)
+     */
+    private String toAffordLevel(RentAffordability level) {
+        return level == RentAffordability.SUFFICIENT ? "ENOUGH" : level.name();
+    }
+
+    /**
+     * [학교 모드] 통학시간 뱃지 텍스트.
+     * 학교↔매물 직선거리(하버사인)를 구해 800m(도보 10분) 이하면 "도보 N분", 초과면 "버스 N분".
+     *   도보 N = 거리 ÷ 80 (부동산 관례 1분=80m), 버스 N = 거리 ÷ 200 (정차·대기 포함 대략)
+     * 학교/매물 좌표가 없으면 계산 불가 → null (프론트에서 뱃지 미표시)
+     */
+    private String buildCommuteText(SchoolVO school, RentListingVO listing) {
+        if (school == null || school.getLatitude() == null || school.getLongitude() == null
+                || listing.getLatitude() == null || listing.getLongitude() == null) {
+            // 좌표/학교가 하나라도 비면 통학시간 계산 불가 → null(프론트 뱃지 미표시).
+            //   findSchoolById 는 latitude/longitude 를 SELECT 하고 SchoolVO 에 게터도 있으므로
+            //   코드 경로는 정상이다. 그래도 null 이 나오면 원인은 데이터(학교/매물 좌표 미적재)이므로
+            //   어느 값이 비었는지 아래 로그로 바로 진단한다.
+            log.debug("통학시간 계산 불가 - schoolId={}, schoolLat={}, schoolLng={}, listingId={}, listingLat={}, listingLng={}",
+                    school == null ? null : school.getSchoolId(),
+                    school == null ? null : school.getLatitude(),
+                    school == null ? null : school.getLongitude(),
+                    listing.getListingId(), listing.getLatitude(), listing.getLongitude());
+            return null;
+        }
+        double distanceM = haversineMeters(
+                school.getLatitude().doubleValue(), school.getLongitude().doubleValue(),
+                listing.getLatitude().doubleValue(), listing.getLongitude().doubleValue());
+        if (distanceM <= WALK_RADIUS_M) {
+            int walkMin = Math.max(1, (int) Math.round(distanceM / WALK_M_PER_MIN));
+            return "도보 " + walkMin + "분";
+        }
+        int busMin = Math.max(1, (int) Math.round(distanceM / BUS_M_PER_MIN));
+        return "버스 " + busMin + "분";
+    }
+
+    /**
+     * [지역 모드] 대중교통 뱃지 텍스트.
+     * 매물 800m 내 최근접 지하철역이 있으면 "OO역 도보 N분"(N = 거리 ÷ 80), 없으면 "버스 이용 지역".
+     * (역 조회는 매물마다 1회 - 노출 매물 최대 30개라 부담이 크지 않음. 필요 시 좌표 반올림 캐시로 고도화)
+     * 원본 역명이 이미 '역'으로 끝나면(예: 양촌역) '역'을 덧붙이지 않아 "양촌역역" 중복을 막는다.
+     */
+    private String buildTransitText(RentListingVO listing) {
+        if (listing.getLatitude() == null || listing.getLongitude() == null) {
+            return "버스 이용 지역"; // 좌표 없으면 역 검색 불가 → 버스권으로 표시
+        }
+        NearestStationDTO station = this.stationMapper.findNearestStation(
+                listing.getLatitude(), listing.getLongitude());
+        if (station == null || station.getDistanceM() == null) {
+            return "버스 이용 지역";
+        }
+        int walkMin = Math.max(1, (int) Math.round(station.getDistanceM() / WALK_M_PER_MIN));
+        String name = station.getStationName();
+        String label = name.endsWith("역") ? name : name + "역";
+        return label + " 도보 " + walkMin + "분";
+    }
+
+    /**
+     * 두 위경도 사이 직선거리(m) - 하버사인 공식.
+     * SQL 의 ST_Distance_Sphere 와 동일 개념이며, 학교 거리는 매물마다 SQL 재조회 대신
+     * 학교 좌표 1회 조회 후 인메모리로 계산한다(N+1 회피).
+     */
+    private double haversineMeters(double lat1, double lng1, double lat2, double lng2) {
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLng = Math.toRadians(lng2 - lng1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        return EARTH_RADIUS_M * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    /**
+     * 후보 매물 각각의 실질 월부담을 계산해, 월예산 이하인 것만 실질월부담 오름차순 상위 30개로 추린다.
+     * - 관리비: utilityService.calcManagementFee(regionCode, areaSqm) (regionCode/areaSqm 없으면 0)
+     * - 보증금환산: deposit × 전월세전환율 ÷ 12 (원/월)
+     * - 실질월부담: 월세 + 관리비 + 보증금환산 (반전세 공정 비교 기준)
+     *
+     * 성능: calcManagementFee 는 매 건 DB 조회(시도계수·관리비 앵커)라 N+1 소지가 있어,
+     *       동일 (regionCode, areaSqm) 은 요청 단위 Map 으로 메모이즈해 중복 조회를 줄인다.
+     *       (같은 건물·같은 면적 매물이 실거래에 반복 등장하므로 중복 제거 효과가 있다)
+     *       TODO(확장): 관리비 앵커(findAreaMgmtAnchors)는 요청당 1회, 시도계수는 시도별 1회만
+     *                  조회하면 서로 다른 면적까지 완전 제거 가능 - UtilityService 에 배치 API 추가 시 고도화
+     */
+    private List<ListingCost> filterByEffectiveMonthly(List<RentListingVO> candidates, long budget) {
+        Map<String, Long> mgmtCache = new HashMap<>(); // key: regionCode|areaSqm → 관리비 (요청 단위 메모이즈)
+        List<ListingCost> result = new ArrayList<>();
+
+        for (RentListingVO l : candidates) {
+            long monthlyRent = l.getMonthlyRent() != null ? l.getMonthlyRent() : 0L;
+            long deposit = l.getDeposit() != null ? l.getDeposit() : 0L;
+
+            long maintenanceFee = calcMaintenanceFeeCached(l, mgmtCache); // 관리비 (없으면 0)
+            long depositConverted = Math.round(deposit * JEONSE_CONVERSION_RATE / 12); // 보증금환산 (원/월)
+            long effectiveMonthly = monthlyRent + maintenanceFee + depositConverted;   // 실질 월부담
+
+            // 실질월부담 ≤ 월예산 인 매물만 통과
+            if (effectiveMonthly <= budget) {
+                result.add(new ListingCost(l, maintenanceFee, depositConverted, effectiveMonthly));
+            }
+        }
+
+        // 실질월부담 오름차순 정렬 후 상위 30개 (선택 피로 방지)
+        result.sort((a, b) -> Long.compare(a.effectiveMonthly(), b.effectiveMonthly()));
+        return result.size() > LISTING_LIMIT ? result.subList(0, LISTING_LIMIT) : result;
+    }
+
+    /**
+     * 관리비 계산 (요청 단위 메모이즈).
+     * regionCode/areaSqm 이 없으면 계산 불가 → 0.
+     */
+    private long calcMaintenanceFeeCached(RentListingVO l, Map<String, Long> cache) {
+        String regionCode = l.getRegionCode();
+        if (regionCode == null || l.getAreaSqm() == null) {
+            return 0L;
+        }
+        double areaSqm = l.getAreaSqm().doubleValue();
+        String key = regionCode + "|" + areaSqm;
+        Long cached = cache.get(key);
+        if (cached != null) {
+            return cached;
+        }
+        long fee = this.utilityService.calcManagementFee(regionCode, areaSqm);
+        cache.put(key, fee);
+        return fee;
+    }
+
+    /** findListings 내부용 홀더 - 매물 VO + 계산된 관리비·보증금환산·실질월부담을 함께 들고 다닌다 */
+    private record ListingCost(RentListingVO listing, long maintenanceFee,
+                               long depositConverted, long effectiveMonthly) {
     }
 
     @Override
@@ -257,7 +468,14 @@ public class RentServiceImpl implements RentService {
         if (vo == null) {
             throw BusinessException.notFound("매물을 찾을 수 없습니다.", "RENT_006");
         }
-        return RentListingDetailResponseDTO.of(vo);
+        // 예상 관리비 = K-apt 면적앵커 보간 단가 × 전용면적 × 시도계수 (공용관리비, UtilityService로 통일)
+        //   regionCode 없거나 areaSqm null 이면 계산 불가 → 0
+        long maintenanceFee = 0L;
+        if (vo.getRegionCode() != null && vo.getAreaSqm() != null) {
+            maintenanceFee = utilityService.calcManagementFee(
+                    vo.getRegionCode(), vo.getAreaSqm().doubleValue());
+        }
+        return RentListingDetailResponseDTO.of(vo, maintenanceFee);
     }
 
     @Override
@@ -292,16 +510,24 @@ public class RentServiceImpl implements RentService {
 
     @Override
     @Transactional(readOnly = true)
-    public RentAffordabilityResponseDTO findAffordability(Long listingId, Long userId, int months) {
+    public RentAffordabilityResponseDTO findAffordability(Long listingId, Long userId, int months, String depositMode) {
         // 1) 총 필요자금 계산 재사용 (매물 존재·개월수 검증 포함)
+        //    cost.totalRequired = 보증금 + 월주거비((월세+관리비)×개월), cost.livingCost = 월주거비만
         RentCostResponseDTO cost = this.calculateCost(listingId, months);
 
-        // 2) 만기금(군적금 예상 만기 수령액) 조회
+        // 2) 보증금 감당 토글 → 필요목돈 결정
+        //    INCLUDE(기본): 보증금 + 월주거비 (보증금까지 직접 마련)
+        //    EXCLUDE       : 월주거비만 (보증금은 전세대출 전제로 필요목돈에서 제외)
+        long required = DEPOSIT_MODE_EXCLUDE.equalsIgnoreCase(depositMode)
+                ? cost.getLivingCost()
+                : cost.getTotalRequired();
+
+        // 3) 만기금(군적금 예상 만기 수령액) 조회
         //    온보딩에서 군적금 가입을 강제하므로 미가입(DASH_002)은 정상 흐름에 없음 - 예외는 그대로 전파(공통 advice가 처리)
         long maturity = this.dashboardService.findSavingsStatus(userId).getExpectedMaturityTotal();
 
-        // 3) 부족분·감당도 판정 후 응답 조립
-        return RentAffordabilityResponseDTO.of(listingId, months, cost.getTotalRequired(), maturity);
+        // 4) 부족분·감당도 판정 후 응답 조립 (판정 로직은 기존 재사용)
+        return RentAffordabilityResponseDTO.of(listingId, months, required, maturity);
     }
 
     @Override

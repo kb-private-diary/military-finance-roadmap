@@ -28,8 +28,12 @@
     </sql>
 
     <!--
-      REGION 모드: 희망 지역(법정동코드 IN) + 월세 예산 이하
-      추천순 = 월세 오름차순 (저렴한 매물 우선), 선택 피로 방지 위해 상위 30개만
+      REGION 모드: 희망 지역(법정동코드 IN) + 월세 예산 이하 (후보 선별)
+      maxMonthly 는 "느슨한 상한" - 실질월부담(월세+관리비+보증금환산) 은 항상 월세 이상이므로,
+      월세 > 예산 인 매물은 실질월부담도 예산을 넘어 어차피 탈락한다. 따라서 이 조건은 후보를
+      좁히기만 할 뿐 최종 결과를 잘못 배제하지 않는다(안전한 상한).
+      최종 실질월부담 필터·정렬·상위 30개 컷은 Java(RentServiceImpl.findListings)에서 처리하므로
+      여기서 LIMIT 를 걸지 않는다(걸면 실질월부담 기준 상위가 잘려나감).
       TODO(확장): 만기금 대비 재정적합도 점수 기반 추천으로 고도화 (지금은 단순 정렬)
     -->
     <select id="findListingsByRegions" resultType="org.scoula.rent.domain.RentListingVO">
@@ -42,13 +46,14 @@
            AND l.monthly_rent &lt;= #{maxMonthly}
            AND l.del_yn = 'N'
          ORDER BY l.monthly_rent ASC
-         LIMIT 30
     </select>
 
     <!--
-      SCHOOL 모드: 학교 좌표 기준 반경(km) 내 매물, 가까운 순 (추천순), 상위 30개
+      SCHOOL 모드: 학교 좌표 기준 반경(km) 내 매물, 가까운 순 (후보 선별)
       ST_Distance_Sphere(POINT(경도,위도), POINT(경도,위도)) = 두 좌표 사이 실제 거리(미터)
       radiusKm * 1000 으로 km를 m로 환산해 비교 (좌표 없는 매물은 제외)
+      maxMonthly 는 느슨한 상한(REGION 쿼리 주석 참고) - 실질월부담 필터·정렬·상위 30개 컷은
+      Java(RentServiceImpl.findListings)에서 처리하므로 여기서 LIMIT 를 걸지 않는다.
       TODO(확장): 거리 + 만기금 대비 재정적합도 점수 결합 추천으로 고도화 (지금은 단순 거리순)
     -->
     <select id="findListingsBySchool" resultType="org.scoula.rent.domain.RentListingVO">
@@ -61,7 +66,6 @@
            AND ST_Distance_Sphere(POINT(l.longitude, l.latitude), POINT(s.longitude, s.latitude))
                &lt;= #{radiusKm} * 1000
          ORDER BY ST_Distance_Sphere(POINT(l.longitude, l.latitude), POINT(s.longitude, s.latitude))
-         LIMIT 30
     </select>
 
     <!-- 매물 단건 조회 (Step3 상세) -->

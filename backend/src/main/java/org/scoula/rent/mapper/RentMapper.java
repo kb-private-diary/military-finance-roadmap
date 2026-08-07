@@ -26,6 +26,9 @@ public interface RentMapper {
     // 학교 검색 (자동완성, 이름 부분일치)
     List<SchoolVO> findSchoolsByKeyword(String keyword);
 
+    // 학교 단건 조회 (SCHOOL 모드 통학시간 뱃지 - 학교 좌표로 매물 거리 계산)
+    SchoolVO findSchoolById(Long schoolId);
+
     // 목표 단건 조회 (상세)
     RentGoalVO findGoalById(Long goalId);
 

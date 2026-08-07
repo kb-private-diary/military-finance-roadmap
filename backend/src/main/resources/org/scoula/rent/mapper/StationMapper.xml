@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.scoula.rent.mapper.StationMapper">
+
+    <!--
+      매물 좌표 기준 800m 내 최근접 지하철역 1건 (지역 모드 대중교통 뱃지)
+      ST_Distance_Sphere(POINT(경도,위도), POINT(경도,위도)) = 두 좌표 사이 실제 거리(미터)
+      800m = 도보 10분(1분=80m) 상한. 이 범위 밖이면 결과 없음(null) → 서비스에서 "버스 이용 지역" 처리
+      거리 오름차순 LIMIT 1 로 가장 가까운 역만 반환 (좌표 없는 역은 마스터에 없음)
+    -->
+    <select id="findNearestStation" resultType="org.scoula.rent.dto.NearestStationDTO">
+        SELECT s.station_name AS stationName,
+               ST_Distance_Sphere(POINT(#{lng}, #{lat}), POINT(s.longitude, s.latitude)) AS distanceM
+          FROM station s
+         WHERE s.del_yn = 'N'
+           AND ST_Distance_Sphere(POINT(#{lng}, #{lat}), POINT(s.longitude, s.latitude)) &lt;= 800
+         ORDER BY distanceM
+         LIMIT 1
+    </select>
+
+</mapper>

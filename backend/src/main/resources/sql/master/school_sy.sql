@@ -1,5 +1,8 @@
--- 전국 대학 실데이터 (교육부_대학교 주소기반 좌표정보_20251126.xlsx, 좌표 포함)
--- SCHOOL 반경검색은 위도·경도만 사용 (sigungu_code·region_code 는 추후 주소 매핑)
+-- --------------------------------------------------------------------
+--  [수연] 자취/학교 마스터 (실데이터)
+--  테이블: school / 출처: 교육부 대학교 주소기반 좌표정보 20251126 (좌표 포함)
+--  반경검색은 좌표(위도·경도)만 사용 (시군구·법정동 코드는 미포함)
+-- --------------------------------------------------------------------
 SET FOREIGN_KEY_CHECKS = 0;
 DELETE FROM school;
 INSERT INTO school (school_name, school_type, address, sigungu_code, region_code, latitude, longitude, created_date, created_nm, del_yn) VALUES

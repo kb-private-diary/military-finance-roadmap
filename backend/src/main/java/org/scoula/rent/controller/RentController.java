@@ -101,14 +101,16 @@ public class RentController {
         return ResponseEntity.ok(ApiResponse.success(service.calculateCost(listingId, months)));
     }
 
-    // GET /api/rent/listings/{listingId}/affordability?months=6 → 부족분·감당도 (Step4 빨간 카드)
+    // GET /api/rent/listings/{listingId}/affordability?months=6&depositMode=INCLUDE → 부족분·감당도 (Step4 빨간 카드)
+    //   depositMode: INCLUDE(기본, 보증금+월주거비) | EXCLUDE(월주거비만, 보증금은 전세대출 전제로 제외)
     @GetMapping("/listings/{listingId}/affordability")
     public ResponseEntity<ApiResponse<RentAffordabilityResponseDTO>> findAffordability(
             @PathVariable Long listingId,
             @AuthenticationPrincipal CustomUser customUser,
-            @RequestParam int months) {
+            @RequestParam int months,
+            @RequestParam(defaultValue = "INCLUDE") String depositMode) {
         return ResponseEntity.ok(ApiResponse.success(
-                service.findAffordability(listingId, customUser.getMember().getId(), months)));
+                service.findAffordability(listingId, customUser.getMember().getId(), months, depositMode)));
     }
 
     // POST /api/rent/goals/{goalId}/confirm?months=6&listingId=10 → 로드맵 저장 (DRAFT → CONFIRMED)
@@ -123,10 +125,13 @@ public class RentController {
         return ResponseEntity.ok(ApiResponse.success());
     }
 
-    // POST /api/rent/listings/load?dealYm=202605 → 국토부 실거래가 매물 적재 (개발용, 대상 시군구 3개)
+    // POST /api/rent/listings/load?dealYm=202605&sigunguCodes=11620,11650 → 국토부 실거래가 매물 적재 (좌표 포함, SCHOOL 반경검색용)
+    //   sigunguCodes = 좌표변환(카카오 로컬)까지 할 대상 시군구 5자리 목록. 학교가 위치한 시군구만 넘겨 카카오 일일한도를 관리한다.
     @PostMapping("/listings/load")
-    public ResponseEntity<ApiResponse<Integer>> loadListings(@RequestParam String dealYm) {
-        int count = loadService.load(List.of("26410", "26230", "26440"), dealYm);
+    public ResponseEntity<ApiResponse<Integer>> loadListings(
+            @RequestParam String dealYm,
+            @RequestParam List<String> sigunguCodes) {
+        int count = loadService.load(sigunguCodes, dealYm);
         return ResponseEntity.ok(ApiResponse.success(count));
     }
 

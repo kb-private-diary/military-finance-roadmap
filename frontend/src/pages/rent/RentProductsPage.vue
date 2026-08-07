@@ -18,7 +18,6 @@ const { show } = useToast();
 const goalId = Number(route.params.goalId);
 const listingId = Number(route.query.listingId) || rentStore.selectedListingId;
 const months = Number(route.query.months) || rentStore.months || 6;
-const TEMP_USER_ID = 1; // TODO: JWT 연동 후 제거
 
 const CATEGORY = { POLICY: '정책', KB: 'KB' };
 
@@ -37,6 +36,17 @@ const products = ref([]);
 const loading = ref(true);
 const saving = ref(false);
 const hasShortage = computed(() => (gap.value?.shortage ?? 0) > 0);
+// 응답에 보증금 전용 구분 필드가 없어 상품명으로 전월세보증금 성격을 식별 (표시용, 계산·정렬 로직 변경 없음)
+const isDepositProduct = (p) => /전세|전월세|보증금/.test(p.productName || '');
+
+// 선택한 금융상품 id 목록 (다중 선택 토글) — confirmGoal 의 selectedProductIds 로 전송
+const selectedProductIds = ref([]);
+const isSelected = (id) => selectedProductIds.value.includes(id);
+const toggleProduct = (id) => {
+  const i = selectedProductIds.value.indexOf(id);
+  if (i === -1) selectedProductIds.value.push(id);
+  else selectedProductIds.value.splice(i, 1);
+};
 
 const load = async () => {
   loading.value = true;
@@ -53,11 +63,16 @@ const load = async () => {
 };
 onMounted(load);
 
+// 이전: step3 매물 상세로 (listingId·months 유지)
+const goPrev = () => {
+  router.push({ name: 'RentListingDetail', params: { listingId }, query: { goalId, months } });
+};
+
 const saveRoadmap = async () => {
   if (saving.value) return;
   saving.value = true;
   try {
-    await rentApi.confirmGoal(goalId, { listingId, months, selectedProductIds: products.value.map((p) => p.productId) }, TEMP_USER_ID);
+    await rentApi.confirmGoal(goalId, { listingId, months, selectedProductIds: selectedProductIds.value });
   } catch {
     // TODO(데모용/임시): 백엔드 confirm 엔드포인트(POST /api/rent/goals/{goalId}/confirm) 준비 전이라 404임
     //   정식 연동되면 이 catch를 에러 토스트 + return 으로 되돌릴 것
@@ -91,12 +106,25 @@ const saveRoadmap = async () => {
       </BaseCard>
       <div v-else class="enough">만기금으로 충분해요! 대출 없이도 자취 준비 가능해요</div>
 
+      <p v-if="products.length" class="deposit-banner">보증금이 부담되면 아래 전월세보증금대출을 활용하세요</p>
+      <p v-if="products.length" class="pick-hint">함께 저장할 상품을 선택하세요 (여러 개 가능)</p>
       <BaseCard v-for="p in products" :key="p.productId" padding="12px 14px"
-        :class="{ 'is-policy': p.productType === 'POLICY' }">
+        class="p-card"
+        role="checkbox"
+        :aria-checked="isSelected(p.productId)"
+        tabindex="0"
+        :class="{ 'is-policy': p.productType === 'POLICY', 'is-selected': isSelected(p.productId) }"
+        @click="toggleProduct(p.productId)"
+        @keydown.enter.prevent="toggleProduct(p.productId)"
+        @keydown.space.prevent="toggleProduct(p.productId)">
         <div class="p-top">
           <span class="p-name">{{ p.productName }}</span>
-          <span class="tag">{{ CATEGORY[p.productType] }}</span>
+          <span class="p-top-right">
+            <span class="tag">{{ CATEGORY[p.productType] }}</span>
+            <span class="check" :class="{ on: isSelected(p.productId) }" aria-hidden="true">✓</span>
+          </span>
         </div>
+        <p v-if="isDepositProduct(p)" class="p-deposit">보증금 마련에 활용</p>
         <p class="p-terms">금리 연 {{ p.interestRate }}% · 한도 {{ formatManwon(p.loanLimit) }}</p>
         <p v-if="p.militaryDiscount" class="p-mil">군필 우대 -{{ p.militaryDiscount }}%p</p>
         <p class="p-feat">{{ p.features }}</p>
@@ -111,8 +139,10 @@ const saveRoadmap = async () => {
     </template>
 
     <BottomButtonBar
+      secondary-label="이전"
       :primary-label="saving ? '저장 중...' : '로드맵 저장'"
       :primary-disabled="saving || loading"
+      @secondary-click="goPrev"
       @primary-click="saveRoadmap"
     />
   </div>
@@ -182,11 +212,66 @@ const saveRoadmap = async () => {
 .is-policy {
   border-color: var(--text-strong);
 }
+.deposit-banner {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fafafa;
+  font-size: 11px;
+  color: var(--text-body);
+  line-height: 1.5;
+}
+.pick-hint {
+  margin: 2px 0 -2px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.p-deposit {
+  margin-bottom: 2px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-body);
+}
+.p-card {
+  cursor: pointer;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+.p-card:active {
+  transform: scale(0.995);
+}
+.p-card.is-selected {
+  border-color: var(--kb-yellow);
+  box-shadow: 0 0 0 1.5px var(--kb-yellow);
+}
 .p-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 4px;
+}
+.p-top-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.check {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: transparent;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+.check.on {
+  border-color: var(--kb-yellow);
+  background: var(--kb-yellow);
+  color: var(--text-strong);
 }
 .p-name {
   font-size: 13px;
