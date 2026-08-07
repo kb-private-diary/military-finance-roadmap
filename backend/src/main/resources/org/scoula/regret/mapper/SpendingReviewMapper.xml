@@ -52,10 +52,12 @@
         SELECT
             COALESCE(SUM(s.amount), 0)                                                AS totalSpending,
             COALESCE(SUM(CASE WHEN r.review_type = 'REGRET'    THEN s.amount END), 0) AS regretAmount,
+            COALESCE(SUM(CASE WHEN r.review_type = 'SOSO'      THEN s.amount END), 0) AS sosoAmount,
             COALESCE(SUM(CASE WHEN r.review_type = 'SATISFIED' THEN s.amount END), 0) AS satisfiedAmount,
-            SUM(CASE WHEN r.review_type = 'REGRET'    THEN 1 ELSE 0 END)              AS regretCount,
-            SUM(CASE WHEN r.review_type = 'SATISFIED' THEN 1 ELSE 0 END)              AS satisfiedCount,
-            SUM(CASE WHEN r.review_id IS NULL         THEN 1 ELSE 0 END)              AS untaggedCount
+            COALESCE(SUM(CASE WHEN r.review_type = 'REGRET'    THEN 1 ELSE 0 END), 0) AS regretCount,
+            COALESCE(SUM(CASE WHEN r.review_type = 'SOSO'      THEN 1 ELSE 0 END), 0) AS sosoCount,
+            COALESCE(SUM(CASE WHEN r.review_type = 'SATISFIED' THEN 1 ELSE 0 END), 0) AS satisfiedCount,
+            COALESCE(SUM(CASE WHEN r.review_id IS NULL         THEN 1 ELSE 0 END), 0) AS untaggedCount
           FROM spending s
           LEFT JOIN spending_review r
                  ON r.spending_id = s.spending_id
@@ -89,6 +91,20 @@
          WHERE user_id = #{userId}
            AND DATE_FORMAT(received_at, '%Y%m') = #{yearMonth}
            AND del_yn = 'N'
+    </select>
+
+    <!-- 최근 N개월 월평균 지출·후회소비 (Step5 정밀 시뮬레이션, 이번달 포함 N개월 총액 / N) -->
+    <select id="findSpendingSummary" resultType="org.scoula.regret.dto.RegretSpendingSummaryDTO">
+        SELECT
+            ROUND(COALESCE(SUM(s.amount), 0) / #{months})                                            AS avgMonthlySpending,
+            ROUND(COALESCE(SUM(CASE WHEN r.review_type = 'REGRET' THEN s.amount END), 0) / #{months}) AS avgRegretSpending
+          FROM spending s
+          LEFT JOIN spending_review r
+                 ON r.spending_id = s.spending_id
+                AND r.del_yn = 'N'
+         WHERE s.user_id = #{userId}
+           AND s.spent_at >= DATE_SUB(DATE_FORMAT(NOW(), '%Y-%m-01'), INTERVAL #{months} - 1 MONTH)
+           AND s.del_yn = 'N'
     </select>
 
 </mapper>

@@ -66,7 +66,7 @@
     <!-- 목표 단건 조회 (상세) -->
     <select id="findGoalById" resultType="org.scoula.rent.domain.RentGoalVO">
         SELECT goal_id, user_id, title, selection_mode, school_id, commute_radius_km,
-               monthly_budget, residence_preset, residence_months, status,
+               monthly_budget, residence_preset, residence_months, status, confirmed_listing_id,
                created_date, created_nm, modified_date, modified_nm, del_yn
         FROM rent_goal
         WHERE goal_id = #{goalId}
@@ -81,6 +81,15 @@
           AND status = 'DRAFT'
           AND del_yn = 'N'
     </update>
+
+    <!-- 회원의 특정 상태 목표 건수 (회원당 CONFIRMED 1건 검증용) -->
+    <select id="countGoalByUserIdAndStatus" resultType="int">
+        SELECT COUNT(*)
+          FROM rent_goal
+         WHERE user_id = #{userId}
+           AND status = #{status}
+           AND del_yn = 'N'
+    </select>
 
     <!-- 목표의 희망 지역 법정동코드 목록 (REGION 모드 매물 조회용) -->
     <select id="findRegionCodesByGoalId" parameterType="long" resultType="string">
@@ -136,6 +145,19 @@
         UPDATE rent_goal
            SET del_yn = 'Y', modified_date = NOW(), modified_nm = #{modifiedNm}
          WHERE goal_id = #{goalId}
+           AND del_yn = 'N'
+    </update>
+
+    <!-- 로드맵 저장: 상태 DRAFT → CONFIRMED (months 넘어오면 거주개월 갱신), DRAFT 인 건만 대상 -->
+    <update id="confirmGoal">
+        UPDATE rent_goal
+           SET status = 'CONFIRMED',
+               modified_date = NOW(),
+               modified_nm = #{modifiedNm}
+               <if test="months != null">, residence_months = #{months}</if>
+               <if test="listingId != null">, confirmed_listing_id = #{listingId}</if>
+         WHERE goal_id = #{goalId}
+           AND status = 'DRAFT'
            AND del_yn = 'N'
     </update>
 

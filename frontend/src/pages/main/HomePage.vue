@@ -458,8 +458,6 @@ onBeforeUnmount(() => {
             >
               D-{{ schedule.dday }}
             </span>
-
-            <span class="schedule-item__arrow" aria-hidden="true"> › </span>
           </article>
         </BaseCard>
       </section>
@@ -1336,7 +1334,7 @@ onBeforeUnmount(() => {
   }
 
   .schedule-item {
-    grid-template-columns: 28px minmax(0, 1fr) auto 8px;
+    grid-template-columns: 28px minmax(0, 1fr) auto;
     gap: 5px;
     padding-inline: 8px;
   }

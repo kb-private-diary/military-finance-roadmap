@@ -9,10 +9,13 @@ import org.scoula.rent.dto.RentGoalDetailResponseDTO;
 import org.scoula.rent.dto.RentListingResponseDTO;
 import org.scoula.rent.dto.RentListingDetailResponseDTO;
 import org.scoula.rent.dto.RentCostResponseDTO;
+import org.scoula.rent.dto.RentAffordabilityResponseDTO;
 import org.scoula.rent.service.RentService;
 import org.scoula.rent.service.RentListingLoadService;
+import org.scoula.security.account.domain.CustomUser;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
@@ -42,9 +45,9 @@ public class RentController {
     @PostMapping("/goals")
     public ResponseEntity<ApiResponse<Long>> createGoal(
             @Valid @RequestBody RentGoalCreateRequestDTO request,
-            @RequestParam Long userId) { // TODO: JWT 연동 후 SecurityContext 로 교체
+            @AuthenticationPrincipal CustomUser customUser) {
 
-        Long goalId = service.createGoal(request, userId);
+        Long goalId = service.createGoal(request, customUser.getMember().getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(goalId));
     }
 
@@ -56,12 +59,13 @@ public class RentController {
         return ResponseEntity.ok(ApiResponse.success(service.findSchools(keyword)));
     }
 
-    // GET /api/rent/goals/current?userId=1 → 진행중(DRAFT) 목표 조회 (없으면 null)
+    // GET /api/rent/goals/current → 진행중(DRAFT) 목표 조회 (없으면 null)
     // ※ /goals/{goalId} 보다 먼저 선언 - 리터럴 경로가 우선 매칭됨
     @GetMapping("/goals/current")
     public ResponseEntity<ApiResponse<RentGoalDetailResponseDTO>> findCurrentGoal(
-            @RequestParam Long userId) { // TODO: JWT 연동 후 SecurityContext 로 교체
-        return ResponseEntity.ok(ApiResponse.success(service.findCurrentGoal(userId)));
+            @AuthenticationPrincipal CustomUser customUser) {
+        return ResponseEntity.ok(ApiResponse.success(
+                service.findCurrentGoal(customUser.getMember().getId())));
     }
 
     // GET /api/rent/goals/{goalId} → 목표 상세 (목표 정보)
@@ -95,6 +99,28 @@ public class RentController {
             @PathVariable Long listingId,
             @RequestParam int months) {
         return ResponseEntity.ok(ApiResponse.success(service.calculateCost(listingId, months)));
+    }
+
+    // GET /api/rent/listings/{listingId}/affordability?months=6 → 부족분·감당도 (Step4 빨간 카드)
+    @GetMapping("/listings/{listingId}/affordability")
+    public ResponseEntity<ApiResponse<RentAffordabilityResponseDTO>> findAffordability(
+            @PathVariable Long listingId,
+            @AuthenticationPrincipal CustomUser customUser,
+            @RequestParam int months) {
+        return ResponseEntity.ok(ApiResponse.success(
+                service.findAffordability(listingId, customUser.getMember().getId(), months)));
+    }
+
+    // POST /api/rent/goals/{goalId}/confirm?months=6&listingId=10 → 로드맵 저장 (DRAFT → CONFIRMED)
+    //   listingId = Step4에서 고른 확정 매물 (Step5 정밀 시뮬레이션 기준이 됨)
+    @PostMapping("/goals/{goalId}/confirm")
+    public ResponseEntity<ApiResponse<Void>> confirmGoal(
+            @PathVariable Long goalId,
+            @AuthenticationPrincipal CustomUser customUser,
+            @RequestParam(required = false) Integer months,
+            @RequestParam(required = false) Long listingId) {
+        service.confirmGoal(goalId, customUser.getMember().getId(), months, listingId);
+        return ResponseEntity.ok(ApiResponse.success());
     }
 
     // POST /api/rent/listings/load?dealYm=202605 → 국토부 실거래가 매물 적재 (개발용, 대상 시군구 3개)
