@@ -126,7 +126,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                         "/api/users/military-units").permitAll()
                 .antMatchers("/api/users/me", "/api/users/password").authenticated()
                 .antMatchers("/api/simulator/**", "/api/dashboard/**", "/api/push/**",
-                        "/api/travel/**").authenticated()
+                        "/api/travel/**", "/api/car/**").authenticated()
                 .anyRequest().permitAll();
     }
 
