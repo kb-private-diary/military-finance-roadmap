@@ -54,17 +54,30 @@ public class RentListingLoadService {
      * @return 적재한 매물 건수
      */
     public int load(List<String> sigunguCodes, String dealYm) {
+        return load(sigunguCodes, dealYm, true); // 기본 좌표변환 포함 (SCHOOL 반경검색용)
+    }
+
+    /**
+     * 매물 적재 (좌표변환 옵션)
+     * @param withGeocoding false면 카카오 지오코딩 skip (전국 REGION 검색용, 일일한도 회피)
+     */
+    public int load(List<String> sigunguCodes, String dealYm, boolean withGeocoding) {
         int total = 0;
         for (String sigunguCode : sigunguCodes) {
-            total += fetchAndSave(OFFI_URL, "OFFICETEL", "offiNm", sigunguCode, dealYm);
-            total += fetchAndSave(VILLA_URL, "VILLA", "mhouseNm", sigunguCode, dealYm);
+            total += fetchAndSave(OFFI_URL, "OFFICETEL", "offiNm", sigunguCode, dealYm, withGeocoding);
+            total += fetchAndSave(VILLA_URL, "VILLA", "mhouseNm", sigunguCode, dealYm, withGeocoding);
         }
         return total;
     }
 
+    /** 전국 매물 적재 (좌표변환 없이 - REGION 검색용, 카카오 일일한도 회피) */
+    public int loadNationwide(String dealYm) {
+        return load(rentMapper.findAllSigunguCodes(), dealYm, false);
+    }
+
     /** 한 API·시군구·월의 매물을 조회해 적재 (한 건 실패해도 나머지는 계속) */
     private int fetchAndSave(String url, String estateType, String nameField,
-                             String sigunguCode, String dealYm) {
+                             String sigunguCode, String dealYm, boolean withGeocoding) {
         int saved = 0;
         try {
             URI uri = UriComponentsBuilder.fromHttpUrl(url)
@@ -90,7 +103,7 @@ public class RentListingLoadService {
                 if (monthlyRent <= 0) {
                     continue; // 전세(월세 0)는 제외 - 자취는 월세만
                 }
-                listingMapper.insertListing(toListing(item, estateType, nameField, sigunguCode));
+                listingMapper.insertListing(toListing(item, estateType, nameField, sigunguCode, withGeocoding));
                 saved++;
             }
         } catch (Exception e) {
@@ -111,7 +124,8 @@ public class RentListingLoadService {
     }
 
     /** item 한 건 → RentListingVO (만원→원 변환, 법정동코드 매핑) */
-    private RentListingVO toListing(JsonNode item, String estateType, String nameField, String sigunguCode) {
+    private RentListingVO toListing(JsonNode item, String estateType, String nameField,
+                                    String sigunguCode, boolean withGeocoding) {
         String umdName = text(item, "umdNm");
 
         RentListingVO vo = new RentListingVO();
@@ -122,12 +136,16 @@ public class RentListingLoadService {
         String jibun = text(item, "jibun");
         vo.setJibun(jibun);
 
-        // 카카오 지오코딩: "부산 법정동명 지번" 주소로 좌표 획득 (실패 시 null, 매물은 그대로 저장)
-        // 현재 데이터가 부산 한정이라 시도명 하드코딩 (전국 확장 시 region_code 에서 시도·시군구명 조회로 대체)
-        BigDecimal[] coords = geocodingClient.geocode("부산 " + umdName + " " + (jibun == null ? "" : jibun));
-        if (coords != null) {
-            vo.setLatitude(coords[0]);  // 위도
-            vo.setLongitude(coords[1]); // 경도
+        // 카카오 지오코딩 (withGeocoding=true 일 때만 - SCHOOL 반경검색용, 전국 REGION은 skip해 한도 회피)
+        // 시도명은 region_code에서 조회해 "시도 법정동명 지번" 주소로 조합 (전국 대응, 하드코딩 제거)
+        if (withGeocoding) {
+            String sidoName = rentMapper.findSidoNameBySigunguCode(sigunguCode);
+            BigDecimal[] coords = geocodingClient.geocode(
+                    (sidoName == null ? "" : sidoName) + " " + umdName + " " + (jibun == null ? "" : jibun));
+            if (coords != null) {
+                vo.setLatitude(coords[0]);  // 위도
+                vo.setLongitude(coords[1]); // 경도
+            }
         }
         vo.setBuildingName(text(item, nameField)); // 오피스텔=offiNm / 빌라=mhouseNm
         vo.setBuiltYear(intOf(text(item, "buildYear")));
