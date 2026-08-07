@@ -100,15 +100,43 @@
          LIMIT 1
     </select>
 
-    <!-- 지역 면적당 월 관리비·공과금 합 (공용관리비+전기+수도+난방, 최신 기준월) -->
-    <select id="findMonthlyFeePerSqmByRegionCode" resultType="long">
-        SELECT COALESCE(mgmt_fee_per_sqm, 0) + COALESCE(elec_fee_per_sqm, 0)
-             + COALESCE(water_fee_per_sqm, 0) + COALESCE(heat_fee_per_sqm, 0)
-          FROM region_fee_stat
-         WHERE region_code = #{regionCode}
+    <!-- 회원의 진행중(DRAFT) 목표 단건 조회 (재진입 시 이어보기, 없으면 결과 없음) -->
+    <select id="findCurrentGoalByUserId" parameterType="long" resultType="org.scoula.rent.domain.RentGoalVO">
+        SELECT goal_id, user_id, title, selection_mode, school_id, commute_radius_km,
+               monthly_budget, residence_preset, residence_months, status,
+               created_date, created_nm, modified_date, modified_nm, del_yn
+          FROM rent_goal
+         WHERE user_id = #{userId}
+           AND status = 'DRAFT'
            AND del_yn = 'N'
-         ORDER BY base_month DESC
+         ORDER BY goal_id DESC
          LIMIT 1
     </select>
+
+    <!-- 전국 시군구코드 목록 (매물 전국 배치 적재용) -->
+    <select id="findAllSigunguCodes" resultType="string">
+        SELECT DISTINCT sigungu_code
+          FROM region_code
+         WHERE sigungu_code IS NOT NULL
+           AND del_yn = 'N' AND is_abolished = 'N'
+         ORDER BY sigungu_code
+    </select>
+
+    <!-- 시군구코드 → 시도명 (매물 좌표변환 주소 조합용) -->
+    <select id="findSidoNameBySigunguCode" parameterType="string" resultType="string">
+        SELECT sido_name
+          FROM region_code
+         WHERE sigungu_code = #{sigunguCode}
+           AND del_yn = 'N'
+         LIMIT 1
+    </select>
+
+    <!-- 목표 단건 soft delete (goal_id 기준, 삭제자·삭제일시 기록) -->
+    <update id="deleteGoalById">
+        UPDATE rent_goal
+           SET del_yn = 'Y', modified_date = NOW(), modified_nm = #{modifiedNm}
+         WHERE goal_id = #{goalId}
+           AND del_yn = 'N'
+    </update>
 
 </mapper>

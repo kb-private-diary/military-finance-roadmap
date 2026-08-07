@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.scoula.openbanking.mapper.IncomeWriteMapper">
+
+    <!-- 수입 저장 (오픈뱅킹 연동 시, income_id 생성) -->
+    <!-- received_at=입금일시(업무일)는 #{receivedAt}로 명시, created_date는 감사용 NOW() 유지 -->
+    <insert id="insertIncome" parameterType="org.scoula.openbanking.domain.IncomeVO"
+            useGeneratedKeys="true" keyProperty="incomeId">
+        INSERT INTO income (
+            user_id, source, category, amount, received_at,
+            created_date, created_nm, del_yn
+        ) VALUES (
+            #{userId}, #{source}, #{category}, #{amount}, #{receivedAt},
+            NOW(), #{createdNm}, 'N'
+        )
+    </insert>
+
+    <!-- 회원 급여 내역 소프트 삭제 (재동기화 시 중복 방지 - 정리 후 재적재) -->
+    <update id="deleteSalariesByUserId">
+        UPDATE income
+           SET del_yn = 'Y',
+               modified_date = NOW(),
+               modified_nm = #{actor}
+         WHERE user_id = #{userId}
+           AND category = 'SALARY'
+           AND del_yn = 'N'
+    </update>
+
+</mapper>

@@ -19,15 +19,7 @@ const {
 } = usePush();
 const handlePushToggle = (next) => (next ? subscribe() : unsubscribe());
 
-// TODO: 군종목록조회/계급조회 API 나오면 하드코딩 목록을 API 조회로 교체 (SignupMilitaryPage와 동일한 임시 목록)
-const MILITARY_TYPES = [
-  { typeId: 1, name: '육군' },
-  { typeId: 2, name: '해군' },
-  { typeId: 3, name: '공군' },
-  { typeId: 4, name: '해병대' },
-  { typeId: 5, name: '공익' },
-  { typeId: 6, name: '기타' },
-];
+// TODO: 계급조회 API 나오면 아래 하드코딩된 목록을 API 조회로 교체
 const MILITARY_RANKS = [
   { rankId: 1, name: '이병' },
   { rankId: 2, name: '일병' },
@@ -36,10 +28,11 @@ const MILITARY_RANKS = [
 ];
 
 const member = ref(null);
+const militaryTypes = ref([]);
 const loading = ref(true);
 const errorMessage = ref('');
 
-const typeName = (typeId) => MILITARY_TYPES.find((t) => t.typeId === typeId)?.name || '-';
+const typeName = (typeId) => militaryTypes.value.find((t) => t.typeId === typeId)?.typeName || '-';
 const rankName = (rankId) => MILITARY_RANKS.find((r) => r.rankId === rankId)?.name || '';
 
 // 입대일 기준 며칠째 복무 중인지 (입대 당일도 1일차로 센다)
@@ -55,7 +48,12 @@ const load = async () => {
   loading.value = true;
   errorMessage.value = '';
   try {
-    member.value = await memberApi.getMyInfo();
+    const [memberResult, typesResult] = await Promise.all([
+      memberApi.getMyInfo(),
+      memberApi.findMilitaryTypes(),
+    ]);
+    member.value = memberResult;
+    militaryTypes.value = typesResult;
   } catch (e) {
     errorMessage.value = e.response?.data?.message || '내 정보를 불러오지 못했습니다.';
   } finally {

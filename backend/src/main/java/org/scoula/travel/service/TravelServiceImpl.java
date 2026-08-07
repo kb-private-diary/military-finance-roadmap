@@ -69,11 +69,6 @@ public class TravelServiceImpl implements TravelService {
     private final Map<String, LocalDateTime> packageQueryCache =
             new ConcurrentHashMap<>();
 
-    // 로그인 사용자 임시 고정값
-    // 인증 모듈 완성 후 컨트롤러에서 CustomUser를 받아 넘기도록 교체.
-    private static final Long LOGIN_USER_ID = 1L;
-    private static final String LOGIN_USER_NAME = "hobin@kbthink.com";
-
     // 목표 상태값 (DRAFT / CONFIRMED / ARCHIVED)
     private static final String STATUS_DRAFT = "DRAFT";
 
@@ -105,19 +100,22 @@ public class TravelServiceImpl implements TravelService {
 
     @Transactional
     @Override
-    public Long createGoal(TravelGoalCreateRequestDTO request) {
+    public Long createGoal(
+            final Long userId,
+            final String userName,
+            final TravelGoalCreateRequestDTO request) {
         log.info("createGoal: " + request.getTitle());
 
         this.validatePeriod(request.getStartDate(), request.getEndDate());
         this.validateStyle(request.getStyle());
         this.validateBudget(request.getTotalBudget());
-        this.validateDraftLimit();
+        this.validateDraftLimit(userId);
 
         // 도착지가 city_cost 에 없으면 step2 경비 산출이 불가하므로 등록 단계에서 막는다.
         CityCostVO cityCost = this.findCityCostOrThrow(request.getDestination());
 
         TravelGoalVO goal = new TravelGoalVO();
-        goal.setUserId(LOGIN_USER_ID);
+        goal.setUserId(userId);
         goal.setTitle(request.getTitle());
         goal.setDeparture(request.getDeparture());
         goal.setDestination(request.getDestination());
@@ -127,7 +125,7 @@ public class TravelServiceImpl implements TravelService {
         goal.setEndDate(request.getEndDate());
         goal.setTotalBudget(request.getTotalBudget());
         goal.setStatus(STATUS_DRAFT);
-        goal.setCreatedNm(LOGIN_USER_NAME);
+        goal.setCreatedNm(userName);
 
         this.mapper.insertGoal(goal);
 
@@ -136,29 +134,31 @@ public class TravelServiceImpl implements TravelService {
 
     @Transactional(readOnly = true)
     @Override
-    public TravelGoalDraftResponseDTO findCurrentDraft() {
+    public TravelGoalDraftResponseDTO findCurrentDraft(final Long userId) {
         final TravelGoalVO goal =
-                this.mapper.findDraftGoalByUserId(LOGIN_USER_ID);
+                this.mapper.findDraftGoalByUserId(userId);
         return goal == null ? null : TravelGoalDraftResponseDTO.of(goal);
     }
 
     @Transactional
     @Override
     public void updateGoal(
+            final Long userId,
             final Long goalId,
+            final String userName,
             final TravelGoalCreateRequestDTO request) {
         this.validatePeriod(request.getStartDate(), request.getEndDate());
         this.validateStyle(request.getStyle());
         this.validateBudget(request.getTotalBudget());
 
         final TravelGoalVO savedGoal =
-                this.findOwnedDraftGoalOrThrow(goalId);
+                this.findOwnedDraftGoalOrThrow(userId, goalId);
 
         final CityCostVO cityCost =
                 this.findCityCostOrThrow(request.getDestination());
         final TravelGoalVO goal = new TravelGoalVO();
         goal.setGoalId(goalId);
-        goal.setUserId(LOGIN_USER_ID);
+        goal.setUserId(userId);
         goal.setTitle(request.getTitle());
         goal.setDeparture(request.getDeparture());
         goal.setDestination(request.getDestination());
@@ -168,7 +168,7 @@ public class TravelServiceImpl implements TravelService {
         goal.setStartDate(request.getStartDate());
         goal.setEndDate(request.getEndDate());
         goal.setTotalBudget(request.getTotalBudget());
-        goal.setModifiedNm(LOGIN_USER_NAME);
+        goal.setModifiedNm(userName);
 
         final boolean costInputChanged =
                 this.hasCostCalculationInputChanged(savedGoal, request);
@@ -182,7 +182,7 @@ public class TravelServiceImpl implements TravelService {
         }
 
         if (!costInputChanged && budgetChanged) {
-            this.updateRemainingBudget(goalId, request.getTotalBudget());
+            this.updateRemainingBudget(goalId, userName, request.getTotalBudget());
         }
     }
 
@@ -204,6 +204,7 @@ public class TravelServiceImpl implements TravelService {
 
     private void updateRemainingBudget(
             final Long goalId,
+            final String userName,
             final Long totalBudget) {
         final TravelCostVO cost = this.mapper.findCostByGoalId(goalId);
         if (cost == null) {
@@ -212,7 +213,7 @@ public class TravelServiceImpl implements TravelService {
 
         cost.setRemainingBudget(
                 this.nvl(totalBudget) - this.nvl(cost.getTotalCost()));
-        cost.setModifiedNm(LOGIN_USER_NAME);
+        cost.setModifiedNm(userName);
         this.mapper.updateCost(cost);
     }
 
@@ -229,8 +230,8 @@ public class TravelServiceImpl implements TravelService {
     }
 
     // DRAFT 상태라면 추가적인 목표 등록을 차단.
-    private void validateDraftLimit() {
-        int draftCount = this.mapper.countGoalByStatus(LOGIN_USER_ID, STATUS_DRAFT);
+    private void validateDraftLimit(final Long userId) {
+        int draftCount = this.mapper.countGoalByStatus(userId, STATUS_DRAFT);
         if (draftCount > 0) {
             throw BusinessException.conflict("작성 중인 여행 목표가 이미 있습니다.", "TRAVEL_003");
         }
@@ -262,7 +263,7 @@ public class TravelServiceImpl implements TravelService {
     // 저장된 목표와 외부 교통·항공·숙박 API 결과로 예상 경비를 산출해 저장한다.
     @Transactional
     @Override
-    public Long createCost(final Long goalId) {
+    public Long createCost(final Long goalId, final String userName) {
         TravelGoalVO goal = this.getGoalOrThrow(goalId);
         CityCostVO cityCost = this.findCityCostOrThrow(goal.getDestination());
 
@@ -288,8 +289,8 @@ public class TravelServiceImpl implements TravelService {
         cost.setLivingCost(livingCost);
         cost.setTotalCost(totalCost);
         cost.setRemainingBudget(remainingBudget);
-        cost.setCreatedNm(LOGIN_USER_NAME);
-        cost.setModifiedNm(LOGIN_USER_NAME);
+        cost.setCreatedNm(userName);
+        cost.setModifiedNm(userName);
 
         // 목표에 저장된 비용이 있으면 현재 값을 갱신하고, 없을 때만 새로 생성한다.
         final TravelCostVO savedCost =
@@ -317,9 +318,10 @@ public class TravelServiceImpl implements TravelService {
         return goal;
     }
 
-    private TravelGoalVO findOwnedGoalOrThrow(final Long goalId) {
+    private TravelGoalVO findOwnedGoalOrThrow(
+            final Long userId, final Long goalId) {
         final TravelGoalVO goal = this.getGoalOrThrow(goalId);
-        if (!LOGIN_USER_ID.equals(goal.getUserId())) {
+        if (!goal.getUserId().equals(userId)) {
             throw BusinessException.forbidden(
                     "본인의 여행 목표만 조회할 수 있습니다.",
                     "AUTH_004");
@@ -327,8 +329,9 @@ public class TravelServiceImpl implements TravelService {
         return goal;
     }
 
-    private TravelGoalVO findOwnedDraftGoalOrThrow(final Long goalId) {
-        final TravelGoalVO goal = this.findOwnedGoalOrThrow(goalId);
+    private TravelGoalVO findOwnedDraftGoalOrThrow(
+            final Long userId, final Long goalId) {
+        final TravelGoalVO goal = this.findOwnedGoalOrThrow(userId, goalId);
         if (!STATUS_DRAFT.equals(goal.getStatus())) {
             throw BusinessException.conflict(
                     "작성 중인 여행 목표만 수정할 수 있습니다.",
@@ -507,6 +510,7 @@ public class TravelServiceImpl implements TravelService {
     @Override
     public void updatePlaces(
             final Long goalId,
+            final String userName,
             final TravelPlacesUpdateRequestDTO request) {
         this.getGoalOrThrow(goalId);
         if (request == null || request.getPlaces() == null) {
@@ -518,7 +522,7 @@ public class TravelServiceImpl implements TravelService {
         try {
             final String places =
                     this.objectMapper.writeValueAsString(request.getPlaces());
-            this.mapper.updateGoalPlaces(goalId, places, LOGIN_USER_NAME);
+            this.mapper.updateGoalPlaces(goalId, places, userName);
         } catch (final JsonProcessingException e) {
             log.warn("관심 여행지 JSON 변환 오류: goalId={}", goalId, e);
             throw BusinessException.badRequest(
@@ -553,7 +557,8 @@ public class TravelServiceImpl implements TravelService {
     @Transactional
     @Override
     public List<TravelPackageResponseDTO> findPackages(
-            final Long goalId) {
+            final Long goalId,
+            final String userName) {
         final TravelGoalVO goal = this.getGoalOrThrow(goalId);
         final CityCostVO cityCost =
                 this.findCityCostOrThrow(goal.getDestination());
@@ -576,7 +581,8 @@ public class TravelServiceImpl implements TravelService {
                         .filter(travelPackage -> this.isAvailablePackage(
                                 travelPackage,
                                 goal.getStartDate()))
-                        .forEach(this::savePackage);
+                        .forEach(travelPackage ->
+                                this.savePackage(travelPackage, userName));
                 this.packageQueryCache.put(
                         cacheKey, LocalDateTime.now());
             } catch (final BusinessException exception) {
@@ -629,12 +635,13 @@ public class TravelServiceImpl implements TravelService {
         return cachedAt != null && cachedAt.isAfter(cacheBoundary);
     }
 
-    private void savePackage(final TravelPackageVO travelPackage) {
+    private void savePackage(
+            final TravelPackageVO travelPackage, final String userName) {
         final TravelPackageVO savedPackage =
                 this.mapper.findPackageByGoodsCode(
                         travelPackage.getGoodsCode());
-        travelPackage.setCreatedNm(LOGIN_USER_NAME);
-        travelPackage.setModifiedNm(LOGIN_USER_NAME);
+        travelPackage.setCreatedNm(userName);
+        travelPackage.setModifiedNm(userName);
 
         if (savedPackage == null) {
             this.mapper.insertPackage(travelPackage);
@@ -686,10 +693,12 @@ public class TravelServiceImpl implements TravelService {
     @Transactional
     @Override
     public void updatePackage(
+            final Long userId,
             final Long goalId,
+            final String userName,
             final TravelPackageUpdateRequestDTO request) {
         final TravelGoalVO goal =
-                this.findOwnedDraftGoalOrThrow(goalId);
+                this.findOwnedDraftGoalOrThrow(userId, goalId);
         if (request == null) {
             throw BusinessException.badRequest(
                     "여행 패키지 선택 정보를 입력해주세요.",
@@ -698,7 +707,7 @@ public class TravelServiceImpl implements TravelService {
 
         if (request.getPackageId() == null) {
             if (this.mapper.updateGoalPackage(
-                    goalId, null, LOGIN_USER_NAME) == 0) {
+                    goalId, null, userName) == 0) {
                 throw BusinessException.conflict(
                         "작성 중인 여행 목표만 수정할 수 있습니다.",
                         "TRAVEL_029");
@@ -725,7 +734,7 @@ public class TravelServiceImpl implements TravelService {
         if (this.mapper.updateGoalPackage(
                 goalId,
                 travelPackage.getPackageId(),
-                LOGIN_USER_NAME) == 0) {
+                userName) == 0) {
             throw BusinessException.conflict(
                     "작성 중인 여행 목표만 수정할 수 있습니다.",
                     "TRAVEL_029");
@@ -735,8 +744,9 @@ public class TravelServiceImpl implements TravelService {
     @Transactional(readOnly = true)
     @Override
     public TravelProductRecommendationResponseDTO findProducts(
+            final Long userId,
             final Long goalId) {
-        final TravelGoalVO goal = this.findOwnedGoalOrThrow(goalId);
+        final TravelGoalVO goal = this.findOwnedGoalOrThrow(userId, goalId);
         return this.createProductRecommendations(goal);
     }
 
@@ -796,10 +806,12 @@ public class TravelServiceImpl implements TravelService {
     @Transactional
     @Override
     public void updateProducts(
+            final Long userId,
             final Long goalId,
+            final String userName,
             final TravelProductsUpdateRequestDTO request) {
         final TravelGoalVO goal =
-                this.findOwnedDraftGoalOrThrow(goalId);
+                this.findOwnedDraftGoalOrThrow(userId, goalId);
         if (request == null || request.getProducts() == null) {
             throw BusinessException.badRequest(
                     "관심 금융상품 목록을 입력해주세요.",
@@ -810,7 +822,7 @@ public class TravelServiceImpl implements TravelService {
         try {
             goal.setProducts(this.objectMapper.writeValueAsString(
                     request.getProducts()));
-            goal.setModifiedNm(LOGIN_USER_NAME);
+            goal.setModifiedNm(userName);
             if (this.mapper.updateGoalProducts(goal) == 0) {
                 throw BusinessException.conflict(
                         "작성 중인 여행 목표만 수정할 수 있습니다.",
@@ -845,16 +857,19 @@ public class TravelServiceImpl implements TravelService {
 
     @Transactional
     @Override
-    public void confirmGoal(final Long goalId) {
+    public void confirmGoal(
+            final Long userId,
+            final Long goalId,
+            final String userName) {
         final TravelGoalVO goal =
-                this.findOwnedDraftGoalOrThrow(goalId);
+                this.findOwnedDraftGoalOrThrow(userId, goalId);
         if (goal.getProducts() == null) {
             throw BusinessException.badRequest(
                     "관심 금융상품 저장을 먼저 완료해주세요.",
                     "TRAVEL_038");
         }
 
-        goal.setModifiedNm(LOGIN_USER_NAME);
+        goal.setModifiedNm(userName);
         this.mapper.archiveConfirmedGoalByUserId(goal);
         if (this.mapper.confirmGoal(goal) == 0) {
             throw BusinessException.conflict(

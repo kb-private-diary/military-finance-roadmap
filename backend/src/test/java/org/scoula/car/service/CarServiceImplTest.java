@@ -6,6 +6,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.scoula.car.dto.CarAcquisitionTaxResponseDTO;
+import org.scoula.car.dto.CarBudgetStatusResponseDTO;
 import org.scoula.car.dto.CarEvSubsidyResponseDTO;
 import org.scoula.car.dto.CarGoalCreateRequestDTO;
 import org.scoula.car.dto.CarGoalCreateResponseDTO;
@@ -37,8 +38,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class CarServiceImplTest {
 
     // 시드데이터: goal_id=1,2는 user_id=1 소유, goal_id=3은 user_id=2 소유
+    // user_id=1,2는 오픈뱅킹 군적금 계좌가 연동돼 있어 findSavingsStatus가 정상적으로 만기예상액을 계산해준다.
+    // user_id=53(회원가입 테스트로 생긴 계정)은 연동된 계좌가 전혀 없어 findSavingsStatus가 404를 던진다.
     private static final Long USER_ID = 1L;
     private static final Long OTHER_USER_ID = 2L;
+    private static final Long NO_SAVINGS_USER_ID = 53L;
 
     @Autowired
     private CarService service;
@@ -60,8 +64,11 @@ class CarServiceImplTest {
     }
 
     @Test
-    void createCarGoal_withNullBudget_throws() {
-        assertThrows(BusinessException.class, () -> this.service.createCarGoal(USER_ID, requestDto(null)));
+    void createCarGoal_withNullBudget_succeeds() {
+        // 예산은 이제 선택 입력 — 안 넣으면 추천 시점에 군적금 만기예상액을 기준으로 삼는다
+        CarGoalCreateResponseDTO result = this.service.createCarGoal(USER_ID, requestDto(null));
+
+        assertNotNull(result.getGoalId());
     }
 
     @Test
@@ -155,7 +162,7 @@ class CarServiceImplTest {
     void recommendCars_withSeededUsedGoal_sortsByTotalPriceAscending() {
         // goal_id=2 시드데이터: is_new=false, budget=1500만원
         // 목표 단계엔 차종이 없으므로 전체 차량 모델(경차6/준중형4/SUV9=19종)이 후보이지만,
-        // 예산+허용오차(100만원)를 넘는 아이오닉 6은 제외되어 18종이 남는다
+        // 예산+허용오차(300만원)를 넘는 아이오닉 6은 제외되어 18종이 남는다
         // 연식은 고정 3년이 아니라, 예산 안에서 가장 최신(연차가 가장 적은) 연식을 후보별로 역산한다
         List<CarRecommendationResponseDTO> result = this.service.recommendCars(2L, USER_ID);
         int currentYear = LocalDate.now().getYear();
@@ -196,7 +203,7 @@ class CarServiceImplTest {
         List<CarRecommendationResponseDTO> result =
                 this.service.recommendCars(created.getGoalId(), USER_ID);
 
-        // 레이(총액 1,456만원)는 예산을 6만원 넘지만 허용 오차(100만원) 이내라 목록에 남고 예산초과로 표시된다
+        // 레이(총액 1,456만원)는 예산을 6만원 넘지만 허용 오차(300만원) 이내라 목록에 남고 예산초과로 표시된다
         CarRecommendationResponseDTO ray = result.stream()
                 .filter(item -> "레이".equals(item.getModelName()))
                 .findFirst()
@@ -204,7 +211,15 @@ class CarServiceImplTest {
         assertEquals(1_456L, ray.getTotalPrice());
         assertFalse(ray.getWithinBudget());
 
-        // 아반떼(총액 2,101만원)는 예산+허용오차(1,550만원)를 크게 넘어서 목록에서 아예 제외된다
+        // 베뉴(총액 1,733만원)는 예산+허용오차(1,750만원) 이내로 새로 포함된다 (100만원 오차였다면 제외됐을 차량)
+        CarRecommendationResponseDTO venue = result.stream()
+                .filter(item -> "베뉴".equals(item.getModelName()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(1_733L, venue.getTotalPrice());
+        assertFalse(venue.getWithinBudget());
+
+        // 아반떼(총액 2,101만원)는 예산+허용오차(1,750만원)를 크게 넘어서 목록에서 아예 제외된다
         boolean hasAvante = result.stream().anyMatch(item -> "아반떼".equals(item.getModelName()));
         assertFalse(hasAvante);
 
@@ -236,6 +251,29 @@ class CarServiceImplTest {
     void recommendCars_withWrongOwner_throws() {
         // goal_id=1은 user_id=1 소유
         assertThrows(BusinessException.class, () -> this.service.recommendCars(1L, OTHER_USER_ID));
+    }
+
+    @Test
+    void recommendCars_withoutManualBudget_fallsBackToSavingsMaturity() {
+        // user_id=1은 오픈뱅킹 군적금 계좌(ACTIVE)가 연동돼 있어, 예산 미입력 시 만기예상액 기준으로 추천된다.
+        // 정확한 만기예상액(이자 포함)까지는 검증하지 않고, 예산 없이도 정상 동작하는지만 확인한다.
+        CarGoalCreateRequestDTO createDto = requestDto(null);
+        CarGoalCreateResponseDTO created = this.service.createCarGoal(USER_ID, createDto);
+
+        List<CarRecommendationResponseDTO> result = this.service.recommendCars(created.getGoalId(), USER_ID);
+
+        assertFalse(result.isEmpty());
+    }
+
+    @Test
+    void recommendCars_withoutBudgetOrSavings_throws() {
+        // user_id=53은 연동된 군적금 계좌가 없어 만기예상액을 조회할 수 없고,
+        // 예산도 입력하지 않았으니 추천 기준 자체가 없어 실패해야 한다.
+        CarGoalCreateRequestDTO createDto = requestDto(null);
+        CarGoalCreateResponseDTO created = this.service.createCarGoal(NO_SAVINGS_USER_ID, createDto);
+
+        assertThrows(BusinessException.class,
+                () -> this.service.recommendCars(created.getGoalId(), NO_SAVINGS_USER_ID));
     }
 
     @Test
@@ -398,5 +436,50 @@ class CarServiceImplTest {
         assertEquals(730L, result.getTotalSubsidy());
         assertEquals(2026, result.getBaseYear());
         assertEquals(2057L, result.getFinalPrice());
+    }
+
+    @Test
+    void checkBudgetStatus_withUnknownGoalId_throws() {
+        assertThrows(BusinessException.class, () -> this.service.checkBudgetStatus(9_999_999L, USER_ID));
+    }
+
+    @Test
+    void checkBudgetStatus_withoutSelectedModel_throws() {
+        CarGoalCreateResponseDTO created = this.service.createCarGoal(USER_ID, requestDto(15_000_000L));
+
+        assertThrows(BusinessException.class,
+                () -> this.service.checkBudgetStatus(created.getGoalId(), USER_ID));
+    }
+
+    @Test
+    void checkBudgetStatus_withSeededGoalWithinBudget_returnsTrue() {
+        // goal_id=1 시드데이터: budget=2000만원, 중고, 캐스퍼(시세+취득세=778만원) 선택됨
+        CarBudgetStatusResponseDTO result = this.service.checkBudgetStatus(1L, USER_ID);
+
+        assertEquals(2_000L, result.getEffectiveBudget());
+        assertEquals(778L, result.getPurchaseTotal());
+        assertTrue(result.getWithinBudget());
+    }
+
+    @Test
+    void checkBudgetStatus_whenPurchaseExceedsBudget_returnsFalse() {
+        CarGoalCreateRequestDTO createDto = CarGoalCreateRequestDTO.builder()
+                .budget(1_000L)
+                .isNew(true)
+                .targetDate(LocalDate.of(2027, 1, 1))
+                .region("서울")
+                .build();
+        CarGoalCreateResponseDTO created = this.service.createCarGoal(USER_ID, createDto);
+
+        CarModelSelectRequestDTO selectDto = CarModelSelectRequestDTO.builder()
+                .modelId(19L) // 아이오닉 6(4,995만원, car_type_code=2)
+                .build();
+        this.service.selectCarModel(created.getGoalId(), USER_ID, selectDto);
+
+        CarBudgetStatusResponseDTO result = this.service.checkBudgetStatus(created.getGoalId(), USER_ID);
+
+        assertEquals(1_000L, result.getEffectiveBudget());
+        assertEquals(5_345L, result.getPurchaseTotal());
+        assertFalse(result.getWithinBudget());
     }
 }

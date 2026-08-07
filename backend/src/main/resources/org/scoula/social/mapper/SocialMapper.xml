@@ -1,0 +1,366 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.scoula.social.mapper.SocialMapper">
+
+    <sql id="userMetricsCte">
+        user_metrics AS (
+            SELECT
+                u.id AS user_id,
+                u.name,
+                u.rank_id,
+                u.type_id,
+                u.unit_code,
+                u.unit_name,
+                COALESCE(account.current_savings, 0) AS current_savings,
+                COALESCE(
+                    LEAST(
+                        100.0,
+                        ROUND(
+                            COALESCE(account.monthly_savings, 0)
+                            / NULLIF(mr.rank_salary, 0) * 100,
+                            1
+                        )
+                    ),
+                    0.0
+                ) AS savings_rate
+            FROM `user` u
+            LEFT JOIN military_rank mr
+                ON u.rank_id = mr.rank_id
+               AND mr.del_yn = 'N'
+            LEFT JOIN (
+                SELECT
+                    user_id,
+                    SUM(monthly_save) AS monthly_savings,
+                    SUM(curr_amount) AS current_savings
+                FROM saving_account
+                WHERE del_yn = 'N'
+                  AND account_status = 'ACTIVE'
+                GROUP BY user_id
+            ) account ON u.id = account.user_id
+            WHERE u.del_yn = 'N'
+              AND u.status = 'ACTIVE'
+        )
+    </sql>
+
+    <sql id="scopeCondition">
+        <choose>
+            <when test="scope == 'TYPE'">
+                metrics.type_id = #{typeId}
+            </when>
+            <when test="scope == 'UNIT' and unitCode != null and unitCode != ''">
+                metrics.unit_code = #{unitCode}
+            </when>
+            <when test="scope == 'UNIT'">
+                metrics.user_id = #{userId}
+            </when>
+            <otherwise>
+                1 = 1
+            </otherwise>
+        </choose>
+        <!-- 선택한 범위 위에 같은 계급 조건으로 조회 -->
+        <if test="rankId != null">
+            AND metrics.rank_id = #{rankId}
+        </if>
+    </sql>
+
+    <!--
+        로드맵 4개 도메인에 저장된 플랜을 카테고리 단위로 합친다.
+        category_id 는 roadmap_category 시드 기준(1:여행, 2:진로, 3:자동차, 4:자취)이며
+        travel/job 서비스의 ROADMAP_CATEGORY_* 상수와 같은 값이다.
+
+        "저장한 플랜" = CONFIRMED + ARCHIVED. 여행처럼 새 플랜을 저장하면 이전 것이
+        ARCHIVED 로 밀리는 도메인이 있어, 보관된 것도 한 번 저장한 플랜으로 함께 센다.
+        DRAFT(작성 중)는 아직 저장 전이라 제외한다.
+
+        car_goal 만 상태값을 소문자('confirmed')로 넣고 있는데, status 컬럼 collation 이
+        utf8mb4_general_ci(대소문자 무시)라 아래 IN 비교에 그대로 걸린다.
+    -->
+    <sql id="savedPlanUnion">
+        SELECT user_id, 1 AS category_id FROM travel_goal
+         WHERE del_yn = 'N' AND status IN ('CONFIRMED', 'ARCHIVED')
+        UNION ALL
+        SELECT user_id, 2 AS category_id FROM job_goal
+         WHERE del_yn = 'N' AND status IN ('CONFIRMED', 'ARCHIVED')
+        UNION ALL
+        SELECT user_id, 3 AS category_id FROM car_goal
+         WHERE del_yn = 'N' AND status IN ('CONFIRMED', 'ARCHIVED')
+        UNION ALL
+        SELECT user_id, 4 AS category_id FROM rent_goal
+         WHERE del_yn = 'N' AND status IN ('CONFIRMED', 'ARCHIVED')
+    </sql>
+
+    <select id="findUserContext" resultType="org.scoula.social.dto.SocialUserContextDTO">
+        SELECT
+            u.id AS userId,
+            u.name,
+            u.rank_id AS rankId,
+            mr.rank_name AS rankName,
+            u.type_id AS typeId,
+            mt.type_name AS typeName,
+            u.unit_name AS unitName,
+            u.unit_code AS unitCode,
+            COALESCE(account.current_savings, 0) AS currentSavings,
+            COALESCE(
+                LEAST(
+                    100.0,
+                    ROUND(
+                        COALESCE(account.monthly_savings, 0)
+                        / NULLIF(mr.rank_salary, 0) * 100,
+                        1
+                    )
+                ),
+                0.0
+            ) AS savingsRate
+        FROM `user` u
+        LEFT JOIN military_rank mr
+            ON u.rank_id = mr.rank_id
+           AND mr.del_yn = 'N'
+        LEFT JOIN military_types mt
+            ON u.type_id = mt.type_id
+           AND mt.del_yn = 'N'
+        LEFT JOIN (
+            SELECT
+                user_id,
+                SUM(monthly_save) AS monthly_savings,
+                SUM(curr_amount) AS current_savings
+            FROM saving_account
+            WHERE del_yn = 'N'
+              AND account_status = 'ACTIVE'
+            GROUP BY user_id
+        ) account ON u.id = account.user_id
+        WHERE u.id = #{userId}
+          AND u.del_yn = 'N'
+          AND u.status = 'ACTIVE'
+    </select>
+
+    <select id="findAverageSavingsRate" resultType="java.lang.Double">
+        WITH <include refid="userMetricsCte" />
+        SELECT COALESCE(ROUND(AVG(savings_rate), 1), 0.0)
+        FROM user_metrics metrics
+        WHERE <include refid="scopeCondition" />
+    </select>
+
+    <select id="findSavingsRank" resultType="org.scoula.social.dto.SocialRankSummaryDTO">
+        WITH <include refid="userMetricsCte" />,
+        scoped_metrics AS (
+            SELECT metrics.user_id, metrics.savings_rate
+            FROM user_metrics metrics
+            WHERE <include refid="scopeCondition" />
+        ),
+        ranked_metrics AS (
+            SELECT
+                user_id,
+                DENSE_RANK() OVER (ORDER BY savings_rate DESC) AS savings_rank,
+                COUNT(*) OVER () AS total_count
+            FROM scoped_metrics
+        )
+        SELECT
+            savings_rank AS `rank`,
+            total_count AS totalCount
+        FROM ranked_metrics
+        WHERE user_id = #{userId}
+    </select>
+
+    <!--
+        카테고리별로 플랜을 저장한 "회원 수"를 센다.
+        한 사람이 같은 카테고리에 플랜을 여러 개 저장했어도 1명으로만 집계된다.
+    -->
+    <select id="findDistributionList"
+            resultType="org.scoula.social.dto.SocialDistributionItemDTO">
+        WITH <include refid="userMetricsCte" />,
+        scoped_interest AS (
+            SELECT DISTINCT plan.user_id, plan.category_id
+            FROM (
+                <include refid="savedPlanUnion" />
+            ) plan
+            JOIN user_metrics metrics ON plan.user_id = metrics.user_id
+            WHERE <include refid="scopeCondition" />
+        )
+        SELECT
+            category.category_id AS categoryId,
+            category.category_name AS categoryName,
+            COUNT(interest.user_id) AS interestCount
+        FROM roadmap_category category
+        LEFT JOIN scoped_interest interest
+            ON category.category_id = interest.category_id
+        WHERE category.del_yn = 'N'
+        GROUP BY category.category_id, category.category_name
+        <!-- 많이 저장된 카테고리부터. 동점이면 category_id 순으로 고정해 매 조회마다
+             순서가 흔들리지 않게 한다(도넛 조각 색이 요청마다 바뀌는 것을 막는다). -->
+        ORDER BY interestCount DESC, category.category_id
+    </select>
+
+    <!--
+        부대별 평균 저축률 TOP 3.
+        이 섹션만은 비교 범위(scope)·계급을 적용하지 않고 항상 전체 부대를 대상으로 한다.
+    -->
+    <select id="findUnitRankingList"
+            resultType="org.scoula.social.dto.SocialRankingItemDTO">
+        WITH <include refid="userMetricsCte" />,
+        unit_stats AS (
+            SELECT
+                unit_code,
+                MAX(unit_name) AS unit_name,
+                ROUND(AVG(savings_rate), 1) AS savings_rate
+            FROM user_metrics
+            WHERE unit_code IS NOT NULL
+              AND unit_code != ''
+            GROUP BY unit_code
+            <!-- 평균이 0%인 부대는 순위에 올리지 않는다. -->
+            HAVING ROUND(AVG(savings_rate), 1) &gt; 0
+        ),
+        ranked_units AS (
+            SELECT
+                unit_code,
+                unit_name,
+                savings_rate,
+                DENSE_RANK() OVER (ORDER BY savings_rate DESC) AS unit_rank
+            FROM unit_stats
+        )
+        SELECT
+            unit_rank AS `rank`,
+            unit_name AS label,
+            savings_rate AS savingsRate,
+            CASE WHEN unit_code = #{unitCode} THEN TRUE ELSE FALSE END AS me
+        FROM ranked_units
+        ORDER BY unit_rank, unit_name
+        LIMIT 3
+    </select>
+
+    <select id="findBadgeListByUserId"
+            resultType="org.scoula.social.dto.SocialBadgeItemDTO">
+        SELECT
+            badge.badge_id AS badgeId,
+            badge.badge_name AS badgeName,
+            CASE WHEN MAX(user_badge.id) IS NULL THEN FALSE ELSE TRUE END AS achieved,
+            MAX(user_badge.created_date) AS achievedDate
+        FROM badge
+        LEFT JOIN user_badge
+            ON badge.badge_id = user_badge.badge_id
+           AND user_badge.user_id = #{userId}
+           AND user_badge.del_yn = 'N'
+        WHERE badge.del_yn = 'N'
+        GROUP BY badge.badge_id, badge.badge_name
+        ORDER BY badge.badge_id
+    </select>
+
+    <select id="findEarnedBadgeIdList" resultType="java.lang.Integer">
+        WITH <include refid="userMetricsCte" />,
+        peer_metrics AS (
+            SELECT metrics.*
+            FROM user_metrics metrics
+            CROSS JOIN (SELECT rank_id FROM `user` WHERE id = #{userId}) me
+            WHERE me.rank_id IS NULL
+               OR metrics.rank_id = me.rank_id
+        ),
+        ranked_metrics AS (
+            SELECT
+                user_id,
+                COUNT(*) OVER (ORDER BY savings_rate DESC) AS peer_position,
+                COUNT(*) OVER () AS total_count
+            FROM peer_metrics
+        ),
+        monthly_regret AS (
+            SELECT
+                DATE_FORMAT(spending.spent_at, '%Y-%m') AS spend_month,
+                SUM(CASE WHEN review.review_type = 'REGRET'
+                         THEN spending.amount ELSE 0 END) AS regret_amount,
+                COUNT(review.review_id) AS reviewed_count
+            FROM spending
+            LEFT JOIN spending_review review
+                ON review.spending_id = spending.spending_id
+               AND review.del_yn = 'N'
+            WHERE spending.user_id = #{userId}
+              AND spending.del_yn = 'N'
+            GROUP BY DATE_FORMAT(spending.spent_at, '%Y-%m')
+        ),
+        badge_metrics AS (
+            SELECT
+                ranked.peer_position,
+                ranked.total_count,
+                CASE
+                    WHEN user.enlist_date IS NULL OR user.discharge_date IS NULL THEN 0.0
+                    WHEN CURRENT_DATE &lt; user.enlist_date THEN 0.0
+                    WHEN CURRENT_DATE &gt;= user.discharge_date THEN 100.0
+                    ELSE LEAST(
+                        100.0,
+                        DATEDIFF(CURRENT_DATE, user.enlist_date) * 100.0
+                        / NULLIF(DATEDIFF(user.discharge_date, user.enlist_date), 0)
+                    )
+                END AS service_progress
+            FROM ranked_metrics ranked
+            JOIN `user` user ON ranked.user_id = user.id
+            WHERE ranked.user_id = #{userId}
+        )
+        SELECT earned_badges.badge_id
+        FROM (
+            SELECT 1 AS badge_id FROM badge_metrics
+             WHERE peer_position * 100.0 / total_count &lt;= 1
+            UNION ALL
+            SELECT 2 FROM badge_metrics
+             WHERE peer_position * 100.0 / total_count &lt;= 5
+            UNION ALL
+            SELECT 3 FROM badge_metrics
+             WHERE peer_position * 100.0 / total_count &lt;= 10
+            UNION ALL
+            SELECT 4 FROM badge_metrics
+             WHERE peer_position * 100.0 / total_count &lt;= 30
+            UNION ALL
+            SELECT 5 FROM badge_metrics WHERE service_progress &gt;= 50
+            UNION ALL
+            SELECT 6 FROM badge_metrics WHERE service_progress &gt;= 75
+            UNION ALL
+            SELECT 7 FROM badge_metrics WHERE service_progress &gt;= 100
+            UNION ALL
+            SELECT 8
+            WHERE EXISTS (
+                SELECT 1
+                FROM monthly_regret last_month
+                JOIN monthly_regret prev_month
+                  ON prev_month.spend_month = DATE_FORMAT(
+                         DATE_SUB(
+                             STR_TO_DATE(CONCAT(last_month.spend_month, '-01'), '%Y-%m-%d'),
+                             INTERVAL 1 MONTH
+                         ),
+                         '%Y-%m'
+                     )
+                WHERE last_month.spend_month = DATE_FORMAT(
+                          DATE_SUB(CURRENT_DATE, INTERVAL 1 MONTH), '%Y-%m')
+                  AND last_month.reviewed_count &gt; 0
+                  AND prev_month.reviewed_count &gt; 0
+                  AND last_month.regret_amount &lt; prev_month.regret_amount
+            )
+        ) earned_badges
+        JOIN badge ON earned_badges.badge_id = badge.badge_id
+                  AND badge.del_yn = 'N'
+        ORDER BY earned_badges.badge_id
+    </select>
+
+    <!-- 뱃지 지급의 유일한 경로. -->
+    <insert id="insertBadge">
+        INSERT INTO user_badge (
+            user_id,
+            badge_id,
+            created_date,
+            created_nm,
+            del_yn
+        )
+        SELECT
+            #{userId},
+            #{badgeId},
+            NOW(),
+            'system',
+            'N'
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM user_badge
+            WHERE user_id = #{userId}
+              AND badge_id = #{badgeId}
+              AND del_yn = 'N'
+        )
+    </insert>
+
+</mapper>

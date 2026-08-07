@@ -19,10 +19,6 @@ const { show } = useToast();
 
 const goalId = Number(route.params.goalId);
 
-// ── 진행바 ──
-const currentStep = 2;
-const progress = computed(() => (currentStep / 4) * 100);
-
 // ── 탭 ──
 const TAB_TYPES = {
   QUALIFICATION: 'qualification',
@@ -99,9 +95,7 @@ const isCourseSelected = (courseId) =>
   selectedCourseIds.value.has(Number(courseId));
 
 const getRelatedCourses = (qualId) =>
-  courses.value.filter(
-    (course) => Number(course.qualId) === Number(qualId),
-  );
+  courses.value.filter((course) => Number(course.qualId) === Number(qualId));
 
 const toggleQualification = (qualId) => {
   const normalizedQualId = Number(qualId);
@@ -148,17 +142,11 @@ const getQualificationFee = (qualification) => {
     return qualification.militaryFee;
   }
 
-  return (
-    (qualification.writtenFee ?? 0) +
-    (qualification.practicalFee ?? 0)
-  );
+  return (qualification.writtenFee ?? 0) + (qualification.practicalFee ?? 0);
 };
 
 const getCoursePrice = (course) =>
-  course.militaryPrice ??
-  course.discountPrice ??
-  course.originalPrice ??
-  0;
+  course.militaryPrice ?? course.discountPrice ?? course.originalPrice ?? 0;
 
 // ── 접수 D-Day ──
 const parseLocalDate = (dateValue) => {
@@ -172,29 +160,20 @@ const parseLocalDate = (dateValue) => {
 const getToday = () => {
   const now = new Date();
 
-  return new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-  );
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
 };
 
 const getDayDifference = (targetDate) => {
   const millisecondsPerDay = 1000 * 60 * 60 * 24;
 
   return Math.ceil(
-    (targetDate.getTime() - getToday().getTime()) /
-      millisecondsPerDay,
+    (targetDate.getTime() - getToday().getTime()) / millisecondsPerDay,
   );
 };
 
 const getScheduleLabel = (qualification) => {
-  const startDate = parseLocalDate(
-    qualification.writtenRegStartDate,
-  );
-  const endDate = parseLocalDate(
-    qualification.writtenRegEndDate,
-  );
+  const startDate = parseLocalDate(qualification.writtenRegStartDate);
+  const endDate = parseLocalDate(qualification.writtenRegEndDate);
 
   if (!startDate || !endDate) {
     return '다음 일정 미정';
@@ -219,10 +198,7 @@ const getScheduleLabel = (qualification) => {
 };
 
 const hasSchedule = (qualification) =>
-  Boolean(
-    qualification.writtenRegStartDate &&
-      qualification.writtenRegEndDate,
-  );
+  Boolean(qualification.writtenRegStartDate && qualification.writtenRegEndDate);
 
 // ── 외부 링크 ──
 const openExternalLink = (url) => {
@@ -266,15 +242,10 @@ const handlePrev = () => {
 
 <template>
   <div class="job-recommend">
-    <RoadmapCharacterSlider
-      :progress="progress"
-      label="진로 로드맵"
-    />
+    <RoadmapCharacterSlider :progress="34" label="진로 로드맵" />
 
     <div class="job-recommend__heading">
-      <h2 class="job-recommend__title">
-        로드맵을 선택해주세요
-      </h2>
+      <h2 class="job-recommend__title">로드맵을 선택해주세요</h2>
 
       <p v-if="goalType" class="job-recommend__description">
         {{ goalTypeLabel }} 준비에 필요한 항목을 선택할 수 있어요.
@@ -286,8 +257,7 @@ const handlePrev = () => {
         type="button"
         class="job-recommend__tab"
         :class="{
-          'job-recommend__tab--active':
-            activeTab === TAB_TYPES.QUALIFICATION,
+          'job-recommend__tab--active': activeTab === TAB_TYPES.QUALIFICATION,
         }"
         @click="activeTab = TAB_TYPES.QUALIFICATION"
       >
@@ -298,8 +268,7 @@ const handlePrev = () => {
         type="button"
         class="job-recommend__tab"
         :class="{
-          'job-recommend__tab--active':
-            activeTab === TAB_TYPES.SECONDARY,
+          'job-recommend__tab--active': activeTab === TAB_TYPES.SECONDARY,
         }"
         @click="activeTab = TAB_TYPES.SECONDARY"
       >
@@ -330,8 +299,9 @@ const handlePrev = () => {
             padding="18px"
             class="qualification-card"
             :class="{
-              'qualification-card--selected':
-                isQualificationSelected(qualification.qualId),
+              'qualification-card--selected': isQualificationSelected(
+                qualification.qualId,
+              ),
             }"
             @click="toggleQualification(qualification.qualId)"
           >
@@ -340,33 +310,22 @@ const handlePrev = () => {
                 type="button"
                 class="selection-button"
                 :class="{
-                  'selection-button--selected':
-                    isQualificationSelected(
-                      qualification.qualId,
-                    ),
+                  'selection-button--selected': isQualificationSelected(
+                    qualification.qualId,
+                  ),
                 }"
                 :aria-label="`${qualification.qualName} 선택`"
-                @click.stop="
-                  toggleQualification(qualification.qualId)
-                "
+                @click.stop="toggleQualification(qualification.qualId)"
               >
                 <svg
-                  v-if="
-                    isQualificationSelected(
-                      qualification.qualId,
-                    )
-                  "
+                  v-if="isQualificationSelected(qualification.qualId)"
                   viewBox="0 0 24 24"
                   aria-hidden="true"
                 >
                   <path d="m6 12 4 4 8-8" />
                 </svg>
 
-                <svg
-                  v-else
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
+                <svg v-else viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M12 5v14M5 12h14" />
                 </svg>
               </button>
@@ -400,16 +359,8 @@ const handlePrev = () => {
                 </p>
 
                 <div class="qualification-card__meta">
-                  <span
-                    v-if="
-                      getQualificationFee(qualification) > 0
-                    "
-                  >
-                    {{
-                      formatWon(
-                        getQualificationFee(qualification),
-                      )
-                    }}
+                  <span v-if="getQualificationFee(qualification) > 0">
+                    {{ formatWon(getQualificationFee(qualification)) }}
                   </span>
 
                   <span v-if="qualification.examRound">
@@ -424,9 +375,7 @@ const handlePrev = () => {
                 type="button"
                 class="external-link-button"
                 aria-label="자격증 상세 페이지 열기"
-                @click.stop="
-                  openExternalLink(qualification.detailUrl)
-                "
+                @click.stop="openExternalLink(qualification.detailUrl)"
               >
                 <svg
                   viewBox="0 0 24 24"
@@ -444,57 +393,44 @@ const handlePrev = () => {
             <div
               v-if="
                 isEmployment &&
-                isQualificationSelected(
-                  qualification.qualId,
-                ) &&
-                getRelatedCourses(qualification.qualId).length >
-                  0
+                isQualificationSelected(qualification.qualId) &&
+                getRelatedCourses(qualification.qualId).length > 0
               "
               class="qualification-card__courses"
               @click.stop
             >
               <div class="qualification-card__divider" />
 
-              <h4 class="qualification-card__course-title">
-                자격증 대비 인강
-              </h4>
+              <h4 class="qualification-card__course-title">자격증 대비 인강</h4>
 
               <div class="qualification-card__course-list">
                 <button
-                  v-for="course in getRelatedCourses(
-                    qualification.qualId,
-                  )"
+                  v-for="course in getRelatedCourses(qualification.qualId)"
                   :key="course.courseId"
                   type="button"
                   class="course-item"
                   :class="{
-                    'course-item--selected':
-                      isCourseSelected(course.courseId),
+                    'course-item--selected': isCourseSelected(course.courseId),
                   }"
                   @click="toggleCourse(course.courseId)"
                 >
                   <span
                     class="course-item__selection"
                     :class="{
-                      'course-item__selection--selected':
-                        isCourseSelected(course.courseId),
+                      'course-item__selection--selected': isCourseSelected(
+                        course.courseId,
+                      ),
                     }"
                   >
                     <svg
-                      v-if="
-                        isCourseSelected(course.courseId)
-                      "
+                      v-if="isCourseSelected(course.courseId)"
                       viewBox="0 0 24 24"
                       aria-hidden="true"
                     >
                       <path d="m6 12 4 4 8-8" />
                     </svg>
 
-                    <svg
-                      v-else
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                    >
+                    <svg v-else viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M12 5v14M5 12h14" />
                     </svg>
                   </span>
@@ -522,12 +458,8 @@ const handlePrev = () => {
                     role="button"
                     tabindex="0"
                     aria-label="인강 상세 페이지 열기"
-                    @click.stop="
-                      openExternalLink(course.detailUrl)
-                    "
-                    @keydown.enter.stop="
-                      openExternalLink(course.detailUrl)
-                    "
+                    @click.stop="openExternalLink(course.detailUrl)"
+                    @keydown.enter.stop="openExternalLink(course.detailUrl)"
                   >
                     <svg
                       viewBox="0 0 24 24"
@@ -547,10 +479,7 @@ const handlePrev = () => {
       </section>
 
       <!-- 취업: 훈련과정 탭 -->
-      <section
-        v-else-if="isEmployment"
-        class="job-recommend__list"
-      >
+      <section v-else-if="isEmployment" class="job-recommend__list">
         <EmptyState
           title="추천 훈련과정이 없습니다."
           description="정부지원 훈련과정 추천은 추후 제공될 예정입니다."
@@ -572,8 +501,9 @@ const handlePrev = () => {
             padding="18px"
             class="standalone-course-card"
             :class="{
-              'standalone-course-card--selected':
-                isCourseSelected(course.courseId),
+              'standalone-course-card--selected': isCourseSelected(
+                course.courseId,
+              ),
             }"
             @click="toggleCourse(course.courseId)"
           >
@@ -582,8 +512,9 @@ const handlePrev = () => {
                 type="button"
                 class="selection-button"
                 :class="{
-                  'selection-button--selected':
-                    isCourseSelected(course.courseId),
+                  'selection-button--selected': isCourseSelected(
+                    course.courseId,
+                  ),
                 }"
                 :aria-label="`${course.courseName} 선택`"
                 @click.stop="toggleCourse(course.courseId)"
@@ -596,11 +527,7 @@ const handlePrev = () => {
                   <path d="m6 12 4 4 8-8" />
                 </svg>
 
-                <svg
-                  v-else
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
+                <svg v-else viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M12 5v14M5 12h14" />
                 </svg>
               </button>
@@ -634,9 +561,7 @@ const handlePrev = () => {
                 type="button"
                 class="external-link-button"
                 aria-label="인강 상세 페이지 열기"
-                @click.stop="
-                  openExternalLink(course.detailUrl)
-                "
+                @click.stop="openExternalLink(course.detailUrl)"
               >
                 <svg
                   viewBox="0 0 24 24"
@@ -657,14 +582,16 @@ const handlePrev = () => {
     <div class="job-recommend__selection-summary">
       <span>
         자격증·어학
-        <strong>{{ selectedQualCount }}</strong>개
+        <strong>{{ selectedQualCount }}</strong
+        >개
       </span>
 
       <span class="job-recommend__selection-divider">·</span>
 
       <span>
         인터넷 강의
-        <strong>{{ selectedCourseCount }}</strong>개
+        <strong>{{ selectedCourseCount }}</strong
+        >개
       </span>
     </div>
 

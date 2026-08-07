@@ -3,6 +3,7 @@ package org.scoula.car.service;
 import java.util.List;
 
 import org.scoula.car.dto.CarAcquisitionTaxResponseDTO;
+import org.scoula.car.dto.CarBudgetStatusResponseDTO;
 import org.scoula.car.dto.CarEvSubsidyResponseDTO;
 import org.scoula.car.dto.CarGoalCreateRequestDTO;
 import org.scoula.car.dto.CarGoalCreateResponseDTO;
@@ -39,4 +40,7 @@ public interface CarService {
 
     // CAR-API-12: 지역 기준 전기차 보조금 계산
     CarEvSubsidyResponseDTO calculateEvSubsidy(Long goalId, Long userId);
+
+    // CAR-API-14: 선택 차량 구매비용이 기준 예산(수동입력 또는 군적금 만기예상액)을 넘는지 확인
+    CarBudgetStatusResponseDTO checkBudgetStatus(Long goalId, Long userId);
 }

@@ -23,8 +23,7 @@ _LIVE_SOURCE_LABELS = {
     "investment": "Gemini AI (펀드 실시간 데이터 기반 생성)",
 }
 
-# RAG 답변의 출처 캡션용 — 문서(doc_name)별 기관명 표기. 정확한 상품 페이지 연결(랜딩)은
-# policy_product 데이터 정리 후 별도 처리하고, 우선 텍스트 출처 표시만 제공한다.
+# RAG 답변의 출처 캡션용 — 문서(doc_name)별 기관명 표기.
 _DOC_SOURCE_ORG = {
     "장병내일준비적금": "KB국민은행 상품안내",
     "청년미래적금": "KB국민은행 상품안내",
@@ -32,6 +31,14 @@ _DOC_SOURCE_ORG = {
     "정책용어사전": "정책용어사전",
 }
 _DOC_AS_OF = "2026년 3월 기준"
+
+# 3개 고정 상품의 실제 상세 페이지 링크 (에스더 직접 확인 요청 → 실제 링크 받아서 반영, 2026-08-06).
+# 장병내일준비적금은 국방부·은행 공동 제도라 KB 온라인뱅킹이 아니라 국방부 공식 안내 페이지로 연결한다.
+_DOC_SOURCE_URL = {
+    "장병내일준비적금": "https://mnd.go.kr/mnd/288/subview.do",
+    "청년미래적금": "https://obank.kbstar.com/quics?page=C020722&boardId=669&compId=b058336&articleId=145082&bbsMode=view&viewPage=1&articleClass=2&searchCondition=title&searchStr=",
+    "청년주택드림청약통장": "https://obank.kbstar.com/quics?page=C016613&cc=b061496:b061645&isNew=N&prcode=DP01000935",
+}
 
 
 def _build_source_detail(doc_name: Optional[str]) -> Optional[str]:
@@ -102,6 +109,7 @@ class ChatState(TypedDict, total=False):
     source: str
     doc_names: List[str]  # RAG 검색결과 top_k의 doc_name (유사도 순), 실시간 데이터면 빈 리스트
     source_detail: Optional[str]  # 사람이 읽는 출처 캡션 (RAG 답변만 해당, 없으면 None)
+    source_url: Optional[str]  # 출처를 클릭해서 실제 상품 페이지로 이동할 수 있는 링크 (있는 문서만)
     is_ai_generated: bool  # 프론트에 "AI가 생성한 답변입니다" 문구를 보여줄지 여부
     is_comparison: bool  # 상품 2개 이상을 비교하는 질문인지 (프롬프트에서 비교 지시 추가용)
     answer: str
@@ -235,13 +243,15 @@ def _generate_node(state: ChatState) -> ChatState:
     answer = gemini_client.generate_content(prompt, system_instruction=SYSTEM_INSTRUCTION)
 
     source_detail = None
+    source_url = None
     hide_source = False
     if not category:
         doc_name = _pick_doc_name(answer, state.get("doc_names") or [])
         source_detail = _build_source_detail(doc_name)
+        source_url = _DOC_SOURCE_URL.get(doc_name)
         hide_source = source_detail is None
 
-    result = {"answer": answer, "source_detail": source_detail}
+    result = {"answer": answer, "source_detail": source_detail, "source_url": source_url}
     if hide_source:
         # 특정 상품 문서가 아니면(정책용어사전 등) 출처 자체를 안 보여준다 -
         # _build_context_node가 채워둔 일반 RAG_SOURCE_LABEL도 같이 지워야
@@ -309,8 +319,8 @@ def generate_reply(
     question: str,
     history: Optional[List[Tuple[str, str]]] = None,
     force_intent: Optional[str] = None,
-) -> Tuple[str, str, Optional[str], bool, str]:
-    """반환값: (답변, source 라벨, source_detail 캡션, is_ai_generated, intent).
+) -> Tuple[str, str, Optional[str], bool, str, Optional[str]]:
+    """반환값: (답변, source 라벨, source_detail 캡션, is_ai_generated, intent, source_url).
     LangGraph로 의도분류 → (분기) → 컨텍스트 구성 → 답변 생성을 수행한다.
 
     history: 같은 세션의 이전 메시지들 [(role, content), ...] (오래된 순, 현재 질문은 미포함).
@@ -330,4 +340,5 @@ def generate_reply(
         result.get("source_detail"),
         result.get("is_ai_generated", False),
         result["intent"],
+        result.get("source_url"),
     )
