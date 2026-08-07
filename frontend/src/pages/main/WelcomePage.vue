@@ -5,7 +5,7 @@
 // 진입 전용 최소 헤더(나가기 + 앱명)만 노출함
 import { useRouter } from 'vue-router';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
-import soldierImg from '@/assets/images/soldier-salute.png';
+import welcomeImg from '@/assets/images/welcome-kbfriends.png';
 
 const router = useRouter();
 
@@ -31,7 +31,7 @@ const goStart = () => router.push({ name: 'Login' });
 
     <!-- 서비스 홍보 -->
     <div class="promo">
-      <img :src="soldierImg" alt="텅장일병 마스코트" class="promo__mascot" />
+      <img :src="welcomeImg" alt="텅장일병 마스코트" class="promo__mascot" />
       <h1 class="promo__name">텅장일병구하기</h1>
       <p class="promo__tagline">전역까지, 텅장 탈출 대작전<br />군적금부터 자취까지 한 번에</p>
     </div>
