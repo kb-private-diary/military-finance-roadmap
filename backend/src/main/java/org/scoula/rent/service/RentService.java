@@ -37,8 +37,9 @@ public interface RentService {
     // 목표 삭제 (soft delete)
     void deleteGoal(Long goalId);
 
-    // 부족분 계산 (Step4) - 총 필요자금 vs 만기금 → 부족분·감당도 판정
-    RentAffordabilityResponseDTO findAffordability(Long listingId, Long userId, int months);
+    // 부족분 계산 (Step4) - 필요목돈 vs 만기금 → 부족분·감당도 판정
+    //   depositMode: "INCLUDE"(기본, 보증금+월주거비) | "EXCLUDE"(월주거비만, 보증금은 대출 전제로 제외)
+    RentAffordabilityResponseDTO findAffordability(Long listingId, Long userId, int months, String depositMode);
 
     // 로드맵 저장 (Step4 저장 버튼) - rent_goal 상태 DRAFT → CONFIRMED 확정
     void confirmGoal(Long goalId, Long userId, Integer months, Long listingId);

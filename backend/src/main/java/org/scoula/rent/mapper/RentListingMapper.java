@@ -13,11 +13,13 @@ public interface RentListingMapper {
     // 매물 저장 (배치/초기 적재)
     void insertListing(RentListingVO listing);
 
-    // REGION 모드: 희망 지역(법정동코드)에 속하고 월세가 예산 이하인 매물 (월세 오름차순 추천, 상위 30개)
+    // REGION 모드 후보: 희망 지역(법정동코드)에 속하고 월세가 예산(느슨한 상한) 이하인 매물 (월세 오름차순)
+    //   실질월부담(월세+관리비+보증금환산) 필터·정렬·상위 30개 컷은 RentServiceImpl.findListings 에서 처리
     List<RentListingVO> findListingsByRegions(@Param("regionCodes") List<String> regionCodes,
                                               @Param("maxMonthly") Long maxMonthly);
 
-    // SCHOOL 모드: 학교 좌표 기준 반경 내 + 월세 예산 이하인 매물 (가까운 순 추천, 상위 30개)
+    // SCHOOL 모드 후보: 학교 좌표 기준 반경 내 + 월세 예산(느슨한 상한) 이하인 매물 (가까운 순)
+    //   실질월부담 필터·정렬·상위 30개 컷은 RentServiceImpl.findListings 에서 처리
     List<RentListingVO> findListingsBySchool(@Param("schoolId") Long schoolId,
                                              @Param("radiusKm") Integer radiusKm,
                                              @Param("maxMonthly") Long maxMonthly);
