@@ -52,8 +52,10 @@
         SELECT
             COALESCE(SUM(s.amount), 0)                                                AS totalSpending,
             COALESCE(SUM(CASE WHEN r.review_type = 'REGRET'    THEN s.amount END), 0) AS regretAmount,
+            COALESCE(SUM(CASE WHEN r.review_type = 'SOSO'      THEN s.amount END), 0) AS sosoAmount,
             COALESCE(SUM(CASE WHEN r.review_type = 'SATISFIED' THEN s.amount END), 0) AS satisfiedAmount,
             COALESCE(SUM(CASE WHEN r.review_type = 'REGRET'    THEN 1 ELSE 0 END), 0) AS regretCount,
+            COALESCE(SUM(CASE WHEN r.review_type = 'SOSO'      THEN 1 ELSE 0 END), 0) AS sosoCount,
             COALESCE(SUM(CASE WHEN r.review_type = 'SATISFIED' THEN 1 ELSE 0 END), 0) AS satisfiedCount,
             COALESCE(SUM(CASE WHEN r.review_id IS NULL         THEN 1 ELSE 0 END), 0) AS untaggedCount
           FROM spending s
