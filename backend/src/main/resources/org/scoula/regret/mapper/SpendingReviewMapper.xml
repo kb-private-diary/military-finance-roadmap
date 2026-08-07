@@ -82,4 +82,13 @@
          ORDER BY amount DESC
     </select>
 
+    <!-- 월별 총 수입 (income 합계, 수입 대비 후회소비 비율용) income은 오픈뱅킹 저장, 여기선 조회만 -->
+    <select id="findMonthlyIncomeByUserId" resultType="long">
+        SELECT COALESCE(SUM(amount), 0)
+          FROM income
+         WHERE user_id = #{userId}
+           AND DATE_FORMAT(received_at, '%Y%m') = #{yearMonth}
+           AND del_yn = 'N'
+    </select>
+
 </mapper>

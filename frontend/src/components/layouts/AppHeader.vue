@@ -28,7 +28,7 @@ const goExit = () => {
 
 // 알림 화면 이동
 const goNotification = () => {
-  router.push({ name: 'Notification' });
+  router.push({ name: 'WebPush' });
 };
 
 const goChat = () => {

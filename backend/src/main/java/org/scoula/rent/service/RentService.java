@@ -29,4 +29,10 @@ public interface RentService {
 
     // 총 필요자금 계산 (보증금 + 월세×거주개월)
     RentCostResponseDTO calculateCost(Long listingId, int months);
+
+    // 진행중(DRAFT) 목표 조회 (없으면 null)
+    RentGoalDetailResponseDTO findCurrentGoal(Long userId);
+
+    // 목표 삭제 (soft delete)
+    void deleteGoal(Long goalId);
 }

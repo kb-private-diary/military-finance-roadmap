@@ -35,6 +35,19 @@ export const useAuthStore = defineStore('auth', () => {
   };
 
   const getToken = () => state.value.token;
+  const getRefreshToken = () => state.value.refreshToken;
+
+  // 액세스 토큰(30분)이 만료되면 리프레시 토큰(14일)으로 조용히 재발급받는다.
+  // axios 인터셉터가 401을 받았을 때 이걸 먼저 시도하고, 그래도 실패해야 로그아웃한다.
+  // (예전엔 리프레시 토큰을 저장만 해두고 실제로 쓰는 곳이 없어서, 30분마다 강제 로그아웃됐었음 - 2026-08-06)
+  const refresh = async () => {
+    const refreshToken = state.value.refreshToken;
+    if (!refreshToken) throw new Error('리프레시 토큰이 없습니다');
+    // /api/users/refresh는(로그인과 달리) ApiResponse로 감싸서 응답하므로 data.data로 한 번 더 풀어야 한다.
+    const { data } = await axios.post('/api/users/refresh', { refreshToken });
+    state.value = { ...data.data };
+    localStorage.setItem('auth', JSON.stringify(state.value));
+  };
 
   const load = () => {
     const saved = localStorage.getItem('auth');
@@ -53,5 +66,7 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     logout,
     getToken,
+    getRefreshToken,
+    refresh,
   };
 });

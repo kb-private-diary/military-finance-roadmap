@@ -14,7 +14,14 @@ PRODUCT_ENDPOINTS = {
     "deposit": "depositProductsSearch.json",
 }
 
-SOURCE_LABEL = "금융감독원 금융상품 한눈에 API"
+SOURCE_LABEL = "금융감독원 금융상품한눈에"
+
+# 카테고리별 비교 페이지 링크 - 개별 상품(은행마다 다름)까지는 못 짚어줘도, 이 데이터가
+# 나온 비교 페이지로는 보낼 수 있다. 둘 다 직접 열어서 정상 동작 확인함(2026-08-06).
+SOURCE_URL = {
+    "savings": "https://finlife.fss.or.kr/finlife/svings/fdrmEnty/list.do?menuNo=700003",
+    "deposit": "https://finlife.fss.or.kr/finlife/svings/fdrmDpst/list.do?menuNo=700002",
+}
 
 
 def _fetch_page(endpoint: str, top_fin_grp_no: str, page_no: int) -> dict:

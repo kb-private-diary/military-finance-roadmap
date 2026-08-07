@@ -1,5 +1,7 @@
 package org.scoula.openbanking.domain;
 
+import java.time.LocalDate;
+
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import org.scoula.common.domain.BaseVO;
@@ -15,4 +17,5 @@ public class SavingHistoryVO extends BaseVO {
     private Long accountId;    // account_id  계좌ID (FK)
     private Integer payRound;  // pay_round   납입회차
     private Long payAmount;    // pay_amount  해당회차 납입금
+    private LocalDate paidDate; // paid_date  실제 납입일 (created_date 감사컬럼과 별개, 만기금 firstPayDate 산출용)
 }

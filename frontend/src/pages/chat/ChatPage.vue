@@ -4,7 +4,6 @@
 import { computed, nextTick, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import chatApi from '@/api/chatApi';
-import simulatorApi from '@/api/simulatorApi';
 import { useAuthStore } from '@/stores/auth';
 import { useToast } from '@/composables/useToast';
 import { formatDate } from '@/util/format';
@@ -58,24 +57,74 @@ const EXTERNAL_NAV = [
   }, // 호빈님
 ];
 
-/* 하단 태그줄 - 자주 묻는 질문 빼곤 대부분 다른 페이지로 이동.
-   "적금률 비교"는 단순 이동이 아니라 상담형 로직(WBS-6)으로 봐야 해서 아직 버튼에서 뺌 */
+// confirmGoalTarget이 실제 이동 확인 버튼에 쓰는 문구 - "여행 계획 세우기"처럼 그 화면을
+// 고르는 라벨과, "여행 페이지로 이동"처럼 실제 이동을 확정하는 문구를 구분해서 쓴다(2026-08-06 피드백).
+// 라우트명 기준이라 EXTERNAL_NAV/ALL_FEATURES 어느 쪽에서 와도 재사용된다.
+const GUIDE_NAV_LABELS = {
+  TravelGoalCreate: '여행 페이지로 이동',
+  RentGoalCreate: '자취 페이지로 이동',
+  JobGoalCreate: '진로 페이지로 이동',
+  CarGoalCreate: '자차 페이지로 이동',
+  Simulator: '군적금 시뮬레이션 페이지로 이동',
+  Dashboard: '대시보드 페이지로 이동',
+  RegretDashboard: '후회소비 회고 페이지로 이동',
+  // RegretDashboard와 이름이 비슷해서 헷갈리기 쉬운데, "후회소비 회고" 관련 화면이 라우트가
+  // 두 개(RegretReview/RegretDashboard)라 여기 없으면 label 그대로 노출돼서 빠져있던 걸 채움(2026-08-06)
+  RegretReview: '후회소비 확인하러 이동',
+  Social: '저축 비교 페이지로 이동',
+};
+
+/* 하단 태그줄 - "적금률 비교"는 단순 이동이 아니라 상담형 로직(WBS-6)으로 봐야 해서 아직 버튼에서 뺌.
+   "저축 비교하기"(라우트명은 그대로 Social, 태석님 화면이 "소셜"에서 이름만 바뀜, 2026-08-06).
+   "자주 묻는 질문"은 선정 기준이 애매하고 아직 데이터도 안 쌓여서 아예 뺐다(2026-08-06 피드백).
+   나머지 3개도 바로 이동하지 않고 confirmGoalTarget으로 설명 먼저 보여준다(2026-08-06 피드백) */
 const EXTERNAL_TAGS = [
   { label: '군적금 활용하기', onClick: () => showAllFeatures() },
-  { label: '후회소비 회고', to: { name: 'RegretReview' } },
-  { label: '자금 시뮬레이션', to: { name: 'Simulator' } },
+  {
+    label: '후회소비 회고',
+    description: '지난 소비 내역을 되돌아보며 후회되는 지출을 기록하고 다음 소비 습관을 점검할 수 있는 회고 기능',
+    to: { name: 'RegretReview' },
+  },
+  {
+    label: '자금 시뮬레이션',
+    description: '월 납입액과 기간을 넣어 만기 수령액(이자·정부기여금 포함)을 미리 계산해볼 수 있는 시뮬레이터 기능',
+    to: { name: 'Simulator' },
+  },
+  {
+    label: '저축 비교하기',
+    description: '전우들과 저축·랭킹을 비교해볼 수 있는 기능',
+    to: { name: 'Social' },
+  },
 ];
 
-/* "군적금 활용하기" 클릭 시 보여줄 전체 기능 목록 (라우트정의서 기준, 2026-07-30) */
+/* "군적금 활용하기" 클릭 시 보여줄 전체 기능 목록 (라우트정의서 기준, 2026-07-30).
+   각 항목에 description을 붙여서, 뭔지도 모르고 누르게 되지 않도록 confirmGoalTarget으로
+   "이런 기능이 있는데 확인해 보시겠습니까?" 설명을 먼저 보여주고 이동한다(2026-08-06 피드백). */
 const ALL_FEATURES = [
-  { label: '여행 계획 세우기', to: { name: 'TravelGoalCreate' } },
-  { label: '자취 준비하기', to: { name: 'RentGoalCreate' } },
-  { label: '진로 준비하기', to: { name: 'JobGoalCreate' } },
-  { label: '자차 준비하기', to: { name: 'CarGoalCreate' } },
-  { label: '군적금 시뮬레이션', to: { name: 'Simulator' } },
-  { label: '대시보드 (D-Day·휴가 관리)', to: { name: 'Dashboard' } },
-  { label: '후회소비 회고', to: { name: 'RegretDashboard' } },
-  { label: '전우들과 비교(소셜)', to: { name: 'Social' } },
+  { label: '여행 계획 세우기', description: EXTERNAL_NAV[0].description, to: { name: 'TravelGoalCreate' } },
+  { label: '자취 준비하기', description: EXTERNAL_NAV[1].description, to: { name: 'RentGoalCreate' } },
+  { label: '진로 준비하기', description: EXTERNAL_NAV[2].description, to: { name: 'JobGoalCreate' } },
+  { label: '자차 준비하기', description: EXTERNAL_NAV[3].description, to: { name: 'CarGoalCreate' } },
+  {
+    label: '군적금 시뮬레이션',
+    description: '월 납입액과 기간을 넣어 만기 수령액(이자·정부기여금 포함)을 미리 계산해볼 수 있는 시뮬레이터 기능',
+    to: { name: 'Simulator' },
+  },
+  {
+    label: '대시보드 (D-Day·휴가 관리)',
+    description: '전역일까지 D-Day와 휴가 일정을 한눈에 관리할 수 있는 대시보드 기능',
+    to: { name: 'Dashboard' },
+  },
+  {
+    label: '후회소비 회고',
+    description: '지난 소비 내역을 되돌아보며 후회되는 지출을 기록하고 다음 소비 습관을 점검할 수 있는 회고 기능',
+    to: { name: 'RegretDashboard' },
+  },
+  {
+    label: '저축 비교하기',
+    description: '전우들과 저축·랭킹을 비교해볼 수 있는 기능',
+    to: { name: 'Social' },
+  },
 ];
 
 /* 다른 팀원이 만든 프로젝트 내 페이지로 연결 - 실제 키워드/경로는 페이지가 준비되는 대로 채워 넣으면 됨 */
@@ -87,7 +136,17 @@ const PAGE_LINKS = [
     to: { name: 'SimulatorCalc' },
   },
   {
-    keywords: ['전세', '자취', '신혼', '매매', '집 마련'],
+    // 여행 관련 자유 질문("여행 계획은?" 등)이 지금까지 무관련 질문으로 걸러지고 있었음(2026-08-06 발견) -
+    // 자취/자차처럼 여행 준비 페이지로 안내되게 추가
+    keywords: ['여행', '휴가', '여행지'],
+    label: '여행 계획 페이지로 이동',
+    description: EXTERNAL_NAV[0].description,
+    to: { name: 'TravelGoalCreate' },
+  },
+  {
+    // "집" 하나만으로도 넓게 잡음 - "집 사려고" 같은 자연스러운 표현이 안 걸려서 엉뚱하게
+    // 상담 되묻기로 새던 문제 발견(2026-08-06 피드백)
+    keywords: ['전세', '자취', '신혼', '매매', '집 마련', '집', '주택'],
     label: '자취 준비 페이지로 이동',
     description: '자취 목표를 등록하고 예산에 맞는 매물·금융상품을 추천받는 자취 준비 기능',
     to: { name: 'RentGoalCreate' },
@@ -97,6 +156,13 @@ const PAGE_LINKS = [
     label: '자차 준비 페이지로 이동',
     description: '자동차 목표를 등록하고 예산에 맞는 차량·금융상품을 추천받는 자차 준비 기능',
     to: { name: 'CarGoalCreate' },
+  },
+  {
+    // 자격증·취업 관련 자유 질문이 진로 준비 페이지로 안 이어지고 있었음(2026-08-06 피드백)
+    keywords: ['자격증', '취업', '진로', '이직', '전역 후'],
+    label: '진로 준비 페이지로 이동',
+    description: EXTERNAL_NAV[2].description,
+    to: { name: 'JobGoalCreate' },
   },
 ];
 
@@ -169,19 +235,32 @@ const MOOD_OPTIONS = [
   { value: 'like', label: '만족', img: moodLikeImg },
 ];
 
-/* 히스토리 제목용 - 가이드/태그 버튼 문구를 그대로 쓰지 않고 다듬어진 요약으로 보여줌 */
-const TITLE_ALIASES = {
-  '적금·청약 상품이 궁금해요': '적금·청약 상품 추천',
-  '목돈 어떻게 쓸지 상담받기': '목돈 활용 상담',
-  '정책 용어가 궁금해요': '정책 용어 설명',
-  '직접 질문 입력하기': '직접 질문',
-};
-
 const loading = ref(true);
 const loadError = ref('');
-const sessionId = ref(null);
-const todaySessionId = ref(null); // "이전 기록"에서 지난 세션을 보다가 다시 오늘 세션으로 돌아오기 위한 기준값
+const sessionId = ref(null); // 새 메시지를 보낼 때 붙일 세션 - 유저당 하나만 계속 재사용한다(날짜로 안 끊음)
 const messages = ref([]);
+// 가로 스크롤 상품 카드(menuCarousel)의 현재 페이지(카드) 인덱스 - 메시지 id별로 따로 추적한다.
+// 카드 폭을 CSS에서 130px(+gap 10px)로 고정해뒀는데(2.5장씩 걸치게, 2026-08-06 피드백),
+// 컨테이너 전체 폭 기준으로 계산하면 카드가 여러 개 보일 때 인덱스가 틀어져서 이 고정값을 그대로 쓴다.
+const CAROUSEL_CARD_STEP = 140; // 카드 130px + gap 10px
+const carouselActive = ref({});
+const onCarouselScroll = (msg, event) => {
+  const el = event.target;
+  const index = Math.round(el.scrollLeft / CAROUSEL_CARD_STEP);
+  carouselActive.value[msg.id] = index;
+};
+
+// 점(dot) 클릭이나 화살표 버튼으로도 넘길 수 있게 - 스크롤 되는 걸 몰라서 못 넘기겠다는 피드백(2026-08-06)
+const scrollCarouselToIndex = (msg, index) => {
+  const el = document.getElementById(`carousel-${msg.id}`);
+  if (!el) return;
+  const clampedIndex = Math.max(0, Math.min(index, msg.menu.length - 1));
+  el.scrollTo({ left: clampedIndex * CAROUSEL_CARD_STEP, behavior: 'smooth' });
+  carouselActive.value[msg.id] = clampedIndex;
+};
+const scrollCarouselBy = (msg, direction) => {
+  scrollCarouselToIndex(msg, (carouselActive.value[msg.id] || 0) + direction);
+};
 const input = ref('');
 const typing = ref(false);
 const panel = ref(null); // 'actions' (종료하기 버튼 노출)
@@ -203,8 +282,10 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // 봇 응답 전 "타이핑 중" 딜레이 - 되묻기 흐름 곳곳에서 반복 사용
 const TYPING_DELAY_MS = 700;
 
-const todayLabel = () => {
-  const d = new Date();
+// 날짜 구분선 문구 - 대화가 여러 날에 걸쳐 하나로 이어지므로(날짜별로 세션을 안 끊음),
+// 날짜가 바뀔 때마다 이 문구로 구분선을 끼워 넣는다. 인자를 안 주면 오늘 날짜.
+const dateLabelFor = (value) => {
+  const d = value ? new Date(value) : new Date();
   const weekday = ['일', '월', '화', '수', '목', '금', '토'][d.getDay()];
   return `- ${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()} ${weekday}요일 -`;
 };
@@ -221,16 +302,74 @@ const scrollToBottom = () => {
   });
 };
 
+// 정책용어사전은 특정 상품 출처가 아니라 일반 용어 정의라 "출처 · 정책용어사전"이 의미가 없어서 숨긴다.
+// "무관련 질문 안내"도 실제 출처가 아니라 백엔드 내부에서 무관련 질문을 표시하려고 붙인 라벨이라
+// 화면에 그대로 노출하면 사용자 입장에선 뜬금없어서 같이 숨긴다(2026-08-07 피드백).
+// 최신 백엔드 로직은 이미 정책용어사전의 경우 source 자체를 안 보내지만, 그 전에 저장된 과거 대화엔
+// 남아있을 수 있어서 화면에서도 한 번 더 걸러준다.
+const visibleSource = (msg) => {
+  const text = msg.sourceDetail || msg.source || '';
+  return text.includes('정책용어사전') || text.includes('무관련 질문 안내') ? '' : text;
+};
+
 const genId = () => `${Date.now()}-${Math.random()}`;
+
+// 버튼으로 진행하는 되묻기·상품 목록 등은 화면에서만 만들어지고 서버엔 아무것도 안 남아서,
+// 대화 중에 딴 페이지로 갔다 오면(예: 자취 준비 페이지) 몰라도 새로고침·재로그인 후엔 통째로 사라졌었다.
+// pushBot/pushUser를 거칠 때마다 실제 표시 문구를 그대로 가볍게 기록해둬서(AI 호출 없음) 이 문제를 막는다.
+// 실패해도 지금 화면엔 영향 없게 조용히 무시(catch)한다 - 저장은 어디까지나 "복구용"이라 최선 노력이면 충분.
+const logTurn = (role, content) => {
+  if (!sessionId.value || !content) return;
+  chatApi.logMessage(sessionId.value, role, content).catch(() => {});
+};
+
+// 메뉴 버튼(action이 붙은 것)은 사람이 읽는 글 뒤에 이 마커 + JSON을 몰래 붙여서 같이 저장해둔다.
+// 실제 대화 내용(사용자 입력·Gemini 응답)에 이 조합이 그대로 등장할 일은 거의 없고,
+// 화면엔 항상 마커 앞부분만 잘라서 보여준다.
+const MENU_MARKER = ' #MENU# ';
+
+// 메뉴 항목뿐 아니라 어떤 스타일(menuInCard/menuCarousel/menuFit/menuAlternate)로 보여줄지도
+// 같이 저장해둬야, 새로고침 후 복원된 메뉴도 실제 대화 때와 같은 모양(카드 안/가로 캐러셀 등)으로
+// 보인다 - 전엔 메뉴 항목만 복원되고 스타일은 기본값으로 되돌아갔었음(2026-08-06 피드백).
+const encodeMenuMarker = (msg) => {
+  const menuItems = msg.menu || [];
+  const actionable = menuItems.filter((opt) => opt.action);
+  if (!actionable.length) return '';
+  const style = {};
+  if (msg.menuInCard) style.menuInCard = true;
+  if (msg.menuCarousel) style.menuCarousel = true;
+  if (msg.menuFit) style.menuFit = true;
+  if (msg.menuAlternate) style.menuAlternate = true;
+  if (msg.menuLight) style.menuLight = true;
+  return (
+    MENU_MARKER +
+    JSON.stringify({
+      style,
+      items: actionable.map((opt) => ({ label: opt.label, action: opt.action, args: opt.args })),
+    })
+  );
+};
 
 const pushBot = (msg) => {
   messages.value.push({ id: genId(), role: 'bot', time: formatBubbleTime(), ...msg });
   panel.value = 'actions'; // 봇 답변이 나오면 항상 "종료하기"를 보여준다 (개별 함수마다 챙기지 않아도 되게)
   scrollToBottom();
+  // 가이드 카드(sections)는 저장 안 함 - "처음으로"는 언제든 다시 누를 수 있는 고정 버튼이라,
+  // 새로고침하면 그 시점 화면이 사라지는 정도는 다른 챗봇들도 흔히 받아들이는 수준이라 판단함
+  // (버튼 클릭으로 복원 시도했다가 안정적으로 안 돼서 되돌림, 2026-08-06)
+  if (msg.sections) return;
+  // action이 없는 메뉴 항목만 글자 목록으로 같이 남겨서, 새로고침 후에도 "무슨 선택지가 있었는지"는
+  // 최소한 텍스트로 보이게 한다(action이 있는 건 버튼 자체가 되살아나므로 중복으로 안 넣는다).
+  const menuItems = msg.menu || [];
+  const plainLabels = menuItems.filter((opt) => !opt.action).map((opt) => `· ${opt.label}`);
+  const lines = [msg.title, msg.text, ...plainLabels].filter(Boolean);
+  if (lines.length) logTurn('bot', lines.join('\n') + encodeMenuMarker(msg));
 };
-const pushUser = (text) => {
+const pushUser = (text, { skipLog = false } = {}) => {
   messages.value.push({ id: genId(), role: 'user', text, time: formatBubbleTime() });
   scrollToBottom();
+  // askBackend로 가는 자유 질문은 그쪽(/messages)이 이미 서버에 저장하므로 여기서 또 남기면 중복된다.
+  if (!skipLog) logTurn('user', text);
 };
 const pushError = () => {
   messages.value.push({
@@ -241,26 +380,14 @@ const pushError = () => {
   scrollToBottom();
 };
 
-// "이전 기록"에서 지난 세션을 보고 있는 도중이면, 오늘 세션으로 먼저 돌아온 뒤 새 메시지를 보낸다.
-// (안 그러면 sessionId가 계속 예전 세션을 가리켜서, 이후 대화가 오늘 기록이 아니라 그 지난 세션에 쌓여버림)
-const ensureTodaySession = async () => {
-  if (todaySessionId.value && sessionId.value !== todaySessionId.value) {
-    await resumeSession(todaySessionId.value);
-  }
-};
-
 const backToGuide = async () => {
   counselInputHandler.value = null;
-  await ensureTodaySession();
   pushBot(buildGuideMessage());
 };
 
-// 어떤 답변에서든 처음 가이드 화면으로 돌아갈 수 있게 하는 공통 메뉴 항목
-// (이름을 "메인으로"가 아니라 "처음으로"로 둔 이유: 앱 홈 화면(X 버튼)과 헷갈리지 않게)
-const FIRST_MENU_ITEM = { label: '처음으로', onClick: backToGuide };
-
 // 세션을 새로 여는 시점(오늘 첫 진입)에만 인사말+가이드를 함께 보여준다
 const buildGreetAndGuide = () => [
+  { id: 'date-today', role: 'date', label: dateLabelFor() },
   { id: 'greet', role: 'bot', time: formatBubbleTime(), text: `${userName.value}님, 안녕하세요! 어떤 내용이 궁금하세요?` },
   { id: 'guide', role: 'bot', time: formatBubbleTime(), ...buildGuideMessage() },
 ];
@@ -272,7 +399,15 @@ const buildGuideMessage = () => {
       {
         heading: '군 적금 로드맵',
         subtitle: '필요한 정보를 모아왔어요.',
-        items: EXTERNAL_NAV.map((n) => ({ label: n.label, onClick: () => goTo(n.to) })),
+        // 뭔지도 모르고 누르게 되지 않도록, 바로 이동하지 않고 confirmGoalTarget으로 무슨 기능인지
+        // 먼저 설명한 뒤 확인받고 이동한다. 버튼도 글씨 크기에 맞게 줄임(compact).
+        // 가이드 카드의 라벨은 원래 문구("여행 계획 세우기" 등) 그대로 두고, 확인 버튼 쪽이
+        // "여행 페이지로 이동" 식으로 바뀐다 (2026-08-06 피드백, 처음 요청과 반대로 정정됨)
+        compact: true,
+        items: EXTERNAL_NAV.map((n) => ({
+          label: n.label,
+          onClick: () => confirmGoalTarget(n),
+        })),
       },
       {
         heading: '무엇이든 물어보세요',
@@ -281,15 +416,11 @@ const buildGuideMessage = () => {
           { label: '목돈 어떻게 쓸지 상담받기', onClick: () => openCounsel() },
           { label: '적금·청약 상품이 궁금해요', onClick: () => showAllProducts() },
           { label: '정책 용어가 궁금해요', onClick: () => openGlossary() },
-          { label: '직접 질문 입력하기', onClick: () => freeform() },
         ],
       },
     ],
     // 이미 가이드 화면이라 "처음으로"는 여기선 의미가 없어서 빼고, 답변 메뉴에만 붙인다.
-    tags: [
-      ...EXTERNAL_TAGS.map((t) => ({ label: t.label, onClick: t.onClick ?? (() => goTo(t.to)) })),
-      { label: '자주 묻는 질문', onClick: () => openFaqCategories() },
-    ],
+    tags: EXTERNAL_TAGS.map((t) => ({ label: t.label, onClick: t.onClick ?? (() => confirmGoalTarget(t)) })),
     caption: '챗봇은 질문 분석을 위해 AI를 활용하며, 서비스 개선 목적으로 사용됩니다.',
   };
 };
@@ -302,18 +433,26 @@ const showAllProducts = () => {
     typing.value = false;
     pushBot({
       text: '어떤 카테고리가 궁금하신가요?',
+      // 카테고리 자체는 상품이 아니라 되묻기(선택) 성격이라 다른 되묻기랑 통일 - 카드 안 흰 배경으로
+      // (예전엔 번갈아 색을 넣었는데, 이제 되묻기=카드/상품=캐러셀 기준이 명확해져서 정리함, 2026-08-06 피드백)
+      menuInCard: true,
       menu: [
         ...Object.entries(LIVE_CATEGORY_LABELS).map(([category, label]) => ({
           label,
-          onClick: () => {
-            pushUser(label);
-            showProductCategoryList(category, label, { includeListings: category !== 'subscription' });
-          },
+          onClick: () => selectProductCategory(category, label),
+          action: 'selectProductCategory',
+          args: [category, label],
         })),
-        FIRST_MENU_ITEM,
       ],
     });
   }, TYPING_DELAY_MS);
+};
+
+// showAllProducts 메뉴 클릭 핸들러를 이름 있는 함수로 빼둠 - 히스토리 복원 시 ACTIONS 레지스트리로 찾아서
+// 같은 동작을 다시 실행할 수 있어야 하는데, 그러려면 인라인 화살표 함수가 아니라 참조 가능한 이름이 필요하다.
+const selectProductCategory = (category, label) => {
+  pushUser(label);
+  showProductCategoryList(category, label, { includeListings: category !== 'subscription' });
 };
 
 /* 실시간 은행 상품(FSS 예적금/청약홈/펀드) - 카테고리별로 목록을 받아와서 최대 8개까지 보여준다.
@@ -339,6 +478,15 @@ const LIVE_ITEM_NAME = {
   investment: (p) => p.fndNm,
 };
 
+// 목록 화면 자체(개별 항목을 누르기 전)에도 이 데이터가 어디서 왔는지 출처를 붙인다.
+// 청약·예적금은 실제로 열어서 확인된 링크가 있고, 펀드(투자)는 아직 확인된 링크가 없어 텍스트만 표기한다.
+const CATEGORY_LIST_SOURCE = {
+  savings: { label: '금융감독원 금융상품한눈에', url: 'https://finlife.fss.or.kr/finlife/svings/fdrmEnty/list.do?menuNo=700003' },
+  deposit: { label: '금융감독원 금융상품한눈에', url: 'https://finlife.fss.or.kr/finlife/svings/fdrmDpst/list.do?menuNo=700002' },
+  subscription: { label: '한국부동산원 청약홈', url: 'https://www.applyhome.co.kr' },
+  investment: { label: '금융투자협회 펀드표준코드', url: null },
+};
+
 // includeListings: false면 실시간 청약홈 "매물" 목록은 빼고 고정 상품만 보여준다.
 // 청약은 "내 집 마련(청약)" 상담(askGoal → housing)에서만 매물을 같이 보여주고,
 // 카테고리 목록(적금/예금/청약/투자) 탐색에서는 매물이 상품처럼 섞여 나오면 안 되니 뺀다.
@@ -353,19 +501,27 @@ const showProductCategoryList = async (category, categoryLabel, { includeListing
     typing.value = false;
     const fixedNames = FIXED_PRODUCTS_BY_CATEGORY[category] || [];
     if (!fixedNames.length && !liveProducts.length) {
-      pushBot({ text: `지금은 표시할 수 있는 ${categoryLabel} 상품이 없습니다.`, menu: [FIRST_MENU_ITEM] });
+      pushBot({ text: `지금은 표시할 수 있는 ${categoryLabel} 상품이 없습니다.` });
       return;
     }
     const top = liveProducts.slice(0, 8);
+    // 실시간 매물이 하나도 없어도(예: 청약 카테고리 목록엔 고정 상품만 나옴) 그 카테고리 자체의
+    // 출처는 항상 표시한다 - 예전엔 매물이 있을 때만 붙어서 청약 목록에 출처가 안 보였음(2026-08-06 피드백)
+    const listSource = CATEGORY_LIST_SOURCE[category];
     pushBot({
       text: `${categoryLabel} 상품이에요. 궁금한 상품을 골라주세요.`,
+      source: listSource?.label,
+      sourceUrl: listSource?.url,
+      // 목록 항목이 길어서 세로로 쌓으면 한눈에 안 들어와 - 가로로 넘기는 큰 카드로 보여준다(2026-08-06 피드백)
+      menuCarousel: true,
       menu: [
-        ...fixedNames.map((name) => ({ label: name, onClick: () => openDoc(name) })),
+        ...fixedNames.map((name) => ({ label: name, onClick: () => openDoc(name), action: 'openDoc', args: [name] })),
         ...top.map((p) => ({
           label: LIVE_ITEM_LABEL[category](p),
           onClick: () => showLiveProductDetail(LIVE_ITEM_NAME[category](p), category),
+          action: 'showLiveProductDetail',
+          args: [LIVE_ITEM_NAME[category](p), category],
         })),
-        FIRST_MENU_ITEM,
       ],
     });
   } catch {
@@ -395,7 +551,10 @@ const showLiveProductDetail = async (name, category) => {
       title: name,
       text: LIVE_DETAIL_TEXT[category](p),
       source: p.source,
-      menu: [FIRST_MENU_ITEM],
+      // 청약: API 응답에 그 공고의 실제 상세 페이지 링크(PBLANC_URL)가 그대로 들어있어서 바로 연결.
+      // 예적금(FSS): 은행별 개별 상품 페이지는 없어서, 대신 이 데이터가 나온 금감원 비교 페이지로 연결(source_url).
+      // 펀드(금투협 표준코드): 아직 검증된 링크가 없어서 비워둠.
+      sourceUrl: category === 'subscription' ? p.pblancUrl : p.sourceUrl,
     });
   } catch {
     typing.value = false;
@@ -412,7 +571,15 @@ const showAllFeatures = () => {
     typing.value = false;
     pushBot({
       text: '어떤 기능을 살펴보고 싶으신가요?',
-      menu: [...ALL_FEATURES.map((f) => ({ label: f.label, onClick: () => goTo(f.to) })), FIRST_MENU_ITEM],
+      // 바로 이동하지 않고 confirmGoalTarget으로 무슨 기능인지 먼저 설명한 뒤 확인받고 이동한다.
+      // 선택지 고르는 되묻기라 카드 안 + 글씨 크기에 맞는 버튼으로(2026-08-06 피드백)
+      menuInCard: true,
+      menu: ALL_FEATURES.map((f) => ({
+        label: f.label,
+        onClick: () => confirmGoalTarget(f),
+        action: 'confirmGoalTarget',
+        args: [f],
+      })),
     });
   }, TYPING_DELAY_MS);
 };
@@ -426,7 +593,11 @@ const openGlossary = async () => {
     typing.value = false;
     pushBot({
       text: '어떤 용어가 궁금하신가요?',
-      menu: [...terms.map((t) => ({ label: t.term, onClick: () => openTerm(t.term) })), FIRST_MENU_ITEM],
+      // 캐러셀로 해봤는데 용어 개수가 너무 많아서 하나씩 옆으로 넘기는 게 오히려 더 불편하다는
+      // 피드백으로 원래 방식(칩이 줄바꿈되는 목록)으로 되돌림. 색도 번갈아 넣어봤다가, 용어가
+      // 워낙 많아서 줄마다 색이 섞이면 오히려 산만하다고 해서 밝은 국방색 하나로 통일(2026-08-06)
+      menuLight: true,
+      menu: terms.map((t) => ({ label: t.term, onClick: () => openTerm(t.term), action: 'openTerm', args: [t.term] })),
     });
   } catch {
     typing.value = false;
@@ -441,38 +612,12 @@ const openTerm = async (term) => {
   try {
     const { data } = await chatApi.getGlossaryTerm(term);
     typing.value = false;
-    pushBot({ title: term, text: data.definition, menu: [FIRST_MENU_ITEM] });
+    pushBot({ title: term, text: data.definition });
     panel.value = 'actions';
   } catch {
     typing.value = false;
     pushError();
   }
-};
-
-/* 자주 묻는 질문 - "적금·청약 상품이 궁금해요"(상품 하나 깊게 탐색)와 겹치지 않게,
-   여러 상품 중 뭘 고를지 비교·선택을 도와주는 질문으로 구성. 실제 백엔드(RAG)로 물어봐서
-   여러 상품 문서를 종합한 답변을 받는다 */
-const FAQ_QUESTIONS = [
-  '적금이랑 예금 중에 뭐가 더 좋아요?',
-  '장병내일준비적금이랑 청년미래적금 차이가 뭐예요?',
-  '청약통장은 꼭 만들어야 해요?',
-  '목돈 모으기엔 적금이 나아요, 청약이 나아요?',
-];
-
-const openFaqCategories = () => {
-  pushUser('자주 묻는 질문');
-  panel.value = null;
-  typing.value = true;
-  setTimeout(() => {
-    typing.value = false;
-    pushBot({
-      text: '어떤 게 궁금하신가요?',
-      menu: [
-        ...FAQ_QUESTIONS.map((q) => ({ label: q, onClick: () => askBackend(q, { forceInfo: true }) })),
-        FIRST_MENU_ITEM,
-      ],
-    });
-  }, TYPING_DELAY_MS);
 };
 
 /* 상품 소개 후 자주 묻는 질문을 하나씩 골라 물어볼 수 있게 함 - 이미 물어본 질문은 다음 메뉴에서 빠진다 */
@@ -484,17 +629,6 @@ const askProductQuestion = (name, askedQuestion) => {
   const remaining = (PRODUCT_QUESTIONS[name] || []).filter((q) => q !== askedQuestion);
   const extraMenu = remaining.map((q) => ({ label: q, onClick: () => askProductQuestion(name, q) }));
   askBackend(askedQuestion || name, { title: askedQuestion || name, extraMenu });
-};
-
-const freeform = () => {
-  pushUser('직접 질문 입력하기');
-  panel.value = null;
-  typing.value = true;
-  setTimeout(() => {
-    typing.value = false;
-    pushBot({ text: '네, 궁금하신 내용을 편하게 입력해주세요 :)' });
-    inputRef.value?.focus();
-  }, 600);
 };
 
 /* 목돈 상담 - 되묻기형(목적 -> 목적별 분기) */
@@ -513,7 +647,9 @@ const startCounsel = () => {
   pushBot({
     title: '자금 상담',
     text: '몇 가지만 여쭤볼게요.\n어떤 목적으로 목돈을 활용하고 싶으세요?',
-    menu: COUNSEL_GOALS.map((g) => ({ label: g.label, onClick: () => askGoal(g) })),
+    // 되묻기는 질문의 일부라서 답변 카드 밖으로 안 빼고 카드 안에서 바로 고르게 한다(2026-08-06 피드백)
+    menuInCard: true,
+    menu: COUNSEL_GOALS.map((g) => ({ label: g.label, onClick: () => askGoal(g), action: 'askGoal', args: [g] })),
   });
 };
 
@@ -530,8 +666,8 @@ const askGoal = (goal, { announce = true } = {}) => {
       const rentLink = PAGE_LINKS.find((p) => p.to.name === 'RentGoalCreate');
       pushBot({
         text: `저희 서비스에 ${rentLink.description}이 있는데, 확인해 보시겠습니까?`,
-        // 이 안내는 자취 준비 페이지로 보내는 게 목적이라 "처음으로"는 넣지 않는다
-        menu: [{ label: rentLink.label, onClick: () => goTo(rentLink.to) }],
+        menuFit: true,
+        menu: [{ label: rentLink.label, onClick: () => goTo(rentLink.to), action: 'goTo', args: [rentLink.to] }],
       });
     }, TYPING_DELAY_MS);
     return;
@@ -543,11 +679,26 @@ const askGoal = (goal, { announce = true } = {}) => {
     setTimeout(() => {
       typing.value = false;
       pushBot({
-        text: '생활자금 관리는 자금 시뮬레이션이나 후회소비 회고 기능에서 도와드릴 수 있어요.',
+        // 목록에 바로 한 줄 설명을 붙여서(클릭 한 번 더 안 거치고) 뭔지 알고 고를 수 있게 한다(2026-08-06 피드백)
+        text:
+          '생활자금 관리는 아래 기능에서 도와드릴 수 있어요.\n' +
+          '· 자금 시뮬레이션: 월 납입액과 기간을 넣어 향후 자금 흐름을 미리 계산해볼 수 있어요.\n' +
+          '· 후회소비 회고: 지난 소비를 되돌아보며 후회되는 지출을 기록하고 다음 소비 습관을 점검할 수 있어요.',
+        // 버튼을 글씨 크기에 맞게 줄이고, 문구도 "~페이지로 이동"류로 다른 이동 버튼들과 통일(2026-08-06 피드백)
+        menuFit: true,
         menu: [
-          { label: '자금 시뮬레이션', onClick: () => goTo({ name: 'Simulator' }) },
-          { label: '후회소비 회고', onClick: () => goTo({ name: 'RegretReview' }) },
-          FIRST_MENU_ITEM,
+          {
+            label: GUIDE_NAV_LABELS.Simulator,
+            onClick: () => goTo({ name: 'Simulator' }),
+            action: 'goTo',
+            args: [{ name: 'Simulator' }],
+          },
+          {
+            label: GUIDE_NAV_LABELS.RegretReview,
+            onClick: () => goTo({ name: 'RegretReview' }),
+            action: 'goTo',
+            args: [{ name: 'RegretReview' }],
+          },
         ],
       });
       panel.value = 'actions';
@@ -578,11 +729,19 @@ const askSavingsMethod = () => {
     typing.value = false;
     pushBot({
       text: '어떤 방식으로 모으고 싶으세요?',
+      // 되묻기는 질문의 일부라서 답변 카드 밖으로 안 빼고 카드 안에서 바로 고르게 한다(2026-08-06 피드백)
+      menuInCard: true,
       menu: [
-        { label: '적금', onClick: () => chooseSavingsMethod('적금') },
-        { label: '예금', onClick: () => chooseSavingsMethod('예금') },
-        { label: '투자', onClick: () => chooseSavingsMethod('투자') },
-        { label: '목표부터 정하기', onClick: () => chooseSavingsMethod('목표부터 정하기') },
+        { label: '적금', onClick: () => chooseSavingsMethod('적금'), action: 'chooseSavingsMethod', args: ['적금'] },
+        { label: '예금', onClick: () => chooseSavingsMethod('예금'), action: 'chooseSavingsMethod', args: ['예금'] },
+        { label: '투자', onClick: () => chooseSavingsMethod('투자'), action: 'chooseSavingsMethod', args: ['투자'] },
+        {
+          // 한 줄에 나머지 3개(적금/예금/투자)랑 같이 걸치게 짧은 문구로(2026-08-06 피드백)
+          label: '목표 정하기',
+          onClick: () => chooseSavingsMethod('목표부터 정하기'),
+          action: 'chooseSavingsMethod',
+          args: ['목표부터 정하기'],
+        },
       ],
     });
   }, TYPING_DELAY_MS);
@@ -629,10 +788,13 @@ const chooseSavingsMethod = (method) => {
 const askGoalTarget = () => {
   pushBot({
     text: '어떤 목표를 준비 중이세요?',
-    menu: [...EXTERNAL_NAV.map((n) => ({ label: n.label, onClick: () => confirmGoalTarget(n) })), FIRST_MENU_ITEM],
+    menuInCard: true,
+    menu: EXTERNAL_NAV.map((n) => ({ label: n.label, onClick: () => confirmGoalTarget(n), action: 'confirmGoalTarget', args: [n] })),
   });
 };
 
+// {label, description, to} 모양이면 어디서든 재사용 - "목표부터 정하기" 되묻기 말고도
+// 가이드 카드 첫 섹션, "군적금 활용하기" 전체 목록에서도 같은 패턴(설명 먼저, 그다음 이동)으로 쓴다
 const confirmGoalTarget = (navItem) => {
   pushUser(navItem.label);
   panel.value = null;
@@ -641,7 +803,15 @@ const confirmGoalTarget = (navItem) => {
     typing.value = false;
     pushBot({
       text: `저희 서비스에 ${navItem.description}이 있는데, 확인해 보시겠습니까?`,
-      menu: [{ label: navItem.label, onClick: () => goTo(navItem.to) }, FIRST_MENU_ITEM],
+      menuFit: true,
+      menu: [
+        {
+          label: GUIDE_NAV_LABELS[navItem.to.name] || navItem.label,
+          onClick: () => goTo(navItem.to),
+          action: 'goTo',
+          args: [navItem.to],
+        },
+      ],
     });
     panel.value = 'actions';
   }, TYPING_DELAY_MS);
@@ -656,6 +826,22 @@ const parseKoreanAmount = (text) => {
   return null;
 };
 
+// "24", "24개월", "2년", "2년 6개월" 형태를 모두 개월수로 변환. 못 알아들으면 null.
+// 적금은 보통 1년 단위로도 얘기하는데 개월수로만 받으면 불편하다는 피드백(2026-08-06) 반영.
+const parseKoreanDuration = (text) => {
+  const cleaned = text.replace(/\s/g, '');
+  const yearMatch = cleaned.match(/^(\d+)년(?:(\d+)개월)?$/);
+  if (yearMatch) {
+    const years = parseInt(yearMatch[1], 10);
+    const extraMonths = yearMatch[2] ? parseInt(yearMatch[2], 10) : 0;
+    return years * 12 + extraMonths;
+  }
+  const monthMatch = cleaned.match(/^(\d+)개월$/);
+  if (monthMatch) return parseInt(monthMatch[1], 10);
+  if (/^\d+$/.test(cleaned)) return parseInt(cleaned, 10);
+  return null;
+};
+
 const handleMonthlyAmountInput = (text) => {
   pushUser(text);
   const amount = parseKoreanAmount(text);
@@ -664,31 +850,43 @@ const handleMonthlyAmountInput = (text) => {
     counselInputHandler.value = handleMonthlyAmountInput;
     return;
   }
-  pushBot({ text: '몇 개월 동안 모으실 계획이세요? 숫자로 입력해주세요. (예: 24)' });
+  pushBot({ text: '얼마 동안 모으실 계획이세요? 개월 수든 연 단위든 편하게 입력해주세요. (예: 24, 24개월, 2년)' });
   counselInputHandler.value = (t) => handleSaveMonthsInput(t, amount);
 };
 
+// 목돈 모으기는 군적금을 든다고 확정한 게 아니라 "적금으로 모으고 싶다"는 것뿐이라,
+// 실제 은행별 적금 상품 중 하나를 고르게 한 다음 그 상품 금리로 계산해준다
+// (예전엔 군적금(장병내일준비적금) 전용 계산기를 무조건 썼는데, 그건 최대 24개월 제한도 있고
+// 사용자가 군적금을 든다고 한 적도 없어서 부적절했음, 2026-08-06 피드백) */
 const handleSaveMonthsInput = async (text, monthlyAmount) => {
   pushUser(text);
-  const months = parseInt(text.replace(/[^0-9]/g, ''), 10);
+  const months = parseKoreanDuration(text);
   if (!months || months <= 0) {
-    pushBot({ text: '기간을 다시 확인해주세요. 숫자로 입력해주세요. (예: 24)' });
+    pushBot({ text: '기간을 다시 확인해주세요. (예: 24, 24개월, 2년)' });
     counselInputHandler.value = (t) => handleSaveMonthsInput(t, monthlyAmount);
     return;
   }
   panel.value = null;
   typing.value = true;
   try {
-    const result = await simulatorApi.calculateConstant({ monthlySave: monthlyAmount, saveMonths: months });
+    const { data: products } = await chatApi.listProducts('savings');
     typing.value = false;
-    const won = (n) => `${Number(n).toLocaleString('ko-KR')}원`;
+    if (!products.length) {
+      pushBot({ text: '지금은 표시할 수 있는 적금 상품이 없습니다.' });
+      return;
+    }
+    const top = products.slice(0, 8);
     pushBot({
-      title: '적금 상담 결과',
-      text:
-        `월 ${won(monthlyAmount)}씩 ${months}개월 납입하면\n` +
-        `원금 ${won(result.totalPrincipal)} + 이자 ${won(result.totalInterest)} + 정부기여금 ${won(result.totalMatchingFund)}\n` +
-        `= 총 ${won(result.totalReceiptAmount)}을 받으실 수 있습니다.`,
-      menu: [{ label: '장병내일준비적금 자세히 보기', onClick: () => openDoc('장병내일준비적금') }, FIRST_MENU_ITEM],
+      text: `월 ${won(monthlyAmount)}씩 ${months}개월 모을 적금 상품을 골라주세요.`,
+      source: CATEGORY_LIST_SOURCE.savings.label,
+      sourceUrl: CATEGORY_LIST_SOURCE.savings.url,
+      menuCarousel: true,
+      menu: top.map((p) => ({
+        label: `${p.finPrdtNm} (${p.korCoNm} · 최고 ${p.maxRate}%)`,
+        onClick: () => calculateSavingsEstimate(p, monthlyAmount, months),
+        action: 'calculateSavingsEstimate',
+        args: [p, monthlyAmount, months],
+      })),
     });
     panel.value = 'actions';
   } catch {
@@ -697,10 +895,52 @@ const handleSaveMonthsInput = async (text, monthlyAmount) => {
   }
 };
 
+// won() - 상담 결과 문구 곳곳에서 반복 쓰여서 공용으로 뺌
+const won = (n) => `${Math.round(n).toLocaleString('ko-KR')}원`;
+
+// 고른 적금 상품의 실제 공시금리(maxRate, 세전)로 간단 이자를 추정한다. 은행 상품 비교 API라
+// 군적금 같은 정부기여금 구조는 없어서 원금+이자만 보여주고, 실제와 다를 수 있다고 안내한다.
+const calculateSavingsEstimate = (product, monthlyAmount, months) => {
+  pushUser(product.finPrdtNm);
+  panel.value = null;
+  typing.value = true;
+  setTimeout(() => {
+    typing.value = false;
+    const annualRate = (product.maxRate || 0) / 100;
+    let totalInterest = 0;
+    for (let i = 1; i <= months; i += 1) {
+      const investedMonths = months - i + 1;
+      totalInterest += monthlyAmount * annualRate * (investedMonths / 12);
+    }
+    const totalPrincipal = monthlyAmount * months;
+    const totalReceiptAmount = totalPrincipal + totalInterest;
+    pushBot({
+      title: '적금 상담 결과',
+      text:
+        `${product.finPrdtNm}(${product.korCoNm}) 최고금리 기준으로\n` +
+        `월 ${won(monthlyAmount)}씩 ${months}개월 납입하면\n` +
+        `원금 ${won(totalPrincipal)} + 이자(세전 예상) ${won(totalInterest)}\n` +
+        `= 총 ${won(totalReceiptAmount)}을 받으실 수 있어요.\n` +
+        `(실제 금리·우대조건 충족 여부에 따라 달라질 수 있어요)`,
+      menuFit: true,
+      menu: [
+        {
+          label: `${product.finPrdtNm} 자세히 보기`,
+          onClick: () => showLiveProductDetail(product.finPrdtNm, 'savings'),
+          action: 'showLiveProductDetail',
+          args: [product.finPrdtNm, 'savings'],
+        },
+      ],
+    });
+    panel.value = 'actions';
+  }, TYPING_DELAY_MS);
+};
+
 const askPeriod = () => {
   pushBot({
     text: '목표 기간이 어떻게 되세요?',
-    menu: ['1년 이하', '1~3년', '3년 이상'].map((p) => ({ label: p, onClick: () => askType(p) })),
+    menuInCard: true,
+    menu: ['1년 이하', '1~3년', '3년 이상'].map((p) => ({ label: p, onClick: () => askType(p), action: 'askType', args: [p] })),
   });
 };
 
@@ -712,9 +952,12 @@ const askType = (period) => {
     typing.value = false;
     pushBot({
       text: '투자 성향은 어느 쪽에 가까우세요?',
+      menuInCard: true,
       menu: ['안정추구형', '중립형', '공격투자형'].map((t) => ({
         label: t,
         onClick: () => finishCounsel(period, t),
+        action: 'finishCounsel',
+        args: [period, t],
       })),
     });
   }, TYPING_DELAY_MS);
@@ -732,19 +975,20 @@ const finishCounsel = async (period, type) => {
       pushBot({
         title: `${period} · ${type} 추천`,
         text: '지금은 조건에 맞는 펀드 상품이 없습니다.',
-        menu: [FIRST_MENU_ITEM],
       });
     } else {
       pushBot({
         title: `${period} · ${type} 추천`,
         text: `${COUNSEL_PERIOD_NOTE[period]}\n${type}에 맞는 펀드를 모아봤어요.`,
-        menu: [
-          ...matched.map((f) => ({
-            label: f.fndNm,
-            onClick: () => showLiveProductDetail(f.fndNm, 'investment'),
-          })),
-          FIRST_MENU_ITEM,
-        ],
+        source: CATEGORY_LIST_SOURCE.investment.label,
+        // 목록 항목이 길어서 세로로 쌓으면 한눈에 안 들어와 - 가로로 넘기는 큰 카드로 보여준다(2026-08-06 피드백)
+        menuCarousel: true,
+        menu: matched.map((f) => ({
+          label: f.fndNm,
+          onClick: () => showLiveProductDetail(f.fndNm, 'investment'),
+          action: 'showLiveProductDetail',
+          args: [f.fndNm, 'investment'],
+        })),
       });
     }
     panel.value = 'actions';
@@ -757,8 +1001,31 @@ const finishCounsel = async (period, type) => {
 /* 자유 입력 텍스트를 실제 백엔드(RAG/Gemini)로 보내고 답변을 받는다 */
 const askBackend = async (text, { title, extraMenu = [], forceInfo = false } = {}) => {
   counselInputHandler.value = null;
-  await ensureTodaySession();
-  pushUser(text);
+
+  // 자동차/자취/진로/계산기처럼 이미 우리 서비스에 있는 기능과 명확히 관련된 질문이면, AI(Gemini) 호출도
+  // 안 하고 바로 그 기능 안내로 답한다. 예전엔 일단 RAG 답변부터 받아서(대부분 "참고 자료에 없다"는
+  // 엉뚱한 내용) 뒤에 안내 문구만 덧붙였는데, 그 앞부분이 질문이랑 안 맞아서 오히려 헷갈린다는
+  // 피드백(2026-08-06) - 이제 그 답변 자체를 아예 안 보여주고 깔끔하게 안내만 한다.
+  const pageLink = PAGE_LINKS.find((p) => p.keywords.some((k) => text.includes(k)));
+  if (pageLink) {
+    pushUser(text);
+    input.value = '';
+    panel.value = null;
+    typing.value = true;
+    setTimeout(() => {
+      typing.value = false;
+      pushBot({
+        text: `저희 서비스에 ${pageLink.description}이 있는데, 확인해 보시겠습니까?`,
+        menuFit: true,
+        menu: [{ label: pageLink.label, onClick: () => goTo(pageLink.to), action: 'goTo', args: [pageLink.to] }],
+      });
+      panel.value = 'actions';
+    }, TYPING_DELAY_MS);
+    return;
+  }
+
+  // 이 질문은 아래 chatApi.sendMessage가 서버에 직접 저장하니, pushUser에서 또 기록하면 중복된다.
+  pushUser(text, { skipLog: true });
   input.value = '';
   panel.value = null;
   typing.value = true;
@@ -780,22 +1047,14 @@ const askBackend = async (text, { title, extraMenu = [], forceInfo = false } = {
       return;
     }
 
-    const menu = [...extraMenu, FIRST_MENU_ITEM];
-    const pageLink = PAGE_LINKS.find((p) => p.keywords.some((k) => text.includes(k)));
-    let answerText = botMsg.content;
-    if (pageLink) {
-      menu.unshift({ label: pageLink.label, onClick: () => goTo(pageLink.to) });
-      // 버튼만 툭 주지 않고, 어떤 기능인지 먼저 설명하고 이동을 제안한다
-      answerText += `\n\n저희 서비스에 ${pageLink.description}이 있는데, 확인해 보시겠습니까?`;
-    }
+    const menu = [...extraMenu];
+    const answerText = botMsg.content;
 
     // 답변에서 특정 상품이 언급됐으면 "더 자세한 내용 확인해보기" 버튼을 붙인다.
     // 고정된 FAQ를 다시 보여주는 게 아니라, 실제로 백엔드에 새 질문을 보내서
     // (멀티턴 문맥 덕분에) 지금까지 대화 주제에 맞는 답변을 받아오게 한다.
-    // - 이미 그 상품의 되묻기 메뉴(extraMenu)가 붙어있으면(=이미 상품 Q&A 흐름 안) 중복이라 스킵
-    // - pageLink가 떴으면(=진짜 관련 있는 답을 못 찾아서 다른 기능으로 유도 중) 언급된 상품은
-    //   그냥 스쳐간 참고용이라 더 파고들면 오히려 엉뚱한 대화로 새서 같이 스킵
-    if (!extraMenu.length && !pageLink) {
+    // 이미 그 상품의 되묻기 메뉴(extraMenu)가 붙어있으면(=이미 상품 Q&A 흐름 안) 중복이라 스킵
+    if (!extraMenu.length) {
       const relatedProduct = Object.keys(PRODUCT_QUESTIONS).find(
         (name) => botMsg.content.includes(name) || (botMsg.sourceDetail || '').includes(name),
       );
@@ -815,7 +1074,11 @@ const askBackend = async (text, { title, extraMenu = [], forceInfo = false } = {
       text: answerText,
       source: botMsg.source,
       sourceDetail: botMsg.sourceDetail,
+      sourceUrl: botMsg.sourceUrl,
       isAiGenerated: botMsg.isAiGenerated,
+      // 카드 안에 넣었었는데, 상품 후속 질문 목록은 답변과는 별개의 선택지라 카드 밖으로 다시 빼고
+      // 가이드 태그줄과 같은 국방색 번갈아 넣기 스타일로(2026-08-06 피드백)
+      menuFit: true,
       menu,
     };
     messages.value.push(bubble);
@@ -838,6 +1101,30 @@ const askBackend = async (text, { title, extraMenu = [], forceInfo = false } = {
     typing.value = false;
     pushError();
   }
+};
+
+// 메뉴 버튼의 onClick은 클로저라 그대로 서버에 저장할 수 없다. 대신 각 메뉴 항목에 같이 실어 보내는
+// action(함수 이름 문자열) + args(단순 값 배열)를 여기 등록해둔 함수로 다시 매핑해서, 새로고침·재로그인
+// 후에도(또는 "이전 기록"에서 지난 세션을 열어도) 히스토리의 버튼이 실제로 다시 눌리게 한다.
+// 여기 없는 액션은 그냥 못 누르는 문구로만 남는다(치명적이지 않음 - 텍스트는 항상 보존됨).
+const ACTIONS = {
+  selectProductCategory,
+  openDoc,
+  showLiveProductDetail,
+  goTo,
+  askGoal,
+  chooseSavingsMethod,
+  confirmGoalTarget,
+  askType,
+  finishCounsel,
+  askBackend,
+  openTerm,
+  calculateSavingsEstimate,
+};
+
+const runAction = (opt) => {
+  const fn = opt.action && ACTIONS[opt.action];
+  if (fn) fn(...(opt.args || []));
 };
 
 const submitInput = () => {
@@ -899,18 +1186,7 @@ const submitFeedbackModal = async () => {
   }
   feedbackModalOpen.value = false;
   panel.value = null;
-  pushBot({ text: '소중한 의견 감사합니다 🙌', menu: [FIRST_MENU_ITEM] });
-};
-
-/* 히스토리 제목 - 그 대화에서 처음 물어본 질문을 짧게 요약해서 타이틀로 사용 */
-const summarizeTitle = (historyMessages) => {
-  const placeholderLabels = ['직접 질문 입력하기'];
-  const userMsgs = historyMessages.filter((m) => m.role === 'user');
-  const firstUser = userMsgs.find((m) => !placeholderLabels.includes(m.content)) || userMsgs[0];
-  if (!firstUser) return '새 대화';
-  const t = firstUser.content;
-  if (TITLE_ALIASES[t]) return TITLE_ALIASES[t];
-  return t.length > 14 ? `${t.slice(0, 14)}…` : t;
+  pushBot({ text: '소중한 의견 감사합니다 🙌' });
 };
 
 // 히스토리를 다시 불러왔을 때도 그 시점에 있던 버튼(더 자세히/추천 이동 등)을 최대한 그대로 복원한다.
@@ -962,9 +1238,44 @@ const deriveHistoryMenu = (history, index) => {
   return { menu: [] };
 };
 
+// pushBot이 남겨둔 #MENU# 마커를 다시 읽어서 그 메뉴 버튼을 되살린다(ACTIONS에 등록된 액션만 가능).
+// 마커가 없으면(예전 자유 질문 답변 등) null을 돌려주고, 그럴 땐 deriveHistoryMenu의 추측 로직을 대신 쓴다.
+const decodeMenuMarker = (content) => {
+  const idx = content.indexOf(MENU_MARKER);
+  if (idx === -1) return { text: content, menu: null, style: null };
+  const text = content.slice(0, idx);
+  try {
+    const parsed = JSON.parse(content.slice(idx + MENU_MARKER.length));
+    // 예전 형식(스타일 없이 항목 배열만 저장)과도 호환되게 - 배열이면 그냥 items로 취급
+    const items = Array.isArray(parsed) ? parsed : parsed.items;
+    const style = Array.isArray(parsed) ? {} : parsed.style || {};
+    return {
+      text,
+      style,
+      menu: items.map((it) => ({ label: it.label, onClick: () => runAction(it) })),
+    };
+  } catch {
+    return { text, menu: null, style: null };
+  }
+};
+
 const toBubble = (m, history, index) => {
   if (m.role === 'user') {
     return { id: `hist-${m.messageId}`, role: 'user', text: m.content, time: formatBubbleTime(m.createdDate) };
+  }
+  const decoded = decodeMenuMarker(m.content);
+  if (decoded.menu) {
+    return {
+      id: `hist-${m.messageId}`,
+      role: 'bot',
+      time: formatBubbleTime(m.createdDate),
+      text: decoded.text,
+      source: m.source,
+      sourceDetail: m.sourceDetail,
+      isAiGenerated: m.isAiGenerated,
+      menu: decoded.menu,
+      ...decoded.style,
+    };
   }
   const { menu, extraText } = deriveHistoryMenu(history, index);
   return {
@@ -975,44 +1286,76 @@ const toBubble = (m, history, index) => {
     source: m.source,
     sourceDetail: m.sourceDetail,
     isAiGenerated: m.isAiGenerated,
-    menu: [...menu, FIRST_MENU_ITEM],
+    // deriveHistoryMenu는 항상 자유질문 답변 뒤 후속 선택지라 카드 안 스타일로 통일
+    menuInCard: menu.length > 0,
+    menu,
   };
 };
 
-const openHistory = async () => {
-  try {
-    const { data: sessions } = await chatApi.listSessions();
-    if (!sessions.length) {
-      pushBot({
-        title: '최근 이전 대화',
-        text: '아직 지난 대화가 없어요. 실제로 질문을 나누면 오늘 날짜로 자동으로 기록돼요.',
-        menu: [FIRST_MENU_ITEM],
-      });
-      return;
+// 날짜가 바뀌는 지점마다 구분선(role: 'date')을 끼워 넣으면서 히스토리 전체를 버블로 바꾼다.
+// 대화가 하루 단위로 안 끊기고 쭉 이어지므로(세션도 유저당 하나만 재사용), 날짜 구분은
+// 세션 경계가 아니라 실제 날짜가 바뀌는 지점 기준으로 계산해야 한다.
+const buildHistoryWithDateDividers = (history, initialDay = null) => {
+  const out = [];
+  let lastDay = initialDay;
+  history.forEach((m, i) => {
+    const day = new Date(m.createdDate).toDateString();
+    if (day !== lastDay) {
+      out.push({ id: `date-${day}`, role: 'date', label: dateLabelFor(m.createdDate) });
+      lastDay = day;
     }
-    const recent = sessions.slice(0, 3);
-    const withTitles = await Promise.all(
-      recent.map(async (s) => {
-        try {
-          const { data: history } = await chatApi.getHistory(s.sessionId);
-          return { ...s, summary: summarizeTitle(history) };
-        } catch {
-          return { ...s, summary: '새 대화' };
-        }
-      }),
-    );
+    out.push(toBubble(m, history, i));
+  });
+  return out;
+};
+
+// 그 날짜 구분선 다음, 다음 구분선(또는 끝)이 나오기 전까지에서 첫 사용자 메시지를 찾아
+// 짧게 요약한다 - 날짜만 덜렁 있으면 뭘 물어본 날인지 구분이 안 돼서 붙여준다.
+const placeholderUserLabels = ['직접 질문 입력하기'];
+const summarizeDateEntry = (dateIndex) => {
+  for (let j = dateIndex + 1; j < messages.value.length; j += 1) {
+    const next = messages.value[j];
+    if (next.role === 'date') break;
+    if (next.role === 'user' && next.text && !placeholderUserLabels.includes(next.text)) {
+      return next.text.length > 14 ? `${next.text.slice(0, 14)}…` : next.text;
+    }
+  }
+  return null;
+};
+
+// "이전 기록" - 예전엔 날짜별로 세션을 따로 열어봤지만, 지금은 대화가 하나로 이어져 있어서
+// 이미 화면에(messages) 다 올라와 있다. 그래서 서버에 다시 물어볼 필요 없이, 지금 떠 있는
+// 날짜 구분선 목록만 보여주고 고르면 그 지점으로 스크롤만 이동시킨다.
+const openHistory = () => {
+  const dateEntries = messages.value
+    .map((m, i) => (m.role === 'date' ? { ...m, index: i } : null))
+    .filter(Boolean);
+  if (dateEntries.length <= 1) {
     pushBot({
       title: '최근 이전 대화',
-      text: '날짜를 골라주세요.',
-      menu: withTitles.map((s) => ({
-        label: `${formatDate(s.createdDate)} · ${s.summary}`,
-        onClick: () => resumeSession(s.sessionId),
-      })),
+      text: '아직 다른 날짜의 기록이 없어요.',
     });
-  } catch {
-    pushError();
+    return;
   }
+  pushBot({
+    title: '최근 이전 대화',
+    text: '날짜를 골라주세요.',
+    menuInCard: true,
+    menu: dateEntries.map((d) => {
+      const summary = summarizeDateEntry(d.index);
+      const label = summary ? `${formatDate(d.id.replace('date-', ''))} · ${summary}` : d.label;
+      return { label, onClick: () => jumpToDate(d.id), action: 'jumpToDate', args: [d.id] };
+    }),
+  });
 };
+
+const jumpToDate = (dateId) => {
+  nextTick(() => {
+    document.getElementById(dateId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+};
+// ACTIONS는 jumpToDate보다 앞에서 선언돼서(const라 선언 전엔 참조 못 함) 여기서 뒤늦게 등록해준다.
+ACTIONS.jumpToDate = jumpToDate;
 
 // 마지막 메시지가 봇 답변이면 "종료하기" 버튼을 다시 보여준다.
 // (실시간 대화 중엔 답변 직후 panel='actions'가 되지만, 새로고침/재진입으로 히스토리를
@@ -1022,38 +1365,30 @@ const restorePanelFromHistory = (historyMessages) => {
   panel.value = last?.role === 'bot' ? 'actions' : null;
 };
 
-const resumeSession = async (targetSessionId) => {
-  try {
-    const { data: history } = await chatApi.getHistory(targetSessionId);
-    sessionId.value = targetSessionId;
-    messages.value = [
-      { id: 'guide', role: 'bot', time: formatBubbleTime(), ...buildGuideMessage() },
-      ...history.map((m, i) => toBubble(m, history, i)),
-    ];
-    restorePanelFromHistory(history);
-    scrollToBottom();
-  } catch {
-    pushError();
-  }
-};
-
 onMounted(async () => {
   loading.value = true;
   const landingStartedAt = Date.now();
   try {
     const { data: session } = await chatApi.createSession();
     sessionId.value = session.sessionId;
-    todaySessionId.value = session.sessionId;
 
     if (session.isNew) {
       messages.value = buildGreetAndGuide();
     } else {
-      const { data: history } = await chatApi.getHistory(sessionId.value);
+      // 유저당 세션을 하나만 재사용하지만, 예전에(하루 단위로 세션을 나누던 시절에) 만들어진
+      // 계정은 세션이 여러 개 흩어져 있을 수 있다 - getAllHistory가 그 유저의 모든 세션을
+      // 합쳐서 날짜순으로 돌려주므로, 세션이 몇 개든 대화가 하나로 이어져 보인다.
+      const { data: history } = await chatApi.getAllHistory();
       if (history.length) {
-        // 가이드 카드는 대화가 이어져도 계속 보여야 하는 진입점이라, 히스토리 앞에 항상 붙인다
+        // 가이드 카드는 대화가 이어져도 계속 보여야 하는 진입점이라, 히스토리 앞에 항상 붙인다.
+        // 날짜 구분선은 (새 세션일 때와 마찬가지로) 항상 맨 위 고정 - 히스토리 첫 메시지 날짜로
+        // 구분선을 먼저 만들어 가이드 카드보다 위에 두고, buildHistoryWithDateDividers에는
+        // 그 날짜를 넘겨서 같은 구분선이 가이드 카드 밑에 또 한 번 중복되지 않게 한다(2026-08-07 피드백).
+        const firstDay = new Date(history[0].createdDate).toDateString();
         messages.value = [
+          { id: `date-${firstDay}`, role: 'date', label: dateLabelFor(history[0].createdDate) },
           { id: 'guide', role: 'bot', time: formatBubbleTime(), ...buildGuideMessage() },
-          ...history.map((m, i) => toBubble(m, history, i)),
+          ...buildHistoryWithDateDividers(history, firstDay),
         ];
         restorePanelFromHistory(history);
       } else {
@@ -1095,7 +1430,7 @@ onMounted(async () => {
             />
           </svg>
         </button>
-        <div class="chat-header__title">텅장일병일기</div>
+        <div class="chat-header__title">텅장일병구하기</div>
         <div class="chat-header__spacer" />
         <button type="button" class="history-btn" aria-label="이전 대화" @click="openHistory">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1117,11 +1452,15 @@ onMounted(async () => {
         </button>
       </div>
 
-      <div class="chat-page__date">{{ todayLabel() }}</div>
-
+      <!-- 고정된 "오늘" 배너 없음 - 날짜 구분선은 오직 실제 메시지 데이터를 기준으로만 생긴다
+           (buildGreetAndGuide/buildHistoryWithDateDividers가 role: 'date' 항목을 끼워 넣음).
+           예전엔 이 자리에 항상 오늘 날짜를 고정으로 하나 더 띄웠는데, 그러면 스크롤 안의 진짜 구분선이랑
+           중복으로 겹쳐 보여서(예: "8/6"이 위아래로 두 번) 뺐다. -->
       <div class="chat-page__messages">
         <template v-for="msg in messages" :key="msg.id">
-          <div v-if="msg.role === 'user'" class="bubble-row bubble-row--user">
+          <div v-if="msg.role === 'date'" :id="msg.id" class="chat-page__date">{{ msg.label }}</div>
+
+          <div v-else-if="msg.role === 'user'" class="bubble-row bubble-row--user">
             <div v-if="msg.time" class="bubble-time bubble-time--user">{{ msg.time }}</div>
             <div class="bubble bubble--user">{{ msg.text }}</div>
           </div>
@@ -1157,6 +1496,7 @@ onMounted(async () => {
                     :key="i"
                     type="button"
                     class="menu-btn menu-btn--narrow"
+                    :class="{ 'menu-btn--fit': section.compact }"
                     @click="opt.onClick"
                   >
                     {{ opt.label }}
@@ -1164,7 +1504,14 @@ onMounted(async () => {
                 </div>
               </div>
               <div v-if="msg.tags" class="tag-row">
-                <button v-for="(tag, i) in msg.tags" :key="i" type="button" class="tag-chip" @click="tag.onClick">
+                <button
+                  v-for="(tag, i) in msg.tags"
+                  :key="i"
+                  type="button"
+                  class="tag-chip tag-chip--guide"
+                  :class="{ 'tag-chip--dark': i % 2 === 1 }"
+                  @click="tag.onClick"
+                >
                   {{ tag.label }}
                 </button>
               </div>
@@ -1182,9 +1529,38 @@ onMounted(async () => {
               <div class="bubble bubble--bot">
                 <div v-if="msg.title" class="answer-title">{{ msg.title }}</div>
                 <div class="answer-text">{{ msg.text }}</div>
-                <div v-if="msg.isAiGenerated && msg.sourceDetail" class="answer-source">출처 · {{ msg.sourceDetail }}</div>
-                <div v-else-if="msg.isAiGenerated && msg.source" class="answer-source">출처 · {{ msg.source }}</div>
+                <!-- 출처는 AI 생성 답변(정책문서 RAG)이든 실시간 상품·매물 조회든 둘 다 보여준다.
+                     실제 상세 페이지 링크(sourceUrl)가 있으면 클릭해서 바로 넘어가게, 없으면 텍스트로만.
+                     정책용어사전 출처는 의미가 없어서 visibleSource가 걸러낸다. -->
+                <div v-if="visibleSource(msg)" class="answer-source">
+                  출처 ·
+                  <a
+                    v-if="msg.sourceUrl"
+                    :href="msg.sourceUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="answer-source-link"
+                  >
+                    {{ visibleSource(msg) }}
+                  </a>
+                  <template v-else>{{ visibleSource(msg) }}</template>
+                </div>
                 <div v-if="msg.isAiGenerated" class="answer-ai-caption">AI가 생성한 답변이에요</div>
+
+                <!-- 되묻기(목돈 상담/목돈 모으기)는 질문의 일부라서 답변 카드 밖으로 안 빼고,
+                     같은 카드 안에서 바로 고르게 한다. 색은 일단 흰 배경+검정 글씨로 되돌려두고,
+                     전체 색상은 나중에 한번에 몰아서 정하기로 함(2026-08-06 피드백) -->
+                <div v-if="msg.menu && msg.menuInCard" class="menu-col menu-col--incard">
+                  <button
+                    v-for="(opt, i) in msg.menu"
+                    :key="i"
+                    type="button"
+                    class="menu-btn menu-btn--fit"
+                    @click="opt.onClick"
+                  >
+                    {{ opt.label }}
+                  </button>
+                </div>
               </div>
 
               <div v-if="msg.recommendations?.length" class="recommend-card">
@@ -1194,14 +1570,75 @@ onMounted(async () => {
                   :key="i"
                   type="button"
                   class="tag-chip"
+                  :class="{ 'tag-chip--dark': i % 2 === 1 }"
                   @click="goTo(r.pageLink)"
                 >
                   {{ r.label }}
                 </button>
               </div>
 
-              <div v-if="msg.menu" class="menu-col">
-                <button v-for="(opt, i) in msg.menu" :key="i" type="button" class="menu-btn" @click="opt.onClick">
+              <!-- 상품·매물·펀드처럼 항목 하나하나 내용이 길어서 세로 목록으로는 한눈에 안 들어오는 경우 -
+                   가로로 넘기는 큰 카드 + 아래 점(dot)으로 몇 번째인지 보여준다(2026-08-06 피드백) -->
+              <div v-if="msg.menu && msg.menuCarousel" class="menu-carousel-wrap">
+                <div class="menu-carousel-track">
+                  <div :id="`carousel-${msg.id}`" class="menu-carousel" @scroll="onCarouselScroll(msg, $event)">
+                    <!-- 캐러셀 카드도 다른 선택 버튼들이랑 같은 국방색 번갈아 넣기로(2026-08-06 피드백) -->
+                    <button
+                      v-for="(opt, i) in msg.menu"
+                      :key="i"
+                      type="button"
+                      class="menu-carousel-card"
+                      :class="{ 'menu-carousel-card--dark': i % 2 === 1 }"
+                      @click="opt.onClick"
+                    >
+                      {{ opt.label }}
+                    </button>
+                  </div>
+                  <!-- 스크롤/스와이프인 줄 몰라서 못 넘기겠다는 피드백(2026-08-06) - 클릭 가능한 화살표 버튼 추가 -->
+                  <button
+                    v-if="msg.menu.length > 1 && (carouselActive[msg.id] || 0) > 0"
+                    type="button"
+                    class="menu-carousel-arrow menu-carousel-arrow--prev"
+                    aria-label="이전 카드"
+                    @click="scrollCarouselBy(msg, -1)"
+                  >
+                    ‹
+                  </button>
+                  <button
+                    v-if="msg.menu.length > 1 && (carouselActive[msg.id] || 0) < msg.menu.length - 1"
+                    type="button"
+                    class="menu-carousel-arrow menu-carousel-arrow--next"
+                    aria-label="다음 카드"
+                    @click="scrollCarouselBy(msg, 1)"
+                  >
+                    ›
+                  </button>
+                </div>
+                <div v-if="msg.menu.length > 1" class="menu-carousel-dots">
+                  <button
+                    v-for="(opt, i) in msg.menu"
+                    :key="i"
+                    type="button"
+                    class="menu-carousel-dot"
+                    :class="{ 'menu-carousel-dot--active': (carouselActive[msg.id] || 0) === i }"
+                    :aria-label="`${i + 1}번째 카드로 이동`"
+                    @click="scrollCarouselToIndex(msg, i)"
+                  />
+                </div>
+              </div>
+
+              <!-- 카드 안(menuInCard)·캐러셀(menuCarousel)이 아닌 나머지 전부 - 되묻기든 용어 목록이든
+                   가이드 태그줄과 같은 국방색으로 통일한다. 기본은 번갈아 넣기지만, 용어 목록처럼
+                   항목이 너무 많아서 색이 섞이면 산만한 경우는 menuLight로 밝은 색 하나만 쓴다(2026-08-06 피드백). -->
+              <div v-if="msg.menu && !msg.menuInCard && !msg.menuCarousel" class="menu-col menu-col--fit">
+                <button
+                  v-for="(opt, i) in msg.menu"
+                  :key="i"
+                  type="button"
+                  class="tag-chip"
+                  :class="{ 'tag-chip--dark': !msg.menuLight && i % 2 === 1, 'tag-chip--nav': msg.menuFit }"
+                  @click="opt.onClick"
+                >
                   {{ opt.label }}
                 </button>
               </div>
@@ -1224,6 +1661,8 @@ onMounted(async () => {
 
       <div v-if="panel === 'actions' && !typing" class="chat-page__panel">
         <div class="panel-row">
+          <!-- 이름을 "메인으로"가 아니라 "처음으로"로 둔 이유: 앱 홈 화면(X 버튼)과 헷갈리지 않게 -->
+          <button type="button" class="pill-btn" @click="backToGuide">처음으로</button>
           <button type="button" class="pill-btn" @click="openFeedbackModal">종료하기</button>
         </div>
       </div>
@@ -1479,9 +1918,15 @@ onMounted(async () => {
   color: var(--text-strong);
 }
 
-.guide-card,
 .answer-card {
   max-width: 94%;
+  width: 100%;
+}
+
+/* 가이드 카드는 옆에 남는 배경 공간을 써서 최대한 넓게 - 재진입 시 스크롤바가 생기면서
+   폭이 살짝 줄어들어 글자가 줄바꿈되는 문제(문구 끝 "다." 나 버튼 글씨 일부가 밑으로 내려가던 것)가 있었다 */
+.guide-card {
+  max-width: 100%;
   width: 100%;
 }
 
@@ -1491,9 +1936,9 @@ onMounted(async () => {
   align-items: stretch;
 }
 
+/* 왼쪽/오른쪽 카드 크기가 꼭 같을 필요는 없음 - 각자 글씨 크기(내용)에 맞게 폭이 정해지게 한다 */
 .guide-section {
-  flex: 1 1 0;
-  min-width: 0;
+  flex: 0 1 auto;
   background: #ffffff;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -1507,6 +1952,7 @@ onMounted(async () => {
   color: var(--text-strong);
   margin-bottom: 3px;
   font-size: 12.5px;
+  white-space: nowrap;
   background-image: linear-gradient(#fff0b3, #fff0b3);
   background-repeat: no-repeat;
   background-size: 100% 6px;
@@ -1527,13 +1973,32 @@ onMounted(async () => {
 }
 
 .tag-chip {
-  background: #ffffff;
-  border: 1px solid var(--line);
+  background: var(--military-green-light);
+  border: none;
   border-radius: 14px;
   padding: 6px 11px;
   font-size: 11px;
-  color: var(--text-body);
+  font-weight: 600;
+  color: var(--military-green);
   cursor: pointer;
+}
+
+/* 연한 국방색만으로는 "군색" 느낌이 잘 안 산다는 피드백으로, 진한 배경+흰 글씨를 한 칸씩 번갈아 넣어본다 */
+.tag-chip--dark {
+  background: var(--military-green);
+  color: #ffffff;
+}
+
+/* "~페이지로 이동"류 단독 확인 버튼(menuFit)은 목록형 태그보다 눈에 잘 띄어야 해서 살짝 더 크게(2026-08-07 피드백) */
+.tag-chip--nav {
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+/* 가이드 카드 밑 태그줄(군적금 활용하기·후회소비 회고 등)도 살짝 더 크게(2026-08-07 피드백) */
+.tag-chip--guide {
+  padding: 7px 12px;
+  font-size: 12px;
 }
 
 /* 브라우저 기본 포커스 링(파랑/청록색)이 버튼 색과 안 어울려서 톤에 맞는 것으로 교체 */
@@ -1576,6 +2041,11 @@ onMounted(async () => {
   color: var(--text-hint);
 }
 
+.answer-source-link {
+  color: var(--military-green);
+  text-decoration: underline;
+}
+
 .answer-ai-caption {
   margin-top: 2px;
   font-size: 10.5px;
@@ -1603,6 +2073,30 @@ onMounted(async () => {
   flex-direction: column;
 }
 
+/* 선택지 5개 이상(상품·용어·기능 목록 등) - 줄바꿈되는 칩 형태로 바꾼다 */
+.menu-col--many {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* 카드 밖 되묻기 메뉴도 버튼 크기를 글씨에 맞추고 싶을 때(생활자금 관리 등, 2026-08-06 피드백) */
+.menu-col--fit {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* menuInCard - 되묻기를 답변 카드 밖으로 안 빼고 같은 카드 안에서 바로 고르게 할 때(2026-08-06 피드백).
+   답변 텍스트 바로 아래라 margin 줄이고, 버튼도 흰 테두리 박스(이중 테두리로 보임) 대신
+   옅은 배경 칩으로 가볍게 처리한다 */
+.menu-col--incard {
+  margin-top: 10px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .menu-btn {
   display: block;
   width: 100%;
@@ -1618,16 +2112,171 @@ onMounted(async () => {
   font-weight: 500;
 }
 
+.menu-col--many .menu-btn {
+  margin-top: 0;
+}
+
+/* 선택지가 많을 때만 - 되묻기(4개 이하) 카드는 기존 흰 배경 그대로 두고,
+   상품·용어처럼 개수가 많은 목록만 국방색 칩으로 눈에 띄게 한다 (CategoryButton과 같은 톤) */
+.menu-btn--accent {
+  display: inline-block;
+  width: auto;
+  text-align: center;
+  background: var(--military-green-light);
+  border: none;
+  border-radius: 999px;
+  padding: 8px 14px;
+  color: var(--military-green);
+  font-weight: 600;
+}
+
+/* menuAlternate 전용 - 색이 없는 쪽(짝수번째) 칩. --accent와 같은 필 모양을 쓰되 흰 배경으로 번갈아 보이게 한다 */
+.menu-btn--outline {
+  display: inline-block;
+  width: auto;
+  text-align: center;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 14px;
+  color: var(--text-body);
+  font-weight: 600;
+}
+
 .menu-btn--narrow {
   border-radius: 8px;
   padding: 7px 8px;
   font-size: 11px;
   line-height: 1.3;
   margin-top: 6px;
+  white-space: nowrap;
 }
 
 .menu-btn--narrow:first-child {
   margin-top: 0;
+}
+
+/* 가로 꽉 채우는 블록 버튼 대신, 텍스트 길이만큼만 차지하게 한다(2026-08-06 피드백) */
+.menu-btn--fit {
+  display: inline-block;
+  width: auto;
+  text-align: center;
+  /* 부모(menu-col--incard/--fit)의 gap이 이미 항목 사이 간격을 주고 있어서, 여기서 또 margin까지
+     더하면 간격이 두 배로 벌어져 한 줄에 다 못 들어갔음 - 그래서 margin은 빼고 패딩만 살짝 줄임
+     (2026-08-06 피드백 - 4개가 한 줄에 안 들어가서 "목표 정하기"만 다음 줄로 밀림) */
+  padding: 8px 10px;
+  font-size: 12.5px;
+  margin-top: 0;
+}
+
+/* 상품·매물·펀드 목록 - 가로로 넘기는 큰 카드 (2026-08-06 피드백) */
+.menu-carousel-wrap {
+  margin-top: 10px;
+}
+
+/* 화살표 버튼을 카드 위에 절대위치로 띄우기 위한 기준 컨테이너 */
+.menu-carousel-track {
+  position: relative;
+}
+
+.menu-carousel {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  gap: 10px;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.menu-carousel::-webkit-scrollbar {
+  display: none;
+}
+
+/* 스크롤/스와이프인 걸 몰라도 누르면 넘어가는 게 보이도록 - 마우스로 테스트할 때를 위한 화살표(2026-08-06 피드백) */
+.menu-carousel-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  color: var(--military-green);
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.menu-carousel-arrow--prev {
+  left: -6px;
+}
+
+.menu-carousel-arrow--next {
+  right: -6px;
+}
+
+.menu-carousel-card {
+  /* 카드 2장이 딱 맞아떨어지면 책장 넘기듯 딱딱해 보인다는 피드백 - 폭을 줄여서 2.5장 정도
+     걸치게(끝에 다음 카드가 살짝 보여야 "이어지는 슬라이드" 느낌이 남) 하고, 위아래 여백도 줄임.
+     폭 130px는 스크립트의 CAROUSEL_CARD_STEP(130+gap10=140)과 맞춰져 있어서,
+     여기 숫자 바꾸면 그쪽도 같이 바꿔야 함(2026-08-06) */
+  scroll-snap-align: start;
+  flex: 0 0 130px;
+  width: 130px;
+  min-height: 92px;
+  display: flex;
+  align-items: center;
+  /* 다른 선택 버튼들이랑 같은 국방색 번갈아 넣기(연한 쪽이 기본, 2026-08-06 피드백) */
+  background: var(--military-green-light);
+  border: none;
+  border-radius: 14px;
+  padding: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--military-green);
+  text-align: left;
+  white-space: normal;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(180, 150, 80, 0.08);
+}
+
+.menu-carousel-card--dark {
+  background: var(--military-green);
+  color: #ffffff;
+}
+
+.menu-carousel-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.menu-carousel-dot {
+  /* 전역 box-sizing: border-box라 width에 padding까지 포함됨 - 점(6px)보다 padding을 크게 주면
+     실제 보이는 면적이 0이 되어(음수라 0으로 잘림) 안 보이는 버그가 있었음(2026-08-06) */
+  width: 6px;
+  height: 6px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background-color: var(--line);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.menu-carousel-dot--active {
+  width: 16px;
+  border-radius: 3px;
+  background-color: var(--military-green);
 }
 
 .typing-dots {

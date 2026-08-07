@@ -281,7 +281,8 @@ public class DashboardServiceImpl implements DashboardService {
         this.mapper.insertVacation(vacation);
 
         // 웹푸시 연동 테스트용 - 다른 도메인이 push를 이렇게 갖다 쓰면 된다는 실사용 예시
-        this.pushNotificationService.send(userId, "휴가 등록 완료", name + "이(가) 등록됐어요!");
+        this.pushNotificationService.send(
+                userId, "휴가 등록 완료", name + "이(가) 등록됐어요!", "VACATION");
 
         return vacation.getVacationId();
     }
