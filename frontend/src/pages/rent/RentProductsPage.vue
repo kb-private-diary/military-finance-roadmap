@@ -23,7 +23,7 @@ const listingId = Number(route.query.listingId) || rentStore.selectedListingId;
 const months = Number(route.query.months) || rentStore.months || 6;
 
 // 만원 정수 변환(표시·계산 공용). 입력은 "원" 단위.
-const toMan = (won) => Math.round((won ?? 0) / 10000);
+const toMan = (won) => Math.round((won ?? 0) / 10000).toLocaleString('ko-KR');
 
 // TODO: 백엔드 금융상품 API(WIP) 준비되면 SAMPLE 폴백 제거
 const SAMPLE_PRODUCTS = {
@@ -86,6 +86,15 @@ const pct = computed(() => {
   return req > 0 ? Math.round(((af.value.maturityAmount ?? 0) / req) * 100) : 0;
 });
 const isEnough = computed(() => pct.value >= 100);
+// 감당도 3단계 라벨(백엔드 affordabilityLabel: 딱 맞아요/빠듯해요/예산 초과)
+const affordLabel = computed(
+  () => af.value.affordabilityLabel || (isEnough.value ? '딱 맞아요' : '예산 초과'),
+);
+const afToneClass = computed(() => {
+  if (affordLabel.value === '빠듯해요') return 'is-tight';
+  if (affordLabel.value === '예산 초과') return 'is-over';
+  return 'is-ok';
+});
 const coverMan = computed(() => toMan(Math.min(af.value.maturityAmount ?? 0, af.value.totalRequired ?? 0)));
 const surplusMan = computed(() => toMan(af.value.surplus));
 const shortfallMan = computed(() => toMan(af.value.shortfall));
@@ -128,7 +137,7 @@ const loadProducts = async () => {
 };
 const loadAffordability = async () => {
   try {
-    const data = await rentApi.findAffordability(listingId, months);
+    const data = await rentApi.findAffordability(listingId, months, rentStore.depositMode);
     affordability.value = data || null;
   } catch {
     affordability.value = null; // computed af 가 SAMPLE 로 폴백
@@ -174,7 +183,6 @@ const saveRoadmap = async () => {
       <BaseCard padding="14px 16px 16px">
         <div class="af-head">
           <span class="af-head__label">필요 금액 대비 내 만기금</span>
-          <span class="af-head__pct" :class="isEnough ? 'is-enough' : 'is-short'">{{ pct }}%</span>
         </div>
 
         <div class="afbar">
@@ -207,7 +215,7 @@ const saveRoadmap = async () => {
       </div>
       <div v-else-if="hasShortfall" class="advice advice--warn">
         <div class="advice__body">
-          <p class="advice__t"><span class="advice__emoji">🏛</span>{{ shortfallMan }}만원을 메워야 해요</p>
+          <p class="advice__t"><span class="advice__emoji">🏦</span>{{ shortfallMan }}만원을 메워야 해요</p>
           <p class="advice__s">버팀목 대출이면 월 이자 약 {{ loanMonthlyLabel }} (연 2.1% 가정)</p>
         </div>
       </div>
@@ -385,13 +393,17 @@ const saveRoadmap = async () => {
   color: var(--text-muted);
 }
 .af-head__pct {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 800;
 }
-.af-head__pct.is-enough {
+/* 3단계: 딱 맞아요(초록) / 빠듯해요(주황) / 예산 초과(빨강) */
+.af-head__pct.is-ok {
   color: var(--success);
 }
-.af-head__pct.is-short {
+.af-head__pct.is-tight {
+  color: #e08a00;
+}
+.af-head__pct.is-over {
   color: var(--danger);
 }
 .afbar {
@@ -459,36 +471,35 @@ const saveRoadmap = async () => {
 
 /* ── 조언 박스 ─────────────────────────────────────────── */
 .advice {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
+  padding: 10px 12px;
   border-radius: 10px;
 }
 .advice--good {
   background: var(--military-green-light);
 }
 .advice--warn {
-  background: var(--kb-yellow-pale);
+  background: #fdecec;
 }
 .advice__emoji {
-  font-size: 15px;
+  font-size: 13px;
   margin-right: 5px;
+  vertical-align: middle;
 }
 .advice__body {
   flex: 1;
   min-width: 0;
 }
 .advice__t {
+  margin: 0;
   font-size: 13px;
   font-weight: 700;
   color: var(--text-strong);
 }
 .advice__s {
-  margin-top: 2px;
+  margin: 3px 0 0;
   font-size: 11px;
   color: var(--text-muted);
-  line-height: 1.45;
+  line-height: 1.35;
 }
 
 /* ── 탭 ───────────────────────────────────────────────── */

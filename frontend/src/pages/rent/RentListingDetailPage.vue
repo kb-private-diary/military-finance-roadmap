@@ -185,7 +185,11 @@ const maintPct = computed(() => ratioPct(maintTotal.value));
 
 // 감당도 "보증금 포함/제외" 토글 — INCLUDE: 목돈으로 보증금까지 / EXCLUDE: 보증금은 전세대출로
 // 목업의 우상단 스위치와 연동(ON=INCLUDE, OFF=EXCLUDE). watch 로 재정체크 자동 재계산.
-const depositMode = ref('INCLUDE');
+// step3 보증금 포함/제외 선택을 store에 저장 → step4·step5 감당도 계산과 통일
+const depositMode = ref(rentStore.depositMode || 'INCLUDE');
+watch(depositMode, (v) => {
+  rentStore.depositMode = v;
+});
 const includeDeposit = computed({
   get: () => depositMode.value === 'INCLUDE',
   set: (on) => (depositMode.value = on ? 'INCLUDE' : 'EXCLUDE'),
