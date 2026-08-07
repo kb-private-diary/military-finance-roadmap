@@ -175,16 +175,18 @@ const goNext = async () => {
 
     <!-- 1. 어디에서 -->
     <section class="field">
-      <p class="label">1. 어디에서 찾을까요?</p>
+      <p class="label">어디에 집을 구하고 싶습니까?</p>
       <div class="btn-row">
         <CategoryButton
           variant="square-yellow"
+          icon="🎓"
           label="학교 근처"
           :active="draft.locationType === 'SCHOOL'"
           @click="rentStore.setConditions({ locationType: 'SCHOOL' })"
         />
         <CategoryButton
           variant="square-yellow"
+          icon="📍"
           label="지역으로"
           :active="draft.locationType === 'REGION'"
           @click="rentStore.setConditions({ locationType: 'REGION' })"
@@ -229,7 +231,7 @@ const goNext = async () => {
       </template>
     </section>
 
-    <!-- 반경 (제목 없이, 조정 링크 + 현재값 한 줄) -->
+    <!-- 반경 (조정 링크로 펼침 → 1km/3km/5km 세그먼트 버튼) -->
     <section class="field">
       <div class="row-between">
         <button class="link-add" @click="radiusOpen = !radiusOpen">
@@ -237,21 +239,28 @@ const goNext = async () => {
         </button>
         <span class="muted">{{ draft.radiusKm }}km</span>
       </div>
-      <BaseCard v-if="radiusOpen" padding="12px 14px">
-        <input type="range" min="1" max="5" step="1" :value="draft.radiusKm" class="slider"
-          @input="rentStore.setConditions({ radiusKm: Number($event.target.value) })" />
-        <div class="scale"><span>1km</span><span>5km</span></div>
-      </BaseCard>
+      <div v-if="radiusOpen" class="btn-row">
+        <CategoryButton
+          v-for="km in [1, 3, 5]"
+          :key="km"
+          variant="square-yellow"
+          :label="`${km}km`"
+          :active="draft.radiusKm === km"
+          @click="rentStore.setConditions({ radiusKm: km })"
+        />
+      </div>
     </section>
 
     <!-- 2. 월 예산 (월세 + 관리비) — 매물 추천은 실질 월부담(월세+관리비+보증금환산) 기준 -->
     <section class="field">
-      <p class="label">2. 월 예산 (월세 + 관리비)</p>
+      <div class="row-between">
+        <p class="label">월 예산 (월세 + 관리비)</p>
+        <span class="budget-val">{{ draft.monthlyBudget }}만원</span>
+      </div>
       <BaseCard padding="14px 16px">
-        <div class="budget-val">{{ draft.monthlyBudget }}만원</div>
         <input type="range" min="30" max="150" step="5" :value="draft.monthlyBudget" class="slider"
           @input="rentStore.setConditions({ monthlyBudget: Number($event.target.value) })" />
-        <div class="scale"><span>30만</span><span>150만</span></div>
+        <div class="scale"><span>30만원</span><span>90만원</span><span>150만원</span></div>
       </BaseCard>
       <p class="hint">월세와 관리비를 합친 실질 월부담을 기준으로 매물을 추천해드려요</p>
     </section>
@@ -264,7 +273,7 @@ const goNext = async () => {
 
     <BottomButtonBar
       secondary-label="이전"
-      :primary-label="submitting ? '불러오는 중...' : '매물 보기'"
+      :primary-label="submitting ? '불러오는 중...' : '추천 받기'"
       :primary-disabled="!canProceed || submitting"
       @secondary-click="router.push({ name: 'Home' })"
       @primary-click="goNext"
