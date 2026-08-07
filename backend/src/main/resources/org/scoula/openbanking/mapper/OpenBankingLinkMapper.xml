@@ -12,6 +12,15 @@
            AND del_yn = 'N'
     </select>
 
+    <!-- 회원 계급의 월급액 조회 (급여 income 저장용) user·military_rank는 석윤 소유, 조회만 함 -->
+    <select id="findMonthlySalaryByUserId" parameterType="long" resultType="java.lang.Long">
+        SELECT mr.rank_salary
+          FROM `user` u
+          JOIN military_rank mr ON u.rank_id = mr.rank_id
+         WHERE u.id = #{userId}
+           AND u.del_yn = 'N'
+    </select>
+
     <!--
       연동 1건 저장 (선택된 계좌마다) fintech_use_num이 UNIQUE라, 예전에 연동 해제(del_yn='Y')됐던
       계좌를 다시 연동하면 INSERT가 UNIQUE 충돌을 냄, 그래서 UPSERT(ON DUPLICATE KEY UPDATE)로
