@@ -23,6 +23,8 @@ SOURCE master/region_sy.sql;      -- 법정동 (수연)
 SOURCE master/school_sy.sql;      -- 학교 (수연)
 SOURCE master/station_sy.sql;     -- 지하철역 (수연)
 SOURCE master/utility_sy.sql;     -- 공과금 계수 (수연)
+SOURCE master/common_seok.sql;
+SOURCE master/saving_seok.sql;
 -- SOURCE master/rank_xx.sql;     -- 계급/급여
 -- SOURCE master/car_hb.sql;      -- 자동차 (호빈)
 -- SOURCE master/product_xx.sql;  -- 금융상품

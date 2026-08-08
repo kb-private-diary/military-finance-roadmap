@@ -47,7 +47,7 @@ const monthOptions = computed(() => {
   }
   return [...product.value.saveTrmRates]
     .sort((a, b) => a.saveTrm - b.saveTrm)
-    .map((rate) => ({ label: `${rate.saveTrm}개월`, value: rate.saveTrm }));
+    .map((rate) => ({ label: `${rate.saveTrm}`, value: rate.saveTrm }));
 });
 
 const selectedRate = computed(() => {
@@ -168,8 +168,8 @@ onMounted(fetchProduct);
         </div>
       </BaseCard>
 
-      <BaseCard>
-        <h3 class="saving-detail__sim-title">만기예상액 시뮬레이션</h3>
+      <div class="saving-detail__sim-section">
+        <h3 class="saving-detail__sim-title">금융 계산기</h3>
 
         <div class="saving-detail__sim-inputs">
           <div
@@ -222,7 +222,7 @@ onMounted(fetchProduct);
             }}</span>
           </div>
         </div>
-      </BaseCard>
+      </div>
 
       <BottomButtonBar
         primary-label="상품 자세히보기"
@@ -240,6 +240,11 @@ onMounted(fetchProduct);
   flex-direction: column;
   gap: 8px;
   padding-bottom: 88px;
+  background: linear-gradient(
+    180deg,
+    var(--kb-yellow) 0%,
+    var(--surface-default) 260px
+  );
 }
 
 .saving-detail__error {
@@ -285,6 +290,10 @@ onMounted(fetchProduct);
 .saving-detail__highlight {
   color: var(--danger);
   font-weight: 700;
+}
+
+.saving-detail__sim-section {
+  padding-top: 4px;
 }
 
 .saving-detail__sim-title {
