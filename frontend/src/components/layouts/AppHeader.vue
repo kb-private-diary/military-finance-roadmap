@@ -6,19 +6,24 @@
     오른쪽: 챗봇 / 마이페이지 / 홈 3아이콘 고정
 -->
 <script setup>
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { onMounted, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { useNotificationBadge } from '@/composables/useNotificationBadge';
 
 // 앱 타이틀 고정값
 const APP_NAME = '텅장일병구하기';
 
 const router = useRouter();
+const route = useRoute();
 
-// 읽지 않은 알림 존재 여부
-// true  : 종 아이콘 우측 상단에 빨간 점 표시
-// false : 빨간 점 숨김
-// TODO: 알림 API 연동 후 unreadCount > 0 결과로 변경 예정
-const hasNotification = ref(true);
+// 읽지 않은 알림 존재 여부 (true면 종 아이콘 우측 상단에 빨간 점 표시)
+// 알림함(WebPushPage)을 열람하면 사라짐 — useNotificationBadge.js 참고
+const { hasUnread: hasNotification, refreshUnreadStatus } =
+  useNotificationBadge();
+
+onMounted(refreshUnreadStatus);
+// 헤더는 앱 전체에서 한 번만 마운트되므로, 화면을 옮길 때마다 최신 알림 유무를 다시 확인한다.
+watch(() => route.path, refreshUnreadStatus);
 
 const goExit = () => {
   // TODO: 실제 KB Star Banking 앱 연동 시 네이티브 브릿지(예: KBBridge.exit())로 교체 예정.
@@ -26,9 +31,13 @@ const goExit = () => {
   router.push({ path: '/' });
 };
 
-// 알림 화면 이동
+// 알림 화면 이동 — 이미 알림함이면 토글처럼 이전 화면으로 되돌아간다.
 const goNotification = () => {
-  router.push({ name: 'WebPush' });
+  if (route.name === 'WebPush') {
+    router.back();
+  } else {
+    router.push({ name: 'WebPush' });
+  }
 };
 
 const goChat = () => {

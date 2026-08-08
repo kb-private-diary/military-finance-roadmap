@@ -23,9 +23,7 @@ export default {
 
   // 편입 대학 목록 조회
   async findTransferUniversityList() {
-    const { data } = await instance.get(
-      `${BASE_URL}/transfer-universities`,
-    );
+    const { data } = await instance.get(`${BASE_URL}/transfer-universities`);
 
     return data.data;
   },
@@ -41,10 +39,7 @@ export default {
 
   // 진로 목표 신규 등록
   async createJobGoal(requestDTO) {
-    const { data } = await instance.post(
-      `${BASE_URL}/goals`,
-      requestDTO,
-    );
+    const { data } = await instance.post(`${BASE_URL}/goals`, requestDTO);
 
     return data.data;
   },
@@ -70,18 +65,28 @@ export default {
 
   // 정책·KB 서비스·카드 추천 조회
   async findServiceRecommend(goalId) {
-    const { data } = await instance.get(
-      `${BASE_URL}/goals/${goalId}/services`,
-    );
+    const { data } = await instance.get(`${BASE_URL}/goals/${goalId}/services`);
 
     return data.data;
   },
 
   // 목표 상세 조회
   async findJobGoalDetail(goalId) {
-    const { data } = await instance.get(
-      `${BASE_URL}/goals/${goalId}`,
-    );
+    const { data } = await instance.get(`${BASE_URL}/goals/${goalId}`);
+
+    return data.data;
+  },
+
+  // 진로 로드맵 저장 확정
+  async confirmJobGoal(goalId) {
+    const { data } = await instance.post(`${BASE_URL}/goals/${goalId}/confirm`);
+
+    return data.data;
+  },
+
+  // 진로 목표 삭제
+  async deleteJobGoal(goalId) {
+    const { data } = await instance.delete(`${BASE_URL}/goals/${goalId}`);
 
     return data.data;
   },

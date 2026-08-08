@@ -259,6 +259,21 @@ public class JobServiceImpl implements JobService {
         return detail;
     }
 
+    // 진로 목표 저장 확정
+    @Override
+    @Transactional
+    public void confirmJobGoal(Long goalId) {
+        JobGoalVO jobGoalVO = this.findJobGoalOrThrow(goalId);
+
+        String modifiedNm = String.valueOf(jobGoalVO.getUserId());
+
+        this.jobMapper.updateJobGoalStatus(
+                goalId,
+                "CONFIRMED",
+                modifiedNm
+        );
+    }
+
     // 진로 목표를 조회하고 존재하지 않으면 예외를 던진다
     private JobGoalVO findJobGoalOrThrow(Long goalId) {
         JobGoalVO jobGoalVO = this.jobMapper.findJobGoal(goalId);

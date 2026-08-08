@@ -145,8 +145,8 @@ onMounted(fetchProduct);
         </div>
       </BaseCard>
 
-      <BaseCard v-if="product.hasCalculator">
-        <h3 class="policy-detail__sim-title">만기예상액 시뮬레이션</h3>
+      <div v-if="product.hasCalculator" class="policy-detail__sim-section">
+        <h3 class="policy-detail__sim-title">금융 계산기</h3>
 
         <div class="policy-detail__sim-inputs">
           <div
@@ -206,7 +206,7 @@ onMounted(fetchProduct);
             }}</span>
           </div>
         </div>
-      </BaseCard>
+      </div>
 
       <BottomButtonBar
         primary-label="상품 자세히보기"
@@ -224,6 +224,11 @@ onMounted(fetchProduct);
   flex-direction: column;
   gap: 8px;
   padding-bottom: 88px;
+  background: linear-gradient(
+    180deg,
+    var(--kb-yellow) 0%,
+    var(--surface-default) 260px
+  );
 }
 
 .policy-detail__error {
@@ -269,6 +274,10 @@ onMounted(fetchProduct);
 .policy-detail__highlight {
   color: var(--danger);
   font-weight: 700;
+}
+
+.policy-detail__sim-section {
+  padding-top: 4px;
 }
 
 .policy-detail__sim-title {

@@ -40,4 +40,7 @@ public interface JobService {
 
     // 진로 목표 상세 조회
     JobGoalDetailResponseDTO findJobGoalDetail(Long goalId);
+
+    // 진로 로드맵 저장 확정
+    void confirmJobGoal(Long goalId);
 }

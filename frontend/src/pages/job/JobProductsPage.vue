@@ -93,23 +93,18 @@ const handleSave = async () => {
     return;
   }
 
-  /*
-   * TODO: 목표 최종 저장 API가 확정되면 연결
-   *
-   * saving.value = true;
-   *
-   * try {
-   *   await jobApi.confirmJobGoal(goalId.value);
-   *   isCompleteModalOpen.value = true;
-   * } catch (error) {
-   *   show('진로 로드맵을 저장하지 못했습니다.', 'error');
-   * } finally {
-   *   saving.value = false;
-   * }
-   */
+  try {
+    saving.value = true;
 
-  // 임시 확인용
-  isCompleteModalOpen.value = true;
+    await jobApi.confirmJobGoal(goalId.value);
+
+    isCompleteModalOpen.value = true;
+  } catch (error) {
+    console.error('진로 목표 저장 실패:', error);
+    show('진로 로드맵을 저장하지 못했습니다.', 'error');
+  } finally {
+    saving.value = false;
+  }
 };
 
 const goJobGoalDetail = () => {

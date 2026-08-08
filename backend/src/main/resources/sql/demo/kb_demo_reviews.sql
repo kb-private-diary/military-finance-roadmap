@@ -43,7 +43,7 @@ VALUES
 (4, 1, 'PETITION', '자격증시험', '2026-03-01', 2, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),
 (5, 1, 'ETC', '경조사휴가', '2026-05-01', 1, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),
 (6, 1, 'REGULAR', '정기휴가 사용', '2026-06-15', 6, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),         -- 2차, 6일 사용 (누적 11일, 잔여 13일)
-(7, 1, 'REWARD', '체력우수 포상휴가', '2026-07-20', 2, false, NOW(), 'seokyun', NULL, NULL, 'N'),       -- 최근 사용
+(7, 1, 'REWARD', '체력우수 포상휴가', '2026-07-20', 2, false, NOW(), 'seokyun', NULL, NULL, 'N'),
 
 -- 회원 2: 전역자 병장(vet@kbthink.com, 입대 2024-06-01 / 전역 2025-11-30, 이미 전역 완료)
 -- 전역 완료 시나리오라 (a) 5개 카테고리(REGULAR/CONSOLATION/REWARD/PETITION/ETC) 전부 최소 1건씩 존재,
@@ -127,6 +127,103 @@ VALUES
 (35, 2, 'user', '비과세가 무엇입니까?', NULL, NULL, FALSE, '2026-08-08 20:00:00', 'eseudeo', NULL, NULL, 'N'),
 (36, 2, 'bot', '비과세란 이자소득 등에 대해 세금을 부과하지 않는 것을 말합니다. 일반적으로 이자소득에는 15.4%의 세금이 부과되지만, 비과세 요건을 충족하면 이 세금이 면제됩니다.', NULL, NULL, TRUE, '2026-08-08 20:00:06', 'eseudeo', NULL, NULL, 'N');
 
+
+
+-- --------------------------------------------------------------------
+--  [석윤] 웹푸시/ 발송이력(push_history)
+--  테이블: push_history
+--  전제: user_id는 위 user 테스트 데이터 기준 cpl@kbthink.com -> id=1(현역), vet@kbthink.com -> id=2(전역자)
+--  category는 프론트 아이콘 매핑용 자유 문자열(WebPushPage.vue CATEGORY_ICON_MAP: SAVING/VACATION만 아이콘 매핑되고 나머지는 기본 아이콘)
+-- --------------------------------------------------------------------
+INSERT INTO `push_history`
+(`history_id`, `user_id`, `title`, `body`, `category`, `status`, `sent_at`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`)
+VALUES
+-- 회원 1: 현역 상병 - 휴가추가, 적금 납입완료
+(1, 1, '휴가가 추가되었습니다', '체력우수 포상휴가 2일이 등록되었습니다.', 'VACATION', 'SUCCESS', '2026-07-20 10:00:00', NOW(), 'seokyun', NULL, NULL, 'N'),
+(2, 1, '적금 납입이 완료되었습니다', '이번 달 장병내일준비적금 납입이 완료되었습니다.', 'SAVING', 'SUCCESS', '2026-08-01 09:00:00', NOW(), 'seokyun', NULL, NULL, 'N'),
+
+-- 회원 2: 전역자 병장 - 전역 축하, 적금 수령완료
+(3, 2, '전역을 축하드립니다', '테스트전역자님, 전역을 진심으로 축하드립니다!', 'DISCHARGE', 'SUCCESS', '2025-11-30 09:00:00', NOW(), 'seokyun', NULL, NULL, 'N'),
+(4, 2, '적금을 수령하셨습니다', '장병내일준비적금 만기 수령금이 입금되었습니다.', 'SAVING', 'SUCCESS', '2025-12-01 09:00:00', NOW(), 'seokyun', NULL, NULL, 'N');
+
+
+-- ====================================================================
+-- [지원] 진로 테스트 데이터
+-- ====================================================================
+
+-- --------------------------------------------------------------------
+-- [지원] 진로 목표
+-- 테이블: job_goal
+-- 전제: user_id는 공통 테스트 회원 기준
+--       회원1(id=1), 회원2(id=2)
+-- --------------------------------------------------------------------
+
+INSERT INTO `job_goal`
+(`goal_id`, `user_id`, `goal_type`, `category_id`, `univ_id`, `major_id`, `expected_date`, `status`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`)
+VALUES
+
+-- 회원1(현역)
+-- 취업 : 웹개발
+(1, 1, 'J01', 32, NULL, NULL, '2027-03', 'CONFIRMED', NOW(), 'jiwon', NULL, NULL, 'N'),
+
+-- 회원2(전역)
+-- 공무원 : 군무원 행정직
+(2, 2, 'J02', 109, NULL, NULL, '2027-12', 'CONFIRMED', NOW(), 'jiwon', NULL, NULL, 'N'),
+
+-- 회원2(전역)
+-- 편입 : 가천대학교 > 전기·전자·반도체·통신
+(3, 2, 'J03', NULL, 1, 4, '2027-03', 'CONFIRMED', NOW(), 'jiwon', NULL, NULL, 'N');
+
+
+-- --------------------------------------------------------------------
+-- [지원] 진로/목표별 선택 자격증·어학
+-- 테이블: job_goal_qualification
+-- --------------------------------------------------------------------
+
+INSERT INTO `job_goal_qualification`
+(`goal_qual_id`, `goal_id`, `qual_id`, `selected_cost`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`)
+VALUES
+
+-- 회원1(현역)
+-- 취업 : 웹개발
+-- 선택 자격증·어학 : 정보처리기사, TOEIC
+(1, 1, 1, 42000, NOW(), 'jiwon', NULL, NULL, 'N'),
+(2, 1, 9, 26200, NOW(), 'jiwon', NULL, NULL, 'N'),
+
+-- 회원2(전역)
+-- 공무원 : 군무원 행정직
+-- 선택 자격증 : 한국사능력검정시험
+(3, 2, 12, 27000, NOW(), 'jiwon', NULL, NULL, 'N'),
+
+-- 회원2(전역)
+-- 편입 : 가천대학교 > 전기·전자·반도체·통신
+-- 선택 어학 : TOEIC
+(4, 3, 9, 26200, NOW(), 'jiwon', NULL, NULL, 'N');
+
+
+-- --------------------------------------------------------------------
+-- [지원] 진로/목표별 선택 인강
+-- 테이블: job_goal_course
+-- --------------------------------------------------------------------
+
+INSERT INTO `job_goal_course`
+(`goal_course_id`, `goal_id`, `course_id`, `selected_cost`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`)
+VALUES
+
+-- 회원1(현역)
+-- 취업 : 웹개발
+-- 선택 인강 : 정보처리기사 실기
+(1, 1, 1, 88000, NOW(), 'jiwon', NULL, NULL, 'N'),
+
+-- 회원2(전역)
+-- 공무원 : 군무원 행정직
+-- 선택 인강 : 공단기 27대비 9급 군무원 환급 직렬패스
+(2, 2, 12, 680000, NOW(), 'jiwon', NULL, NULL, 'N'),
+
+-- 회원2(전역)
+-- 편입 : 가천대학교 > 전기·전자·반도체·통신
+-- 선택 인강 : 2027+2028 김영패스 원더 [자연]
+(3, 3, 14, 1370000, NOW(), 'jiwon', NULL, NULL, 'N');
 
 
 

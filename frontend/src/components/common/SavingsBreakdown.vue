@@ -91,15 +91,15 @@ defineProps({
 }
 
 .savings-breakdown__segment--principal {
-  background-color: var(--chart-1);
+  background-color: var(--savings-principal);
 }
 
 .savings-breakdown__segment--interest {
-  background-color: var(--chart-2);
+  background-color: var(--savings-interest);
 }
 
 .savings-breakdown__segment--matching {
-  background-color: var(--chart-3);
+  background-color: var(--savings-matching);
 }
 
 .savings-breakdown__legend {
@@ -125,15 +125,15 @@ defineProps({
 }
 
 .savings-breakdown__dot--principal {
-  background-color: var(--chart-1);
+  background-color: var(--savings-principal);
 }
 
 .savings-breakdown__dot--interest {
-  background-color: var(--chart-2);
+  background-color: var(--savings-interest);
 }
 
 .savings-breakdown__dot--matching {
-  background-color: var(--chart-3);
+  background-color: var(--savings-matching);
 }
 
 .savings-breakdown__label {
