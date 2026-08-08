@@ -413,6 +413,95 @@ INSERT INTO `spending_review`
 (18, 20, 'SATISFIED', '2025-10-02 09:00:00', NOW(), 'demo', NULL, NULL, 'N'),
 (19, 21, 'REGRET', '2025-10-03 20:00:00', NOW(), 'demo', NULL, NULL, 'N');
 
+-- ######################################################################
+--  [데모추가] user1(id=1) 후회소비 시연 데이터 (created_nm='demo_hb')
+--  목적: ①소비점호(미점호=review 없는 지출) 태깅거리 확보 ②대시보드 캘린더 알록달록
+--  기준일: 오늘 2026-08-08.  spending_id 22~53 / review_id 20~41 (기존 21·19 뒤 연속)
+--  재실행 안전: 위 DELETE 블록이 user_id IN (1,2) 기준으로 지우므로 이 행들도 함께 정리됨
+--  (spending 먼저 → spending_review 나중: FK spending_id 정합 유지)
+-- ######################################################################
+
+-- ── 1) 소비점호용 '미점호' : 이번달(2026-08) 지출 10건, spending_review 없음 ──
+--  현역 일상소비(편의점·배달·카페·게임·PX) - 아래 spending_review에 안 넣어 미점호로 남김
+INSERT INTO `spending`
+(`spending_id`, `user_id`, `merchant_name`, `category`, `amount`, `spent_at`,
+ `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`) VALUES
+(22, 1, 'GS25 위수지역점',   'CONVENIENCE', 8500,  '2026-08-01 12:30:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(23, 1, '배달의민족',        'DELIVERY',    19000, '2026-08-01 19:40:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(24, 1, '스타벅스',          'ETC',         6300,  '2026-08-02 15:10:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(25, 1, '넥슨',              'GAME',        30000, '2026-08-03 22:15:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(26, 1, 'CU 부대앞점',       'CONVENIENCE', 5400,  '2026-08-04 18:20:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(27, 1, '요기요',            'DELIVERY',    22000, '2026-08-05 20:05:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(28, 1, '국군복지단 PX',     'PX',          15000, '2026-08-06 13:40:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(29, 1, '쿠팡이츠',          'DELIVERY',    17500, '2026-08-07 21:00:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(30, 1, '세븐일레븐 부대점', 'CONVENIENCE', 9900,  '2026-08-08 12:10:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(31, 1, 'APPLE 앱스토어',    'GAME',        12000, '2026-08-08 23:30:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+
+-- ── 2) 캘린더용 '후회(REGRET)' : 이번달 10일 분산, 금액 4레벨 골고루 ──
+--  ~1만: 08-02·04·07 / ~3만: 08-03·06·14 / ~5만: 08-10·12 / 5만+: 08-01·08
+--  (08-10·12·14는 오늘 이후지만 캘린더 채색용으로 의도 배치 - 부모 지시 예시 준수)
+(32, 1, '넥슨',       'GAME',     60000, '2026-08-01 23:20:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(33, 1, '배달의민족', 'DELIVERY',  9000, '2026-08-02 20:30:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(34, 1, '넥슨',       'GAME',     32000, '2026-08-03 21:40:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(35, 1, '쿠팡이츠',   'DELIVERY', 12000, '2026-08-04 19:50:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(36, 1, '요기요',     'DELIVERY', 28000, '2026-08-06 20:25:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(37, 1, 'APPLE 앱스토어', 'GAME',  8500, '2026-08-07 22:45:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(38, 1, '넥슨',       'GAME',     95000, '2026-08-08 22:00:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(39, 1, '배달의민족', 'DELIVERY', 48000, '2026-08-10 20:15:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(40, 1, '넥슨',       'GAME',     50000, '2026-08-12 23:10:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(41, 1, '쿠팡이츠',   'DELIVERY', 30000, '2026-08-14 19:30:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+
+-- ── 3) 만족(SATISFIED 5) / 애매(SOSO 3) : 이번달, 비율 자연스럽게 ──
+(42, 1, '국군복지단 PX', 'PX',          20000, '2026-08-02 14:00:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(43, 1, '교보문고',      'ETC',         18000, '2026-08-05 16:30:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(44, 1, '스타벅스',      'ETC',         5800,  '2026-08-06 10:20:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(45, 1, '국군복지단 PX', 'PX',          12000, '2026-08-09 13:15:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(46, 1, 'KTX 서울-부산', 'VACATION',    47000, '2026-08-11 09:40:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(47, 1, 'CU 부대앞점',   'CONVENIENCE', 7000,  '2026-08-03 18:00:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(48, 1, '배달의민족',    'DELIVERY',    21000, '2026-08-07 20:40:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(49, 1, '스타벅스',      'ETC',         6500,  '2026-08-13 15:50:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+
+-- ── 4) 지난달(2026-07) : 월별 비교 그래프용 4건 ──
+(50, 1, '넥슨',          'GAME',     40000, '2026-07-05 22:30:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(51, 1, '배달의민족',    'DELIVERY', 25000, '2026-07-12 20:10:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(52, 1, '국군복지단 PX', 'PX',       15000, '2026-07-18 13:20:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(53, 1, '스타벅스',      'ETC',      6000,  '2026-07-25 16:00:00', NOW(), 'demo_hb', NULL, NULL, 'N');
+
+-- ── 회고 태깅(spending_review) : 위 spending 22~31(미점호)은 제외, 32~53만 태깅 ──
+--  reviewed_at = spent_at 로 맞춤(기존 파일 규칙). FK: 위 spending INSERT 뒤라 정합.
+INSERT INTO `spending_review`
+(`review_id`, `spending_id`, `review_type`, `reviewed_at`,
+ `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`) VALUES
+-- 캘린더용 REGRET 10건 (spending 32~41)
+(20, 32, 'REGRET',    '2026-08-01 23:20:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(21, 33, 'REGRET',    '2026-08-02 20:30:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(22, 34, 'REGRET',    '2026-08-03 21:40:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(23, 35, 'REGRET',    '2026-08-04 19:50:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(24, 36, 'REGRET',    '2026-08-06 20:25:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(25, 37, 'REGRET',    '2026-08-07 22:45:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(26, 38, 'REGRET',    '2026-08-08 22:00:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(27, 39, 'REGRET',    '2026-08-10 20:15:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(28, 40, 'REGRET',    '2026-08-12 23:10:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(29, 41, 'REGRET',    '2026-08-14 19:30:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+-- 만족(SATISFIED) 5건 (spending 42~46)
+(30, 42, 'SATISFIED', '2026-08-02 14:00:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(31, 43, 'SATISFIED', '2026-08-05 16:30:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(32, 44, 'SATISFIED', '2026-08-06 10:20:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(33, 45, 'SATISFIED', '2026-08-09 13:15:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(34, 46, 'SATISFIED', '2026-08-11 09:40:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+-- 애매(SOSO) 3건 (spending 47~49)
+(35, 47, 'SOSO',      '2026-08-03 18:00:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(36, 48, 'SOSO',      '2026-08-07 20:40:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(37, 49, 'SOSO',      '2026-08-13 15:50:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+-- 지난달(2026-07) 태깅 4건 (spending 50~53)
+(38, 50, 'REGRET',    '2026-07-05 22:30:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(39, 51, 'REGRET',    '2026-07-12 20:10:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(40, 52, 'SATISFIED', '2026-07-18 13:20:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(41, 53, 'SOSO',      '2026-07-25 16:00:00', NOW(), 'demo_hb', NULL, NULL, 'N');
+
+-- [데모추가 건수] spending +32건(id 22~53) / spending_review +22건(id 20~41)
+--   · 미점호(리뷰無): 10건(22~31)  · REGRET: 12건(캘린더10 + 7월2)  · SATISFIED: 6건  · SOSO: 4건
+
 -- ── 오픈뱅킹 연동(openbanking_link) : 계좌당 1행, fintech_use_num 전부 유니크 ─
 --  적금계좌는 account_id 채움, 입출금계좌는 account_id NULL
 INSERT INTO `openbanking_link`
