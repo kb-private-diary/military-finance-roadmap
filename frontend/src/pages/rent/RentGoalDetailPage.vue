@@ -202,8 +202,17 @@ const loadKakaoSdk = () =>
     if (window.kakao?.maps) return resolve();
     const existing = document.getElementById('kakao-map-sdk');
     if (existing) {
-      existing.addEventListener('load', () => resolve());
-      existing.addEventListener('error', reject);
+      // 이미 삽입된 스크립트: load 이벤트가 이미 지났을 수 있어(재방문) 폴링으로 로드 완료를 감지
+      const t0 = Date.now();
+      const timer = setInterval(() => {
+        if (window.kakao?.maps) {
+          clearInterval(timer);
+          resolve();
+        } else if (Date.now() - t0 > 5000) {
+          clearInterval(timer);
+          reject(new Error('kakao sdk load timeout'));
+        }
+      }, 50);
       return;
     }
     const script = document.createElement('script');
@@ -229,11 +238,20 @@ const drawCircle = (pos) => {
     fillOpacity: 0.18,
   });
   circle.setMap(map);
+  // 컨테이너 크기가 늦게 확정되는 경우(탭/렌더 타이밍) 대비해 재배치 - 회색 빈 지도 방지
+  setTimeout(() => {
+    map.relayout();
+    map.setCenter(pos);
+  }, 150);
 };
 
 // 지도 초기화: 좌표 있으면 그 좌표로, 없으면 동 주소를 지오코딩해 대략 위치로 Circle 표시.
-const initMap = () => {
-  if (!mapEl.value) return;
+const initMap = (retry = 0) => {
+  if (!mapEl.value) {
+    // 지도 컨테이너가 아직 렌더 전이면 다음 프레임에 재시도 (최대 10회, 렌더 타이밍 경쟁 방어)
+    if (retry < 10) requestAnimationFrame(() => initMap(retry + 1));
+    return;
+  }
   const { kakao } = window;
   // (1) 좌표 있으면 기존 경로 그대로
   if (hasCoords.value) {
