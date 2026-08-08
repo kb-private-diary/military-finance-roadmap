@@ -276,7 +276,7 @@ const goNext = async () => {
       secondary-label="이전"
       :primary-label="submitting ? '불러오는 중...' : '추천 받기'"
       :primary-disabled="!canProceed || submitting"
-      @secondary-click="router.push({ name: 'Home' })"
+      @secondary-click="router.push({ name: 'RoadmapMain' })"
       @primary-click="goNext"
     />
 
