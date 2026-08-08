@@ -77,6 +77,13 @@ export default {
     return data.data;
   },
 
+  // 진로 로드맵 저장 확정
+  async confirmJobGoal(goalId) {
+    const { data } = await instance.post(`${BASE_URL}/goals/${goalId}/confirm`);
+
+    return data.data;
+  },
+
   // 진로 목표 삭제
   async deleteJobGoal(goalId) {
     const { data } = await instance.delete(`${BASE_URL}/goals/${goalId}`);

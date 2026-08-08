@@ -98,4 +98,14 @@ public class JobController {
                 ApiResponse.success(this.jobService.findJobGoalDetail(goalId))
         );
     }
+
+    // POST /api/job/goals/{goalId}/confirm → 진로 로드맵 저장 확정
+    @PostMapping("/goals/{goalId}/confirm")
+    public ResponseEntity<ApiResponse<Void>> confirmJobGoal(
+            @PathVariable Long goalId) {
+
+        this.jobService.confirmJobGoal(goalId);
+
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
 }
