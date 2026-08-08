@@ -106,6 +106,7 @@ INSERT INTO job_category (`category_id`, `parent_id`, `goal_type`, `category_nam
 (101, 13, 'J02', '일반행정', 2, NOW(), 'jiwon',  'N'),
 (102, 13, 'J02', '교육행정', 2, NOW(), 'jiwon',  'N'),
 (103, 13, 'J02', '세무', 2, NOW(), 'jiwon',  'N'),
+(104, 13, 'J02', '사회복지', 2, NOW(), 'jiwon',  'N'),
 (105, 13, 'J02', '교정', 2, NOW(), 'jiwon',  'N'),
 (106, 13, 'J02', '전산', 2, NOW(), 'jiwon',  'N'),
 (107, 13, 'J02', '관세', 2, NOW(), 'jiwon',  'N'),
@@ -120,7 +121,7 @@ INSERT INTO job_category (`category_id`, `parent_id`, `goal_type`, `category_nam
 (116, 15, 'J02', '해양경찰 순경', 2, NOW(), 'jiwon',  'N'),
 (117, 16, 'J02', '소방 공채', 2, NOW(), 'jiwon',  'N'),
 (118, 16, 'J02', '구급 경채', 2, NOW(), 'jiwon',  'N'),
-(119, 16, 'J02', '구조 경채', 2, NOW(), 'jiwon',  'N');                                                                   (104, 13, 'J02', '사회복지', 2, NOW(), 'jiwon',  'N'),
+(119, 16, 'J02', '구조 경채', 2, NOW(), 'jiwon',  'N');
 
 
 
