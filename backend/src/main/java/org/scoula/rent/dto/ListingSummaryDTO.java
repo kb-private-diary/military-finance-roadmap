@@ -17,6 +17,7 @@ public class ListingSummaryDTO {
     private Long listingId;
     private String buildingName;
     private String jibunAddress; // 읍면동 + 지번 (예: 장전동 123-45)
+    private String dongName;     // 읍면동명 (좌표 없는 매물 지도 지오코딩 폴백용)
     private Integer floor;
     private BigDecimal latitude;
     private BigDecimal longitude;
@@ -33,6 +34,7 @@ public class ListingSummaryDTO {
                 .listingId(vo.getListingId())
                 .buildingName(vo.getBuildingName())
                 .jibunAddress((umd + " " + jibun).trim())
+                .dongName(vo.getUmdName())
                 .floor(vo.getFloor())
                 .latitude(vo.getLatitude())
                 .longitude(vo.getLongitude())
