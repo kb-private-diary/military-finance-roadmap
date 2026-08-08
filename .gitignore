@@ -37,3 +37,4 @@ env/
 # 외부 API 키 — 값은 노션에서 받아 각자 로컬에 생성
 application-secret.properties
 !application-secret.properties.example
+backend/src/main/resources/sql/DEMO_SETUP_GUIDE.md
