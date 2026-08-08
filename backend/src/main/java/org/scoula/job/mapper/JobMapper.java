@@ -94,4 +94,11 @@ public interface JobMapper {
 
     // 목표 상세 조회
     JobGoalDetailResponseDTO findJobGoalDetail(Long goalId);
+
+    // 진로 로드맵 저장 확정
+    void updateJobGoalStatus(
+            @Param("goalId") Long goalId,
+            @Param("status") String status,
+            @Param("modifiedNm") String modifiedNm
+    );
 }

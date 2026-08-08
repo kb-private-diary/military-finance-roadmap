@@ -416,6 +416,15 @@
         del_yn = 'N'
     </insert>
 
+    <update id="updateJobGoalStatus">
+        UPDATE job_goal
+        SET status = #{status},
+            modified_date = NOW(),
+            modified_nm = #{modifiedNm}
+        WHERE goal_id = #{goalId}
+          AND del_yn = 'N'
+    </update>
+
     <select id="findJobGoal" parameterType="Long" resultType="org.scoula.job.domain.JobGoalVO">
         SELECT goal_id,
                user_id,
