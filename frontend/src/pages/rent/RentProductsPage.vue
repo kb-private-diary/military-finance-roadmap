@@ -113,7 +113,7 @@ const toggleProduct = (id) => {
 // ── 로드 ───────────────────────────────────────────────────
 const loadProducts = async () => {
   try {
-    const data = await rentApi.findProducts(goalId, listingId, months);
+    const data = await rentApi.findProducts(listingId, months);
     recommend.value = data && (data.monthlySubsidy || data.depositLoan || data.free) ? data : null;
   } catch {
     recommend.value = null;

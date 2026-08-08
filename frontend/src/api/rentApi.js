@@ -75,9 +75,9 @@ export default {
   },
 
   // 금융상품 조회 (Step4) — { months, gap, products[] }
-  async findProducts(goalId, listingId, months) {
-    const { data } = await instance.get(`${BASE_URL}/goals/${goalId}/products`, {
-      params: { listingId, months },
+  async findProducts(listingId, months) {
+    const { data } = await instance.get(`${BASE_URL}/listings/${listingId}/products`, {
+      params: { months },
     });
     return data.data;
   },

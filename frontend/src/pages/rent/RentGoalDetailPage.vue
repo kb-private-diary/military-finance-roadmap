@@ -118,7 +118,7 @@ const load = async () => {
   try {
     const lid = listing.value?.listingId || goal.value?.confirmedListingId;
     const months = goal.value?.residenceMonths || rentStore.months || 6;
-    const p = await rentApi.findProducts(goalId, lid, months);
+    const p = await rentApi.findProducts(lid, months);
     productSections.value = normalizeProducts(p);
   } catch {
     productSections.value = [];
@@ -169,9 +169,23 @@ const coordText = computed(() =>
 );
 const KAKAO_KEY = import.meta.env.VITE_KAKAO_MAP_KEY; // 하드코딩 금지 (.env)
 const mapEl = ref(null);
-const showMap = computed(() => !!KAKAO_KEY && hasCoords.value);
+// 지오코딩용 동 주소: load-nationwide 매물은 좌표가 NULL이라 dongName(예 "부산 남구 대연동")으로 대략 위치를 찾는다.
+// "부산 남구 대연동~~~"처럼 뒤에 물결·부가문자가 붙는 경우가 있어 앞 3토큰(시 구 동)만 쓰고 비주소 문자는 제거해 검색 정확도를 높인다.
+const geocodeQuery = computed(() => {
+  const raw = listing.value?.dongName;
+  if (!raw) return '';
+  return raw
+    .trim()
+    .split(/\s+/)
+    .slice(0, 3)
+    .join(' ')
+    .replace(/[^가-힣0-9\s]/g, '') // 물결·특수문자 제거
+    .trim();
+});
+const showMap = computed(() => !!KAKAO_KEY && (hasCoords.value || !!geocodeQuery.value));
 let mapReady = false;
 
+// libraries=services: Geocoder(동 주소 → 좌표 변환)를 쓰려면 필수
 const loadKakaoSdk = () =>
   new Promise((resolve, reject) => {
     if (window.kakao?.maps) return resolve();
@@ -183,20 +197,15 @@ const loadKakaoSdk = () =>
     }
     const script = document.createElement('script');
     script.id = 'kakao-map-sdk';
-    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_KEY}&autoload=false`;
+    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_KEY}&autoload=false&libraries=services`;
     script.onload = () => resolve();
     script.onerror = reject;
     document.head.appendChild(script);
   });
 
 // 대략 위치만: 마커 대신 반경 150m 원(Circle). 자취 테마라 핑크(목업 지정색).
-const initMap = () => {
-  if (!mapEl.value || !hasCoords.value) return;
+const drawCircle = (pos) => {
   const { kakao } = window;
-  const pos = new kakao.maps.LatLng(
-    Number(listing.value.latitude),
-    Number(listing.value.longitude),
-  );
   const map = new kakao.maps.Map(mapEl.value, { center: pos, level: 4 });
   const circle = new kakao.maps.Circle({
     center: pos,
@@ -209,6 +218,31 @@ const initMap = () => {
     fillOpacity: 0.18,
   });
   circle.setMap(map);
+};
+
+// 지도 초기화: 좌표 있으면 그 좌표로, 없으면 동 주소를 지오코딩해 대략 위치로 Circle 표시.
+const initMap = () => {
+  if (!mapEl.value) return;
+  const { kakao } = window;
+  // (1) 좌표 있으면 기존 경로 그대로
+  if (hasCoords.value) {
+    drawCircle(
+      new kakao.maps.LatLng(
+        Number(listing.value.latitude),
+        Number(listing.value.longitude),
+      ),
+    );
+    return;
+  }
+  // (2) 좌표 없고 동 주소 있으면 지오코딩 → 대략 위치 Circle. 실패 시 조용히 폴백(컨테이너만 빈 상태)
+  if (geocodeQuery.value && kakao.maps.services) {
+    const geocoder = new kakao.maps.services.Geocoder();
+    geocoder.addressSearch(geocodeQuery.value, (result, status) => {
+      if (status === kakao.maps.services.Status.OK && result[0]) {
+        drawCircle(new kakao.maps.LatLng(Number(result[0].y), Number(result[0].x)));
+      }
+    });
+  }
 };
 
 const setupMap = async () => {
