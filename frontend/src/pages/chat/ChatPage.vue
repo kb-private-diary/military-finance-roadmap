@@ -524,8 +524,9 @@ const showLoanProducts = async () => {
     }
     pushBot({
       text: '대출 상품이에요. 궁금한 상품을 골라주세요.',
+      // 대출 3종(주담대/전세자금/개인신용)을 한 목록으로 합쳐서 보여주다 보니 대표로 주담대 링크를 쓴다
       source: CATEGORY_LIST_SOURCE.mortgage.label,
-      sourceUrl: null,
+      sourceUrl: CATEGORY_LIST_SOURCE.mortgage.url,
       menuCarousel: true,
       menu: top.map((p) => ({
         label: LIVE_ITEM_LABEL[p.category](p),
@@ -607,7 +608,7 @@ const CATEGORY_LIST_SOURCE = {
   mortgage: { label: '금융감독원 금융상품한눈에', url: 'https://finlife.fss.or.kr/finlife/ldng/houseMrtg/list.do?menuNo=700007' },
   jeonse: { label: '금융감독원 금융상품한눈에', url: 'https://finlife.fss.or.kr/finlife/ldng/lfstsFunds/list.do?menuNo=700008' },
   creditLoan: { label: '금융감독원 금융상품한눈에', url: 'https://finlife.fss.or.kr/finlife/ldng/indvlCrdt/list.do?menuNo=700009' },
-  insurance: { label: 'KB손해보험다이렉트', url: null },
+  insurance: { label: 'KB손해보험다이렉트', url: 'https://direct.kbinsure.co.kr/home/' },
 };
 
 // includeListings: false면 실시간 청약홈 "매물" 목록은 빼고 고정 상품만 보여준다.
@@ -1214,8 +1215,12 @@ const askBackend = async (text, { title, extraMenu = [], forceInfo = false, prod
   // 안 하고 바로 그 기능 안내로 답한다. 예전엔 일단 RAG 답변부터 받아서(대부분 "참고 자료에 없다"는
   // 엉뚱한 내용) 뒤에 안내 문구만 덧붙였는데, 그 앞부분이 질문이랑 안 맞아서 오히려 헷갈린다는
   // 피드백(2026-08-06) - 이제 그 답변 자체를 아예 안 보여주고 깔끔하게 안내만 한다.
-  // productContext가 있는(=실시간 상품 후속질문) 흐름은 이 페이지-링크 안내로 새지 않고 그대로 상품 Q&A로 간다.
-  const pageLink = !productContext && PAGE_LINKS.find((p) => p.keywords.some((k) => text.includes(k)));
+  // productContext가 있거나(실시간 상품 후속질문) extraMenu가 있는(상품명 되묻기 흐름, askProductQuestion)
+  // 경우는 이 페이지-링크 안내로 새지 않고 그대로 상품 Q&A로 간다. "KB손해보험 자동차보험(개인)"처럼
+  // 상품명 자체에 다른 기능 키워드("자동차")가 우연히 들어있으면, 답변 없이 바로 그 기능 안내로
+  // 튀어버리는 문제가 있었다(2026-08-08 피드백) - 아래에서 답변을 먼저 보여준 뒤 안내를 덧붙이는 걸로 바꿈.
+  const pageLink =
+    !productContext && !extraMenu.length && PAGE_LINKS.find((p) => p.keywords.some((k) => text.includes(k)));
   if (pageLink) {
     pushUser(text);
     input.value = '';
@@ -1279,6 +1284,19 @@ const askBackend = async (text, { title, extraMenu = [], forceInfo = false, prod
           })),
         );
       }
+    }
+
+    // 상품명 자체가 다른 서비스 기능 키워드와 겹치는 경우(예: "자동차보험" -> 자차 준비 기능),
+    // 위에서 실제 답변은 이미 정상적으로 보여줬으니 그 답변을 대체하지 않고 안내만 추가로 붙인다
+    // (내 집 마련 흐름과 같은 패턴 - 청약 상품 먼저 보여주고 자취 준비 기능을 덧붙임, 2026-08-08 피드백)
+    const relatedPageLink = PAGE_LINKS.find((p) => p.keywords.some((k) => text.includes(k)));
+    if (relatedPageLink) {
+      menu.push({
+        label: relatedPageLink.label,
+        onClick: () => goTo(relatedPageLink.to),
+        action: 'goTo',
+        args: [relatedPageLink.to],
+      });
     }
 
     const bubble = {
@@ -1563,7 +1581,8 @@ const openHistory = () => {
   pushBot({
     title: '최근 이전 대화',
     text: '날짜를 골라주세요.',
-    menuInCard: true,
+    // 카드 안 흰 버튼 대신 다른 선택지들과 같은 국방색 톤(연한 배경 + hover 시 진하게)으로 통일(2026-08-08 피드백)
+    menuFit: true,
     menu: dateEntries.map((d) => {
       const summary = summarizeDateEntry(d.index);
       const label = summary ? `${formatDate(d.id.replace('date-', ''))} · ${summary}` : d.label;
@@ -1732,7 +1751,6 @@ onMounted(async () => {
                   :key="i"
                   type="button"
                   class="tag-chip tag-chip--guide"
-                  :class="{ 'tag-chip--dark': i % 2 === 1 }"
                   @click="tag.onClick"
                 >
                   {{ tag.label }}
@@ -1797,7 +1815,6 @@ onMounted(async () => {
                   :key="i"
                   type="button"
                   class="tag-chip"
-                  :class="{ 'tag-chip--dark': i % 2 === 1 }"
                   @click="goTo(r.pageLink)"
                 >
                   {{ r.label }}
@@ -1809,13 +1826,11 @@ onMounted(async () => {
               <div v-if="msg.menu && msg.menuCarousel" class="menu-carousel-wrap">
                 <div class="menu-carousel-track">
                   <div :id="`carousel-${msg.id}`" class="menu-carousel" @scroll="onCarouselScroll(msg, $event)">
-                    <!-- 캐러셀 카드도 다른 선택 버튼들이랑 같은 국방색 번갈아 넣기로(2026-08-06 피드백) -->
                     <button
                       v-for="(opt, i) in msg.menu"
                       :key="i"
                       type="button"
                       class="menu-carousel-card"
-                      :class="{ 'menu-carousel-card--dark': i % 2 === 1 }"
                       @click="opt.onClick"
                     >
                       {{ opt.label }}
@@ -1855,15 +1870,14 @@ onMounted(async () => {
               </div>
 
               <!-- 카드 안(menuInCard)·캐러셀(menuCarousel)이 아닌 나머지 전부 - 되묻기든 용어 목록이든
-                   가이드 태그줄과 같은 국방색으로 통일한다. 기본은 번갈아 넣기지만, 용어 목록처럼
-                   항목이 너무 많아서 색이 섞이면 산만한 경우는 menuLight로 밝은 색 하나만 쓴다(2026-08-06 피드백). -->
+                   연한 국방색 칩으로 통일하고, 마우스 올렸을 때만 진한 국방색으로 바뀐다(2026-08-07 피드백) -->
               <div v-if="msg.menu && !msg.menuInCard && !msg.menuCarousel" class="menu-col menu-col--fit">
                 <button
                   v-for="(opt, i) in msg.menu"
                   :key="i"
                   type="button"
                   class="tag-chip"
-                  :class="{ 'tag-chip--dark': !msg.menuLight && i % 2 === 1, 'tag-chip--nav': msg.menuFit }"
+                  :class="{ 'tag-chip--nav': msg.menuFit }"
                   @click="opt.onClick"
                 >
                   {{ opt.label }}
@@ -2210,8 +2224,9 @@ onMounted(async () => {
   cursor: pointer;
 }
 
-/* 연한 국방색만으로는 "군색" 느낌이 잘 안 산다는 피드백으로, 진한 배경+흰 글씨를 한 칸씩 번갈아 넣어본다 */
-.tag-chip--dark {
+/* 한 칸씩 번갈아 진하게 넣었더니 오히려 산만하다는 피드백 - 기본은 연한 국방색으로 통일하고,
+   마우스를 올렸을 때만 진한 배경+흰 글씨로 바뀌게 한다(2026-08-07 피드백) */
+.tag-chip:hover {
   background: var(--military-green);
   color: #ffffff;
 }
@@ -2350,6 +2365,13 @@ onMounted(async () => {
   font-weight: 500;
 }
 
+/* 카드 안 흰 버튼도 다른 드롭다운·칩과 같은 국방색 hover 톤으로(2026-08-07 피드백) */
+.menu-btn:hover {
+  background: var(--military-green-light);
+  border-color: var(--military-green);
+  color: var(--military-green);
+}
+
 .menu-col--many .menu-btn {
   margin-top: 0;
 }
@@ -2470,7 +2492,7 @@ onMounted(async () => {
   min-height: 92px;
   display: flex;
   align-items: center;
-  /* 다른 선택 버튼들이랑 같은 국방색 번갈아 넣기(연한 쪽이 기본, 2026-08-06 피드백) */
+  /* 연한 국방색이 기본, 마우스 올렸을 때만 진하게(2026-08-07 피드백) */
   background: var(--military-green-light);
   border: none;
   border-radius: 14px;
@@ -2485,7 +2507,7 @@ onMounted(async () => {
   box-shadow: 0 1px 3px rgba(180, 150, 80, 0.08);
 }
 
-.menu-carousel-card--dark {
+.menu-carousel-card:hover {
   background: var(--military-green);
   color: #ffffff;
 }
