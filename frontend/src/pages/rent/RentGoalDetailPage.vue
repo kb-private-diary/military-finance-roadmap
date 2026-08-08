@@ -67,16 +67,27 @@ const TABS = [
   { key: 'products', label: '금융상품' },
 ];
 
-// findProducts(대출 상품) 응답 → 섹션 레이아웃 정규화. 실패/빈값이면 빈 배열.
+// findProducts 응답 → 섹션 레이아웃 정규화. 실패/빈값이면 빈 배열.
+//   백엔드는 monthlySubsidy/depositLoan/free 3그룹으로 응답 (RentProductsPage와 동일 구조)
 const normalizeProducts = (data) => {
-  if (!data?.products?.length) return [];
+  const all = [
+    ...(data?.monthlySubsidy || []),
+    ...(data?.depositLoan || []),
+    ...(data?.free || []),
+  ];
+  if (!all.length) return [];
   return [
     {
       caption: '관련 금융상품',
-      items: data.products.map((p) => ({
+      items: all.map((p) => ({
         name: p.productName,
-        org: p.productType === 'POLICY' ? '정책상품' : 'KB국민',
-        link: p.link || '#',
+        org:
+          p.productType === 'POLICY'
+            ? '정책상품'
+            : p.productType === 'LOCAL'
+              ? '지자체'
+              : 'KB국민',
+        link: p.externalUrl || '#',
       })),
     },
   ];
