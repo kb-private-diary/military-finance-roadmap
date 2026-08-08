@@ -23,15 +23,15 @@ SOURCE master/region_sy.sql;      -- 법정동 (수연)
 SOURCE master/school_sy.sql;      -- 학교 (수연)
 SOURCE master/station_sy.sql;     -- 지하철역 (수연)
 SOURCE master/utility_sy.sql;     -- 공과금 계수 (수연)
-SOURCE master/common_seok.sql;
-SOURCE master/saving_seok.sql;
--- SOURCE master/rank_xx.sql;     -- 계급/급여
+SOURCE master/common_seok.sql;    -- 공통(군종/부대/계급/은행/로드맵카테고리) (석윤) ※ user/saving_account FK·급여계산에 필수
+SOURCE master/saving_seok.sql;    -- 예적금/군적금/정책상품 (석윤) ※ military_saving_product 만기계산에 필수
+SOURCE master/merchant_sy.sql;    -- 가맹점 카테고리 매핑 (수연)
+SOURCE master/housing_sy.sql;     -- 주거 금융상품 (수연)
 -- SOURCE master/car_hb.sql;      -- 자동차 (호빈)
--- SOURCE master/product_xx.sql;  -- 금융상품
 -- ... 각자 파일 여기에 추가
 
 -- ── 데모 트랜잭션 데이터 (마스터 뒤에 로드) ───────────────────────
-SOURCE demo/kb_demo_reviews.sql;  -- 후회소비 데모 (호빈 start)
+SOURCE demo/kb_demo_reviews.sql;         -- 후회소비 데모: user(id=1,2)/vacation/chat (호빈 start) + 오픈뱅킹/적금/자취 (수연 병합)
 
 SET FOREIGN_KEY_CHECKS = 1;   -- FK 체크 ON (다시 켬)
 

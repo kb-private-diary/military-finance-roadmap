@@ -6,8 +6,10 @@ import { useRouter } from 'vue-router';
 import regretApi from '@/api/regretApi';
 import { formatWon, formatDate } from '@/util/format';
 import BaseCard from '@/components/common/BaseCard.vue';
+import { useToast } from '@/composables/useToast';
 
 const router = useRouter();
+const { show: showToast } = useToast();
 
 const CATEGORY = {
   FOOD: { label: '식비', icon: '🍚' },
@@ -20,15 +22,6 @@ const CATEGORY = {
 };
 const cat = (c) => CATEGORY[c] || { label: c, icon: '💳' };
 
-// TODO: 백엔드 지출 API 연동 확인되면 샘플 폴백 제거
-const SAMPLE = [
-  { spendingId: 1, merchantName: '무신사 스토어', category: 'SHOPPING', amount: 38500, spentAt: '2026-08-05', reviewType: null },
-  { spendingId: 2, merchantName: '배달의민족', category: 'FOOD', amount: 21000, spentAt: '2026-08-05', reviewType: null },
-  { spendingId: 3, merchantName: '카카오T 택시', category: 'TRANSPORT', amount: 11000, spentAt: '2026-08-05', reviewType: null },
-  { spendingId: 4, merchantName: '스타벅스 장전점', category: 'CAFE', amount: 6300, spentAt: '2026-08-04', reviewType: null },
-  { spendingId: 5, merchantName: 'CGV 서면', category: 'CULTURE', amount: 15000, spentAt: '2026-08-04', reviewType: null },
-];
-
 const spendings = ref([]);
 const loading = ref(true);
 const recent = ref([]); // 방금 점호한 [{ id, type }] (되돌리기·요약 점 표시)
@@ -37,9 +30,11 @@ const load = async () => {
   loading.value = true;
   try {
     const d = await regretApi.findSpendings();
-    spendings.value = d?.length ? d : SAMPLE;
+    // 미점호(reviewType 없음) 소비만 점호 큐에 담음 — 없으면 "점호 완료" 빈 상태
+    spendings.value = (d || []).filter((s) => !s.reviewType);
   } catch {
-    spendings.value = SAMPLE; // TODO: 폴백 제거
+    spendings.value = [];
+    showToast('소비 내역을 불러오지 못했어요', 'error');
   } finally {
     loading.value = false;
   }

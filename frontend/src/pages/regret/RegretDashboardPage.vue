@@ -7,8 +7,11 @@ import regretApi from '@/api/regretApi';
 import { formatManwon, formatWon } from '@/util/format';
 import BaseCard from '@/components/common/BaseCard.vue';
 import DonutChart from '@/components/common/DonutChart.vue';
+import EmptyState from '@/components/common/EmptyState.vue';
+import { useToast } from '@/composables/useToast';
 
 const router = useRouter();
+const { show: showToast } = useToast();
 
 const now = new Date();
 const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -24,65 +27,59 @@ const CATEGORY_LABEL = {
   ETC: '기타',
 };
 
-// TODO: 백엔드 통계 API 연동 확인되면 샘플 폴백 제거
-const SAMPLE = {
-  totalSpending: 430000,
-  regretAmount: 120000,
-  sosoAmount: 60000,
-  satisfiedAmount: 250000,
-  regretCount: 5,
-  sosoCount: 2,
-  satisfiedCount: 9,
-  untaggedCount: 3,
-  monthlyIncome: 900000,
-  regretRatio: 13.3,
-  categoryRegrets: [
-    { category: 'SHOPPING', amount: 58000, count: 2 },
-    { category: 'CAFE', amount: 32000, count: 2 },
-    { category: 'ETC', amount: 30000, count: 1 },
-  ],
-};
+// 이번달 일자별 후회소비 금액 합계 (히트맵 농담 계산용) — { [day]: 합계원 }
+// findSpendings() 실데이터에서 계산, 데이터 없으면 빈 객체 → 전부 level 0
+const dailyRegretAmount = ref({});
 
-// 일자별 지출 농담(히트맵). TODO: 백엔드 일자별 집계 API 연동 (현재는 샘플)
-const DAILY_LEVEL = {
-  1: 2, 2: 4, 3: 1, 5: 1, 6: 2, 8: 3, 9: 4, 10: 2, 12: 1, 13: 1,
-  14: 3, 15: 4, 16: 3, 17: 1, 20: 2, 21: 1, 22: 3, 23: 4, 24: 2, 26: 1, 27: 2, 29: 3, 30: 2,
+// 후회금액 합계 → 히트맵 레벨(0~4) 매핑
+//   0원=0(회색) / ~1만=1 / ~3만=2 / ~5만=3 / 5만 초과=4
+const regretAmountToLevel = (amt) => {
+  if (!amt || amt <= 0) return 0;
+  if (amt <= 10000) return 1;
+  if (amt <= 30000) return 2;
+  if (amt <= 50000) return 3;
+  return 4;
 };
-
-// 월별 비교 (최근 4개월) 샘플. 실연동은 각 달 stats 조회로 덮어씀
-const SAMPLE_MONTHS = [
-  { label: '5월', total: 1080000, regret: 345600, soso: 108000, satisfied: 626400 },
-  { label: '6월', total: 1210000, regret: 363000, soso: 145000, satisfied: 665500 },
-  { label: '7월', total: 1140000, regret: 250800, soso: 114000, satisfied: 684000 },
-  { label: '8월', total: 430000, regret: 120000, soso: 60000, satisfied: 250000 },
-];
 
 const stats = ref(null);
-const months = ref(SAMPLE_MONTHS);
+const months = ref([]);
 const loading = ref(true);
-// 실 통계 API 성공 여부 (실패 시 SAMPLE 폴백 → "미리보기" 뱃지 표시)
-const usingSample = ref(false);
+
+// 이번달 일자별 후회소비 집계 (실데이터). 실패해도 히트맵은 빈 상태로 방어(토스트 중복 방지)
+const loadDaily = async () => {
+  try {
+    const list = await regretApi.findSpendings();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    const map = {};
+    (list || []).forEach((s) => {
+      if (s.reviewType !== 'REGRET') return;
+      const dt = new Date(s.spentAt);
+      if (dt.getFullYear() !== y || dt.getMonth() !== m) return;
+      const day = dt.getDate();
+      map[day] = (map[day] || 0) + (s.amount || 0);
+    });
+    dailyRegretAmount.value = map;
+  } catch {
+    dailyRegretAmount.value = {};
+  }
+};
 
 const load = async () => {
   loading.value = true;
   try {
     const d = await regretApi.getMonthlyStats(yearMonth);
-    if (d && d.totalSpending != null) {
-      stats.value = d;
-      usingSample.value = false;
-    } else {
-      stats.value = SAMPLE;
-      usingSample.value = true;
-    }
+    // 실데이터 없거나 형식 미달이면 null 유지 → 템플릿이 빈 상태로 방어
+    stats.value = d && d.totalSpending != null ? d : null;
   } catch {
-    stats.value = SAMPLE; // TODO: 폴백 제거
-    usingSample.value = true;
+    stats.value = null;
+    showToast('후회소비 통계를 불러오지 못했어요', 'error');
   } finally {
     loading.value = false;
   }
 };
 
-// 최근 4개월 통계 조회 → 월별 비교 막대 (모두 정상일 때만 실데이터로 교체)
+// 최근 4개월 통계 조회 → 월별 비교 막대 (실데이터만 사용, 실패 시 빈 배열)
 const loadMonths = async () => {
   const list = [];
   for (let i = 3; i >= 0; i -= 1) {
@@ -94,17 +91,18 @@ const loadMonths = async () => {
     const res = await Promise.all(
       list.map((m) => regretApi.getMonthlyStats(m.ym)),
     );
-    if (res.every((r) => r && r.totalSpending != null)) {
-      months.value = list.map((m, i) => ({
+    months.value = list
+      .map((m, i) => ({ m, r: res[i] }))
+      .filter(({ r }) => r && r.totalSpending != null)
+      .map(({ m, r }) => ({
         label: m.label,
-        total: res[i].totalSpending,
-        regret: res[i].regretAmount,
-        soso: res[i].sosoAmount,
-        satisfied: res[i].satisfiedAmount,
+        total: r.totalSpending,
+        regret: r.regretAmount,
+        soso: r.sosoAmount,
+        satisfied: r.satisfiedAmount,
       }));
-    }
   } catch {
-    /* SAMPLE_MONTHS 유지 */
+    months.value = [];
   }
 };
 
@@ -113,6 +111,7 @@ const barWidth = (v, t) => (t > 0 ? Math.round((v / t) * 100) : 0);
 onMounted(() => {
   load();
   loadMonths();
+  loadDaily();
 });
 
 const donutItems = computed(() => {
@@ -138,7 +137,7 @@ const calendarCells = computed(() => {
   const cells = [];
   for (let i = 0; i < firstDow; i += 1) cells.push({ void: true });
   for (let d = 1; d <= daysInMonth; d += 1) {
-    cells.push({ day: d, level: DAILY_LEVEL[d] || 0 });
+    cells.push({ day: d, level: regretAmountToLevel(dailyRegretAmount.value[d]) });
   }
   return cells;
 });
@@ -205,10 +204,7 @@ const goDay = (c) => {
 <template>
   <div v-if="stats" class="dash">
     <header class="head">
-      <p class="cap">
-        후회소비 리포트
-        <span v-if="usingSample" class="preview-tag">미리보기 · 샘플 데이터예요</span>
-      </p>
+      <p class="cap">후회소비 리포트</p>
       <h2 class="title">{{ monthLabel }} 후회한 소비</h2>
     </header>
 
@@ -296,21 +292,24 @@ const goDay = (c) => {
         <p class="sec">월별 비교</p>
         <span class="more">최근 4개월</span>
       </div>
-      <div
-        v-for="(m, i) in months"
-        :key="i"
-        class="mrow"
-        :class="{ now: i === months.length - 1 }"
-      >
-        <span class="mn">{{ m.label }}</span>
-        <span class="track">
-          <i class="fs" :style="{ width: barWidth(m.satisfied, m.total) + '%' }" />
-          <i class="fo" :style="{ width: barWidth(m.soso, m.total) + '%' }" />
-          <i class="fr" :style="{ width: barWidth(m.regret, m.total) + '%' }" />
-        </span>
-        <span class="mv">{{ formatManwon(m.total) }}</span>
-      </div>
-      <div class="mb-foot">
+      <template v-if="months.length">
+        <div
+          v-for="(m, i) in months"
+          :key="i"
+          class="mrow"
+          :class="{ now: i === months.length - 1 }"
+        >
+          <span class="mn">{{ m.label }}</span>
+          <span class="track">
+            <i class="fs" :style="{ width: barWidth(m.satisfied, m.total) + '%' }" />
+            <i class="fo" :style="{ width: barWidth(m.soso, m.total) + '%' }" />
+            <i class="fr" :style="{ width: barWidth(m.regret, m.total) + '%' }" />
+          </span>
+          <span class="mv">{{ formatManwon(m.total) }}</span>
+        </div>
+      </template>
+      <p v-else class="mb-empty">아직 월별 비교 데이터가 없어요</p>
+      <div v-if="months.length" class="mb-foot">
         <span class="lg"><i class="dot" style="background: var(--success)" />만족</span>
         <span class="lg"><i class="dot" style="background: var(--soso)" />애매</span>
         <span class="lg"><i class="dot" style="background: var(--danger)" />후회</span>
@@ -360,7 +359,12 @@ const goDay = (c) => {
       </button>
     </div>
   </div>
-  <p v-else class="loading">불러오는 중...</p>
+  <p v-else-if="loading" class="loading">불러오는 중...</p>
+  <EmptyState
+    v-else
+    title="아직 후회소비 데이터가 없어요"
+    description="소비가 쌓이면 점호(만족/후회)를 통해 리포트를 채울 수 있어요"
+  />
 </template>
 
 <style scoped>
@@ -392,18 +396,16 @@ const goDay = (c) => {
   font-size: 12px;
   color: var(--text-muted);
 }
-.preview-tag {
-  font-size: 9px;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 999px;
-  background: var(--kb-yellow-pale);
-  color: var(--brand-gold);
-}
 .title {
   font-size: 18px;
   font-weight: 700;
   color: var(--text-strong);
+}
+.mb-empty {
+  padding: 8px 0 2px;
+  font-size: 12px;
+  color: var(--text-hint);
+  text-align: center;
 }
 .hero {
   display: flex;

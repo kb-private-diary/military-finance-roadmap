@@ -2,7 +2,7 @@
 
 | 파일 | 설명                      |
 |---|-------------------------|
-| `kb-schema.sql` | 테이블 생성 DDL (55개 테이블)    |
+| `kb_schema.sql` | 테이블 생성 DDL (55개 테이블)    |
 | `kb-data.sql` | 테스트/초기 데이터 (INSERT 55건) |
 
 > DB 이름은 **`scoula_db`** 로 통일합니다. (`backend/src/main/resources/application.properties` 기준)
@@ -18,7 +18,7 @@
 mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS scoula_db DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
 
 # 2) 이 폴더(sql/)로 이동 후 스크립트 실행
-mysql -u root -p scoula_db < kb-schema.sql
+mysql -u root -p scoula_db < kb_schema.sql
 mysql -u root -p scoula_db < kb-data.sql
 ```
 > `-u root` 부분은 본인 MySQL 계정으로 바꾸세요. 비밀번호는 실행하면 물어봅니다.
@@ -31,10 +31,10 @@ mysql -u root -p scoula_db < kb-data.sql
      DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
    USE scoula_db;
    ```
-2. `File → Open SQL Script` 로 **`kb-schema.sql`** 열고 실행(⚡)
+2. `File → Open SQL Script` 로 **`kb_schema.sql`** 열고 실행(⚡)
 3. 같은 방법으로 **`kb-data.sql`** 열고 실행(⚡)
 
-> ⚠️ 반드시 **kb-schema.sql → kb-data.sql 순서**로 실행하세요.
+> ⚠️ 반드시 **kb_schema.sql → kb-data.sql 순서**로 실행하세요.
 
 ### 2. 잘 들어갔는지 확인
 
@@ -74,8 +74,8 @@ FLUSH PRIVILEGES;
 
 ## 4. 주의사항
 
-- **데이터를 다시 넣을 땐 `kb-schema.sql` 부터 재실행**하세요.
-  `kb-schema.sql` 에 `DROP TABLE IF EXISTS` 가 있어 테이블이 새로 만들어지고 AUTO_INCREMENT 도 1로 리셋됩니다.
+- **데이터를 다시 넣을 땐 `kb_schema.sql` 부터 재실행**하세요.
+  `kb_schema.sql` 에 `DROP TABLE IF EXISTS` 가 있어 테이블이 새로 만들어지고 AUTO_INCREMENT 도 1로 리셋됩니다.
   `DELETE` 로만 지우고 다시 넣으면 AUTO_INCREMENT 가 이어져서 번호가 밀리고 참조가 깨질 수 있습니다.
 - `kb-data.sql` 은 앞뒤가 `SET FOREIGN_KEY_CHECKS = 0 / 1` 로 감싸져 있어 **INSERT 순서를 신경 쓰지 않아도** 됩니다.
   단, FK 검사를 끄고 넣는 것이므로 **참조 값 자체가 틀려도 에러 없이 들어갑니다.** 데이터 수정 시 참조가 맞는지 직접 확인하세요.

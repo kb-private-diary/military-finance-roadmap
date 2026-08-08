@@ -1,44 +1,46 @@
 <script setup>
 // SCR-REG-07 · 절감 챌린지 + 적금 추천  담당: 수연
-// ⚠️ 백엔드 미구현 화면 - 전부 SAMPLE 하드코딩. 실 API 나오면 아래 SAMPLE 걷어내고 연동할 것
+// 이번달 후회 소비(getMonthlyStats)만 실데이터로 연동. 목표·진행·적금추천 API는 미구현 → 0·빈 상태.
 //    TODO(백엔드): 절감 목표 CRUD, 진행률 집계, 카카오 알림 발송, 적금 상품 추천 API
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import regretApi from '@/api/regretApi';
 import { formatWon, formatManwon } from '@/util/format';
 import BaseCard from '@/components/common/BaseCard.vue';
 import ProgressBar from '@/components/common/ProgressBar.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
+import { useToast } from '@/composables/useToast';
 
 const router = useRouter();
+const { show: showToast } = useToast();
 const goBack = () => router.push({ name: 'RegretDashboard' });
 
-// TODO(백엔드): 아래 전부 SAMPLE. 실 API 연동 시 교체
-const SAMPLE = {
-  currentRegret: 120000, // 이번달 후회 소비 (regret stats 에서 가져올 값)
-  goal: 80000,           // 절감 목표 (사용자가 설정)
-  savedSoFar: 40000,     // 목표까지 아낀 금액 (currentRegret 감소분)
-  monthLabel: '8월',
+const now = new Date();
+const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+const monthLabel = `${now.getMonth() + 1}월`;
+
+// 이번달 후회 소비(실데이터). 목표·아낀 금액은 저장 API 미구현 → 0
+const currentRegret = ref(0);
+const goal = ref(0);
+const savedSoFar = ref(0);
+const loading = ref(true);
+
+// TODO(백엔드): 적금 상품 추천 API 나오면 연동. 현재는 빈 상태
+const savings = ref([]);
+
+const load = async () => {
+  loading.value = true;
+  try {
+    const d = await regretApi.getMonthlyStats(yearMonth);
+    currentRegret.value = d?.regretAmount ?? 0;
+  } catch {
+    currentRegret.value = 0;
+    showToast('후회 소비를 불러오지 못했어요', 'error');
+  } finally {
+    loading.value = false;
+  }
 };
-
-// 추천 적금 (외부 상품 링크 톤). TODO(백엔드): 상품 추천 API 로 교체
-const SAMPLE_SAVINGS = [
-  {
-    name: 'KB 두근두근 적금',
-    rate: '연 4.5%',
-    desc: '군 장병 우대금리 · 월 최대 30만원',
-    tag: '군인 우대',
-  },
-  {
-    name: 'KB 청년도약 적금',
-    rate: '연 4.0%',
-    desc: '만 19~34세 · 자유적립식',
-    tag: '청년 전용',
-  },
-];
-
-const goal = ref(SAMPLE.goal);
-const currentRegret = ref(SAMPLE.currentRegret);
-const savedSoFar = ref(SAMPLE.savedSoFar);
+onMounted(load);
 
 // 목표 절감액 = 현재 후회 - 목표치 (양수면 이만큼 줄여야 함)
 const targetCut = computed(() => Math.max(currentRegret.value - goal.value, 0));
@@ -48,10 +50,10 @@ const progress = computed(() =>
     ? Math.min(Math.round((savedSoFar.value / targetCut.value) * 100), 100)
     : 0,
 );
-// 절감분으로 1년 적금하면? (간단 환산, 이자 제외 SAMPLE)
+// 절감분으로 1년 적금하면? (간단 환산, 이자 제외)
 const yearlySaving = computed(() => targetCut.value * 12);
 
-// TODO(백엔드): 목표 조정 슬라이더/입력 붙이면 실제 저장 연동. 지금은 로컬 상태만
+// TODO(백엔드): 목표 저장 API 붙이면 연동. 지금은 로컬 상태만
 const adjustGoal = (delta) => {
   const next = goal.value + delta;
   if (next < 0 || next >= currentRegret.value) return;
@@ -62,12 +64,9 @@ const adjustGoal = (delta) => {
 <template>
   <div class="challenge">
     <header class="head">
-      <p class="cap">
-        절감 챌린지
-        <span class="preview-tag">미리보기 · 샘플 데이터예요</span>
-      </p>
-      <h2 class="title">{{ SAMPLE.monthLabel }} 후회 소비 줄이기</h2>
-      <p class="dev-note">⚠️ 준비 중인 기능이에요 (미리보기)</p>
+      <p class="cap">절감 챌린지</p>
+      <h2 class="title">{{ monthLabel }} 후회 소비 줄이기</h2>
+      <p class="dev-note">⚠️ 준비 중인 기능이에요</p>
     </header>
 
     <!-- 절감 목표 카드 -->
@@ -114,7 +113,7 @@ const adjustGoal = (delta) => {
       <span class="sec-sub">1년이면 {{ formatManwon(yearlySaving) }}</span>
     </div>
     <BaseCard
-      v-for="(p, i) in SAMPLE_SAVINGS"
+      v-for="(p, i) in savings"
       :key="i"
       padding="16px"
     >
@@ -131,6 +130,9 @@ const adjustGoal = (delta) => {
           <span class="sv-go">자세히 ›</span>
         </div>
       </div>
+    </BaseCard>
+    <BaseCard v-if="!savings.length" padding="16px">
+      <p class="sv-empty">추천 적금 상품은 준비 중이에요</p>
     </BaseCard>
 
     <!-- 카카오 알림 안내 배너 -->
@@ -168,14 +170,6 @@ const adjustGoal = (delta) => {
   gap: 7px;
   font-size: 12px;
   color: var(--text-muted);
-}
-.preview-tag {
-  font-size: 9px;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 999px;
-  background: var(--kb-yellow-pale);
-  color: var(--brand-gold);
 }
 .title {
   font-size: 18px;
@@ -289,6 +283,11 @@ const adjustGoal = (delta) => {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+.sv-empty {
+  font-size: 12px;
+  color: var(--text-hint);
+  text-align: center;
 }
 .sv-ico {
   flex-shrink: 0;
