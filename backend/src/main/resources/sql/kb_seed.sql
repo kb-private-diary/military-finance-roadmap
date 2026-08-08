@@ -28,7 +28,9 @@ SOURCE master/saving_seok.sql;    -- 예적금/군적금/정책상품 (석윤) �
 SOURCE master/merchant_sy.sql;    -- 가맹점 카테고리 매핑 (수연)
 SOURCE master/housing_sy.sql;     -- 주거 금융상품 (수연)
 SOURCE master/job_jiwon.sql;      -- 진로 마스터 데이터 (지원)
-SOURCE master/car_hb.sql;         -- 자동차 (호빈)
+SOURCE master/travel_jts.sql;     -- 여행 지역, 항공비, 숙박비, 상품 (조태석)
+SOURCE master/badge_jts.sql;      -- 사용자 뱃지 정보 (조태석)
+SOURCE master/car_hb.sql;      -- 자동차 (호빈)
 -- ... 각자 파일 여기에 추가
 
 -- ── 데모 트랜잭션 데이터 (마스터 뒤에 로드) ───────────────────────
