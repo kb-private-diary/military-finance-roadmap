@@ -764,12 +764,11 @@ public class RentServiceImpl implements RentService {
         if (!STATUS_DRAFT.equals(goal.getStatus())) {
             throw BusinessException.conflict("이미 저장된 목표입니다.", "RENT_009");
         }
-        // 4) 회원당 저장된 로드맵(CONFIRMED) 1건만 - 이미 있으면 기존 것 삭제 후 저장
-        if (this.mapper.countGoalByUserIdAndStatus(userId, "CONFIRMED") > 0) {
-            throw BusinessException.conflict("이미 저장된 로드맵이 있습니다. 기존 로드맵을 삭제 후 저장해주세요.", "RENT_010");
-        }
-
         String modifier = "user:" + userId; // TODO: JWT 연동 후 로그인 사용자명으로 교체
+
+        // 4) 회원당 저장된 로드맵(CONFIRMED) 1건만 유지 - 이미 있으면 기존 것 soft delete 후 새로 저장
+        //    (사용자가 새 로드맵을 저장하면 기존 확정 로드맵을 대체한다)
+        this.mapper.deleteConfirmedGoalByUserId(userId, modifier);
 
         // 5) 상태 DRAFT → CONFIRMED 확정 (months=거주개월, listingId=Step4에서 고른 확정 매물)
         this.mapper.confirmGoal(goalId, months, listingId, modifier);

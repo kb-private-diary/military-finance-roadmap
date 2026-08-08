@@ -42,6 +42,9 @@ public interface RentMapper {
     // 재등록 시 기존 DRAFT 목표 soft delete (회원당 DRAFT 1건 유지)
     void deleteDraftGoalByUserId(@Param("userId") Long userId, @Param("modifiedNm") String modifiedNm);
 
+    // 새 로드맵 저장 시 기존 CONFIRMED 목표 soft delete (회원당 CONFIRMED 1건 유지, 기존 대체)
+    void deleteConfirmedGoalByUserId(@Param("userId") Long userId, @Param("modifiedNm") String modifiedNm);
+
     // 회원의 특정 상태 목표 건수 (회원당 CONFIRMED 1건 검증용)
     int countGoalByUserIdAndStatus(@Param("userId") Long userId, @Param("status") String status);
 
