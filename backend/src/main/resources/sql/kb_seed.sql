@@ -31,8 +31,7 @@ SOURCE master/housing_sy.sql;     -- 주거 금융상품 (수연)
 -- ... 각자 파일 여기에 추가
 
 -- ── 데모 트랜잭션 데이터 (마스터 뒤에 로드) ───────────────────────
-SOURCE demo/kb_demo_reviews.sql;         -- 후회소비 데모: user(id=1,2)/vacation/chat (호빈 start)
-SOURCE demo/kb_demo_openbanking_sy.sql;  -- 오픈뱅킹: 적금/납입/수입/지출/회고/연동/자취목표 (수연) ※ kb_demo_reviews 뒤
+SOURCE demo/kb_demo_reviews.sql;         -- 후회소비 데모: user(id=1,2)/vacation/chat (호빈 start) + 오픈뱅킹/적금/자취 (수연 병합)
 
 SET FOREIGN_KEY_CHECKS = 1;   -- FK 체크 ON (다시 켬)
 
