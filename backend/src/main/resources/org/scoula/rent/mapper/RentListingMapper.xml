@@ -68,6 +68,17 @@
          ORDER BY ST_Distance_Sphere(POINT(l.longitude, l.latitude), POINT(s.longitude, s.latitude))
     </select>
 
+    <!-- SCHOOL 모드 폴백: 학교가 속한 시군구의 매물 (좌표 유무 무관, 좌표 없는 매물도 노출)
+         좌표 있는 매물을 위로(통학뱃지 우선), 그 다음 월세 오름차순 -->
+    <select id="findListingsBySchoolRegion" resultType="org.scoula.rent.domain.RentListingVO">
+        SELECT <include refid="listingColumns"/>
+          FROM rent_listing l
+         WHERE l.del_yn = 'N'
+           AND l.sigungu_code = #{sigunguCode}
+           AND l.monthly_rent &lt;= #{maxMonthly}
+         ORDER BY (l.latitude IS NULL), l.monthly_rent
+    </select>
+
     <!-- 매물 단건 조회 (Step3 상세) -->
     <select id="findById" parameterType="long" resultType="org.scoula.rent.domain.RentListingVO">
         SELECT <include refid="listingColumns"/>

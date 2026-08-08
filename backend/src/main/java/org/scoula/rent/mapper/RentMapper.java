@@ -29,6 +29,9 @@ public interface RentMapper {
     // 학교 단건 조회 (SCHOOL 모드 통학시간 뱃지 - 학교 좌표로 매물 거리 계산)
     SchoolVO findSchoolById(Long schoolId);
 
+    // 학교 시군구코드 캐시 (좌표→시군구 역지오코딩 결과를 school 에 저장, 다음 조회부터 재사용)
+    void updateSchoolSigungu(@Param("schoolId") Long schoolId, @Param("sigunguCode") String sigunguCode);
+
     // 목표 단건 조회 (상세)
     RentGoalVO findGoalById(Long goalId);
 

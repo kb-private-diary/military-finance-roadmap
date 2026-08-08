@@ -25,6 +25,12 @@ public interface RentListingMapper {
                                              @Param("radiusKm") Integer radiusKm,
                                              @Param("maxMonthly") Long maxMonthly);
 
+    // SCHOOL 모드 (좌표 없는 매물 대응): 학교가 속한 시군구의 매물 (좌표 유무 무관)
+    //   매물 좌표가 없어도 학교 지역 매물을 노출한다. 좌표 있는 매물을 위로 정렬(통학뱃지 우선)
+    //   실질월부담 필터·정렬·상위 30개 컷은 RentServiceImpl.findListings 에서 처리
+    List<RentListingVO> findListingsBySchoolRegion(@Param("sigunguCode") String sigunguCode,
+                                                   @Param("maxMonthly") Long maxMonthly);
+
     // 매물 단건 조회 (Step3 상세)
     RentListingVO findById(Long listingId);
 

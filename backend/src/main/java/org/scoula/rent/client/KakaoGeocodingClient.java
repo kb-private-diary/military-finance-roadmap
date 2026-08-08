@@ -35,6 +35,8 @@ public class KakaoGeocodingClient {
 
     // 카카오 로컬 - 주소 검색 API
     private static final String ADDRESS_URL = "https://dapi.kakao.com/v2/local/search/address.json";
+    // 카카오 로컬 - 좌표→행정구역 변환 API (학교 좌표로 학교가 속한 시군구 판정)
+    private static final String COORD2REGION_URL = "https://dapi.kakao.com/v2/local/geo/coord2regioncode.json";
 
     /**
      * 주소 문자열 → 좌표 [위도, 경도]
@@ -71,6 +73,51 @@ public class KakaoGeocodingClient {
 
         } catch (Exception e) {
             log.warn("카카오 지오코딩 실패 (address={}): {}", address, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 좌표(위경도) → 시군구코드 5자리 (학교 좌표로 학교가 속한 시군구 판정용)
+     * SCHOOL 모드에서 매물 좌표가 없어도 학교 지역 매물을 조회하기 위해 사용.
+     * 못 찾거나 실패하면 null (호출부에서 기존 좌표 반경검색으로 폴백)
+     */
+    public String coord2sigungu(BigDecimal lat, BigDecimal lng) {
+        if (lat == null || lng == null || apiKey == null || apiKey.isBlank()) {
+            return null;
+        }
+        try {
+            URI uri = UriComponentsBuilder.fromHttpUrl(COORD2REGION_URL)
+                    .queryParam("x", lng.toPlainString()) // 경도
+                    .queryParam("y", lat.toPlainString()) // 위도
+                    .build()
+                    .encode(StandardCharsets.UTF_8)
+                    .toUri();
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "KakaoAK " + apiKey);
+
+            ResponseEntity<String> res = rest.exchange(
+                    uri, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+
+            JsonNode docs = om.readTree(res.getBody()).path("documents");
+            if (!docs.isArray() || docs.isEmpty()) {
+                return null;
+            }
+            // region_type 'B'(법정동) 우선, code 앞 5자리 = 시군구코드 (매물 sigungu_code 와 매칭)
+            for (JsonNode d : docs) {
+                if ("B".equals(d.path("region_type").asText())) {
+                    String code = d.path("code").asText();
+                    if (code != null && code.length() >= 5) {
+                        return code.substring(0, 5);
+                    }
+                }
+            }
+            String code = docs.get(0).path("code").asText();
+            return (code != null && code.length() >= 5) ? code.substring(0, 5) : null;
+
+        } catch (Exception e) {
+            log.warn("카카오 좌표→시군구 실패 (lat={}, lng={}): {}", lat, lng, e.getMessage());
             return null;
         }
     }

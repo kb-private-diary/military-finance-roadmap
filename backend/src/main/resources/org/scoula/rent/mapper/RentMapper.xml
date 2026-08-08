@@ -80,6 +80,14 @@
            AND del_yn = 'N'
     </select>
 
+    <!-- 학교 시군구코드 캐시 (좌표→시군구 역지오코딩 결과 저장, 다음 조회부터 카카오 호출 없이 재사용) -->
+    <update id="updateSchoolSigungu">
+        UPDATE school
+           SET sigungu_code = #{sigunguCode}
+         WHERE school_id = #{schoolId}
+           AND del_yn = 'N'
+    </update>
+
     <!-- 목표 단건 조회 (상세) -->
     <select id="findGoalById" resultType="org.scoula.rent.domain.RentGoalVO">
         SELECT goal_id, user_id, title, selection_mode, school_id, commute_radius_km,

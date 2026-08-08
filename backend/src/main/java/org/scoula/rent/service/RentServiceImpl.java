@@ -23,6 +23,7 @@ import org.scoula.rent.dto.NearbyFacilityDTO;
 import org.scoula.rent.dto.PrecisionSimulationDTO;
 import org.scoula.rent.dto.UtilityEstimateResponseDTO;
 import org.scoula.rent.client.KakaoLocalClient;
+import org.scoula.rent.client.KakaoGeocodingClient;
 import org.scoula.rent.dto.NearestStationDTO;
 import org.scoula.rent.mapper.RentMapper;
 import org.scoula.rent.mapper.RentListingMapper;
@@ -83,6 +84,7 @@ public class RentServiceImpl implements RentService {
     private final DashboardService dashboardService;
     private final RegretService regretService;   // Step5 소비 패턴 (후회소비 최근 3개월) - rent → regret 단방향
     private final KakaoLocalClient kakaoLocalClient; // Step5 주변 편의시설 (카카오 로컬)
+    private final KakaoGeocodingClient geocodingClient; // SCHOOL 모드 학교 좌표→시군구 역지오코딩 (좌표 없는 매물 대응)
 
     @Override
     @Transactional(readOnly = true)
@@ -263,9 +265,13 @@ public class RentServiceImpl implements RentService {
         // 1) 후보 매물 조회 (SQL 은 지역/학교반경 + 월세 느슨한 상한까지만, LIMIT 없음)
         List<RentListingVO> candidates;
         if (MODE_SCHOOL.equals(goal.getSelectionMode())) {
-            // 학교 좌표 기준 반경 내 매물
+            // 학교 좌표 기준 반경 내 매물 (좌표 있는 매물)
             candidates = this.listingMapper.findListingsBySchool(
                     goal.getSchoolId(), goal.getCommuteRadiusKm(), goal.getMonthlyBudget());
+            // 국토부 매물은 대부분 좌표 미적재라 반경검색이 자주 빈다 → 학교가 속한 시군구 매물로 폴백
+            if (candidates.isEmpty()) {
+                candidates = findListingsBySchoolRegionFallback(goal);
+            }
         } else {
             // 희망 지역(법정동코드)에 속한 매물
             List<String> regionCodes = this.mapper.findRegionCodesByGoalId(goalId);
@@ -321,6 +327,35 @@ public class RentServiceImpl implements RentService {
             result.add(dto);
         }
         return result;
+    }
+
+    /**
+     * SCHOOL 모드 폴백: 매물 좌표가 없어 반경검색이 비었을 때, 학교가 속한 시군구의 매물을 반환.
+     * 학교 시군구코드가 없으면 학교 좌표를 카카오 역지오코딩해 구하고 school 에 캐시(다음부턴 카카오 호출 없음).
+     * 이렇게 하면 전국 어느 학교든 매물 좌표 유무와 무관하게 매물이 노출된다.
+     */
+    private List<RentListingVO> findListingsBySchoolRegionFallback(RentGoalVO goal) {
+        SchoolVO school = this.mapper.findSchoolById(goal.getSchoolId());
+        if (school == null) {
+            return List.of();
+        }
+        String sigunguCode = school.getSigunguCode();
+        if (sigunguCode == null || sigunguCode.isBlank()) {
+            // 학교 좌표 → 시군구코드 (카카오 역지오코딩) 후 school 에 캐시
+            sigunguCode = this.geocodingClient.coord2sigungu(school.getLatitude(), school.getLongitude());
+            if (sigunguCode != null) {
+                // readOnly 트랜잭션이라 캐시 저장 실패해도 조회는 진행 (다음 조회에서 재시도)
+                try {
+                    this.mapper.updateSchoolSigungu(school.getSchoolId(), sigunguCode);
+                } catch (Exception e) {
+                    log.warn("학교 시군구 캐시 저장 실패 (schoolId={}): {}", school.getSchoolId(), e.getMessage());
+                }
+            }
+        }
+        if (sigunguCode == null || sigunguCode.isBlank()) {
+            return List.of(); // 시군구 판정 불가 (좌표·카카오 모두 실패)
+        }
+        return this.listingMapper.findListingsBySchoolRegion(sigunguCode, goal.getMonthlyBudget());
     }
 
     /**
