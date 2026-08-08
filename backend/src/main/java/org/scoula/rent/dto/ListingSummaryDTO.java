@@ -1,6 +1,7 @@
 package org.scoula.rent.dto;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 import org.scoula.rent.domain.RentListingVO;
 
@@ -19,6 +20,11 @@ public class ListingSummaryDTO {
     private Integer floor;
     private BigDecimal latitude;
     private BigDecimal longitude;
+    private BigDecimal areaSqm;   // 전용면적(㎡)
+    private Integer buildYear;    // 건축년도 (VO builtYear → 프론트 buildYear)
+    private LocalDate dealDate;   // 계약일
+    private Long deposit;         // 보증금(원)
+    private Long monthlyRent;     // 월세(원)
 
     public static ListingSummaryDTO of(RentListingVO vo) {
         String umd = vo.getUmdName() == null ? "" : vo.getUmdName();
@@ -30,6 +36,11 @@ public class ListingSummaryDTO {
                 .floor(vo.getFloor())
                 .latitude(vo.getLatitude())
                 .longitude(vo.getLongitude())
+                .areaSqm(vo.getAreaSqm())
+                .buildYear(vo.getBuiltYear())
+                .dealDate(vo.getDealDate())
+                .deposit(vo.getDeposit())
+                .monthlyRent(vo.getMonthlyRent())
                 .build();
     }
 }
