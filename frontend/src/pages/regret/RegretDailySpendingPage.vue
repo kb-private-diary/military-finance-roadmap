@@ -8,9 +8,11 @@ import { formatWon, formatDate } from '@/util/format';
 import BaseCard from '@/components/common/BaseCard.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
+import { useToast } from '@/composables/useToast';
 
 const route = useRoute();
 const router = useRouter();
+const { show: showToast } = useToast();
 
 // 조회 날짜 (없으면 오늘). ISO 'YYYY-MM-DD' 로 다룸
 const dateParam =
@@ -35,38 +37,20 @@ const REVIEW = {
 };
 const badge = (t) => REVIEW[t] || { label: '미점호', cls: 'none' };
 
-// TODO: 백엔드 지출 API 연동 확인되면 샘플 폴백 제거
-const SAMPLE = [
-  { spendingId: 1, merchantName: '무신사 스토어', category: 'SHOPPING', amount: 38500, spentAt: `${dateParam}T13:20:00`, reviewType: 'REGRET' },
-  { spendingId: 2, merchantName: '배달의민족', category: 'FOOD', amount: 21000, spentAt: `${dateParam}T19:05:00`, reviewType: 'SATISFIED' },
-  { spendingId: 3, merchantName: '스타벅스 장전점', category: 'CAFE', amount: 6300, spentAt: `${dateParam}T10:40:00`, reviewType: 'SOSO' },
-  { spendingId: 4, merchantName: 'GS25 부산대점', category: 'CONVENIENCE', amount: 4800, spentAt: `${dateParam}T22:15:00`, reviewType: null },
-  { spendingId: 5, merchantName: '카카오T 택시', category: 'TRANSPORT', amount: 11000, spentAt: `${dateParam}T23:40:00`, reviewType: null },
-];
-
 const items = ref([]);
 const loading = ref(true);
-// 실 지출 API 성공 여부 (SAMPLE 폴백 시 "미리보기" 뱃지 표시)
-const usingSample = ref(false);
 
-// 그날 지출만 필터 (spentAt 앞 10자리 == dateParam)
+// 그날 지출만 필터 (spentAt 앞 10자리 == dateParam). 해당 날짜 없으면 빈 배열 → EmptyState
 const load = async () => {
   loading.value = true;
   try {
     const d = await regretApi.findSpendings();
-    const list = d?.length ? d : SAMPLE;
-    usingSample.value = !d?.length; // 실데이터 없으면 SAMPLE
-    items.value = list.filter(
+    items.value = (d || []).filter(
       (s) => (s.spentAt || '').slice(0, 10) === dateParam,
     );
-    // 실데이터에 해당 날짜가 하나도 없으면 화면 확인용 샘플로 폴백
-    if (!items.value.length) {
-      items.value = SAMPLE; // TODO: 폴백 제거
-      usingSample.value = true;
-    }
   } catch {
-    items.value = SAMPLE; // TODO: 폴백 제거
-    usingSample.value = true;
+    items.value = [];
+    showToast('지출 내역을 불러오지 못했어요', 'error');
   } finally {
     loading.value = false;
   }
@@ -95,10 +79,7 @@ const goBack = () => router.push({ name: 'RegretDashboard' });
   <div class="daily">
     <header class="head">
       <div class="htx">
-        <p class="cap">
-          일자별 지출
-          <span v-if="usingSample" class="preview-tag">미리보기 · 샘플 데이터예요</span>
-        </p>
+        <p class="cap">일자별 지출</p>
         <h2 class="title">{{ formatDate(dateParam) }}</h2>
       </div>
     </header>
@@ -200,14 +181,6 @@ const goBack = () => router.push({ name: 'RegretDashboard' });
   gap: 7px;
   font-size: 12px;
   color: var(--text-muted);
-}
-.preview-tag {
-  font-size: 9px;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 999px;
-  background: var(--kb-yellow-pale);
-  color: var(--brand-gold);
 }
 .title {
   font-size: 18px;

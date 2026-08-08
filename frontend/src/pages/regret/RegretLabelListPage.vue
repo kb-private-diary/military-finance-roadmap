@@ -1,7 +1,7 @@
 <script setup>
 // SCR-REG-08 · 라벨별 모아보기 (후회/애매/만족)  담당: 수연
 // 대시보드 요약(범례·건수)에서 라벨 클릭 → 해당 라벨 소비만 모아보는 페이지
-// 상단 세그먼트로 라벨 전환 가능. 데이터 없어도 SAMPLE 로 항상 미리보기.
+// 상단 세그먼트로 라벨 전환 가능. 실데이터의 reviewType 으로 필터, 없으면 빈 상태.
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import regretApi from '@/api/regretApi';
@@ -9,9 +9,11 @@ import { formatWon } from '@/util/format';
 import BaseCard from '@/components/common/BaseCard.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
+import { useToast } from '@/composables/useToast';
 
 const route = useRoute();
 const router = useRouter();
+const { show: showToast } = useToast();
 
 // 라벨 메타 (색·이름). 후회=핑크, 애매=옐로, 만족=그린 — 다른 regret 화면과 통일
 const LABELS = {
@@ -40,69 +42,36 @@ const CATEGORY = {
 };
 const cat = (c) => CATEGORY[c] || { label: c, icon: '💳' };
 
-// TODO(백엔드): 라벨별 지출 목록 API 나오면 SAMPLE 걷어내고 연동
-//   현재는 findSpendings() 결과에서 reviewType 으로 필터, 없으면 SAMPLE 폴백
-// 군인 소비 현실성: 후회=충동(야식/쇼핑/게임결제/택시), 만족=필요(통신/이발/생필품)
-const SAMPLE = {
-  REGRET: [
-    { spendingId: 101, merchantName: '배달의민족', category: 'FOOD', amount: 23000, spentAt: '2026-08-05T23:10:00' },
-    { spendingId: 102, merchantName: '무신사 스토어', category: 'SHOPPING', amount: 32900, spentAt: '2026-08-05T14:20:00' },
-    { spendingId: 103, merchantName: '리니지M 인앱결제', category: 'GAME', amount: 55000, spentAt: '2026-08-04T22:40:00' },
-    { spendingId: 104, merchantName: '카카오T 택시', category: 'TRANSPORT', amount: 13000, spentAt: '2026-08-03T23:55:00' },
-    { spendingId: 105, merchantName: 'GS25 위수지점', category: 'CONVENIENCE', amount: 8400, spentAt: '2026-08-02T21:30:00' },
-    { spendingId: 106, merchantName: '스타벅스 서면점', category: 'CAFE', amount: 6300, spentAt: '2026-08-01T15:10:00' },
-  ],
-  SOSO: [
-    { spendingId: 201, merchantName: 'BBQ 치킨', category: 'FOOD', amount: 18000, spentAt: '2026-08-05T20:00:00' },
-    { spendingId: 202, merchantName: 'CU 편의점', category: 'CONVENIENCE', amount: 5500, spentAt: '2026-08-04T12:30:00' },
-    { spendingId: 203, merchantName: '이디야커피', category: 'CAFE', amount: 5100, spentAt: '2026-08-03T16:20:00' },
-    { spendingId: 204, merchantName: '넷플릭스', category: 'CULTURE', amount: 13500, spentAt: '2026-08-01T09:00:00' },
-  ],
-  SATISFIED: [
-    { spendingId: 301, merchantName: 'SKT 통신요금', category: 'TELECOM', amount: 33000, spentAt: '2026-08-06T09:00:00' },
-    { spendingId: 302, merchantName: '위수지역 이발소', category: 'ETC', amount: 10000, spentAt: '2026-08-05T13:00:00' },
-    { spendingId: 303, merchantName: '다이소 생필품', category: 'SHOPPING', amount: 7700, spentAt: '2026-08-04T18:40:00' },
-    { spendingId: 304, merchantName: '김밥천국', category: 'FOOD', amount: 6500, spentAt: '2026-08-03T12:10:00' },
-    { spendingId: 305, merchantName: '온누리약국', category: 'ETC', amount: 4500, spentAt: '2026-08-02T17:20:00' },
-    { spendingId: 306, merchantName: '빨래방 코인세탁', category: 'ETC', amount: 6000, spentAt: '2026-08-01T19:00:00' },
-  ],
-};
-
-const allItems = ref(null); // 실 API 로 받은 전체 지출(태깅 포함). null 이면 SAMPLE 사용
+// findSpendings() 결과에서 reviewType 으로 라벨 필터. 해당 라벨 없으면 빈 상태.
+const allItems = ref([]); // 실 API 로 받은 전체 지출(태깅 포함)
 const loading = ref(true);
 
 const load = async () => {
   loading.value = true;
   try {
     const d = await regretApi.findSpendings();
-    // reviewType 이 실제로 채워진 데이터가 있을 때만 실데이터로 인정
-    allItems.value = d?.some((s) => s.reviewType) ? d : null;
+    allItems.value = d || [];
   } catch {
-    allItems.value = null; // TODO: 폴백 제거
+    allItems.value = [];
+    showToast('소비 내역을 불러오지 못했어요', 'error');
   } finally {
     loading.value = false;
   }
 };
 onMounted(load);
 
-// 현재 라벨 항목: 실데이터 있으면 필터, 없으면 SAMPLE
-const usingSample = computed(() => !allItems.value);
-const items = computed(() => {
-  if (allItems.value) {
-    return allItems.value.filter((s) => s.reviewType === label.value);
-  }
-  return SAMPLE[label.value] || [];
-});
+// 현재 라벨 항목: 실데이터에서 reviewType 필터
+const items = computed(() =>
+  allItems.value.filter((s) => s.reviewType === label.value),
+);
 
 const totalAmount = computed(() =>
   items.value.reduce((acc, s) => acc + (s.amount || 0), 0),
 );
 
-// 세그먼트용 라벨별 건수 (실데이터/샘플 동일 로직)
+// 세그먼트용 라벨별 건수
 const countOf = (key) =>
-  allItems.value
-    ? allItems.value.filter((s) => s.reviewType === key).length
-    : (SAMPLE[key] || []).length;
+  allItems.value.filter((s) => s.reviewType === key).length;
 
 const timeOf = (spentAt) => {
   const m = String(spentAt || '').match(/T(\d{2}):(\d{2})/);
@@ -130,10 +99,7 @@ watch(label, () => window.scrollTo({ top: 0 }));
   <div class="label-list">
     <header class="head">
       <div class="htx">
-        <p class="cap">
-          모아보기
-          <span v-if="usingSample" class="preview-tag">미리보기</span>
-        </p>
+        <p class="cap">모아보기</p>
         <h2 class="title">{{ labelMeta.name }}한 소비</h2>
       </div>
     </header>
@@ -241,14 +207,6 @@ watch(label, () => window.scrollTo({ top: 0 }));
   gap: 6px;
   font-size: 12px;
   color: var(--text-muted);
-}
-.preview-tag {
-  font-size: 9px;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 999px;
-  background: var(--kb-yellow-pale);
-  color: var(--brand-gold);
 }
 .title {
   font-size: 18px;
