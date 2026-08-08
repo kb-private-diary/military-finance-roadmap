@@ -493,9 +493,7 @@ onMounted(() => {
           padding="14px 16px"
           @click="goToSavingProductDetail(item.productId)"
         >
-          <p class="product-card__title">
-            {{ item.korCoNm }} {{ item.productName }}
-          </p>
+          <p class="product-card__title">{{ item.productName }}</p>
           <BaseTag
             v-if="item.isTaxExempt"
             label="비과세"
@@ -795,8 +793,6 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
 }
 
 .product-section__header {

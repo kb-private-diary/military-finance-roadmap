@@ -3,6 +3,7 @@
 import { computed, onMounted, ref } from 'vue';
 import pushApi from '@/api/pushApi';
 import { formatMonthDay, formatTime } from '@/util/format';
+import { useNotificationBadge } from '@/composables/useNotificationBadge';
 import EmptyState from '@/components/common/EmptyState.vue';
 
 import savingIcon from '@/assets/images/push/saving.png';
@@ -25,13 +26,18 @@ const loading = ref(true);
 const errorMessage = ref('');
 const visibleCount = ref(PAGE_SIZE_FIRST);
 
+const { markNotificationsSeen } = useNotificationBadge();
+
 const load = async () => {
   loading.value = true;
   errorMessage.value = '';
   try {
     historyList.value = await pushApi.findHistoryList();
+    // 알림함을 열어 목록을 확인했으니 헤더의 빨간 점을 지운다.
+    markNotificationsSeen();
   } catch (e) {
-    errorMessage.value = e.response?.data?.message || '알림 이력을 불러오지 못했습니다.';
+    errorMessage.value =
+      e.response?.data?.message || '알림 이력을 불러오지 못했습니다.';
   } finally {
     loading.value = false;
   }
@@ -39,7 +45,9 @@ const load = async () => {
 
 onMounted(load);
 
-const visibleList = computed(() => historyList.value.slice(0, visibleCount.value));
+const visibleList = computed(() =>
+  historyList.value.slice(0, visibleCount.value),
+);
 const hasMore = computed(() => visibleCount.value < historyList.value.length);
 const loadMore = () => {
   visibleCount.value += PAGE_SIZE_MORE;
@@ -68,7 +76,9 @@ const groupedList = computed(() => {
     <h1 class="webpush-page__title">알림함</h1>
 
     <p v-if="loading" class="text-caption">불러오는 중...</p>
-    <p v-else-if="errorMessage" class="webpush-page__error text-caption">{{ errorMessage }}</p>
+    <p v-else-if="errorMessage" class="webpush-page__error text-caption">
+      {{ errorMessage }}
+    </p>
 
     <EmptyState
       v-else-if="historyList.length === 0"
@@ -77,11 +87,23 @@ const groupedList = computed(() => {
     />
 
     <template v-else>
-      <section v-for="group in groupedList" :key="group.dateKey" class="webpush-group">
+      <section
+        v-for="group in groupedList"
+        :key="group.dateKey"
+        class="webpush-group"
+      >
         <h2 class="webpush-group__date">{{ group.dateKey }}</h2>
 
-        <div v-for="item in group.items" :key="item.historyId" class="webpush-item">
-          <img :src="getIcon(item.category)" alt="" class="webpush-item__icon" />
+        <div
+          v-for="item in group.items"
+          :key="item.historyId"
+          class="webpush-item"
+        >
+          <img
+            :src="getIcon(item.category)"
+            alt=""
+            class="webpush-item__icon"
+          />
           <div class="webpush-item__body">
             <p class="webpush-item__title">{{ item.title }}</p>
             <p class="webpush-item__desc">{{ item.body }}</p>
@@ -90,7 +112,12 @@ const groupedList = computed(() => {
         </div>
       </section>
 
-      <button v-if="hasMore" type="button" class="webpush-page__more" @click="loadMore">
+      <button
+        v-if="hasMore"
+        type="button"
+        class="webpush-page__more"
+        @click="loadMore"
+      >
         + 더보기
       </button>
       <p v-else class="webpush-page__end text-caption">마지막 알림입니다</p>

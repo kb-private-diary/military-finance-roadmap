@@ -36,6 +36,11 @@
   --chart-3: #dac183;
   --chart-4: #ffecbe;
 
+  /* SavingsBreakdown(예적금 시뮬레이션 원금·이자·매칭지원금 막대) 전용 3색 */
+  --savings-principal: #d7ecc1;
+  --savings-interest: #f0955f;
+  --savings-matching: #ceecf6;
+
   /* 챗봇(SCR-CHAT-01) 배경: 크림톤 */
   --surface-cream: #fbf8ee;
   /* 챗봇 만족도 설문(만족) 강조색 - 긍정 상태 전용, danger(부정)와 대응 */

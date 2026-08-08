@@ -119,9 +119,7 @@ onMounted(fetchAll);
           <p class="product-card__desc">최대 연 {{ item.maxRate }}% 금리</p>
         </template>
         <template v-else>
-          <p class="product-card__title">
-            {{ item.korCoNm }} {{ item.productName }}
-          </p>
+          <p class="product-card__title">{{ item.productName }}</p>
           <BaseTag
             v-if="item.isTaxExempt"
             label="비과세"
