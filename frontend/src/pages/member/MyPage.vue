@@ -123,6 +123,12 @@ onMounted(() => {
           :disabled="!pushSupported || pushLoading"
           @update:model-value="handlePushToggle"
         />
+        <button type="button" class="mypage__ob-btn" @click="router.push({ name: 'RegretLink' })">
+          <span>오픈뱅킹 연동 관리</span>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M9 6L15 12L9 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
       </section>
 
       <button type="button" class="mypage__edit-btn" @click="router.push({ name: 'MyPageEdit' })">
@@ -222,6 +228,22 @@ onMounted(() => {
   margin-top: 20px;
   padding: 14px 4px;
   border-top: 1px solid var(--line);
+}
+
+.mypage__ob-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: 14px;
+  padding: 12px 0 2px;
+  border: none;
+  border-top: 1px solid var(--line);
+  background: none;
+  color: var(--text-body);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .mypage__edit-btn {
