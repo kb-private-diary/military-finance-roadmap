@@ -106,7 +106,15 @@ const linkAccounts = async () => {
     linking.value = false;
   }
 };
-const startService = () => router.push({ name: 'Home' });
+const startService = async () => {
+  try {
+    await openbankingApi.sync(); // 연동 후 거래내역·급여 동기화 (spending/income 적재)
+  } catch {
+    // 동기화 실패해도 진행 (홈에서 다시 시도 가능)
+  }
+  sessionStorage.setItem('ob_linked', 'Y'); // 연동 완료 → 라우터 가드 통과
+  router.push({ name: 'Home' });
+};
 </script>
 
 <template>
