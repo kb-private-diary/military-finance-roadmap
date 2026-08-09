@@ -1,5 +1,7 @@
 package org.scoula.openbanking.dto;
 
+import java.math.BigDecimal;
+
 import lombok.Data;
 
 /**
@@ -18,4 +20,6 @@ public class AccountInfo {
     private Long balance;            // 잔액 (적금=누적납입금 → 석윤 계산용 / 입출금=현재잔액), 연동 화면 표시용
     private String openDate;         // 개설일 "yyyy-MM-dd" (적금계좌만), 반드시 입대일 이후 - 신규회원은 Service가 입대일 기반 보정
     private String maturityDate;     // 만기일 "yyyy-MM-dd" (적금계좌만, 입출금은 null), 만기 수령액 계산은 석윤이 금리 붙여서
+    private BigDecimal interestRate;  // 적금 기본금리(연 %), 적금계좌만 - "내 적금 금리" 화면 노출용 (멘토: 사용자 입장 필수). 입출금은 null
+    private BigDecimal govMatchRate;  // 정부매칭 비율(%) - 군적금 특성(장병내일준비적금 등 100%), 해당 없으면 null
 }

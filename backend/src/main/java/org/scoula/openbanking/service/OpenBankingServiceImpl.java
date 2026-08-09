@@ -151,8 +151,9 @@ public class OpenBankingServiceImpl implements OpenBankingService {
     /** 적금계좌를 saving_account에 저장 + 납입내역을 saving_history에 회차별 저장 → account_id 반환 */
     private Long saveSaving(AccountInfo acc, Long userId, TokenResponse token, String actor) {
         // 납입내역(적금 입금) 조회 - 회차·금액 산출
+        // 개설일(fromDate)을 넘겨 Mock이 개설일부터 현재까지 매월 납입내역을 동적 생성하게 함 (회원별 개설일 정합성)
         List<TransactionInfo> pays = client.getTransactions(
-                token.getAccessToken(), acc.getFintechUseNum(), null, null);
+                token.getAccessToken(), acc.getFintechUseNum(), acc.getOpenDate(), null);
 
         long monthlySave = pays.isEmpty() ? 0L : pays.get(0).getAmount(); // 한달 납입금 (회차 금액)
         int monthlyCount = pays.size();                                   // 납입 회차수
