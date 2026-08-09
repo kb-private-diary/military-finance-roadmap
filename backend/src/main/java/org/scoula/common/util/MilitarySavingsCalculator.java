@@ -3,7 +3,8 @@ package org.scoula.common.util;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.function.IntFunction;
+
+import org.scoula.saving.util.MilitarySavingRateResolver;
 
 public class MilitarySavingsCalculator {
 
@@ -30,6 +31,8 @@ public class MilitarySavingsCalculator {
         public double pastInterest;
         public long futurePrincipal;
         public double futureInterest;
+        // 정부 매칭지원금(원금 × 매칭비율, 총 가입기간만큼의 월납입액이 상한).
+        public long matchingFund;
 
         public long getTotalPrincipal() {
             return pastPrincipal + futurePrincipal;
@@ -45,7 +48,7 @@ public class MilitarySavingsCalculator {
             Long monthlySave,
             LocalDate dischargeDate,
             List<? extends SavingHistory> histories,
-            IntFunction<Double> annualInterestRateResolver) {
+            MilitarySavingRateResolver rateResolver) {
 
         CalcResult result = new CalcResult();
         long monthlySaveAmt = monthlySave != null ? monthlySave : 0L;
@@ -90,7 +93,7 @@ public class MilitarySavingsCalculator {
 
         // 총 가입기간(totalMaturityMonths) 기준으로 계좌 전체에 적용될 금리를 한 번만 결정한다
         // (회차별 경과개월이 아니라, 계좌가 통째로 속하는 구간 하나의 금리를 전 회차에 동일 적용).
-        double annualInterestRate = annualInterestRateResolver.apply(totalMaturityMonths);
+        double annualInterestRate = rateResolver.apply(totalMaturityMonths);
 
         int currentRound = 0;
 
@@ -134,6 +137,11 @@ public class MilitarySavingsCalculator {
             actualTotalMonths = round;
         }
         result.actualTotalMonths = actualTotalMonths;
+
+        // 5. 정부 매칭지원금 = 원금 × 매칭비율, 총 가입기간(totalMaturityMonths)만큼의 월납입액을 상한으로 제한
+        long maxMatchingFund = (long) totalMaturityMonths * monthlySaveAmt;
+        long matchingFund = (long) (result.getTotalPrincipal() * rateResolver.getGovMatchRate());
+        result.matchingFund = Math.min(matchingFund, maxMatchingFund);
 
         return result;
     }

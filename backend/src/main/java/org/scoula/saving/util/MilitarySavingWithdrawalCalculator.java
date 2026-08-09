@@ -81,7 +81,7 @@ public class MilitarySavingWithdrawalCalculator {
             elapsedDays = 0;
         }
         BigDecimal elapsedRatio = contractDays > 0
-                ? BigDecimal.valueOf(elapsedDays * 100.0 / contractDays)
+                ? BigDecimal.valueOf(elapsedDays * PERCENT_DIVISOR / contractDays)
                 : BigDecimal.ZERO;
 
         MilitarySavingWithdrawalRateDTO tier =
