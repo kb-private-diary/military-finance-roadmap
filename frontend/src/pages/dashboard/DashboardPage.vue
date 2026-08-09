@@ -87,10 +87,12 @@ const vacationCategoryMeta = (category) =>
 
 const goAddVacation = () => router.push({ name: 'VacationEdit' });
 
+// 카드(본문) 클릭은 정보 수정으로 보낸다. REGULAR는 가입 시 자동 부여라 수정할 정보가 없으니
+// 대신 사용내역 관리(VacationUsage)로 보낸다.
 const goVacationDetail = (item) => {
   if (item.category === 'REGULAR') {
     router.push({
-      name: 'VacationRegular',
+      name: 'VacationUsage',
       query: { vacationId: item.vacationId },
     });
   } else {
@@ -101,29 +103,13 @@ const goVacationDetail = (item) => {
   }
 };
 
-// 정기(REGULAR)는 "사용 등록"이 곧 새 사용내역(차수) 등록이라 일수 입력이 필요 —
-// 원클릭 토글이 아니라 VacationRegularPage로 보낸다. 그 외 카테고리만 즉시 isUsed 처리.
-const toggleVacationUsed = async (item) => {
-  if (item.category === 'REGULAR') {
-    router.push({
-      name: 'VacationRegular',
-      query: { vacationId: item.vacationId },
-    });
-    return;
-  }
-  try {
-    await dashboardApi.updateVacation(item.vacationId, {
-      category: item.category,
-      name: item.name,
-      acquiredDate: item.acquiredDate,
-      days: item.days,
-      isUsed: !item.isUsed,
-    });
-    await fetchVacations();
-  } catch (error) {
-    console.error(error);
-    show('휴가 사용 처리에 실패했습니다.', 'error');
-  }
+// 체크(사용 등록) 버튼은 카테고리 상관없이 항상 사용내역 등록 화면(VacationUsage)으로 보낸다.
+// 일수 입력이 필요해서 원클릭으로 즉시 처리할 수 있는 액션이 아니다.
+const toggleVacationUsed = (item) => {
+  router.push({
+    name: 'VacationUsage',
+    query: { vacationId: item.vacationId },
+  });
 };
 
 onMounted(async () => {

@@ -186,9 +186,10 @@ public class DashboardServiceImpl implements DashboardService {
             items.add(DashboardVacationItemDTO.of(vacation, days - used));
         }
 
-        // 사용완료(isUsed=true) 카드는 뒤로. 안정정렬이라 같은 isUsed 안에서는 위에서 쌓인
-        // 획득일 최신순이 그대로 유지된다.
-        items.sort(Comparator.comparing(DashboardVacationItemDTO::getIsUsed));
+        // REGULAR는 항상 맨 앞에 고정. 그 다음은 사용완료(isUsed=true) 카드가 뒤로 가고,
+        // 안정정렬이라 같은 그룹 안에서는 위에서 쌓인 획득일 최신순이 그대로 유지된다.
+        items.sort(Comparator.comparing(this::isNonRegular)
+                .thenComparing(DashboardVacationItemDTO::getIsUsed));
 
         return DashboardVacationListResponseDTO.builder()
                 .totalDays(totalDays)
@@ -345,5 +346,9 @@ public class DashboardServiceImpl implements DashboardService {
 
     private int dayCountOf(VacationVO vacation) {
         return vacation.getVacationDay() != null ? vacation.getVacationDay() : 0;
+    }
+
+    private boolean isNonRegular(DashboardVacationItemDTO item) {
+        return !CATEGORY_REGULAR.equals(item.getCategory());
     }
 }
