@@ -522,6 +522,11 @@ public class RentServiceImpl implements RentService {
         //   면적 필터 없이 넓게 동네 평균으로 비교 → 상세 시세뱃지가 항상 뜨도록 백엔드에서 직접 계산해 내려준다.
         Double avgRent = this.listingMapper.selectAvgRentForPriceLevel(
                 listingId, vo.getEstateType(), vo.getRegionCode(), vo.getUmdName());
+        // 법정동에 비교 표본이 없으면 시군구(구 단위)로 넓혀 재판정 → 시세뱃지가 '있다 없다' 하지 않게 안정화
+        if (avgRent == null && vo.getSigunguCode() != null) {
+            avgRent = this.listingMapper.selectAvgRentBySigungu(
+                    listingId, vo.getEstateType(), vo.getSigunguCode());
+        }
         String priceLevel = judgePriceLevel(vo.getMonthlyRent(), avgRent);
 
         return RentListingDetailResponseDTO.of(vo, maintenanceFee, priceLevel);

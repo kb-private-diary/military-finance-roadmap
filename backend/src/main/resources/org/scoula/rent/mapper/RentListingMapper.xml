@@ -146,4 +146,14 @@
         </choose>
     </select>
 
+    <!-- 시세 등급 폴백: 법정동 표본이 없을 때 시군구(구 단위)+같은 종류 평균으로 넓혀 판정 -->
+    <select id="selectAvgRentBySigungu" resultType="java.lang.Double">
+        SELECT AVG(l.monthly_rent)
+          FROM rent_listing l
+         WHERE l.del_yn = 'N'
+           AND l.listing_id != #{listingId}
+           AND l.estate_type = #{estateType}
+           AND l.sigungu_code = #{sigunguCode}
+    </select>
+
 </mapper>

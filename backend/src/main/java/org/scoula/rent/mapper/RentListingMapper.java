@@ -53,4 +53,9 @@ public interface RentListingMapper {
                                       @Param("estateType") String estateType,
                                       @Param("regionCode") String regionCode,
                                       @Param("umdName") String umdName);
+
+    // 시세 등급 폴백: 법정동 표본이 없을 때 시군구(구 단위) + 같은 종류 평균 월세로 넓혀 판정 (뱃지 안정화)
+    Double selectAvgRentBySigungu(@Param("listingId") Long listingId,
+                                  @Param("estateType") String estateType,
+                                  @Param("sigunguCode") String sigunguCode);
 }
