@@ -83,6 +83,14 @@ public class OpenBankingServiceImpl implements OpenBankingService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<AccountInfo> getLinkableAccounts(Long userId) {
+        // 실제 오픈뱅킹: 인증 콜백 code로 토큰 발급 후 계좌 조회. Mock은 userId를 code로 사용 (getToken 참조)
+        TokenResponse token = client.getToken(String.valueOf(userId));
+        return client.getAccounts(token.getAccessToken(), token.getUserSeqNo());
+    }
+
+    @Override
     @Transactional
     public List<AccountInfo> linkAccounts(Long userId, LinkRequest request) {
         List<String> selected = request.getSelectedFintechNums();

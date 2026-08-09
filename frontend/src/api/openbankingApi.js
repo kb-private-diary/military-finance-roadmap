@@ -19,6 +19,14 @@ export default {
     return data.data;
   },
 
+  // 연동 가능한 계좌 목록 조회 (인증 후 "계좌 선택" 단계) —
+  //   [{ fintechUseNum, bankCodeStd, bankName, accountType, productName, accountNumMasked,
+  //      balance, openDate, maturityDate, interestRate, govMatchRate }]
+  async getAccounts() {
+    const { data } = await instance.get(`${BASE_URL}/accounts`);
+    return data.data;
+  },
+
   // 계좌 연동 (인증 콜백 code/state + 선택 계좌) — [{ fintechUseNum, bankName, productName, accountType, balance }]
   async link(payload) {
     const { data } = await instance.post(`${BASE_URL}/link`, payload);

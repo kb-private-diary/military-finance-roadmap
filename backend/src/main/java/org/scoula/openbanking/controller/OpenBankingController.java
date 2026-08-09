@@ -42,6 +42,14 @@ public class OpenBankingController {
                 service.getAuthUrl(customUser.getMember().getId())));
     }
 
+    // GET /api/openbanking/accounts → 연동 가능한 계좌 목록 (사용자가 여기서 선택 후 link)
+    @GetMapping("/accounts")
+    public ResponseEntity<ApiResponse<List<AccountInfo>>> accounts(
+            @AuthenticationPrincipal CustomUser customUser) {
+        return ResponseEntity.ok(ApiResponse.success(
+                service.getLinkableAccounts(customUser.getMember().getId())));
+    }
+
     // POST /api/openbanking/link → 선택한 계좌 연동 (연동된 계좌 목록 반환)
     @PostMapping("/link")
     public ResponseEntity<ApiResponse<List<AccountInfo>>> link(

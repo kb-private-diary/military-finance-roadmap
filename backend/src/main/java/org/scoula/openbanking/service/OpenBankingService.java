@@ -18,6 +18,9 @@ public interface OpenBankingService {
     /** 오픈뱅킹 인증 URL 발급 (프론트가 이 URL로 사용자를 리다이렉트) */
     AuthUrlResponse getAuthUrl(Long userId);
 
+    /** 연동 가능한 계좌 목록 조회 (사용자가 이 중에서 선택해 link). 실제 오픈뱅킹은 인증 콜백 code로 조회, Mock은 userId 기반 */
+    List<AccountInfo> getLinkableAccounts(Long userId);
+
     /** 사용자가 선택한 계좌들을 연동 (openbanking_link 저장). 연동된 계좌 목록 반환 */
     List<AccountInfo> linkAccounts(Long userId, LinkRequest request);
 
