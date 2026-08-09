@@ -163,6 +163,9 @@ onMounted(fetchDetail);
         <p class="vacation-usage__summary-caption">
           {{ usedDays }}일 사용 / 총 {{ detail.days }}일
         </p>
+        <p class="vacation-usage__summary-caption">
+          획득일 {{ formatDate(detail.acquiredDate) }}
+        </p>
       </div>
 
       <section class="vacation-usage__usages">

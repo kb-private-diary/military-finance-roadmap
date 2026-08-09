@@ -275,12 +275,7 @@ onMounted(async () => {
             <span class="vacation-card__days">{{ item.days }}일</span>
           </div>
           <p class="vacation-card__name">{{ item.name }}</p>
-          <p class="vacation-card__meta">
-            <template v-if="item.category === 'REGULAR'"
-              >잔여 일수 {{ item.remainingDays }}일</template
-            >
-            <template v-else>획득 {{ formatDate(item.acquiredDate) }}</template>
-          </p>
+          <p class="vacation-card__meta">잔여 {{ item.remainingDays }}일</p>
           <button
             type="button"
             class="vacation-card__action"
