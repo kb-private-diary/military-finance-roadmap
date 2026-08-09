@@ -66,8 +66,7 @@
             vacation_cate   AS vacationCate,
             vacation_name   AS vacationName,
             vacation_get    AS vacationGet,
-            vacation_day    AS vacationDay,
-            vacation_state  AS vacationState
+            vacation_day    AS vacationDay
         FROM vacation
         WHERE user_id = #{userId}
           AND del_yn = 'N'
@@ -81,8 +80,7 @@
             vacation_cate   AS vacationCate,
             vacation_name   AS vacationName,
             vacation_get    AS vacationGet,
-            vacation_day    AS vacationDay,
-            vacation_state  AS vacationState
+            vacation_day    AS vacationDay
         FROM vacation
         WHERE vacation_id = #{vacationId}
           AND user_id = #{userId}
@@ -92,11 +90,11 @@
     <insert id="insertVacation" parameterType="org.scoula.dashboard.domain.VacationVO"
             useGeneratedKeys="true" keyProperty="vacationId">
         INSERT INTO vacation (
-            user_id, vacation_cate, vacation_name, vacation_get, vacation_day, vacation_state,
+            user_id, vacation_cate, vacation_name, vacation_get, vacation_day,
             created_date, created_nm, del_yn
         ) VALUES (
             #{userId}, #{vacationCate}, #{vacationName}, #{vacationGet},
-            #{vacationDay}, #{vacationState}, NOW(), #{createdNm}, 'N'
+            #{vacationDay}, NOW(), #{createdNm}, 'N'
         )
     </insert>
 
@@ -106,7 +104,6 @@
             vacation_name  = #{vacationName},
             vacation_get   = #{vacationGet},
             vacation_day   = #{vacationDay},
-            vacation_state = #{vacationState},
             modified_date  = NOW(),
             modified_nm    = #{modifiedNm}
         WHERE vacation_id = #{vacationId}
@@ -119,6 +116,54 @@
             modified_date = NOW(),
             modified_nm   = #{modifiedNm}
         WHERE vacation_id = #{vacationId}
+          AND del_yn = 'N'
+    </update>
+
+    <select id="findVacationHistoryListByVacationId"
+            resultType="org.scoula.dashboard.domain.VacationHistoryVO">
+        SELECT
+            history_id   AS historyId,
+            vacation_id  AS vacationId,
+            used_date    AS usedDate,
+            used_day     AS usedDay
+        FROM vacation_history
+        WHERE vacation_id = #{vacationId}
+          AND del_yn = 'N'
+        ORDER BY used_date ASC
+    </select>
+
+    <select id="findVacationHistoryById"
+            resultType="org.scoula.dashboard.domain.VacationHistoryVO">
+        SELECT
+            vh.history_id   AS historyId,
+            vh.vacation_id  AS vacationId,
+            vh.used_date    AS usedDate,
+            vh.used_day     AS usedDay
+        FROM vacation_history vh
+        JOIN vacation v ON v.vacation_id = vh.vacation_id
+        WHERE vh.history_id = #{historyId}
+          AND v.user_id = #{userId}
+          AND vh.del_yn = 'N'
+          AND v.del_yn = 'N'
+    </select>
+
+    <insert id="insertVacationHistory" parameterType="org.scoula.dashboard.domain.VacationHistoryVO"
+            useGeneratedKeys="true" keyProperty="historyId">
+        INSERT INTO vacation_history (
+            vacation_id, used_date, used_day,
+            created_date, created_nm, del_yn
+        ) VALUES (
+            #{vacationId}, #{usedDate}, #{usedDay},
+            NOW(), #{createdNm}, 'N'
+        )
+    </insert>
+
+    <update id="deleteVacationHistory">
+        UPDATE vacation_history
+        SET del_yn        = 'Y',
+            modified_date = NOW(),
+            modified_nm   = #{modifiedNm}
+        WHERE history_id = #{historyId}
           AND del_yn = 'N'
     </update>
 

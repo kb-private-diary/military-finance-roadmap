@@ -5,7 +5,7 @@
 <mapper namespace="org.scoula.member.mapper.MilitaryTypeMapper">
 
     <select id="findMilitaryTypeList" resultType="MilitaryTypeVO">
-        SELECT type_id, type_name, regular_vacation_days,
+        SELECT type_id, type_name,
                created_date, created_nm, modified_date, modified_nm, del_yn
         FROM military_types
         WHERE del_yn = 'N'

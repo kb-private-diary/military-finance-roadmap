@@ -185,7 +185,6 @@ public class MemberServiceImpl implements MemberService {
                 .vacationName("정기휴가")
                 .vacationGet(member.getEnlistDate())
                 .vacationDay(militaryType.getRegularVacationDays())
-                .vacationState(false)
                 .build();
         vacation.setCreatedNm(member.getUserId());
 
