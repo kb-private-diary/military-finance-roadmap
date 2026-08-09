@@ -1740,18 +1740,8 @@ VALUES
    {"type":"insurance","productId":1,"name":"KB 해외여행보험"},
    {"type":"card","productId":4,"name":"WE:SH Travel 카드"}
   ]',
- 4, NOW(), 'jotaeseok', 'N'),
- 
--- 회원3 : 국내 여행
-(3, 3, '부산 여행', '서울', '부산', TRUE, 'premium',
- '2027-01-10', '2027-01-12', 1500000,
- '[
-	 {"type":"tour","name":"감천문화마을","info":"이곳은 원래 달동네였으나 2009년부터 관광지 개발을 했습니다.","image":"https://serpapi.com/searches/6a5e672571a41dfc92d32afe/images/a0iTqz3Qmsf2emXFXkb6f1Ht7Db-jXjOtcZ8g1bvoaQ.jpeg"}
-	]',
- '[
-   {"type":"card","productId":2,"name":"노리2 체크카드"}
-  ]',
- NULL, NOW(), 'jotaeseok', 'N');
+ 4, NOW(), 'jotaeseok', 'N');
+
 
 
 -- --------------------------------------------------------------------
