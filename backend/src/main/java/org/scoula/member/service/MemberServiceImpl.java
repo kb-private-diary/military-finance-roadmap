@@ -1,5 +1,6 @@
 package org.scoula.member.service;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import org.scoula.common.exception.BusinessException;
+import org.scoula.common.util.RankCalculator;
 import org.scoula.member.domain.TermsAgreementVO;
 import org.scoula.member.domain.TermsVO;
 import org.scoula.member.dto.ChangePasswordRequestDTO;
@@ -34,6 +36,7 @@ import org.scoula.member.dto.WithdrawRequestDTO;
 import org.scoula.member.mapper.MemberMapper;
 import org.scoula.member.mapper.MilitaryTypeMapper;
 import org.scoula.member.mapper.MilitaryUnitMapper;
+import org.scoula.member.mapper.RankMapper;
 import org.scoula.member.mapper.TermsMapper;
 import org.scoula.security.account.domain.MemberVO;
 import org.scoula.security.account.dto.AuthResultDTO;
@@ -58,6 +61,7 @@ public class MemberServiceImpl implements MemberService {
     private final TermsMapper termsMapper;
     private final MilitaryTypeMapper militaryTypeMapper;
     private final MilitaryUnitMapper militaryUnitMapper;
+    private final RankMapper rankMapper;
     private final JwtProcessor jwtProcessor;
     private final UserDetailsMapper userDetailsMapper;
 
@@ -133,6 +137,12 @@ public class MemberServiceImpl implements MemberService {
 
         MemberVO member = dto.toVO();
         member.setPassword(this.passwordEncoder.encode(member.getPassword()));
+        // 계급은 입력받지 않으므로(SignupMilitaryPage 참고) 입대일 기준으로 가입 시점에 바로 산정해둔다.
+        // 그래야 익일 배치(RankPromotionScheduler) 전까지 계급이 비어 보이는 문제가 없다.
+        if (member.getEnlistDate() != null) {
+            int monthsSinceEnlist = RankCalculator.monthsSinceEnlist(member.getEnlistDate(), LocalDate.now());
+            member.setRankId(this.rankMapper.findRankIdByServiceMonths(monthsSinceEnlist));
+        }
         this.mapper.insert(member);
 
         if (!agreedTermsIds.isEmpty()) {
