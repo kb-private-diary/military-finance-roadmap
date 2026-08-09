@@ -528,5 +528,5 @@ def get_recommendation(
 # 관리자 전용: 정책 문서 재인덱싱 트리거
 @router.post("/admin/reindex", response_model=ReindexResponse)
 def reindex_policy_docs(current_admin_user_id: int = Depends(get_current_admin_user_id)):
-    count = vectorstore.build_index(force=True)
-    return ReindexResponse(reindexed_chunks=count)
+    count, reembedded = vectorstore.build_index(force=True)
+    return ReindexResponse(reindexed_chunks=count, reembedded_chunks=reembedded)
