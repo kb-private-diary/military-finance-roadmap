@@ -92,8 +92,6 @@ const restWidth = computed(() => 100 - coverWidth.value);
 // ── 조언 박스 계산 ─────────────────────────────────────────
 const hasSurplus = computed(() => (af.value.surplus ?? 0) > 0);
 const hasShortfall = computed(() => (af.value.shortfall ?? 0) > 0);
-// 적금 연 3% 가정 → 12개월 뒤 이자(만원 반올림)
-const savingsInterestMan = computed(() => Math.round(((af.value.surplus ?? 0) * 0.03) / 10000));
 // 버팀목 대출 실금리: 받아온 상품 중 버팀목의 rateMin(housing_product DB값, 전국 정부상품) 사용
 //   응답에 없으면(예외) 연 2.1% 폴백. 주택도시기금 청년전용 버팀목 = region_code NULL(전국)이라 항상 추천됨
 const loanRate = computed(() => {
@@ -207,7 +205,7 @@ const saveRoadmap = async () => {
       <div v-if="hasSurplus" class="advice advice--good">
         <div class="advice__body">
           <p class="advice__t"><span class="advice__emoji">💰</span>{{ surplusMan }}만원이 남아요</p>
-          <p class="advice__s">적금에 넣으면 12개월 뒤 이자 약 {{ savingsInterestMan }}만원 (연 3% 가정)</p>
+          <p class="advice__s">남는 돈은 적금이나 비상금으로 모아두면 좋아요</p>
         </div>
       </div>
       <div v-else-if="hasShortfall" class="advice advice--warn">

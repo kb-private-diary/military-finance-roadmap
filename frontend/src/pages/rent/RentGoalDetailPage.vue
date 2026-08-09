@@ -49,9 +49,6 @@ const PRICE_BADGE = {
   EXPENSIVE: { label: '⛔ 지역 평균보다 비쌈', cls: 'pill--expensive' },
 };
 
-// 통신비: findGoal 응답에 없어 상수로 둠(하드코딩 "데이터"가 아니라 명시 상수).
-// 1인 가구 월 평균 통신비 추정치(과기정통부 가계통신비 통계 참고). 실데이터 연동 시 교체.
-const MONTHLY_TELECOM_FEE = 55000;
 
 const goal = ref(null);
 const listing = ref(null);
@@ -365,7 +362,6 @@ const fixedCostItems = computed(() => {
     { label: '월세', amount: l.monthlyRent ?? 0 },
     { label: '관리비', amount: l.maintenanceFee ?? 0, sub: '평당 추정' },
     { label: '전기·가스·수도', amount: utilityFee.value, sub: '월별 계수 반영' },
-    { label: '통신비', amount: MONTHLY_TELECOM_FEE, sub: '1인 가구 평균(상수)' },
   ];
 });
 const fixedCostTotal = computed(() =>
