@@ -265,6 +265,11 @@ public class DashboardServiceImpl implements DashboardService {
         if (!VALID_CATEGORIES.contains(category) || CATEGORY_REGULAR.equals(category)) {
             throw BusinessException.badRequest("유효하지 않은 휴가 카테고리입니다.", "DASH_007");
         }
+        int usedDays = this.sumUsedDays(vacationId);
+        if (request.getDays() < usedDays) {
+            throw BusinessException.badRequest(
+                    "이미 사용한 일수(" + usedDays + "일)보다 적게 설정할 수 없습니다.", "DASH_012");
+        }
 
         vacation.setVacationCate(category);
         vacation.setVacationName(request.getName());
@@ -298,6 +303,10 @@ public class DashboardServiceImpl implements DashboardService {
         VacationVO vacation = this.mapper.findVacationById(vacationId, userId);
         if (vacation == null) {
             throw BusinessException.notFound("휴가 정보를 찾을 수 없습니다.", "DASH_003");
+        }
+
+        if (request.getUsedDate().isBefore(vacation.getVacationGet())) {
+            throw BusinessException.badRequest("사용일은 휴가 획득일보다 이전일 수 없습니다.", "DASH_013");
         }
 
         int remainingDays = this.dayCountOf(vacation) - this.sumUsedDays(vacationId);

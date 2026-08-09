@@ -129,7 +129,7 @@
         FROM vacation_history
         WHERE vacation_id = #{vacationId}
           AND del_yn = 'N'
-        ORDER BY used_date ASC
+        ORDER BY used_date ASC, history_id ASC
     </select>
 
     <select id="findVacationHistoryById"

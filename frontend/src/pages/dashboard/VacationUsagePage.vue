@@ -71,14 +71,31 @@ const isOverRemaining = computed(() => {
   return detail.value && days > 0 && days > detail.value.remainingDays;
 });
 
+// 사용일이 휴가 획득일보다 이전인지 (미래 날짜는 허용 — 미리 예약 등록 가능)
+const isBeforeAcquired = computed(
+  () =>
+    detail.value && newUsageDate.value && newUsageDate.value < detail.value.acquiredDate,
+);
+
+// 등록 버튼 아래에 보여줄 에러 문구 (해당되는 게 없으면 null)
+const usageFormError = computed(() => {
+  if (isBeforeAcquired.value) {
+    return `획득일(${detail.value.acquiredDate}) 이후 날짜만 등록할 수 있어요.`;
+  }
+  if (isOverRemaining.value) {
+    return `잔여 ${detail.value.remainingDays}일보다 많이 등록할 수 없어요.`;
+  }
+  return null;
+});
+
 const registerUsage = async () => {
   const days = Number(newUsageDays.value);
   if (!newUsageDate.value || !days || days <= 0) {
     show('사용일과 사용 일수를 입력해주세요.', 'error');
     return;
   }
-  if (isOverRemaining.value) {
-    show(`잔여 ${detail.value.remainingDays}일보다 많이 등록할 수 없어요.`, 'error');
+  if (usageFormError.value) {
+    show(usageFormError.value, 'error');
     return;
   }
   isSubmitting.value = true;
@@ -202,8 +219,8 @@ onMounted(fetchDetail);
             />
           </div>
           <div class="add-usage-form__footer">
-            <p v-if="isOverRemaining" class="add-usage-form__hint">
-              잔여 {{ detail.remainingDays }}일보다 많이 등록할 수 없어요.
+            <p v-if="usageFormError" class="add-usage-form__hint">
+              {{ usageFormError }}
             </p>
             <div class="add-usage-form__actions">
               <button
