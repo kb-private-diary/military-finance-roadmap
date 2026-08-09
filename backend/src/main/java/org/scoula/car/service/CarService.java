@@ -26,6 +26,10 @@ public interface CarService {
     // CAR-API-07: 예산/차종 기반 차량 추천 목록 조회
     List<CarRecommendationResponseDTO> recommendCars(Long goalId, Long userId);
 
+    // CAR-API-16: 중고차 목표 한정 — 연식/키로수 직접 선택 기반 차량 추천 목록 조회
+    List<CarRecommendationResponseDTO> recommendCarsByFilter(
+            Long goalId, Long userId, Integer year, Integer mileageKm);
+
     // CAR-API-08: 추천 목록 중 차량 모델 선택 반영
     CarGoalResponseDTO selectCarModel(Long goalId, Long userId, CarModelSelectRequestDTO requestDTO);
 

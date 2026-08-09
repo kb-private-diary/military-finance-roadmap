@@ -77,6 +77,15 @@ public class CarServiceImpl implements CarService {
     // 추천 목록에서 허용하는 예산 초과 허용 오차(만원) — 이보다 많이 넘는 차량은 목록에서 제외
     private static final long BUDGET_OVERFLOW_TOLERANCE_MANWON = 300L;
 
+    // 연식 대비 정상 주행거리(연차×12,000km)에서 1만km 벗어날 때마다 적용하는 가격 조정률
+    private static final double MILEAGE_ADJUSTMENT_RATE_PER_10K = 0.015;
+    // 키로수 조정 배율 허용 범위 — 아무리 주행거리가 적어도/많아도 이 범위 밖으로는 가격이 안 움직이게 제한
+    private static final double MIN_MILEAGE_MULTIPLIER = 0.5;
+    private static final double MAX_MILEAGE_MULTIPLIER = 1.1;
+    // 연식/키로수 필터에서 사용자가 직접 고를 수 있는 최대 연차·키로수 (자동 추정 상한보다 넓게 허용)
+    private static final int FILTER_MAX_AGE_YEARS = 10;
+    private static final int FILTER_MAX_MILEAGE_KM = 200_000;
+
     private final CarMapper carMapper;
     private final OpinetClient opinetClient;
     private final DashboardService dashboardService;
@@ -188,6 +197,77 @@ public class CarServiceImpl implements CarService {
         return recommendations;
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<CarRecommendationResponseDTO> recommendCarsByFilter(
+            Long goalId, Long userId, Integer year, Integer mileageKm) {
+        CarGoalVO goal = this.carMapper.selectCarGoalById(goalId, userId);
+        if (goal == null) {
+            throw BusinessException.notFound("목표를 찾을 수 없습니다", "CAR_003");
+        }
+        if (!Boolean.FALSE.equals(goal.getIsNew())) {
+            throw BusinessException.badRequest("연식/키로수 필터는 중고차 목표에서만 사용할 수 있습니다", "CAR_019");
+        }
+        if (year == null || mileageKm == null) {
+            throw BusinessException.badRequest("연식과 키로수를 모두 입력해야 합니다", "CAR_020");
+        }
+
+        int currentYear = LocalDate.now().getYear();
+        int ageYears = Math.max(0, currentYear - year);
+        if (ageYears > FILTER_MAX_AGE_YEARS) {
+            throw BusinessException.badRequest("선택 가능한 연식 범위를 벗어났습니다", "CAR_021");
+        }
+        if (mileageKm < 0 || mileageKm > FILTER_MAX_MILEAGE_KM) {
+            throw BusinessException.badRequest("선택 가능한 키로수 범위를 벗어났습니다", "CAR_022");
+        }
+
+        long effectiveBudget = this.resolveEffectiveBudget(userId, goal.getBudget());
+        double mileageMultiplier = this.calculateMileageMultiplier(ageYears, mileageKm);
+
+        List<CarModelVO> candidates = this.carMapper.selectAllCarModels();
+        Map<Integer, CarTaxVO> taxByType = new HashMap<>();
+
+        List<CarRecommendationResponseDTO> recommendations = new ArrayList<>();
+        for (CarModelVO model : candidates) {
+            CarTaxVO tax = taxByType.computeIfAbsent(
+                    model.getCarTypeCode(), this.carMapper::selectTaxByTypeCode);
+            if (tax == null) {
+                throw BusinessException.notFound("취득세 기준 정보를 찾을 수 없습니다", "CAR_007");
+            }
+
+            long estimatedPrice = BigDecimal.valueOf(model.getBasePrice())
+                    .multiply(ANNUAL_RETENTION_RATE.pow(ageYears))
+                    .multiply(BigDecimal.valueOf(mileageMultiplier))
+                    .setScale(0, RoundingMode.HALF_UP)
+                    .longValue();
+            long acquisitionTaxAmount = BigDecimal.valueOf(estimatedPrice)
+                    .multiply(tax.getAcquisitionTaxRate())
+                    .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP)
+                    .longValue();
+            long totalPrice = estimatedPrice + acquisitionTaxAmount;
+
+            recommendations.add(CarRecommendationResponseDTO.builder()
+                    .modelId(model.getModelId())
+                    .manufacturer(model.getManufacturer())
+                    .modelName(model.getModelName())
+                    .carTypeCode(model.getCarTypeCode())
+                    .fuelType(model.getFuelType())
+                    .baseNewPrice(model.getBasePrice())
+                    .assumedYear(year)
+                    .estimatedPrice(estimatedPrice)
+                    .acquisitionTaxAmount(acquisitionTaxAmount)
+                    .totalPrice(totalPrice)
+                    .withinBudget(totalPrice <= effectiveBudget)
+                    .build());
+        }
+
+        long maxAllowedPrice = effectiveBudget + BUDGET_OVERFLOW_TOLERANCE_MANWON;
+        recommendations.removeIf(item -> item.getTotalPrice() > maxAllowedPrice);
+
+        recommendations.sort(Comparator.comparingLong(CarRecommendationResponseDTO::getTotalPrice));
+        return recommendations;
+    }
+
     // 차량 추천 기준 예산 결정: 군적금 만기예상액이 기본값이고, 수동 예산을 입력했다면
     // (만기금을 다 안 쓰고 일부만 쓰려는 것이므로) 수동 입력값을 그대로 상한으로 사용한다.
     // 오픈뱅킹 연동이 안 돼 있으면 수동 예산만으로 판단하고, 둘 다 없으면 추천 자체가 불가능하다.
@@ -234,6 +314,7 @@ public class CarServiceImpl implements CarService {
         goal.setCarTypeCode(model.getCarTypeCode());
         goal.setSelectedModelId(model.getModelId());
         goal.setSelectedYear(requestDTO.getSelectedYear());
+        goal.setSelectedMileageKm(requestDTO.getSelectedMileageKm());
         goal.setStatus("SELECTED");
 
         this.carMapper.updateSelectedModel(goal);
@@ -372,8 +453,13 @@ public class CarServiceImpl implements CarService {
         int ageYears = goal.getSelectedYear() == null
                 ? DEFAULT_ASSUMED_AGE_YEARS
                 : Math.max(0, LocalDate.now().getYear() - goal.getSelectedYear());
+        // 키로수를 선택하지 않았다면 정상 주행거리로 간주해 배율 1.0(가격 변동 없음)을 적용한다.
+        double mileageMultiplier = goal.getSelectedMileageKm() == null
+                ? 1.0
+                : this.calculateMileageMultiplier(ageYears, goal.getSelectedMileageKm());
         long estimatedUsedPrice = BigDecimal.valueOf(model.getBasePrice())
                 .multiply(ANNUAL_RETENTION_RATE.pow(ageYears))
+                .multiply(BigDecimal.valueOf(mileageMultiplier))
                 .setScale(0, RoundingMode.HALF_UP)
                 .longValue();
         long acquisitionTaxAmount = BigDecimal.valueOf(estimatedUsedPrice)
@@ -386,6 +472,7 @@ public class CarServiceImpl implements CarService {
                 .modelName(model.getModelName())
                 .baseNewPrice(model.getBasePrice())
                 .selectedYear(goal.getSelectedYear())
+                .selectedMileageKm(goal.getSelectedMileageKm())
                 .ageYears(ageYears)
                 .estimatedUsedPrice(estimatedUsedPrice)
                 .acquisitionTaxAmount(acquisitionTaxAmount)
@@ -407,6 +494,10 @@ public class CarServiceImpl implements CarService {
         CarModelVO model = this.carMapper.selectCarModelById(goal.getSelectedModelId());
         if (!"전기".equals(model.getFuelType())) {
             throw BusinessException.badRequest("선택한 차량은 전기차가 아닙니다", "CAR_011");
+        }
+        // 전기차 보조금은 신차 구매에만 적용된다 (중고차는 지원 대상 아님).
+        if (!Boolean.TRUE.equals(goal.getIsNew())) {
+            throw BusinessException.badRequest("전기차 보조금은 신차 구매 시에만 적용됩니다", "CAR_018");
         }
 
         CarEvVO ev = this.carMapper.selectEvSubsidyByRegion(goal.getRegion());
@@ -485,6 +576,15 @@ public class CarServiceImpl implements CarService {
 
         int age = (int) Math.ceil(Math.log(ratio) / Math.log(ANNUAL_RETENTION_RATE_DOUBLE));
         return Math.max(0, Math.min(MAX_ASSUMED_AGE_YEARS, age));
+    }
+
+    // 연식(연차) 대비 정상 주행거리(연차×12,000km)에서 벗어난 정도로 가격 조정 배율을 계산
+    // 정상보다 많이 탔으면 배율 하락, 적게 탔으면 배율 상승 (0.5~1.1 범위로 제한)
+    private double calculateMileageMultiplier(int ageYears, int mileageKm) {
+        long normalMileage = (long) ageYears * ANNUAL_MILEAGE_KM;
+        double deviationPer10k = (mileageKm - normalMileage) / 10_000.0;
+        double multiplier = 1 - deviationPer10k * MILEAGE_ADJUSTMENT_RATE_PER_10K;
+        return Math.max(MIN_MILEAGE_MULTIPLIER, Math.min(MAX_MILEAGE_MULTIPLIER, multiplier));
     }
 
     // 운전경력(년) → car_insurance.experience_bracket 구간 문자열 변환

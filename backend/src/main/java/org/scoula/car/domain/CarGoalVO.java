@@ -20,5 +20,6 @@ public class CarGoalVO extends BaseVO {
     private String region;
     private Long selectedModelId;
     private Integer selectedYear;
+    private Integer selectedMileageKm;
     private String status;
 }

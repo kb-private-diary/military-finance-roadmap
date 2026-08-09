@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import org.scoula.car.dto.CarAcquisitionTaxResponseDTO;
@@ -71,13 +72,19 @@ public class CarController {
     }
 
     // CAR-API-07: 예산/차종 기반 차량 추천 목록 조회
+    // CAR-API-16: year/mileageKm을 넘기면(중고차 목표 한정) 자동추정 대신 직접 선택한 연식/키로수 기준으로 재계산
     @GetMapping("/goals/{goalId}/recommendations")
     public ResponseEntity<ApiResponse<List<CarRecommendationResponseDTO>>> getRecommendations(
             @AuthenticationPrincipal CustomUser customUser,
-            @PathVariable Long goalId) {
+            @PathVariable Long goalId,
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) Integer mileageKm) {
         Long userId = customUser.getMember().getId();
-        log.info("Fetching car recommendations for goalId: {}, userId: {}", goalId, userId);
-        List<CarRecommendationResponseDTO> responseDTO = this.carService.recommendCars(goalId, userId);
+        log.info("Fetching car recommendations for goalId: {}, userId: {}, year: {}, mileageKm: {}",
+                goalId, userId, year, mileageKm);
+        List<CarRecommendationResponseDTO> responseDTO = (year != null || mileageKm != null)
+                ? this.carService.recommendCarsByFilter(goalId, userId, year, mileageKm)
+                : this.carService.recommendCars(goalId, userId);
         return ResponseEntity.ok(ApiResponse.success(responseDTO));
     }
 

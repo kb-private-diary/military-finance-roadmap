@@ -692,6 +692,7 @@ CREATE TABLE `car_goal` (
   `region` VARCHAR(20) COMMENT '거주지역',
   `selected_model_id` BIGINT COMMENT '선택차량ID',
   `selected_year` INT COMMENT '선택연식',
+  `selected_mileage_km` INT COMMENT '선택주행거리(km)',
   `status` VARCHAR(20) COMMENT '진행상태',
   `created_date` DATETIME NOT NULL COMMENT '생성일시',
   `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',

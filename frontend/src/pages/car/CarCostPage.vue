@@ -166,6 +166,7 @@ const handlePrev = () => {
         </ul>
 
         <p class="cost-card__hint">구매 비용 + 3년치 세금·연료비·보험료 기준</p>
+        <p class="cost-card__notice">상세 요금은 저장을 완료하면 보여줍니다.</p>
       </BaseCard>
     </template>
 
@@ -277,6 +278,13 @@ const handlePrev = () => {
   border-top: 1px solid var(--line);
   color: var(--text-hint);
   font-size: 11px;
+  text-align: center;
+}
+
+.cost-card__notice {
+  margin: 4px 0 0;
+  color: var(--text-hint);
+  font-size: 10px;
   text-align: center;
 }
 

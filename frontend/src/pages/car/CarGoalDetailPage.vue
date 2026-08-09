@@ -38,7 +38,10 @@ const readErrorMessage = (error, fallback) =>
   fallback;
 
 const hasSelectedModel = computed(() => !!goal.value?.selectedModelId);
-const isElectric = computed(() => maintenanceCost.value?.fuelType === '전기');
+// 전기차 보조금은 신차 구매에만 적용된다 (중고차는 지원 대상 아님).
+const isElectric = computed(
+  () => maintenanceCost.value?.fuelType === '전기' && goal.value?.isNew === true,
+);
 const showLoanProduct = computed(() => budgetStatus.value?.withinBudget === false);
 const overBudgetAmount = computed(() => {
   if (!budgetStatus.value) return 0;
@@ -81,7 +84,7 @@ const loadDetail = async () => {
       purchase.value = { price: used.estimatedUsedPrice, tax: used.acquisitionTaxAmount };
     }
 
-    if (maintenanceCost.value?.fuelType === '전기') {
+    if (isElectric.value) {
       const evResult = await carApi.findEvSubsidy(goalId.value);
       evSubsidy.value = unwrap(evResult);
     }

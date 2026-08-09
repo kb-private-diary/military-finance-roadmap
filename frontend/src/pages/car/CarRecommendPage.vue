@@ -1,7 +1,7 @@
 <script setup>
 // SCR-CAR-02 · step2) 자동차 로드맵 추천  (담당: 호빈)
 // step2 - 예산·조건 기반 차량 추천 (경차/준중형/SUV 탭)
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import carApi from '@/api/carApi';
 import BaseCard from '@/components/common/BaseCard.vue';
@@ -21,6 +21,14 @@ const CAR_TYPE_TABS = [
   { value: 3, label: 'SUV' },
 ];
 
+// 백엔드 DEFAULT_ASSUMED_AGE_YEARS/ANNUAL_MILEAGE_KM과 맞춘 슬라이더 초기값·범위
+const CURRENT_YEAR = new Date().getFullYear();
+const DEFAULT_AGE_YEARS = 3;
+const ANNUAL_MILEAGE_KM = 12_000;
+const MIN_YEAR = CURRENT_YEAR - 10;
+const MAX_YEAR = CURRENT_YEAR;
+const MAX_MILEAGE_KM = 200_000;
+
 const goal = ref(null);
 const recommendations = ref([]);
 const activeTab = ref(1);
@@ -29,6 +37,10 @@ const loading = ref(true);
 const loadError = ref('');
 const submitError = ref('');
 const submitting = ref(false);
+const filterLoading = ref(false);
+
+const selectedYear = ref(CURRENT_YEAR - DEFAULT_AGE_YEARS);
+const selectedMileageKm = ref(DEFAULT_AGE_YEARS * ANNUAL_MILEAGE_KM);
 
 const unwrap = (response) => response.data?.data;
 
@@ -38,23 +50,42 @@ const readErrorMessage = (error, fallback) =>
   error.error ||
   fallback;
 
+// 중고차 목표만 연식/키로수를 직접 골라 가격을 재계산할 수 있다.
+const isUsedCarGoal = computed(() => goal.value?.isNew === false);
+
+const buildFilterParams = () =>
+  isUsedCarGoal.value
+    ? { year: selectedYear.value, mileageKm: selectedMileageKm.value }
+    : undefined;
+
+const fetchRecommendations = async () => {
+  const recommendResult = await carApi.findRecommendations(goalId, buildFilterParams());
+  recommendations.value = unwrap(recommendResult) || [];
+};
+
 const loadRecommendations = async () => {
   loading.value = true;
   loadError.value = '';
 
   try {
-    const [goalResult, recommendResult] = await Promise.all([
-      carApi.findGoalDetail(goalId),
-      carApi.findRecommendations(goalId),
-    ]);
-
+    const goalResult = await carApi.findGoalDetail(goalId);
     goal.value = unwrap(goalResult);
-    recommendations.value = unwrap(recommendResult) || [];
 
-    const firstTabWithItems = CAR_TYPE_TABS.find((tab) =>
-      recommendations.value.some((item) => item.carTypeCode === tab.value),
-    );
-    activeTab.value = firstTabWithItems?.value ?? 1;
+    // 이미 차량을 골라둔 목표라면(추천 목록 다시 보기 등) 이전 선택을 그대로 복원한다.
+    if (goal.value.selectedYear != null) selectedYear.value = goal.value.selectedYear;
+    if (goal.value.selectedMileageKm != null) selectedMileageKm.value = goal.value.selectedMileageKm;
+
+    await fetchRecommendations();
+
+    if (goal.value.selectedModelId != null) {
+      selectedModelId.value = goal.value.selectedModelId;
+    }
+
+    const preferredTab = goal.value.carTypeCode
+      ?? CAR_TYPE_TABS.find((tab) =>
+        recommendations.value.some((item) => item.carTypeCode === tab.value),
+      )?.value;
+    activeTab.value = preferredTab ?? 1;
   } catch (error) {
     loadError.value = readErrorMessage(
       error,
@@ -66,6 +97,23 @@ const loadRecommendations = async () => {
 };
 
 onMounted(loadRecommendations);
+
+let filterDebounceTimer = null;
+watch([selectedYear, selectedMileageKm], () => {
+  if (!isUsedCarGoal.value) return;
+
+  clearTimeout(filterDebounceTimer);
+  filterDebounceTimer = setTimeout(async () => {
+    filterLoading.value = true;
+    try {
+      await fetchRecommendations();
+    } catch (error) {
+      submitError.value = readErrorMessage(error, '연식/키로수 필터를 적용하지 못했습니다.');
+    } finally {
+      filterLoading.value = false;
+    }
+  }, 300);
+});
 
 const itemsByTab = computed(() =>
   recommendations.value.filter((item) => item.carTypeCode === activeTab.value),
@@ -81,6 +129,8 @@ const selectModel = (modelId) => {
 
 const isFormValid = computed(() => selectedModelId.value !== null);
 
+const formatKm = (km) => `${km.toLocaleString()}km`;
+
 const handleConfirm = async () => {
   if (!isFormValid.value || submitting.value) return;
 
@@ -88,7 +138,12 @@ const handleConfirm = async () => {
   submitError.value = '';
 
   try {
-    await carApi.selectModel(goalId, { modelId: selectedModelId.value });
+    const payload = { modelId: selectedModelId.value };
+    if (isUsedCarGoal.value) {
+      payload.selectedYear = selectedYear.value;
+      payload.selectedMileageKm = selectedMileageKm.value;
+    }
+    await carApi.selectModel(goalId, payload);
     await router.push({ name: 'CarCost', params: { goalId } });
   } catch (error) {
     submitError.value = readErrorMessage(
@@ -114,6 +169,50 @@ const handlePrev = () => {
       {{ goal.budget != null ? `예산 ${formatManwonUnit(goal.budget)}` : '군적금 만기예상액 기준' }}
       · {{ goal.isNew ? '신차' : '중고' }} 기준
     </p>
+
+    <a
+      v-if="goal"
+      class="kbcc-banner"
+      href="https://www.kbchachacha.com/"
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="KB차차차에서 실제 매물 보러가기"
+    >
+      <span>KB차차차에서 {{ goal.isNew ? '신차' : '실제 매물' }} 확인해보기</span>
+      <span aria-hidden="true">&#8250;</span>
+    </a>
+
+    <div v-if="isUsedCarGoal" class="filter-panel">
+      <div class="filter-row">
+        <label class="filter-row__label" for="year-slider">
+          연식 <strong>{{ selectedYear }}년식</strong>
+        </label>
+        <input
+          id="year-slider"
+          type="range"
+          class="filter-slider"
+          :min="MIN_YEAR"
+          :max="MAX_YEAR"
+          step="1"
+          v-model.number="selectedYear"
+        />
+      </div>
+      <div class="filter-row">
+        <label class="filter-row__label" for="mileage-slider">
+          주행거리 <strong>{{ formatKm(selectedMileageKm) }}</strong>
+        </label>
+        <input
+          id="mileage-slider"
+          type="range"
+          class="filter-slider"
+          min="0"
+          :max="MAX_MILEAGE_KM"
+          step="2000"
+          v-model.number="selectedMileageKm"
+        />
+      </div>
+      <p v-if="filterLoading" class="filter-panel__status text-caption">가격 재계산 중...</p>
+    </div>
 
     <div class="tab-row">
       <CategoryButton
@@ -213,6 +312,53 @@ const handlePrev = () => {
 .car-recommend__subtitle {
   margin: -8px 0 0;
   color: var(--text-muted);
+}
+
+.kbcc-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--kb-yellow-pale);
+  color: var(--text-body);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.filter-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--surface-subtle);
+}
+
+.filter-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filter-row__label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.filter-row__label strong {
+  color: var(--text-strong);
+}
+
+.filter-slider {
+  width: 100%;
+  accent-color: var(--kb-yellow-deep);
+}
+
+.filter-panel__status {
+  margin: 0;
+  color: var(--text-hint);
 }
 
 .tab-row {
