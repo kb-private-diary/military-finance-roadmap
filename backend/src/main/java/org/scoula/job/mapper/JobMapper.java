@@ -27,6 +27,9 @@ public interface JobMapper {
     // 진로 목표 신규 등록
     void insertJobGoal(JobGoalVO jobGoalVO);
 
+    // 작성 중인 진로 목표 수정
+    int updateJobGoal(JobGoalVO jobGoalVO);
+
     // 선택한 자격증 소프트 삭제
     void deleteGoalQualificationByGoalId(
             @Param("goalId") Long goalId,
@@ -99,6 +102,16 @@ public interface JobMapper {
     void updateJobGoalStatus(
             @Param("goalId") Long goalId,
             @Param("status") String status,
+            @Param("modifiedNm") String modifiedNm
+    );
+
+    // 사용자의 가장 최근 작성 중(DRAFT) 진로 목표 ID 조회
+    Long findCurrentJobGoalIdByUserId(Long userId);
+
+    // 진로 목표 soft delete
+    // del_yn을 'Y'로 변경하고 수정일시·수정자를 함께 기록
+    void deleteJobGoalById(
+            @Param("goalId") Long goalId,
             @Param("modifiedNm") String modifiedNm
     );
 }

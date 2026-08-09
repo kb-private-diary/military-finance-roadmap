@@ -3,15 +3,6 @@ import instance from '@/api'; // api/index.js
 const BASE_URL = '/api/job';
 
 export default {
-  // JOB-API-01: goalType별 직무·직렬·학과 코드 조회
-  async findJobCodes(goalType) {
-    const { data } = await instance.get(`${BASE_URL}/codes`, {
-      params: { goalType },
-    });
-
-    return data.data;
-  },
-
   // 취업·공무원 대분류·중분류 조회
   async findCategoryList(goalType) {
     const { data } = await instance.get(`${BASE_URL}/categories`, {
@@ -40,6 +31,23 @@ export default {
   // 진로 목표 신규 등록
   async createJobGoal(requestDTO) {
     const { data } = await instance.post(`${BASE_URL}/goals`, requestDTO);
+
+    return data.data;
+  },
+
+  // 작성 중인 진로 목표 수정
+  async updateJobGoal(goalId, requestDTO) {
+    const { data } = await instance.patch(
+      `${BASE_URL}/goals/${goalId}`,
+      requestDTO,
+    );
+
+    return data.data;
+  },
+
+  // 작성 중인 진로 목표 조회
+  async findCurrentJobGoal() {
+    const { data } = await instance.get(`${BASE_URL}/goals/current`);
 
     return data.data;
   },

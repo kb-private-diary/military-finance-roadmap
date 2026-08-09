@@ -24,7 +24,19 @@ public interface JobService {
     List<JobTransferMajorDTO> findTransferMajorList(Long univId);
 
     // 진로 목표 신규 등록
-    JobGoalCreateResponseDTO createJobGoal(JobGoalCreateRequestDTO requestDTO);
+    JobGoalCreateResponseDTO createJobGoal(
+            Long userId,
+            String username,
+            JobGoalCreateRequestDTO requestDTO
+    );
+
+    // 작성 중인 진로 목표 수정
+    void updateJobGoal(
+            Long goalId,
+            Long userId,
+            String username,
+            JobGoalCreateRequestDTO requestDTO
+    );
 
     // 목표 기준 자격증·어학·인강 추천 조회
     PrepItemRecommendResponseDTO findPrepItemRecommend(Long goalId);
@@ -32,6 +44,8 @@ public interface JobService {
     // 선택한 자격증·인강 저장
     JobPlanCreateResponseDTO createJobPlans(
             Long goalId,
+            Long userId,
+            String username,
             JobPlanCreateRequestDTO requestDTO
     );
 
@@ -42,5 +56,19 @@ public interface JobService {
     JobGoalDetailResponseDTO findJobGoalDetail(Long goalId);
 
     // 진로 로드맵 저장 확정
-    void confirmJobGoal(Long goalId);
+    void confirmJobGoal(
+            Long goalId,
+            Long userId,
+            String username
+    );
+
+    // 작성 중인 진로 목표 조회
+    JobGoalDetailResponseDTO findCurrentJobGoal(Long userId);
+
+    // 진로 목표 삭제
+    void deleteJobGoal(
+            Long goalId,
+            Long userId,
+            String username
+    );
 }
