@@ -2,13 +2,13 @@
 --  [석윤] 공통/ 군종정보(military_types)
 --  테이블: military_types
 -- --------------------------------------------------------------------
-INSERT INTO `military_types` (`type_id`, `type_name`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`) VALUES
-(1, '육군', NOW(), 'seokyun', NULL, NULL, 'N'),
-(2, '해군', NOW(), 'seokyun', NULL, NULL, 'N'),
-(3, '공군', NOW(), 'seokyun', NULL, NULL, 'N'),
-(4, '해병대', NOW(), 'seokyun', NULL, NULL, 'N'),
-(5, '공익', NOW(), 'seokyun', NULL, NULL, 'N'),
-(6, '기타', NOW(), 'seokyun', NULL, NULL, 'N');
+INSERT INTO `military_types` (`type_id`, `type_name`, `regular_vacation_days`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`) VALUES
+(1, '육군', 24, NOW(), 'seokyun', NULL, NULL, 'N'),
+(2, '해군', 27, NOW(), 'seokyun', NULL, NULL, 'N'),
+(3, '공군', 28, NOW(), 'seokyun', NULL, NULL, 'N'),
+(4, '해병대', 24, NOW(), 'seokyun', NULL, NULL, 'N'),
+(5, '공익', 28, NOW(), 'seokyun', NULL, NULL, 'N'),
+(6, '기타', 24, NOW(), 'seokyun', NULL, NULL, 'N');
 
 -- --------------------------------------------------------------------
 --  [석윤] 공통/ 부대정보(military_unit)

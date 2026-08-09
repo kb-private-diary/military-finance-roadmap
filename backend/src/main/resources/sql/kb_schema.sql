@@ -20,6 +20,7 @@ DROP TABLE IF EXISTS `military_types`;
 CREATE TABLE `military_types` (
   `type_id` INT PRIMARY KEY NOT NULL COMMENT '군종ID',
   `type_name` VARCHAR(20) NOT NULL COMMENT '군종명',
+  `regular_vacation_days` INT NOT NULL COMMENT '정기휴가(연가) 총 부여일수',
   `created_date` DATETIME NOT NULL COMMENT '생성일시',
   `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
   `modified_date` DATETIME COMMENT '수정일시',
