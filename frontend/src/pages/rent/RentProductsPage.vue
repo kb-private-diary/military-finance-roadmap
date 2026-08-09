@@ -94,9 +94,21 @@ const hasSurplus = computed(() => (af.value.surplus ?? 0) > 0);
 const hasShortfall = computed(() => (af.value.shortfall ?? 0) > 0);
 // 적금 연 3% 가정 → 12개월 뒤 이자(만원 반올림)
 const savingsInterestMan = computed(() => Math.round(((af.value.surplus ?? 0) * 0.03) / 10000));
-// 버팀목 대출 연 2.1% 가정 → 월 이자(천단위 반올림, 원)
+// 버팀목 대출 실금리: 받아온 상품 중 버팀목의 rateMin(housing_product DB값, 전국 정부상품) 사용
+//   응답에 없으면(예외) 연 2.1% 폴백. 주택도시기금 청년전용 버팀목 = region_code NULL(전국)이라 항상 추천됨
+const loanRate = computed(() => {
+  const all = [
+    ...(recommend.value?.monthlySubsidy || []),
+    ...(recommend.value?.depositLoan || []),
+    ...(recommend.value?.free || []),
+  ];
+  const bumtmok = all.find((p) => p.productName?.includes('버팀목') && p.rateMin != null);
+  return bumtmok ? Number(bumtmok.rateMin) / 100 : 0.021;
+});
+const loanRatePct = computed(() => (loanRate.value * 100).toFixed(1)); // 표시용 (예: "1.5")
+// 버팀목 대출 월 이자(천단위 반올림, 원)
 const loanMonthlyInterest = computed(() => {
-  const won = ((af.value.shortfall ?? 0) * 0.021) / 12;
+  const won = ((af.value.shortfall ?? 0) * loanRate.value) / 12;
   return Math.round(won / 1000) * 1000;
 });
 const loanMonthlyLabel = computed(() => `${loanMonthlyInterest.value.toLocaleString('ko-KR')}원`);
@@ -201,7 +213,7 @@ const saveRoadmap = async () => {
       <div v-else-if="hasShortfall" class="advice advice--warn">
         <div class="advice__body">
           <p class="advice__t"><span class="advice__emoji">🏦</span>{{ shortfallMan }}만원을 메워야 해요</p>
-          <p class="advice__s">버팀목 대출이면 월 이자 약 {{ loanMonthlyLabel }} (연 2.1% 가정)</p>
+          <p class="advice__s">버팀목 대출이면 월 이자 약 {{ loanMonthlyLabel }} (연 {{ loanRatePct }}%, 주택도시기금)</p>
         </div>
       </div>
 
