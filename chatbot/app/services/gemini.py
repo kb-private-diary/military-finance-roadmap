@@ -2,7 +2,7 @@ from typing import List, Optional, Tuple, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
-from app.services import cheongyakhome, fss, gemini_client, vectorstore
+from app.services import cheongyakhome, fss, gemini_client, langfuse_client, vectorstore
 from app.services import fund as fund_service
 from app.services.intent import classify_intent, classify_product_category
 
@@ -408,7 +408,7 @@ def generate_reply(
     if product_context:
         initial_state["product_context"] = product_context
         initial_state["intent"] = "info"
-    result = _compiled_graph.invoke(initial_state)
+    result = _compiled_graph.invoke(initial_state, config={"callbacks": langfuse_client.get_callbacks()})
     return (
         result["answer"],
         result["source"],
