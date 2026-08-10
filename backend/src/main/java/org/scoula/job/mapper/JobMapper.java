@@ -1,11 +1,13 @@
 package org.scoula.job.mapper;
 
 import org.apache.ibatis.annotations.Param;
+import org.scoula.job.client.QnetApiClient;
 import org.scoula.job.domain.JobCategoryVO;
 import org.scoula.job.domain.JobCourseVO;
 import org.scoula.job.domain.JobGoalVO;
 import org.scoula.job.domain.JobQualificationVO;
 import org.scoula.job.domain.JobRecommendServiceVO;
+import org.scoula.job.domain.JobTrainingVO;
 import org.scoula.job.domain.JobTransferMajorVO;
 import org.scoula.job.domain.JobTransferUniversityVO;
 import org.scoula.job.dto.JobGoalDetailResponseDTO;
@@ -42,10 +44,16 @@ public interface JobMapper {
             @Param("modifiedNm") String modifiedNm
     );
 
+    // 선택한 훈련과정 소프트 삭제
+    void deleteGoalTrainingByGoalId(
+            @Param("goalId") Long goalId,
+            @Param("modifiedNm") String modifiedNm
+    );
+
     // 선택한 자격증 저장
     void insertGoalQualificationList(
             @Param("goalId") Long goalId,
-            @Param("qualIds") List<Long> qualIds,
+            @Param("qualifications") List<JobQualificationVO> qualifications,
             @Param("createdNm") String createdNm
     );
 
@@ -53,6 +61,12 @@ public interface JobMapper {
     void insertGoalCourseList(
             @Param("goalId") Long goalId,
             @Param("courseIds") List<Long> courseIds,
+            @Param("createdNm") String createdNm
+    );
+
+    void  insertGoalTrainingList(
+            @Param("goalId") Long goalId,
+            @Param("trainings") List<JobTrainingVO> trainings,
             @Param("createdNm") String createdNm
     );
 
@@ -95,6 +109,9 @@ public interface JobMapper {
     // 목표에 저장된 인강 조회
     List<JobCourseVO> findSelectedCourseListByGoalId(Long goalId);
 
+    // 목표에 저장된 훈련과정 조회
+    List<JobTrainingVO> findSelectedTrainingListByGoalId(Long goalId);
+
     // 목표 상세 조회
     JobGoalDetailResponseDTO findJobGoalDetail(Long goalId);
 
@@ -108,10 +125,25 @@ public interface JobMapper {
     // 사용자의 가장 최근 작성 중(DRAFT) 진로 목표 ID 조회
     Long findCurrentJobGoalIdByUserId(Long userId);
 
-    // 진로 목표 soft delete
-    // del_yn을 'Y'로 변경하고 수정일시·수정자를 함께 기록
-    void deleteJobGoalById(
-            @Param("goalId") Long goalId,
-            @Param("modifiedNm") String modifiedNm
+    // Q-Net 동기화 대상 국가자격증 조회
+    List<JobQualificationVO> findQnetQualificationList();
+
+    // Q-Net 응시료 갱신
+    int updateQualificationFee(
+            @Param("qualId") Long qualId,
+            @Param("writtenFee") Long writtenFee,
+            @Param("practicalFee") Long practicalFee
     );
+
+    // Q-Net 시험일정 저장 또는 갱신
+    int upsertQualificationSchedule(
+            @Param("qualId") Long qualId,
+            @Param("examYear") Integer examYear,
+            @Param("examRound") String examRound,
+            @Param("schedule") QnetApiClient.ExamSchedule schedule
+    );
+
+    // 목표 ID로 선택한 직무 카테고리 조회
+    // 고용24 훈련과정 추천 시 NCS 코드와 상위 카테고리 확인에 사용
+    JobCategoryVO findJobCategoryByGoalId(Long goalId);
 }

@@ -3,13 +3,18 @@ package org.scoula.job.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.scoula.common.exception.BusinessException;
+import org.scoula.job.client.QnetApiClient;
+import org.scoula.job.client.Work24ApiClient;
+import org.scoula.job.domain.JobCategoryVO;
 import org.scoula.job.domain.JobGoalVO;
+import org.scoula.job.domain.JobTrainingVO;
 import org.scoula.job.dto.JobGoalCreateRequestDTO;
 import org.scoula.job.dto.JobGoalCreateResponseDTO;
 import org.scoula.job.dto.JobGoalDetailResponseDTO;
 import org.scoula.job.dto.JobPlanCreateRequestDTO;
 import org.scoula.job.dto.JobPlanCreateResponseDTO;
 import org.scoula.job.dto.JobProductDTO;
+import org.scoula.job.dto.JobTrainingDTO;
 import org.scoula.job.dto.JobTransferMajorDTO;
 import org.scoula.job.dto.JobTransferUniversityDTO;
 import org.scoula.job.domain.JobQualificationVO;
@@ -26,6 +31,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -43,7 +49,8 @@ public class JobServiceImpl implements JobService {
 
     private final JobMapper jobMapper;
     private final ProductService productService;
-
+    private final QnetApiClient qnetApiClient;
+    private final Work24ApiClient work24ApiClient;
 
     @Override
     @Transactional(readOnly = true)
@@ -226,8 +233,9 @@ public class JobServiceImpl implements JobService {
             throw BusinessException.badRequest("올바르지 않은 목표유형입니다", "JOB_004");
         }
 
-        List<JobQualificationDTO> qualifications =qualificationVOList.stream()
-                .map(JobQualificationDTO::of)
+        // 자격증 기본정보에 Q-Net 응시료·시험일정 정보 추가
+        List<JobQualificationDTO> qualifications = qualificationVOList.stream()
+                .map(this::enrichQualificationWithQnet)
                 .toList();
 
 
@@ -253,19 +261,31 @@ public class JobServiceImpl implements JobService {
 
         List<Long> qualIds = requestDTO.getQualIds();
         List<Long> courseIds = requestDTO.getCourseIds();
+        List<JobTrainingDTO> trainings = requestDTO.getTrainings();
 
         boolean hasQualification = qualIds != null && !qualIds.isEmpty();
         boolean hasCourse = courseIds != null && !courseIds.isEmpty();
+        boolean hasTraining = trainings != null && !trainings.isEmpty();
 
         // 자격증·어학 또는 인강을 하나 이상 선택해야 함
-        if (!hasQualification && !hasCourse) {
+        if (!hasQualification && !hasCourse && !hasTraining) {
             throw BusinessException.badRequest("준비항목을 1개 이상 선택해주세요", "JOB_002");
         }
 
+        // 훈련과정은 취업(J01) 목표에서만 선택 가능
+        if (hasTraining && !"J01".equals(jobGoalVO.getGoalType())) {
+            throw BusinessException.badRequest(
+                    "훈련과정은 취업 목표에서만 선택할 수 있습니다",
+                    "JOB_009"
+            );
+        }
+
+        // 선택한 자격증·어학 조회
         List<JobQualificationVO> qualificationVOList = hasQualification
                 ? this.jobMapper.findQualificationListByIds(qualIds)
                 : List.of();
 
+        // 선택한 인강 조회
         List<JobCourseVO> courseVOList = hasCourse
                 ? this.jobMapper.findCourseListByIds(courseIds)
                 : List.of();
@@ -280,23 +300,154 @@ public class JobServiceImpl implements JobService {
             throw BusinessException.notFound("존재하지 않는 준비항목이 포함되어 있습니다", "JOB_003");
         }
 
+        // ─────────────────────────────────────────────
+        // Q-Net 자격증 최신 응시료 조회
+        // ─────────────────────────────────────────────
+        if (hasQualification) {
+
+            for (JobQualificationVO qualification : qualificationVOList) {
+
+                Long selectedCost;
+
+                // Q-Net 연동 대상
+                // D02 = Q-Net
+                if ("D02".equals(qualification.getDataSource())
+                        && qualification.getExternalCode() != null
+                        && !qualification.getExternalCode().isBlank()) {
+
+                    try {
+                        // externalCode(jmCd)로 Q-Net 최신 응시료 조회
+                        QnetApiClient.ExamFee fee =
+                                this.qnetApiClient.findExamFee(
+                                        qualification.getExternalCode()
+                                );
+
+                        long writtenFee = fee.getWrittenFee() != null
+                                ? fee.getWrittenFee()
+                                : 0L;
+
+                        long practicalFee = fee.getPracticalFee() != null
+                                ? fee.getPracticalFee()
+                                : 0L;
+
+                        // Q-Net 최신 응시료 반영
+                        qualification.setWrittenFee(writtenFee);
+                        qualification.setPracticalFee(practicalFee);
+
+                        // 필기 + 실기 = 선택 당시 총 준비비용
+                        selectedCost = writtenFee + practicalFee;
+
+                    } catch (Exception e) {
+
+                        // Q-Net 호출 실패 시 기존 DB 금액 사용
+                        selectedCost =
+                                this.calculateQualificationCost(qualification);
+
+                        log.warn(
+                                "Q-Net 응시료 조회 실패, DB 금액 사용: qualId={}",
+                                qualification.getQualId(),
+                                e
+                        );
+                    }
+
+                } else {
+
+                    // Q-Net 연동 대상이 아닌 경우 기존 DB 금액 사용
+                    selectedCost =
+                            this.calculateQualificationCost(qualification);
+                }
+
+                // 실제 목표에 저장할 선택 당시 비용
+                qualification.setSelectedCost(selectedCost);
+            }
+        }
+
+        // ─────────────────────────────────────────────
+        // 선택한 고용24 훈련과정 → 저장용 VO 변환
+        // ─────────────────────────────────────────────
+        List<JobTrainingVO> trainingVOList = hasTraining
+                ? trainings.stream()
+                .map(training -> {
+                    JobTrainingVO trainingVO = new JobTrainingVO();
+
+                    trainingVO.setGoalId(goalId);
+
+                    trainingVO.setExternalCode(training.getExternalCode());
+                    trainingVO.setTrainingRound(training.getTrainingRound());
+                    trainingVO.setInstitutionId(training.getInstitutionId());
+
+                    trainingVO.setTrainingName(training.getTrainingName());
+                    trainingVO.setInstitutionName(training.getInstitutionName());
+                    trainingVO.setTrainingType(training.getTrainingType());
+                    trainingVO.setAddress(training.getAddress());
+
+                    // 전체 훈련비
+                    trainingVO.setTrainingCost(training.getTrainingCost());
+
+                    // 본인부담금을 실제 준비비용으로 저장
+                    trainingVO.setSelectedCost(training.getSelfPayment());
+
+                    trainingVO.setStartDate(training.getStartDate());
+                    trainingVO.setEndDate(training.getEndDate());
+                    trainingVO.setDetailUrl(training.getDetailUrl());
+
+                    return trainingVO;
+                })
+                .toList()
+                : List.of();
+
         // 기존 선택 항목 soft delete 후 새 선택 항목 저장
         this.jobMapper.deleteGoalQualificationByGoalId(goalId, username);
         this.jobMapper.deleteGoalCourseByGoalId(goalId, username);
+        this.jobMapper.deleteGoalTrainingByGoalId(goalId, username);
 
+
+        // 새 선택 자격증·어학 저장
         if (hasQualification) {
-            this.jobMapper.insertGoalQualificationList(goalId, qualIds, username);
+            this.jobMapper.insertGoalQualificationList(goalId, qualificationVOList, username);
         }
 
+        // 새 선택 인강 저장
         if (hasCourse) {
             this.jobMapper.insertGoalCourseList(goalId, courseIds, username);
         }
 
+        // 새 선택 훈련과정 저장
+        if (hasTraining) {
+            this.jobMapper.insertGoalTrainingList(
+                    goalId,
+                    trainingVOList,
+                    username
+            );
+        }
+
+        // 저장 결과 반환
         return JobPlanCreateResponseDTO.builder()
                 .goalId(goalId)
                 .qualifications(qualificationVOList.stream().map(JobQualificationDTO::of).toList())
                 .courses(courseVOList.stream().map(JobCourseDTO::of).toList())
+                .trainings(hasTraining ? trainings : List.of())
                 .build();
+    }
+
+    // 자격증 기존 DB 금액 계산
+    private Long calculateQualificationCost(
+            JobQualificationVO qualification) {
+
+        // 군인 전용 금액이 있으면 우선 사용
+        if (qualification.getMilitaryFee() != null) {
+            return qualification.getMilitaryFee();
+        }
+
+        long writtenFee = qualification.getWrittenFee() != null
+                ? qualification.getWrittenFee()
+                : 0L;
+
+        long practicalFee = qualification.getPracticalFee() != null
+                ? qualification.getPracticalFee()
+                : 0L;
+
+        return writtenFee + practicalFee;
     }
 
     // 정책·금융상품 추천 조회
@@ -345,11 +496,11 @@ public class JobServiceImpl implements JobService {
             );
         }
 
-        // 목표에 저장된 자격증·어학 조회
+        // 저장된 자격증·어학에 Q-Net 응시료·시험일정 정보 추가
         List<JobQualificationDTO> qualifications =
                 this.jobMapper.findSelectedQualificationListByGoalId(goalId)
                         .stream()
-                        .map(JobQualificationDTO::of)
+                        .map(this::enrichQualificationWithQnet)
                         .toList();
 
         // 목표에 저장된 인강 조회
@@ -359,12 +510,20 @@ public class JobServiceImpl implements JobService {
                         .map(JobCourseDTO::of)
                         .toList();
 
+        // 목표에 저장된 훈련과정 조회
+        List<JobTrainingDTO> trainings =
+                this.jobMapper.findSelectedTrainingListByGoalId(goalId)
+                        .stream()
+                        .map(JobTrainingDTO::of)
+                        .toList();
+
         // 목표유형에 맞는 정책·KB 서비스 추천 조회
         ServiceRecommendResponseDTO services =
                 this.findServiceRecommend(goalId);
 
         detail.setQualifications(qualifications);
         detail.setCourses(courses);
+        detail.setTrainings(trainings);
         detail.setPolicies(services.getPolicies());
         detail.setFinancialProducts(services.getFinancialProducts());
 
@@ -430,20 +589,193 @@ public class JobServiceImpl implements JobService {
         return this.findJobGoalDetail(goalId);
     }
 
+    // 자격증 기본정보에 Q-Net 응시료·시험일정 정보를 추가
+    private JobQualificationDTO enrichQualificationWithQnet(
+            JobQualificationVO qualificationVO) {
 
-    // 진로 목표 삭제
-    // 목표 존재 여부를 확인한 후 del_yn을 'Y'로 변경하여 soft delete 처리
+        // DB에 저장된 기본 자격증 정보 DTO 변환
+        JobQualificationDTO dto = JobQualificationDTO.of(qualificationVO);
+
+        // Q-Net 종목코드 조회
+        String jmCd = qualificationVO.getExternalCode();
+        String dataSource = qualificationVO.getDataSource();
+
+        // Q-Net 연동 대상이 아니면 DB 정보 그대로 반환
+        if (!"D02".equals(dataSource)
+                || jmCd == null
+                || jmCd.isBlank()) {
+            return dto;
+        }
+
+        try {
+            // ── 응시료 조회 ─────────────────────────────
+            QnetApiClient.ExamFee fee =
+                    this.qnetApiClient.findExamFee(jmCd);
+
+            dto.setWrittenFee(fee.getWrittenFee());
+            dto.setPracticalFee(fee.getPracticalFee());
+
+            // ── 시험일정 조회 ───────────────────────────
+            List<QnetApiClient.ExamSchedule> schedules =
+                    this.qnetApiClient.findExamSchedules(jmCd);
+
+            LocalDate today = LocalDate.now();
+
+            // 아직 실기시험이 끝나지 않은 가장 가까운 회차 조회
+            QnetApiClient.ExamSchedule nextSchedule = schedules.stream()
+                    .filter(schedule ->
+                            schedule.getPracticalExamEndDate() != null
+                                    && !schedule.getPracticalExamEndDate().isBefore(today))
+                    .min((a, b) ->
+                            a.getPracticalExamEndDate()
+                                    .compareTo(b.getPracticalExamEndDate()))
+                    .orElse(null);
+
+            // 앞으로 남은 회차가 있는 경우 일정 세팅
+            if (nextSchedule != null) {
+                dto.setExamRound(nextSchedule.getExamRound());
+
+                dto.setWrittenRegStartDate(
+                        nextSchedule.getWrittenRegStartDate());
+                dto.setWrittenRegEndDate(
+                        nextSchedule.getWrittenRegEndDate());
+
+                dto.setWrittenExamStartDate(
+                        nextSchedule.getWrittenExamStartDate());
+                dto.setWrittenExamEndDate(
+                        nextSchedule.getWrittenExamEndDate());
+
+                dto.setWrittenResultDate(
+                        nextSchedule.getWrittenResultDate());
+
+                dto.setPracticalRegStartDate(
+                        nextSchedule.getPracticalRegStartDate());
+                dto.setPracticalRegEndDate(
+                        nextSchedule.getPracticalRegEndDate());
+
+                dto.setPracticalExamStartDate(
+                        nextSchedule.getPracticalExamStartDate());
+                dto.setPracticalExamEndDate(
+                        nextSchedule.getPracticalExamEndDate());
+
+                dto.setPracticalResultDate(
+                        nextSchedule.getPracticalResultStartDate());
+
+                // "2026년 정기 기사 3회"에서 연도 추출
+                if (nextSchedule.getExamRound() != null
+                        && nextSchedule.getExamRound().length() >= 4) {
+
+                    try {
+                        dto.setExamYear(Integer.valueOf(
+                                nextSchedule.getExamRound().substring(0, 4)));
+                    } catch (NumberFormatException e) {
+                        log.warn(
+                                "Q-Net 시험연도 변환 실패: examRound={}",
+                                nextSchedule.getExamRound()
+                        );
+                    }
+                }
+            }
+
+        } catch (Exception e) {
+            // Q-Net 장애가 발생해도 DB의 기본 자격증 정보는 반환
+            log.warn(
+                    "Q-Net 자격증 정보 조회 실패: qualId={}, jmCd={}",
+                    qualificationVO.getQualId(),
+                    jmCd,
+                    e
+            );
+        }
+
+        return dto;
+    }
+
     @Override
-    @Transactional
-    public void deleteJobGoal(
+    public List<JobTrainingDTO> findTrainingRecommend(
             Long goalId,
-            Long userId,
-            String username) {
+            String regionCode) {
 
-        // 목표 존재 여부 + 로그인 회원의 목표인지 확인
-        this.findOwnedJobGoalOrThrow(userId, goalId);
+        // 목표에 연결된 직무 카테고리 조회
+        JobCategoryVO category =
+                this.jobMapper.findJobCategoryByGoalId(goalId);
 
-        // 진로 목표 soft delete
-        this.jobMapper.deleteJobGoalById(goalId, username);
+        if (category == null) {
+            throw BusinessException.notFound(
+                    "진로 목표의 직무 정보를 찾을 수 없습니다.",
+                    "JOB_014"
+            );
+        }
+
+        // 고용24 조회에 사용할 NCS 코드
+        String ncsCode = category.getNcsCode();
+
+        if (ncsCode == null || ncsCode.isBlank()) {
+            throw BusinessException.badRequest(
+                    "해당 직무의 훈련과정 추천 정보를 제공할 수 없습니다.",
+                    "JOB_015"
+            );
+        }
+
+        /*
+         * IT·개발 대분류(parentId = 4)인 경우
+         * K-디지털 트레이닝(C0104)을 우선 조회
+         */
+        String courseType =
+                Long.valueOf(4L).equals(category.getParentId())
+                        ? "C0104"
+                        : null;
+
+        List<Work24ApiClient.TrainingCourse> courses =
+                this.work24ApiClient.findTrainingCourses(
+                        regionCode,
+                        ncsCode,
+                        courseType
+                );
+
+        /*
+         * IT 직무인데 K-디지털 과정이 없는 경우
+         * 훈련유형 조건을 제거하고 일반 과정으로 재조회
+         */
+        if (courses.isEmpty() && courseType != null) {
+            courses =
+                    this.work24ApiClient.findTrainingCourses(
+                            regionCode,
+                            ncsCode,
+                            null
+                    );
+        }
+
+        /*
+         * 시작일이 가까운 과정 중 최대 5개만 선택하고,
+         * 각 과정의 상세 API(L02)를 호출해
+         * 일반훈련생 기준 본인부담액을 추가
+         */
+        return courses.stream()
+                .limit(5)
+                .map(course -> {
+
+                    Long selfPayment =
+                            this.work24ApiClient.findSelfPayment(
+                                    course.getExternalCode(),
+                                    course.getTrainingRound(),
+                                    course.getInstitutionId()
+                            );
+
+                    return JobTrainingDTO.builder()
+                            .externalCode(course.getExternalCode())
+                            .trainingRound(course.getTrainingRound())
+                            .institutionId(course.getInstitutionId())
+                            .trainingName(course.getTrainingName())
+                            .institutionName(course.getInstitutionName())
+                            .trainingCost(course.getTrainingCost())
+                            .selfPayment(selfPayment)
+                            .address(course.getAddress())
+                            .startDate(course.getStartDate())
+                            .endDate(course.getEndDate())
+                            .detailUrl(course.getDetailUrl())
+                            .trainingType(course.getTrainingType())
+                            .build();
+                })
+                .collect(Collectors.toList());
     }
 }
