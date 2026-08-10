@@ -2,6 +2,7 @@
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import travelApi from '@/api/travelApi';
+import saluteImage from '@/assets/images/salute.png';
 import BaseCard from '@/components/common/BaseCard.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import CategoryButton from '@/components/common/CategoryButton.vue';
@@ -24,6 +25,7 @@ const loadError = ref('');
 const saveError = ref('');
 const saving = ref(false);
 const selectedPlaces = ref(new Map());
+const loadedImages = ref(new Set());
 const placeCache = {
   attraction: null,
   restaurant: null,
@@ -93,6 +95,24 @@ const selectionType = (category) =>
 
 const placeKey = (place, category = selectedCategory.value) =>
   `${selectionType(category)}:${place.title}`;
+
+const imageKey = (place) =>
+  place.placeId || place.thumbnail || place.title;
+
+const isImageLoaded = (place) =>
+  loadedImages.value.has(imageKey(place));
+
+const markImageLoaded = (place) => {
+  const nextLoadedImages = new Set(loadedImages.value);
+  nextLoadedImages.add(imageKey(place));
+  loadedImages.value = nextLoadedImages;
+};
+
+const keepImagePlaceholder = (place) => {
+  const nextLoadedImages = new Set(loadedImages.value);
+  nextLoadedImages.delete(imageKey(place));
+  loadedImages.value = nextLoadedImages;
+};
 
 const selectedPlaceKey = (place) =>
   `${place.type}:${place.name}`;
@@ -227,22 +247,30 @@ onBeforeUnmount(() => {
           padding="0"
           :class="{ 'is-selected': isSelected(place) }"
         >
-          <label class="place-card__select">
-            <input
-              class="place-card__checkbox"
-              type="checkbox"
-              :checked="isSelected(place)"
-              :aria-label="`${place.title} 관심 항목 선택`"
-              @change="togglePlace(place)"
-            />
-            <img
-              v-if="place.thumbnail"
-              :src="place.thumbnail"
-              :alt="`${place.title} 이미지`"
-              loading="lazy"
-            />
-            <span v-else class="place-card__placeholder" aria-hidden="true">
-              {{ selectedCategory === 'restaurant' ? '맛집' : '여행' }}
+          <button
+            type="button"
+            class="place-card__select"
+            :aria-label="`${place.title} 관심 항목 선택`"
+            :aria-pressed="isSelected(place)"
+            @click="togglePlace(place)"
+          >
+            <span class="place-card__image">
+              <img
+                class="place-card__placeholder-image"
+                :src="saluteImage"
+                alt=""
+                aria-hidden="true"
+              />
+              <img
+                v-if="place.thumbnail"
+                class="place-card__actual-image"
+                :class="{ 'is-loaded': isImageLoaded(place) }"
+                :src="place.thumbnail"
+                :alt="`${place.title} 이미지`"
+                loading="lazy"
+                @load="markImageLoaded(place)"
+                @error="keepImagePlaceholder(place)"
+              />
             </span>
 
             <span class="place-card__content">
@@ -265,7 +293,7 @@ onBeforeUnmount(() => {
                 {{ place.address }}
               </span>
             </span>
-          </label>
+          </button>
         </BaseCard>
       </li>
     </ul>
@@ -357,42 +385,60 @@ onBeforeUnmount(() => {
   position: relative;
   display: grid;
   grid-template-columns: 72px 1fr;
+  width: 100%;
   min-height: 88px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: inherit;
+  font-family: inherit;
+  text-align: left;
   cursor: pointer;
 }
 
-.place-card__checkbox {
-  position: absolute;
-  top: 7px;
-  right: 7px;
-  z-index: 1;
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  accent-color: var(--kb-yellow-deep);
+.place-card__select:focus-visible {
+  outline: 2px solid var(--kb-yellow-deep);
+  outline-offset: -2px;
 }
 
-.place-card img,
-.place-card__placeholder {
+.place-card__image {
+  position: relative;
+  display: block;
   width: 72px;
   height: 100%;
   min-height: 88px;
-  object-fit: cover;
+  overflow: hidden;
+  background: var(--surface-muted);
 }
 
-.place-card__placeholder {
-  display: grid;
-  place-items: center;
-  background: var(--surface-muted);
-  color: var(--text-muted);
-  font-size: 12px;
+.place-card__placeholder-image,
+.place-card__actual-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.place-card__placeholder-image {
+  padding: 14px 10px;
+  box-sizing: border-box;
+  object-fit: contain;
+}
+
+.place-card__actual-image {
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.place-card__actual-image.is-loaded {
+  opacity: 1;
 }
 
 .place-card__content {
   display: flex;
   min-width: 0;
-  padding: 8px 30px 8px 10px;
+  padding: 8px 10px;
   flex-direction: column;
 }
 
