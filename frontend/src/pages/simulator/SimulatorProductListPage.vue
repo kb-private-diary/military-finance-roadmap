@@ -5,7 +5,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import productApi from '@/api/productApi';
-import { formatWon } from '@/util/format';
+import { formatKoreanWon } from '@/util/format';
 import BaseCard from '@/components/common/BaseCard.vue';
 import BaseInput from '@/components/common/BaseInput.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
@@ -142,11 +142,11 @@ const limitText = computed(() => {
   if (!selectedProduct.value) {
     return '';
   }
-  const min = `${formatWon(selectedProduct.value.minLimit)} 이상`;
+  const min = `${formatKoreanWon(selectedProduct.value.minLimit)} 이상`;
   const max =
     selectedProduct.value.maxLimit == null
       ? '한도 없음'
-      : `${formatWon(selectedProduct.value.maxLimit)} 이하`;
+      : `${formatKoreanWon(selectedProduct.value.maxLimit)} 이하`;
   return `${min} ${max}`;
 });
 
@@ -158,7 +158,7 @@ const saveTrmText = computed(() => {
   const { minSaveTrm, maxSaveTrm } = selectedProduct.value;
   return minSaveTrm === maxSaveTrm
     ? `${minSaveTrm}개월`
-    : `${minSaveTrm} ~ ${maxSaveTrm}개월`;
+    : `${minSaveTrm}개월 ~ ${maxSaveTrm}개월`;
 });
 
 const goPrevious = () => router.back();
@@ -203,17 +203,6 @@ const goProductLink = () => {
       <p v-else-if="detailLoading" class="text-caption">불러오는 중...</p>
 
       <template v-else-if="selectedProduct">
-        <!-- 정책 상품 중 hasCalculator=false인 상품은 계산기 자체가 없으므로 빈 카드를 띄우지 않는다. -->
-        <BaseCard
-          v-if="activeTab !== 'policy' || selectedProduct.hasCalculator"
-        >
-          <SavingCalculator
-            v-if="activeTab !== 'policy'"
-            :product="selectedProduct"
-          />
-          <PolicyCalculator v-else :product="selectedProduct" />
-        </BaseCard>
-
         <BaseCard>
           <template v-if="activeTab === 'policy'">
             <div class="product-calc__row">
@@ -267,6 +256,17 @@ const goProductLink = () => {
               <span class="product-calc__value">{{ limitText }}</span>
             </div>
           </template>
+        </BaseCard>
+
+        <!-- 정책 상품 중 hasCalculator=false인 상품은 계산기 자체가 없으므로 빈 카드를 띄우지 않는다. -->
+        <BaseCard
+          v-if="activeTab !== 'policy' || selectedProduct.hasCalculator"
+        >
+          <SavingCalculator
+            v-if="activeTab !== 'policy'"
+            :product="selectedProduct"
+          />
+          <PolicyCalculator v-else :product="selectedProduct" />
         </BaseCard>
 
         <BottomButtonBar
