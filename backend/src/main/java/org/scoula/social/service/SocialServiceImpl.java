@@ -48,6 +48,8 @@ public class SocialServiceImpl implements SocialService {
                 .averageSavingsRate(this.mapper.findAverageSavingsRate(criteria))
                 .savingsRank(rankSummary != null ? rankSummary.getRank() : 1)
                 .comparisonMemberCount(rankSummary != null ? rankSummary.getTotalCount() : 1)
+                .higherSavingsCount(rankSummary != null ? rankSummary.getHigherCount() : 0)
+                .lowerSavingsCount(rankSummary != null ? rankSummary.getLowerCount() : 0)
                 .build();
     }
 
@@ -78,9 +80,13 @@ public class SocialServiceImpl implements SocialService {
         // scope 는 결과를 가르지 않지만, 잘못된 값을 걸러낸다.
         SocialScopeCriteriaDTO criteria = this.createCriteria(
                 this.findUserContext(userId), scope);
+        final Integer unitRank = this.mapper.findUnitRank(criteria);
 
-        return new SocialRankingResponseDTO(
-                RANKING_TITLE, this.mapper.findUnitRankingList(criteria));
+        return SocialRankingResponseDTO.builder()
+                .title(RANKING_TITLE)
+                .rankings(this.mapper.findUnitRankingList(criteria))
+                .myUnitRank(unitRank)
+                .build();
     }
 
     // 조회 시점에 획득 조건을 만족한 뱃지를 지급한 뒤 전체 목록을 반환.
