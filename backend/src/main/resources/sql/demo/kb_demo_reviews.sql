@@ -25,37 +25,51 @@ VALUES
 
 
 -- --------------------------------------------------------------------
---  [석윤] 대시보드/ 휴가(vacation)
---  테이블: vacation
+--  [석윤] 대시보드/ 휴가(vacation, vacation_history)
+--  테이블: vacation(부여), vacation_history(사용내역)
 --  전제: user_id는 AUTO_INCREMENT라 아래 user 테스트 데이터가 순서대로 먼저 들어갔을 때
 --        cpl@kbthink.com -> id=1, vet@kbthink.com -> id=2 로 채번된다고 가정함.
 --        (INSERT INTO `user` ... VALUES ('cpl@kbthink.com', ...), ('vet@kbthink.com', ...))
+--  잔여일수 = vacation.vacation_day - SUM(vacation_history.used_day). 카테고리 구분 없이 동일 규칙.
 -- --------------------------------------------------------------------
 INSERT INTO `vacation`
-(`vacation_id`, `user_id`, `vacation_cate`, `vacation_name`, `vacation_get`, `vacation_day`, `vacation_state`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`)
+(`vacation_id`, `user_id`, `vacation_cate`, `vacation_name`, `vacation_get`, `vacation_day`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`)
 VALUES
 -- 회원 1: 현역 상병(cpl@kbthink.com, 입대 2025-09-01 / 전역예정 2027-02-28, 오늘 기준 복무중)
--- REGULAR는 마스터(총 부여, state=FALSE) 1건 + 사용내역(state=TRUE) N건으로 관리 (DashboardServiceImpl 규칙)
 -- 아직 복무중이라 정기휴가는 일부만 사용(잔여 있음), 다만 5개 카테고리는 전역자와 동일하게 전부 최소 1건씩 확보
-(1, 1, 'REGULAR', '정기휴가', '2025-09-01', 24, FALSE, NOW(), 'seokyun', NULL, NULL, 'N'),           -- 총 부여 휴가
-(2, 1, 'CONSOLATION', '신병위로휴가', '2025-10-15', 3, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),      -- 자대배치 후 사용
-(3, 1, 'REGULAR', '정기휴가 사용', '2026-02-01', 5, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),         -- 1차, 5일 사용
-(4, 1, 'PETITION', '자격증시험', '2026-03-01', 2, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),
-(5, 1, 'ETC', '경조사휴가', '2026-05-01', 1, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),
-(6, 1, 'REGULAR', '정기휴가 사용', '2026-06-15', 6, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),         -- 2차, 6일 사용 (누적 11일, 잔여 13일)
-(7, 1, 'REWARD', '체력우수 포상휴가', '2026-07-20', 2, false, NOW(), 'seokyun', NULL, NULL, 'N'),
+(1, 1, 'REGULAR', '정기휴가', '2025-09-01', 24, NOW(), 'seokyun', NULL, NULL, 'N'),
+(2, 1, 'CONSOLATION', '신병위로휴가', '2025-10-15', 3, NOW(), 'seokyun', NULL, NULL, 'N'),
+(3, 1, 'PETITION', '자격증시험', '2026-03-01', 2, NOW(), 'seokyun', NULL, NULL, 'N'),
+(4, 1, 'ETC', '경조사휴가', '2026-05-01', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+(5, 1, 'REWARD', '체력우수 포상휴가', '2026-07-20', 2, NOW(), 'seokyun', NULL, NULL, 'N'),   -- 미사용(잔여 2일)
 
 -- 회원 2: 전역자 병장(vet@kbthink.com, 입대 2024-06-01 / 전역 2025-11-30, 이미 전역 완료)
 -- 전역 완료 시나리오라 (a) 5개 카테고리(REGULAR/CONSOLATION/REWARD/PETITION/ETC) 전부 최소 1건씩 존재,
 -- (b) REGULAR는 총 부여(24일)만큼 사용내역 합계도 정확히 24일로 맞춰 잔여 0으로 마감
-(8, 2, 'REGULAR', '정기휴가', '2024-06-01', 24, FALSE, NOW(), 'seokyun', NULL, NULL, 'N'),            -- 총 부여 휴가
-(9, 2, 'CONSOLATION', '신병위로휴가', '2024-07-01', 3, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),       -- 자대배치 후 사용
-(10, 2, 'REGULAR', '정기휴가 사용', '2024-10-01', 8, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),         -- 1차, 8일 사용
-(11, 2, 'PETITION', '자격증시험', '2025-01-15', 2, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),
-(12, 2, 'REWARD', '사격우수 포상휴가', '2025-02-01', 4, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),
-(13, 2, 'REGULAR', '정기휴가 사용', '2025-05-01', 8, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),         -- 2차, 8일 사용
-(14, 2, 'ETC', '경조사휴가', '2025-09-01', 2, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),
-(15, 2, 'REGULAR', '정기휴가 사용', '2025-10-01', 8, TRUE, NOW(), 'seokyun', NULL, NULL, 'N');         -- 3차, 8일 사용 (합계 24일, 잔여 0)
+(6, 2, 'REGULAR', '정기휴가', '2024-06-01', 24, NOW(), 'seokyun', NULL, NULL, 'N'),
+(7, 2, 'CONSOLATION', '신병위로휴가', '2024-07-01', 3, NOW(), 'seokyun', NULL, NULL, 'N'),
+(8, 2, 'PETITION', '자격증시험', '2025-01-15', 2, NOW(), 'seokyun', NULL, NULL, 'N'),
+(9, 2, 'REWARD', '사격우수 포상휴가', '2025-02-01', 4, NOW(), 'seokyun', NULL, NULL, 'N'),
+(10, 2, 'ETC', '경조사휴가', '2025-09-01', 2, NOW(), 'seokyun', NULL, NULL, 'N');
+
+INSERT INTO `vacation_history`
+(`history_id`, `vacation_id`, `used_date`, `used_day`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`)
+VALUES
+-- 회원 1
+(1, 2, '2025-10-15', 3, NOW(), 'seokyun', NULL, NULL, 'N'),   -- 신병위로휴가 전부 사용
+(2, 1, '2026-02-01', 5, NOW(), 'seokyun', NULL, NULL, 'N'),   -- 정기휴가 1차, 5일 사용
+(3, 3, '2026-03-01', 2, NOW(), 'seokyun', NULL, NULL, 'N'),   -- 청원휴가 전부 사용
+(4, 4, '2026-05-01', 1, NOW(), 'seokyun', NULL, NULL, 'N'),   -- 경조사휴가 전부 사용
+(5, 1, '2026-06-15', 6, NOW(), 'seokyun', NULL, NULL, 'N'),   -- 정기휴가 2차, 6일 사용 (누적 11일, 잔여 13일)
+
+-- 회원 2 (REGULAR 합계 8+8+8=24일 -> 잔여 0)
+(6, 7, '2024-07-01', 3, NOW(), 'seokyun', NULL, NULL, 'N'),   -- 신병위로휴가 전부 사용
+(7, 6, '2024-10-01', 8, NOW(), 'seokyun', NULL, NULL, 'N'),   -- 정기휴가 1차, 8일 사용
+(8, 8, '2025-01-15', 2, NOW(), 'seokyun', NULL, NULL, 'N'),   -- 청원휴가 전부 사용
+(9, 9, '2025-02-01', 4, NOW(), 'seokyun', NULL, NULL, 'N'),   -- 포상휴가 전부 사용
+(10, 6, '2025-05-01', 8, NOW(), 'seokyun', NULL, NULL, 'N'),  -- 정기휴가 2차, 8일 사용
+(11, 10, '2025-09-01', 2, NOW(), 'seokyun', NULL, NULL, 'N'), -- 경조사휴가 전부 사용
+(12, 6, '2025-10-01', 8, NOW(), 'seokyun', NULL, NULL, 'N');  -- 정기휴가 3차, 8일 사용 (합계 24일, 잔여 0)
 
 
 
@@ -535,6 +549,54 @@ INSERT INTO `rent_goal_region`
 
 -- [건수 요약] saving_account 4 / saving_history 60 / income 28 / spending 21 / spending_review 19 / openbanking_link 6 / rent_goal 2 / rent_goal_region 3
 
+-- --------------------------------------------------------------------
+--  [태석] 여행 / 여행목표(travel_goal)
+--  테이블: travel_goal
+-- --------------------------------------------------------------------
+INSERT INTO travel_goal (goal_id, user_id, title, departure, destination, is_domestic, style, start_date, end_date, total_budget, places, benefits, package_id, created_date, created_nm, del_yn)
+
+VALUES
+-- 회원1 : 저예산 케이스
+(1, 1, '다낭 전역여행', '인천', '다낭', FALSE, 'saving',
+ '2026-11-02', '2026-11-05', 800000,
+ '[
+	 {"type":"tour","name":"마블마운틴","info":"동굴과 사원이 있는 다채로운 산","image":"https://serpapi.com/searches/6a5e618ebd1731af1e19eb49/images/GvHh68c8DPUuCxuCmLUqrqhEVKB0PniwjOoesTS9NHI.jpeg"},
+   {"type":"tour","name":"팝럼사 (法林寺)","info":"1934년에 지어진 2층 불교 사원","image":"https://serpapi.com/searches/6a5e618ebd1731af1e19eb49/images/KIIJPeq5zLUg5AxWiV9g_yITnny5yEPZfUdosanpD2g.jpeg"},
+   {"type":"food","name":"NGON DA NANG - VIETNAMESE CUISINE RESTAURANT","info":"매장 내 식사·테이크아웃","image":"https://serpapi.com/searches/6a5e618e66bc789017fe9cab/images/AquqTDV9riK8l0A34ktzJSoiVo0tlR1a1GPquUNhk-8.jpeg"}
+  ]',
+ '[
+   {"type":"saving","productId":20,"name":"KB두근두근여행적금"},
+   {"type":"card","productId":1,"name":"트래블러스 체크카드"}
+  ]',
+ 1, NOW(), 'jotaeseok', 'N'),
+
+-- 회원2 : 예산 여유 케이스
+(2, 2, '오사카 졸업여행', '인천', '오사카', FALSE, 'common',
+ '2026-09-20', '2026-09-23', 2000000,
+ '[
+  {"type":"tour","name":"도톤보리","info":"음식점 및 극장으로 유명한 지역","image":"https://serpapi.com/searches/6a5e679adbb9ff379459dd5a/images/Ghc_3-LmSqc_k812psTKMmZ7MaEk99okFzyh4KQOho4.jpeg"},
+  {"type":"food","name":"OSAKAVILLAGE","info":"오사카 여행에서 꼭 한 번 이상을 들려야 할 필수 맛집이 아닐까 합니다!","image":"https://serpapi.com/searches/6a5e679a5b92f8db433c9794/images/v9J1uOJY3xSdqiyRH9E0lD9D8hC8-QEvPNv8iOZCLK8.jpeg"}
+ ]',
+ '[
+   {"type":"insurance","productId":1,"name":"KB 해외여행보험"},
+   {"type":"card","productId":4,"name":"WE:SH Travel 카드"}
+  ]',
+ 4, NOW(), 'jotaeseok', 'N');
+
+
+-- --------------------------------------------------------------------
+--  [태석] 여행 / 예상여행경비(travel_cost)
+--  테이블: travel_cost
+-- --------------------------------------------------------------------
+INSERT INTO travel_cost (cost_id, goal_id, flight_cost, hotel_cost, living_cost, total_cost, remaining_budget, created_date, created_nm, del_yn)
+
+VALUES
+    (1, 1,  450000, 240000,  90692,  780692,   19308, NOW(), 'jotaeseok', 'N'),
+    (2, 2,  380000, 520000, 313288, 1213288,  786712, NOW(), 'jotaeseok', 'N'),
+    (3, 3,   87000, 360000, 373497,  627000,  873000, NOW(), 'jotaeseok', 'N');
+
+
+
 -- ######################################################################
 --  [태석] 저축 비교 페이지 테스트 인원 100명
 -- ######################################################################
@@ -764,9 +826,9 @@ FROM (
      ) source
          JOIN `user` member ON member.user_id = source.email;
 
--- ── 로드맵 목표 100건 ───────────────────────────────────────
+-- ── 로드맵 목표 91건 ────────────────────────────────────────
 --  관심도 차트 분포용. 회원 1명당 1건, 전부 CONFIRMED.
---  여행 45 / 진로 25 / 자동차 18 / 자취 12
+--  여행 36 / 진로 25 / 자동차 18 / 자취 12
 
 INSERT INTO `travel_goal`
 (`user_id`, `title`, `departure`, `destination`, `is_domestic`, `style`,
@@ -823,7 +885,10 @@ FROM (
          UNION ALL SELECT 'soldier044@kbthink.com', '오사카', 0, 1100000
          UNION ALL SELECT 'soldier045@kbthink.com', '다낭', 0, 1200000
      ) source
-         JOIN `user` member ON member.user_id = source.email;
+         JOIN `user` member ON member.user_id = source.email
+         JOIN `city_cost` city
+           ON city.city = source.destination
+          AND city.del_yn = 'N';
 
 INSERT INTO `job_goal`
 (`user_id`, `goal_type`, `expected_date`, `status`,

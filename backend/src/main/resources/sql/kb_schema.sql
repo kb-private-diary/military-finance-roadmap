@@ -1,10 +1,10 @@
 SET FOREIGN_KEY_CHECKS = 0;
 
 /*
-총 테이블 갯수: 69개
+총 테이블 갯수: 70개
 
 [테이블 구분]
-- 회원/공통: user, military_types, military_unit, military_rank, badge, user_badge, terms, terms_agreement, vacation
+- 회원/공통: user, military_types, military_unit, military_rank, badge, user_badge, terms, terms_agreement, vacation, vacation_history
 - 예적금/금융: bank_category, saving_product, military_saving_product, card_product, saving_account, saving_history, policy_product
 - 목표/로드맵 공통: roadmap_category, user_bookmark
 - 여행 목표: travel_goal, travel_cost, city_cost, hotel_cost, flight_cost, travel_package, travel_insurance
@@ -20,6 +20,7 @@ DROP TABLE IF EXISTS `military_types`;
 CREATE TABLE `military_types` (
   `type_id` INT PRIMARY KEY NOT NULL COMMENT '군종ID',
   `type_name` VARCHAR(20) NOT NULL COMMENT '군종명',
+  `regular_vacation_days` INT NOT NULL COMMENT '정기휴가(연가) 총 부여일수',
   `created_date` DATETIME NOT NULL COMMENT '생성일시',
   `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
   `modified_date` DATETIME COMMENT '수정일시',
@@ -252,6 +253,8 @@ CREATE TABLE `saving_history` (
   `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
 );
 
+-- vacation = 부여(grant). 실제 사용내역은 vacation_history에서 관리하며,
+-- 잔여일수 = vacation_day - SUM(vacation_history.used_day)로 파생 계산한다.
 DROP TABLE IF EXISTS `vacation`;
 CREATE TABLE `vacation` (
   `vacation_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '휴가ID',
@@ -259,8 +262,20 @@ CREATE TABLE `vacation` (
   `vacation_cate` VARCHAR(20) NOT NULL COMMENT '휴가 카테고리',
   `vacation_name` VARCHAR(100) NOT NULL COMMENT '휴가 이름',
   `vacation_get` DATE NOT NULL COMMENT '휴가 획득날짜',
-  `vacation_day` INT NOT NULL COMMENT '휴가일수',
-  `vacation_state` BOOLEAN NOT NULL COMMENT '사용여부',
+  `vacation_day` INT NOT NULL COMMENT '휴가 총 부여일수',
+  `created_date` DATETIME NOT NULL COMMENT '생성날짜',
+  `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+  `modified_date` DATETIME COMMENT '수정날짜',
+  `modified_nm` VARCHAR(50) COMMENT '수정자',
+  `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
+);
+
+DROP TABLE IF EXISTS `vacation_history`;
+CREATE TABLE `vacation_history` (
+  `history_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '휴가사용ID',
+  `vacation_id` BIGINT NOT NULL COMMENT '휴가ID(부여)',
+  `used_date` DATE NOT NULL COMMENT '사용일',
+  `used_day` INT NOT NULL COMMENT '사용일수',
   `created_date` DATETIME NOT NULL COMMENT '생성날짜',
   `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
   `modified_date` DATETIME COMMENT '수정날짜',
@@ -692,6 +707,7 @@ CREATE TABLE `car_goal` (
   `region` VARCHAR(20) COMMENT '거주지역',
   `selected_model_id` BIGINT COMMENT '선택차량ID',
   `selected_year` INT COMMENT '선택연식',
+  `selected_mileage_km` INT COMMENT '선택주행거리(km)',
   `status` VARCHAR(20) COMMENT '진행상태',
   `created_date` DATETIME NOT NULL COMMENT '생성일시',
   `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
@@ -1476,6 +1492,8 @@ ALTER TABLE `saving_history` ADD FOREIGN KEY (`account_id`) REFERENCES `saving_a
 ALTER TABLE `military_saving_product` ADD FOREIGN KEY (`bank_code`) REFERENCES `bank_category` (`bank_code`);
 
 ALTER TABLE `vacation` ADD FOREIGN KEY (`user_id`) REFERENCES `user` (`id`);
+
+ALTER TABLE `vacation_history` ADD FOREIGN KEY (`vacation_id`) REFERENCES `vacation` (`vacation_id`);
 
 ALTER TABLE `travel_goal` ADD FOREIGN KEY (`user_id`) REFERENCES `user` (`id`);
 

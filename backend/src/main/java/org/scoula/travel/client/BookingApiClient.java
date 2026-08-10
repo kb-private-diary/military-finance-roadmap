@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
@@ -26,12 +25,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.log4j.Log4j2;
 
 import org.scoula.common.exception.BusinessException;
+import org.scoula.travel.util.TravelPriceCalculator;
 
 /**
  * RapidAPI의 Booking COM 호텔 검색 클라이언트.
  *
  * <p>도시의 목적지 ID는 메모리에 캐시하고, 성인 1명·객실 1개·KRW 조건으로
- * 검색된 호텔 총액의 산술평균을 숙박비로 사용한다.</p>
+ * 검색된 호텔 총액의 중앙값을 일반 기준 숙박비로 사용한다.</p>
  */
 @Log4j2
 @Component
@@ -78,15 +78,7 @@ public class BookingApiClient {
 
         List<BigDecimal> prices = this.findHotelPrices(
                 destination, checkInDate, checkOutDate);
-        BigDecimal total = BigDecimal.ZERO;
-        for (BigDecimal price : prices) {
-            total = total.add(price);
-        }
-        return total.divide(
-                        BigDecimal.valueOf(prices.size()),
-                        0,
-                        RoundingMode.HALF_UP)
-                .longValue();
+        return TravelPriceCalculator.findMedian(prices);
     }
 
     private void validateRequest(

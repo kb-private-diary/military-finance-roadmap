@@ -1,5 +1,6 @@
 package org.scoula.member.service;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -17,6 +18,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import org.scoula.common.exception.BusinessException;
+import org.scoula.common.util.RankCalculator;
+import org.scoula.dashboard.domain.VacationVO;
+import org.scoula.dashboard.mapper.DashboardMapper;
+import org.scoula.member.domain.MilitaryTypeVO;
 import org.scoula.member.domain.TermsAgreementVO;
 import org.scoula.member.domain.TermsVO;
 import org.scoula.member.dto.ChangePasswordRequestDTO;
@@ -34,6 +39,7 @@ import org.scoula.member.dto.WithdrawRequestDTO;
 import org.scoula.member.mapper.MemberMapper;
 import org.scoula.member.mapper.MilitaryTypeMapper;
 import org.scoula.member.mapper.MilitaryUnitMapper;
+import org.scoula.member.mapper.RankMapper;
 import org.scoula.member.mapper.TermsMapper;
 import org.scoula.security.account.domain.MemberVO;
 import org.scoula.security.account.dto.AuthResultDTO;
@@ -58,6 +64,8 @@ public class MemberServiceImpl implements MemberService {
     private final TermsMapper termsMapper;
     private final MilitaryTypeMapper militaryTypeMapper;
     private final MilitaryUnitMapper militaryUnitMapper;
+    private final RankMapper rankMapper;
+    private final DashboardMapper dashboardMapper;
     private final JwtProcessor jwtProcessor;
     private final UserDetailsMapper userDetailsMapper;
 
@@ -133,7 +141,14 @@ public class MemberServiceImpl implements MemberService {
 
         MemberVO member = dto.toVO();
         member.setPassword(this.passwordEncoder.encode(member.getPassword()));
+        // 계급은 입력받지 않으므로(SignupMilitaryPage 참고) 입대일 기준으로 가입 시점에 바로 산정해둔다.
+        // 그래야 익일 배치(RankPromotionScheduler) 전까지 계급이 비어 보이는 문제가 없다.
+        if (member.getEnlistDate() != null) {
+            int monthsSinceEnlist = RankCalculator.monthsSinceEnlist(member.getEnlistDate(), LocalDate.now());
+            member.setRankId(this.rankMapper.findRankIdByServiceMonths(monthsSinceEnlist));
+        }
         this.mapper.insert(member);
+        this.createRegularVacation(member);
 
         if (!agreedTermsIds.isEmpty()) {
             Map<Long, String> versionByTermsId = this.termsMapper.findAll().stream()
@@ -150,6 +165,30 @@ public class MemberServiceImpl implements MemberService {
         }
 
         return member.getId();
+    }
+
+    // 정기휴가(연가)는 입대하면 군종별 규정 일수만큼 자동으로 부여된다.
+    // vacation 테이블에 REGULAR 마스터(부여) 행을 하나 만들어두면, 이후 사용내역은
+    // DashboardService.createVacation()이 이 마스터 행의 잔여일수를 깎아가며 관리한다.
+    private void createRegularVacation(MemberVO member) {
+        if (member.getEnlistDate() == null) {
+            return;
+        }
+        MilitaryTypeVO militaryType = this.militaryTypeMapper.findMilitaryType(member.getTypeId());
+        if (militaryType == null) {
+            return;
+        }
+
+        VacationVO vacation = VacationVO.builder()
+                .userId(member.getId())
+                .vacationCate("REGULAR")
+                .vacationName("정기휴가")
+                .vacationGet(member.getEnlistDate())
+                .vacationDay(militaryType.getRegularVacationDays())
+                .build();
+        vacation.setCreatedNm(member.getUserId());
+
+        this.dashboardMapper.insertVacation(vacation);
     }
 
     @Override

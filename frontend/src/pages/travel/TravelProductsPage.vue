@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import travelApi from '@/api/travelApi';
 import saluteImage from '@/assets/images/salute.png';
 import BaseCard from '@/components/common/BaseCard.vue';
+import BaseModal from '@/components/common/BaseModal.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
@@ -17,11 +18,11 @@ const products = ref({
   savings: [],
   insurances: [],
 });
-const selectedProducts = ref(new Map());
 const loading = ref(false);
 const saving = ref(false);
 const loadError = ref('');
 const saveError = ref('');
+const isCompleteModalOpen = ref(false);
 let scrollContainer = null;
 
 const productGroups = computed(() => [
@@ -51,26 +52,6 @@ const readErrorMessage = (error, fallback) =>
   error.response?.data?.error?.message ||
   fallback;
 
-const productKey = (product) =>
-  `${product.type}:${String(product.productId)}`;
-
-const isSelected = (product) =>
-  selectedProducts.value.has(productKey(product));
-
-const toggleProduct = (product) => {
-  const key = productKey(product);
-  if (selectedProducts.value.has(key)) {
-    selectedProducts.value.delete(key);
-    return;
-  }
-
-  selectedProducts.value.set(key, {
-    type: product.type,
-    productId: String(product.productId),
-    name: product.name,
-  });
-};
-
 const loadProducts = async () => {
   loading.value = true;
   loadError.value = '';
@@ -83,28 +64,6 @@ const loadProducts = async () => {
       savings: data.savings ?? [],
       insurances: data.insurances ?? [],
     };
-
-    const availableProducts = [
-      ...products.value.cards,
-      ...products.value.savings,
-      ...products.value.insurances,
-    ];
-    const availableByKey = new Map(
-      availableProducts.map((product) => [productKey(product), product]),
-    );
-    selectedProducts.value = new Map(
-      (data.selectedProducts ?? [])
-        .map((product) => availableByKey.get(productKey(product)))
-        .filter(Boolean)
-        .map((product) => [
-          productKey(product),
-          {
-            type: product.type,
-            productId: String(product.productId),
-            name: product.name,
-          },
-        ]),
-    );
   } catch (error) {
     loadError.value = readErrorMessage(
       error,
@@ -119,17 +78,13 @@ const goPrevious = () =>
   router.push({ name: 'TravelPackages', params: { goalId } });
 
 const saveRoadmap = async () => {
-  if (saving.value || loading.value || loadError.value) return;
+  if (saving.value || loading.value) return;
 
   saving.value = true;
   saveError.value = '';
   try {
-    await travelApi.updateProducts(
-      goalId,
-      Array.from(selectedProducts.value.values()),
-    );
     await travelApi.confirmGoal(goalId);
-    await router.push({ name: 'RoadmapMain' });
+    isCompleteModalOpen.value = true;
   } catch (error) {
     saveError.value = readErrorMessage(
       error,
@@ -139,6 +94,9 @@ const saveRoadmap = async () => {
     saving.value = false;
   }
 };
+
+const goToDetail = () =>
+  router.push({ name: 'TravelGoalDetail', params: { goalId } });
 
 onMounted(() => {
   scrollContainer = document.querySelector('.app-content');
@@ -158,8 +116,8 @@ onBeforeUnmount(() => {
     <header class="page-header">
       <h1 class="text-title">금융상품 추천</h1>
       <p class="text-caption">
-        여행에 활용할 상품 중 관심 있는 항목을 선택해주세요.<br />
-        선택하지 않고 저장해도 괜찮아요.
+        여행에 활용할 수 있는 금융상품을 확인해보세요.<br />
+        별도의 선택 없이 여행 로드맵을 저장할 수 있어요.
       </p>
     </header>
 
@@ -200,16 +158,8 @@ onBeforeUnmount(() => {
           >
             <BaseCard
               class="product-card"
-              :class="{ 'is-selected': isSelected(product) }"
               padding="18px"
             >
-              <input
-                class="product-card__checkbox"
-                type="checkbox"
-                :checked="isSelected(product)"
-                :aria-label="`${product.name} 관심 상품 선택`"
-                @change="toggleProduct(product)"
-              />
               <div class="product-card__content">
                 <strong class="product-card__name text-label">
                   {{ product.name }}
@@ -272,10 +222,22 @@ onBeforeUnmount(() => {
     <BottomButtonBar
       secondary-label="이 전"
       :primary-label="saving ? '저장 중...' : '저 장'"
-      :primary-disabled="loading || Boolean(loadError) || saving"
+      :primary-disabled="loading || saving"
       @secondary-click="goPrevious"
       @primary-click="saveRoadmap"
     />
+
+    <BaseModal
+      v-model="isCompleteModalOpen"
+      title="알림"
+      confirm-text="확인"
+      @confirm="goToDetail"
+      @cancel="goToDetail"
+    >
+      <p class="complete-modal__message">
+        여행 로드맵이 저장되었습니다.
+      </p>
+    </BaseModal>
   </div>
 </template>
 
@@ -347,22 +309,6 @@ onBeforeUnmount(() => {
   min-height: 104px;
 }
 
-.product-card.is-selected {
-  border-color: var(--kb-yellow-deep);
-  box-shadow: 0 0 0 1px var(--kb-yellow-deep);
-}
-
-.product-card__checkbox {
-  position: absolute;
-  z-index: 2;
-  top: 9px;
-  right: 9px;
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  accent-color: var(--kb-yellow-deep);
-}
-
 .product-card__content {
   padding-right: 38px;
 }
@@ -419,6 +365,10 @@ onBeforeUnmount(() => {
   margin: 14px 0 0;
   color: var(--danger);
   text-align: center;
+}
+
+.complete-modal__message {
+  margin: 0;
 }
 
 .save-guide {

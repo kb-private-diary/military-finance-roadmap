@@ -35,7 +35,7 @@
 
     <!--
       useGeneratedKeys 로 AUTO_INCREMENT 된 goal_id 를 VO에 반환
-      step1 시점에는 places / products(DB 컬럼명: benefits) / package_id가 없으므로 컬럼에서 제외
+      step1 시점에는 places / package_id가 없으므로 컬럼에서 제외
     -->
     <insert id="insertGoal"
             parameterType="org.scoula.travel.domain.TravelGoalVO"
@@ -61,7 +61,7 @@
     <sql id="travelGoalColumns">
         goal_id, user_id, title, departure, destination, is_domestic, style,
         start_date, end_date, total_budget, places,
-        benefits AS products, package_id, status,
+        package_id, status,
         created_date, created_nm, modified_date, modified_nm, del_yn
     </sql>
 
@@ -104,6 +104,17 @@
             start_date = #{startDate},
             end_date = #{endDate},
             total_budget = #{totalBudget},
+            modified_date = NOW(),
+            modified_nm = #{modifiedNm}
+        WHERE goal_id = #{goalId}
+          AND user_id = #{userId}
+          AND status = 'DRAFT'
+          AND del_yn = 'N'
+    </update>
+
+    <update id="updateGoalStyle">
+        UPDATE travel_goal
+        SET style = #{style},
             modified_date = NOW(),
             modified_nm = #{modifiedNm}
         WHERE goal_id = #{goalId}
@@ -167,6 +178,29 @@
         LIMIT 1
     </select>
 
+    <select id="findUserFinanceByUserId"
+            resultType="org.scoula.travel.dto.TravelUserFinanceDTO">
+        SELECT u.discharge_date AS dischargeDate,
+               COALESCE(mr.rank_salary, 0) AS monthlySalary,
+               COALESCE(SUM(
+                   CASE
+                       WHEN sa.del_yn = 'N'
+                           AND sa.account_status = 'ACTIVE'
+                       THEN sa.monthly_save
+                       ELSE 0
+                   END
+               ), 0) AS monthlySaving
+        FROM `user` u
+        LEFT JOIN military_rank mr
+          ON mr.rank_id = u.rank_id
+         AND mr.del_yn = 'N'
+        LEFT JOIN saving_account sa
+          ON sa.user_id = u.id
+        WHERE u.id = #{userId}
+          AND u.del_yn = 'N'
+        GROUP BY u.id, u.discharge_date, mr.rank_salary
+    </select>
+
     <select id="findFlightCostByQuarter"
             parameterType="org.scoula.travel.dto.TravelQuarterCostSearchDTO"
             resultType="java.lang.Long">
@@ -213,6 +247,16 @@
         WHERE goods_code = #{goodsCode}
           AND del_yn = 'N'
         ORDER BY package_id DESC
+        LIMIT 1
+    </select>
+
+    <select id="getPackageById"
+            resultType="org.scoula.travel.domain.TravelPackageVO">
+        SELECT
+        <include refid="travelPackageColumns"/>
+        FROM travel_package
+        WHERE package_id = #{packageId}
+          AND del_yn = 'N'
         LIMIT 1
     </select>
 
@@ -327,29 +371,6 @@
         ORDER BY max_rate DESC, product_name
     </select>
 
-    <update id="updateGoalProducts"
-            parameterType="org.scoula.travel.domain.TravelGoalVO">
-        UPDATE travel_goal
-        SET benefits = CAST(#{products} AS JSON),
-            modified_date = NOW(),
-            modified_nm = #{modifiedNm}
-        WHERE goal_id = #{goalId}
-          AND user_id = #{userId}
-          AND status = 'DRAFT'
-          AND del_yn = 'N'
-    </update>
-
-    <update id="archiveConfirmedGoalByUserId"
-            parameterType="org.scoula.travel.domain.TravelGoalVO">
-        UPDATE travel_goal
-        SET status = 'ARCHIVED',
-            modified_date = NOW(),
-            modified_nm = #{modifiedNm}
-        WHERE user_id = #{userId}
-          AND status = 'CONFIRMED'
-          AND del_yn = 'N'
-    </update>
-
     <update id="confirmGoal"
             parameterType="org.scoula.travel.domain.TravelGoalVO">
         UPDATE travel_goal
@@ -359,6 +380,25 @@
         WHERE goal_id = #{goalId}
           AND user_id = #{userId}
           AND status = 'DRAFT'
+          AND del_yn = 'N'
+    </update>
+
+    <update id="softDeleteGoal">
+        UPDATE travel_goal
+        SET del_yn = 'Y',
+            modified_date = NOW(),
+            modified_nm = #{modifiedNm}
+        WHERE goal_id = #{goalId}
+          AND user_id = #{userId}
+          AND del_yn = 'N'
+    </update>
+
+    <update id="softDeleteCostByGoalId">
+        UPDATE travel_cost
+        SET del_yn = 'Y',
+            modified_date = NOW(),
+            modified_nm = #{modifiedNm}
+        WHERE goal_id = #{goalId}
           AND del_yn = 'N'
     </update>
 

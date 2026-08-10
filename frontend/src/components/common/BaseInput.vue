@@ -26,6 +26,9 @@ const props = defineProps({
   maxLength: { type: Number, required: false, default: 0 },
   suffix: { type: String, required: false, default: '' },
   options: { type: Array, required: false, default: () => [] },
+  disabled: { type: Boolean, required: false, default: false },
+  min: { type: String, required: false, default: '' },
+  max: { type: String, required: false, default: '' },
 });
 const emit = defineEmits(['update:modelValue']);
 
@@ -38,6 +41,16 @@ const updateRange = (index, value) => {
     ? [...props.modelValue]
     : ['', ''];
   newVal[index] = value;
+
+  if (props.type === 'date-range') {
+    if (index === 0 && newVal[1] && newVal[1] < value) {
+      newVal[1] = '';
+    }
+    if (index === 1 && newVal[0] && value < newVal[0]) {
+      return;
+    }
+  }
+
   emit('update:modelValue', newVal);
 };
 
@@ -110,6 +123,7 @@ const isSelectOpen = ref(false);
 const dropdownRef = ref(null);
 
 const toggleSelect = () => {
+  if (props.disabled) return;
   isSelectOpen.value = !isSelectOpen.value;
 };
 
@@ -196,6 +210,7 @@ const handleAmountInput = (event) => {
             type="button"
             @click="toggleSelect"
             :class="{ 'is-open': isSelectOpen }"
+            :disabled="disabled"
           >
             <span class="dropdown__text">{{ currentSelectLabel }}</span>
             <svg
@@ -238,6 +253,11 @@ const handleAmountInput = (event) => {
             class="base-input__field"
             :class="{ 'is-error': error }"
             :value="Array.isArray(modelValue) ? modelValue[0] : ''"
+            :disabled="disabled"
+            :min="min || null"
+            :max="
+              (Array.isArray(modelValue) && modelValue[1]) || max || null
+            "
             @input="updateRange(0, $event.target.value)"
           />
           <span class="base-input__range-sep">~</span>
@@ -246,6 +266,11 @@ const handleAmountInput = (event) => {
             class="base-input__field"
             :class="{ 'is-error': error }"
             :value="Array.isArray(modelValue) ? modelValue[1] : ''"
+            :disabled="disabled"
+            :min="
+              (Array.isArray(modelValue) && modelValue[0]) || min || null
+            "
+            :max="max || null"
             @input="updateRange(1, $event.target.value)"
           />
         </div>

@@ -4,14 +4,19 @@
 
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
+import { useRouter } from 'vue-router';
+
 import mainApi from '@/api/mainApi';
 
 import BaseCard from '@/components/common/BaseCard.vue';
 import BaseTag from '@/components/common/BaseTag.vue';
 import DonutChart from '@/components/common/DonutChart.vue';
-import LikeButton from '@/components/common/LikeButton.vue';
+import { formatManwon, formatWon } from '@/util/format';
 
-import soldierCharacter from '@/assets/images/bear-salute.png';
+import bearSalute from '@/assets/images/bear-salute.png';
+import calendarIcon from '@/assets/images/calendar.png';
+
+const router = useRouter();
 
 // 메인 API 응답 데이터
 const summary = ref(null);
@@ -24,31 +29,37 @@ const hasError = ref(false);
 const currentProductIndex = ref(0);
 let productTimer = null;
 
+const isFundInfoOpen = ref(false);
+
+const toggleFundInfo = () => {
+  isFundInfoOpen.value = !isFundInfoOpen.value;
+};
+
 // 로드맵 카테고리별 화면 표시 정보
 const CATEGORY_MAP = {
   1: {
+    code: 'TRAVEL',
     label: '여행',
-    emoji: '✈️',
     cardClass: 'roadmap-card--travel',
-    tagVariant: 'blue',
+    tagVariant: 'pastel-blue',
   },
   2: {
+    code: 'JOB',
     label: '진로',
-    emoji: '💻',
     cardClass: 'roadmap-card--job',
-    tagVariant: 'yellow',
+    tagVariant: 'pastel-yellow',
   },
   3: {
+    code: 'CAR',
     label: '자동차',
-    emoji: '🚗',
     cardClass: 'roadmap-card--car',
-    tagVariant: 'green-light',
+    tagVariant: 'pastel-green',
   },
   4: {
+    code: 'RENT',
     label: '자취',
-    emoji: '🏠',
     cardClass: 'roadmap-card--rent',
-    tagVariant: 'purple',
+    tagVariant: 'pastel-pink',
   },
 };
 
@@ -88,6 +99,16 @@ const usageRate = computed(() => {
   );
 });
 
+// 관심 로드맵 예상 비용이 만기 예상금을 초과했는지 여부
+const isOverBudget = computed(
+  () => maturityAmount.value > 0 && plannedAmount.value > maturityAmount.value,
+);
+
+// 만기 예상금 대비 남거나 부족한 금액
+const budgetDifference = computed(() =>
+  Math.abs(maturityAmount.value - plannedAmount.value),
+);
+
 // 도넛 차트 데이터
 const roadmapFundChartItems = computed(() => {
   if (maturityAmount.value <= 0) {
@@ -118,22 +139,72 @@ const roadmapFundChartItems = computed(() => {
   ];
 });
 
-// 전역일까지 남은 일수
+// 전역일까지 남은 기본 복무일수
 const dischargeDday = computed(() => {
-  const dischargeDate = summary.value?.basicInfo?.dischargeDate;
+  const basicInfo = summary.value?.basicInfo;
 
-  if (!dischargeDate) {
+  if (!basicInfo) {
     return 0;
   }
 
+  return Math.max(
+    Number(basicInfo.totalServiceDays ?? 0) -
+      Number(basicInfo.currentServiceDays ?? 0),
+    0,
+  );
+});
+
+// 전역 여부
+const isDischarged = computed(() => {
+  const dischargeDate = summary.value?.basicInfo?.dischargeDate;
+
+  if (!dischargeDate) {
+    return false;
+  }
+
   const today = new Date();
-  const targetDate = new Date(`${dischargeDate}T00:00:00`);
+  const discharge = new Date(`${dischargeDate}T00:00:00`);
 
   today.setHours(0, 0, 0, 0);
 
-  const difference = targetDate.getTime() - today.getTime();
+  return today >= discharge;
+});
 
-  return Math.max(Math.ceil(difference / (1000 * 60 * 60 * 24)), 0);
+// 복무 중 날짜별 응원 문구
+const ACTIVE_DAILY_MESSAGES = [
+  '오늘도 고생하셨습니다!',
+  '전역까지 한 걸음 더!',
+  '오늘 하루도 힘내세요!',
+  '오늘도 무사히 파이팅!',
+  '오늘도 힘찬 하루!',
+  '전역이 가까워지고 있어요!',
+  '오늘도 좋은 하루 보내세요!',
+];
+
+// 전역 후 날짜별 응원 문구
+const DISCHARGED_DAILY_MESSAGES = [
+  '새로운 시작을 응원합니다!',
+  '오늘도 힘찬 하루 보내세요!',
+  '앞으로의 날들을 응원합니다!',
+  '새로운 목표를 향해 출발!',
+  '오늘도 좋은 하루 보내세요!',
+  '전역 후 계획도 차근차근!',
+];
+
+// 같은 날짜에는 같은 문구 노출
+const dailyMessage = computed(() => {
+  const messages = isDischarged.value
+    ? DISCHARGED_DAILY_MESSAGES
+    : ACTIVE_DAILY_MESSAGES;
+
+  const today = new Date();
+
+  const dateKey = Math.floor(
+    new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() /
+      (1000 * 60 * 60 * 24),
+  );
+
+  return messages[dateKey % messages.length];
 });
 
 // 현재 배너에 노출할 적금 상품
@@ -147,34 +218,67 @@ const currentProduct = computed(() => {
   return products[currentProductIndex.value];
 });
 
-// 전우들 상위 비율
-// social 정보가 응답에 없으면 null 반환
-const socialTopRate = computed(() => {
-  const social = summary.value?.social;
-  const rank = Number(social?.savingsRank ?? 0);
-  const memberCount = Number(social?.comparisonMemberCount ?? 0);
-
-  if (rank <= 0 || memberCount <= 0) {
-    return null;
+// 현재 추천 적금 상품 상세 페이지 이동
+const goProductDetail = () => {
+  if (!currentProduct.value?.productId) {
+    return;
   }
 
-  return Math.max(Math.round((rank / memberCount) * 100), 1);
-});
+  router.push({
+    name: 'SavingProductDetail',
+    params: {
+      productId: currentProduct.value.productId,
+    },
+  });
+};
 
 // 카테고리별 화면 정보 반환
 const getCategoryInfo = (categoryId) =>
   CATEGORY_MAP[categoryId] ?? {
+    code: '',
     label: '로드맵',
     emoji: '🎯',
     cardClass: '',
     tagVariant: 'gray',
   };
 
-// 일정 카테고리별 이모지 반환
-const getScheduleEmoji = (category) => (category === 'TRAVEL' ? '🗓️' : '📅');
+// 관심 로드맵 상세 페이지 이동
+const goRoadmapDetail = (roadmap) => {
+  const categoryCode = getCategoryInfo(roadmap.categoryId).code;
 
-// 금액 표시
-const formatAmount = (amount) => `${Number(amount ?? 0).toLocaleString()}원`;
+  switch (categoryCode) {
+    case 'TRAVEL':
+      router.push({
+        name: 'TravelGoalDetail',
+        params: { goalId: roadmap.goalId },
+      });
+      break;
+
+    case 'JOB':
+      router.push({
+        name: 'JobGoalDetail',
+        params: { goalId: roadmap.goalId },
+      });
+      break;
+
+    case 'CAR':
+      router.push({
+        name: 'CarGoalDetail',
+        params: { goalId: roadmap.goalId },
+      });
+      break;
+
+    case 'RENT':
+      router.push({
+        name: 'RentGoalDetail',
+        params: { goalId: roadmap.goalId },
+      });
+      break;
+
+    default:
+      console.warn('지원하지 않는 카테고리입니다.', roadmap);
+  }
+};
 
 // 금리 표시
 const formatRate = (rate) => {
@@ -257,39 +361,57 @@ onBeforeUnmount(() => {
       <!-- 전역 D-Day 카드 -->
       <section class="discharge-card">
         <div class="discharge-card__dday">
-          <span>전역까지</span>
+          <template v-if="!isDischarged">
+            <span>전역까지</span>
 
-          <strong> D-{{ dischargeDday }} </strong>
+            <strong>D-{{ dischargeDday }}</strong>
+          </template>
+
+          <template v-else>
+            <span>복무 완료</span>
+
+            <strong class="discharge-card__complete"> 전역 완료 </strong>
+          </template>
         </div>
 
         <div class="discharge-card__divider"></div>
 
         <div class="discharge-card__message">
-          <p>오늘도 고생하셨습니다!</p>
+          <p>{{ dailyMessage }}</p>
 
-          <strong>
-            {{ summary.basicInfo?.rankName }}
-            {{ summary.basicInfo?.name }}님
+          <strong v-if="!isDischarged">
+            {{ summary.basicInfo?.name }}
+            {{ summary.basicInfo?.rankName }}님
           </strong>
+
+          <strong v-else> {{ summary.basicInfo?.name }}님 </strong>
         </div>
 
         <!-- 군인 캐릭터 -->
-        <img :src="soldierCharacter" alt="" class="discharge-card__character" />
+        <img :src="bearSalute" alt="" class="discharge-card__character" />
       </section>
 
       <!-- 관심 로드맵 자금 현황 -->
-      <BaseCard padding="20px 16px 16px" class="fund-card">
-        <div class="section-heading">
-          <h2 class="text-title">관심 로드맵 자금 현황</h2>
+      <div class="fund-section-heading">
+        <h2 class="text-title">관심 로드맵 자금 현황</h2>
 
-          <span
-            class="info-icon"
-            title="관심 목표 금액과 군적금 예상 만기 수령액을 비교합니다."
-          >
-            i
-          </span>
+        <button
+          type="button"
+          class="info-icon"
+          aria-label="관심 로드맵 자금 현황 설명"
+          :aria-expanded="isFundInfoOpen"
+          @click="toggleFundInfo"
+        >
+          i
+        </button>
+
+        <div v-if="isFundInfoOpen" class="fund-info__tooltip" role="tooltip">
+          관심 로드맵의 예상 비용과 군적금 예상 만기 수령액을 비교합니다.
         </div>
+      </div>
 
+      <BaseCard padding="14px 16px 16px" class="fund-card">
+        <!-- 자금 현황 -->
         <div class="fund-summary-layout">
           <!-- 도넛 차트 -->
           <div class="chart-area">
@@ -301,21 +423,20 @@ onBeforeUnmount(() => {
             />
 
             <div class="chart-center">
-              <div class="chart-center__rate">
-                <strong>{{ usageRate }}</strong>
-                <span>%</span>
-              </div>
+              <template v-if="!isOverBudget">
+                <div class="chart-center__rate">
+                  <strong>{{ usageRate }}</strong>
+                  <span>%</span>
+                </div>
 
-              <small>목표 달성률</small>
+                <small>예정 사용률</small>
+              </template>
+
+              <template v-else>
+                <span class="chart-center__warning">!</span>
+                <strong class="chart-center__over-text">예산 초과</strong>
+              </template>
             </div>
-
-            <span class="chart-sparkle chart-sparkle--left" aria-hidden="true">
-              ✦
-            </span>
-
-            <span class="chart-sparkle chart-sparkle--right" aria-hidden="true">
-              ✦
-            </span>
           </div>
 
           <!-- 금액 요약 -->
@@ -332,7 +453,7 @@ onBeforeUnmount(() => {
                 <p>만기 예상금</p>
 
                 <strong>
-                  {{ formatAmount(maturityAmount) }}
+                  {{ formatWon(maturityAmount) }}
                 </strong>
               </div>
             </div>
@@ -348,24 +469,24 @@ onBeforeUnmount(() => {
               </span>
 
               <div class="amount-summary__content">
-                <p>사용 예정 금액</p>
+                <p>로드맵 예상 비용</p>
 
-                <strong>
-                  {{ formatAmount(plannedAmount) }}
-                </strong>
+                <strong>{{ formatWon(plannedAmount) }}</strong>
+
+                <span v-if="isOverBudget" class="amount-summary__shortage">
+                  {{ formatWon(budgetDifference) }} 부족
+                </span>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- 관심 등록 로드맵 -->
+        <!-- 관심 등록 현황 -->
         <div class="favorite-section">
           <div class="favorite-heading">
-            <div class="favorite-heading__title">
-              <h3 class="text-label">관심 등록한 로드맵</h3>
-
-              <span> {{ favoriteRoadmaps.length }}/4 </span>
-            </div>
+            <span class="favorite-count">
+              {{ favoriteRoadmaps.length }}/4
+            </span>
 
             <p>
               카테고리별 1개까지 등록 가능
@@ -373,17 +494,15 @@ onBeforeUnmount(() => {
             </p>
           </div>
 
+          <!-- 관심 등록한 로드맵이 있을 때 -->
           <div v-if="favoriteRoadmaps.length > 0" class="roadmap-grid">
             <article
               v-for="roadmap in favoriteRoadmaps"
               :key="`${roadmap.categoryId}-${roadmap.goalId}`"
               class="roadmap-card"
               :class="getCategoryInfo(roadmap.categoryId).cardClass"
+              @click="goRoadmapDetail(roadmap)"
             >
-              <span class="roadmap-card__icon" aria-hidden="true">
-                {{ getCategoryInfo(roadmap.categoryId).emoji }}
-              </span>
-
               <div class="roadmap-card__content">
                 <BaseTag
                   :label="getCategoryInfo(roadmap.categoryId).label"
@@ -395,7 +514,7 @@ onBeforeUnmount(() => {
                 </strong>
 
                 <p v-if="roadmap.amount != null" class="roadmap-card__amount">
-                  {{ formatAmount(roadmap.amount) }}
+                  {{ formatManwon(roadmap.amount) }}
                 </p>
 
                 <p
@@ -405,14 +524,10 @@ onBeforeUnmount(() => {
                   금액 계산 전
                 </p>
               </div>
-
-              <!-- 홈에서는 북마크 상태만 표시 -->
-              <div class="roadmap-card__like">
-                <LikeButton :model-value="true" />
-              </div>
             </article>
           </div>
 
+          <!-- 관심 등록한 로드맵이 없을 때 -->
           <div v-else class="favorite-empty">
             <span class="favorite-empty__icon" aria-hidden="true"> 🤍 </span>
 
@@ -429,27 +544,19 @@ onBeforeUnmount(() => {
           'schedule-section--single': upcomingSchedules.length === 1,
         }"
       >
-        <BaseCard
+        <article
           v-for="schedule in upcomingSchedules"
           :key="`${schedule.category}-${schedule.title}-${schedule.scheduleDate}`"
-          padding="0"
-          class="schedule-card"
+          class="schedule-item"
         >
-          <article class="schedule-item">
-            <span
-              class="schedule-item__icon"
-              :class="{
-                'schedule-item__icon--travel': schedule.category === 'TRAVEL',
-              }"
-              aria-hidden="true"
-            >
-              {{ getScheduleEmoji(schedule.category) }}
-            </span>
+          <img
+            :src="calendarIcon"
+            alt=""
+            class="schedule-item__icon"
+            aria-hidden="true"
+          />
 
-            <strong class="schedule-item__title">
-              {{ schedule.title }}
-            </strong>
-
+          <div class="schedule-item__content">
             <span
               class="schedule-item__dday"
               :class="{
@@ -458,58 +565,52 @@ onBeforeUnmount(() => {
             >
               D-{{ schedule.dday }}
             </span>
-          </article>
-        </BaseCard>
+
+            <strong class="schedule-item__title">
+              {{ schedule.title }}
+            </strong>
+          </div>
+        </article>
       </section>
 
-      <BaseCard v-else padding="22px" class="schedule-empty">
+      <div v-else class="schedule-empty">
         <p class="text-caption">다가오는 일정이 없습니다.</p>
-      </BaseCard>
+      </div>
 
       <!-- 후회소비 -->
-      <RouterLink :to="{ name: 'RegretDashboard' }" class="summary-link">
-        <BaseCard padding="0 18px" class="summary-link-card">
-          <span class="summary-link-card__icon" aria-hidden="true"> 💸 </span>
+      <BaseCard
+        padding="0 18px"
+        class="summary-link-card"
+        @click="router.push({ name: 'RegretDashboard' })"
+      >
+        <span class="summary-link-card__icon" aria-hidden="true">💸</span>
+        <p class="summary-link-card__message">소비 점호 하러 가시겠습니까?</p>
 
-          <strong class="text-label">후회 소비</strong>
-
-          <span
-            class="summary-link-card__value summary-link-card__value--danger"
-          >
-            {{ formatAmount(summary.regret?.regretAmount) }}
-          </span>
-
-          <span class="summary-link-card__arrow" aria-hidden="true"> › </span>
-        </BaseCard>
-      </RouterLink>
+        <span class="summary-link-card__arrow" aria-hidden="true"> › </span>
+      </BaseCard>
 
       <!-- 전우들 -->
-      <RouterLink :to="{ name: 'Social' }" class="summary-link">
-        <BaseCard padding="0 18px" class="summary-link-card">
-          <span class="summary-link-card__icon" aria-hidden="true"> 👥 </span>
+      <BaseCard
+        padding="0 18px"
+        class="summary-link-card"
+        @click="router.push({ name: 'Social' })"
+      >
+        <span class="summary-link-card__icon" aria-hidden="true"> 👥 </span>
 
-          <strong class="text-label">전우들</strong>
+        <p class="summary-link-card__message">전우들과 비교해 보시겠습니까?</p>
 
-          <span class="summary-link-card__value">
-            {{
-              socialTopRate !== null ? `상위 ${socialTopRate}%` : '연동 예정'
-            }}
-          </span>
-
-          <span class="summary-link-card__arrow" aria-hidden="true"> › </span>
-        </BaseCard>
-      </RouterLink>
+        <span class="summary-link-card__arrow" aria-hidden="true"> › </span>
+      </BaseCard>
 
       <!-- 추천 상품 배너 -->
       <section
         v-if="currentProduct"
         class="product-banner"
+        @click="goProductDetail"
         @mouseenter="stopProductSlider"
         @mouseleave="startProductSlider"
       >
         <div class="product-banner__content">
-          <p class="product-banner__title">KB 금융 적금 파이팅 상품</p>
-
           <strong>
             {{ currentProduct.productName }}
           </strong>
@@ -522,6 +623,7 @@ onBeforeUnmount(() => {
           <div
             v-if="(summary.recommendedProducts ?? []).length > 1"
             class="product-banner__dots"
+            @click.stop
           >
             <button
               v-for="(_, index) in summary.recommendedProducts"
@@ -565,7 +667,7 @@ onBeforeUnmount(() => {
   display: flex;
   width: 100%;
   flex-direction: column;
-  gap: 14px;
+  gap: 18px;
   padding: 18px 16px 100px;
   box-sizing: border-box;
 }
@@ -615,6 +717,12 @@ onBeforeUnmount(() => {
 .discharge-card__dday {
   display: flex;
   flex-direction: column;
+}
+
+.discharge-card__dday .discharge-card__complete {
+  font-size: 18px;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .discharge-card__dday span {
@@ -678,29 +786,62 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
 }
 
-.section-heading {
+.fund-section-heading {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 7px;
-}
-
-.section-heading h2 {
   margin: 0;
 }
 
+.fund-section-heading h2 {
+  margin: 0;
+}
+
+/* 정보 아이콘 */
 .info-icon {
   display: inline-flex;
   width: 17px;
   height: 17px;
+  padding: 0;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
+
   color: var(--text-hint);
+  font-family: inherit;
   font-size: 10px;
   font-weight: 700;
+  line-height: 1;
+
+  background: transparent;
   border: 1px solid var(--line-strong);
   border-radius: 50%;
   box-sizing: border-box;
+  cursor: pointer;
+}
+
+/* 정보 툴팁 */
+.fund-info__tooltip {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 10px);
+  left: 0;
+
+  width: min(280px, calc(100vw - 64px));
+  padding: 10px 12px;
+  box-sizing: border-box;
+
+  color: var(--text-body);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.5;
+  word-break: keep-all;
+
+  background: var(--surface-default);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px var(--shadow-dropdown);
 }
 
 /*
@@ -713,7 +854,7 @@ onBeforeUnmount(() => {
   grid-template-columns: 118px minmax(0, 1fr);
   align-items: center;
   gap: 8px;
-  padding: 22px 0;
+  padding: 8px 0;
   box-sizing: border-box;
 }
 
@@ -776,21 +917,37 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.chart-sparkle {
-  position: absolute;
-  color: var(--kb-yellow-deep);
+.chart-center__warning {
+  display: flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 6px;
+
+  color: var(--surface-default);
+  font-size: 14px;
+  font-weight: 700;
+
+  background: var(--warning-strong);
+  border-radius: 50%;
+}
+
+.chart-center__over-text {
+  color: var(--danger);
   font-size: 13px;
-  line-height: 1;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
-.chart-sparkle--left {
-  top: 1px;
-  left: 3px;
-}
+.amount-summary__shortage {
+  display: block;
+  margin-top: 4px;
 
-.chart-sparkle--right {
-  right: 2px;
-  bottom: 3px;
+  color: var(--danger);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 /* 금액 요약 */
@@ -818,17 +975,17 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
+
   font-size: 15px;
+  background: var(--surface-default);
+  border: 1px solid var(--line);
   border-radius: 50%;
   box-sizing: border-box;
 }
 
-.amount-summary__icon--maturity {
-  background: var(--kb-yellow-pale);
-}
-
+.amount-summary__icon--maturity,
 .amount-summary__icon--planned {
-  background: var(--military-green-light);
+  background: var(--surface-default);
 }
 
 .amount-summary__content {
@@ -869,7 +1026,7 @@ onBeforeUnmount(() => {
 /* ── 관심 로드맵 ── */
 
 .favorite-section {
-  padding-top: 16px;
+  padding-top: 12px;
   border-top: 1px dashed var(--line-strong);
 }
 
@@ -881,26 +1038,14 @@ onBeforeUnmount(() => {
   margin-bottom: 13px;
 }
 
-.favorite-heading__title {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 7px;
-}
-
-.favorite-heading__title h3 {
-  margin: 0;
-  font-size: 14px;
-  white-space: nowrap;
-}
-
-.favorite-heading__title > span {
-  padding: 3px 7px;
+.favorite-count {
+  flex-shrink: 0;
+  padding: 2px 6px;
   color: var(--military-green);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   background: var(--military-green-light);
-  border-radius: 8px;
+  border-radius: 6px;
   white-space: nowrap;
 }
 
@@ -928,10 +1073,14 @@ onBeforeUnmount(() => {
   display: flex;
   min-width: 0;
   min-height: 86px;
-  align-items: center;
-  gap: 8px;
+  align-items: stretch;
   overflow: hidden;
-  padding: 11px 28px 11px 9px;
+  padding: 10px 12px;
+
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+
   border: 1px solid var(--line);
   border-radius: 12px;
   box-sizing: border-box;
@@ -957,19 +1106,6 @@ onBeforeUnmount(() => {
   border-color: var(--pastel-pink);
 }
 
-.roadmap-card__icon {
-  display: flex;
-  width: 40px;
-  height: 40px;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  font-size: 19px;
-  background: var(--surface-default);
-  border-radius: 50%;
-  box-shadow: 0 3px 10px var(--shadow-dropdown);
-}
-
 .roadmap-card__content {
   display: flex;
   min-width: 0;
@@ -985,20 +1121,29 @@ onBeforeUnmount(() => {
 }
 
 .roadmap-card__title {
+  display: -webkit-box;
   overflow: hidden;
   max-width: 100%;
+  margin-top: 1px;
+
   color: var(--text-strong);
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+
+  word-break: keep-all;
+  overflow-wrap: break-word;
+
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .roadmap-card__amount {
   overflow: hidden;
   max-width: 100%;
-  margin: 3px 0 0;
+  margin: 2px 0 0;
   color: var(--brand-gold);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1009,16 +1154,9 @@ onBeforeUnmount(() => {
   font-weight: 400;
 }
 
-.roadmap-card__like {
-  position: absolute;
-  top: 7px;
-  right: 6px;
-  pointer-events: none;
-}
-
 .favorite-empty {
   display: flex;
-  min-height: 88px;
+  min-height: 68px;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -1037,81 +1175,76 @@ onBeforeUnmount(() => {
 }
 
 /* ── 다가오는 일정 ── */
-
 .schedule-section {
   display: grid;
   width: 100%;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
+  margin: 2px 0;
 }
 
-/* 일정이 1개면 가로 전체 너비 사용 */
 .schedule-section--single {
   grid-template-columns: 1fr;
 }
 
-.schedule-card {
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-}
-
 .schedule-item {
-  display: grid;
+  display: flex;
   min-width: 0;
-  min-height: 64px;
-  grid-template-columns: 32px minmax(0, 1fr) auto 10px;
-  align-items: center;
-  gap: 8px;
-  padding: 0 12px;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 8px 4px;
   box-sizing: border-box;
 }
 
 .schedule-item__icon {
-  display: flex;
-  width: 32px;
-  height: 32px;
+  display: block;
+  width: 20px;
+  height: 20px;
   flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  font-size: 17px;
-  background: #fff2f2;
-  border-radius: 9px;
+  object-fit: contain;
 }
 
-.schedule-item__icon--travel {
-  background: #eef5ff;
-}
-
-.schedule-item__title {
-  overflow: hidden;
+.schedule-item__content {
+  display: flex;
   min-width: 0;
-  color: var(--text-strong);
-  font-size: 12px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
 }
 
 .schedule-item__dday {
-  color: var(--danger);
-  font-size: 12px;
+  flex-shrink: 0;
+  color: var(--notification);
+  font-size: 13px;
   font-weight: 700;
+  line-height: 1.2;
   white-space: nowrap;
 }
 
 .schedule-item__dday--travel {
-  color: #2479dd;
+  color: var(--info-blue);
 }
 
-.schedule-item__arrow {
-  color: var(--text-muted);
-  font-size: 20px;
-  line-height: 1;
+.schedule-item__title {
+  display: -webkit-box;
+  overflow: hidden;
+  max-width: 100%;
+
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+
+  word-break: keep-all;
+  overflow-wrap: break-word;
+
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .schedule-empty {
   width: 100%;
+  padding: 12px 0;
   text-align: center;
 }
 
@@ -1121,40 +1254,44 @@ onBeforeUnmount(() => {
 
 /* ── 후회소비·전우들 ── */
 
-.summary-link {
-  color: inherit;
-  text-decoration: none;
-}
-
 .summary-link-card {
-  display: grid;
+  display: flex;
   min-height: 62px;
-  grid-template-columns: 30px minmax(0, 1fr) auto 12px;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  padding: 0 16px;
+  box-sizing: border-box;
+  cursor: pointer;
 }
 
 .summary-link-card__icon {
   display: flex;
+  width: 28px;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  font-size: 21px;
+  font-size: 18px;
+  line-height: 1;
 }
 
-.summary-link-card__value {
-  color: var(--success);
+.summary-link-card__message {
+  min-width: 0;
+  flex: 1;
+  margin: 0;
+  color: var(--text-strong);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
+  line-height: 1.4;
   white-space: nowrap;
 }
-
-.summary-link-card__value--danger {
-  color: var(--danger);
-}
-
 .summary-link-card__arrow {
+  display: flex;
+  width: 18px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
   color: var(--text-muted);
-  font-size: 22px;
+  font-size: 20px;
   line-height: 1;
 }
 
@@ -1168,6 +1305,7 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   overflow: hidden;
   padding: 18px 22px;
+  cursor: pointer;
   background: linear-gradient(
     100deg,
     var(--kb-yellow) 0%,
@@ -1187,13 +1325,6 @@ onBeforeUnmount(() => {
   flex: 1;
   flex-direction: column;
   padding-right: 12px;
-}
-
-.product-banner__title {
-  margin: 0 0 5px;
-  color: var(--kb-dark-gray);
-  font-size: 15px;
-  font-weight: 700;
 }
 
 .product-banner__content strong {
@@ -1334,7 +1465,6 @@ onBeforeUnmount(() => {
   }
 
   .schedule-item {
-    grid-template-columns: 28px minmax(0, 1fr) auto;
     gap: 5px;
     padding-inline: 8px;
   }

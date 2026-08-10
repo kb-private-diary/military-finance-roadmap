@@ -8,13 +8,13 @@ SET FOREIGN_KEY_CHECKS = 0;
 --  [석윤] 공통/ 군종정보(military_types)
 --  테이블: military_types
 -- --------------------------------------------------------------------
-INSERT INTO `military_types` (`type_id`, `type_name`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`) VALUES
-(1, '육군', NOW(), 'seokyun', NULL, NULL, 'N'),
-(2, '해군', NOW(), 'seokyun', NULL, NULL, 'N'),
-(3, '공군', NOW(), 'seokyun', NULL, NULL, 'N'),
-(4, '해병대', NOW(), 'seokyun', NULL, NULL, 'N'),
-(5, '공익', NOW(), 'seokyun', NULL, NULL, 'N'),
-(6, '기타', NOW(), 'seokyun', NULL, NULL, 'N');
+INSERT INTO `military_types` (`type_id`, `type_name`, `regular_vacation_days`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`) VALUES
+(1, '육군', 24, NOW(), 'seokyun', NULL, NULL, 'N'),
+(2, '해군', 27, NOW(), 'seokyun', NULL, NULL, 'N'),
+(3, '공군', 28, NOW(), 'seokyun', NULL, NULL, 'N'),
+(4, '해병대', 24, NOW(), 'seokyun', NULL, NULL, 'N'),
+(5, '공익', 28, NOW(), 'seokyun', NULL, NULL, 'N'),
+(6, '기타', 24, NOW(), 'seokyun', NULL, NULL, 'N');
 
 
 -- --------------------------------------------------------------------
@@ -1675,22 +1675,29 @@ VALUES
 
 
 -- --------------------------------------------------------------------
---  [석윤] 대시보드/ 휴가(vacation)
---  테이블: vacation
+--  [석윤] 대시보드/ 휴가(vacation, vacation_history)
+--  테이블: vacation(부여), vacation_history(사용내역)
 -- --------------------------------------------------------------------
-INSERT INTO `vacation` 
-(`vacation_id`, `user_id`, `vacation_cate`, `vacation_name`, `vacation_get`, `vacation_day`, `vacation_state`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`) 
+-- vacation = 부여(grant)행만 남는다. 잔여일수는 vacation_history 합계로 파생 계산.
+INSERT INTO `vacation`
+(`vacation_id`, `user_id`, `vacation_cate`, `vacation_name`, `vacation_get`, `vacation_day`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`)
 VALUES
-(1, 1, 'REGULAR', '정기휴가', '2026-03-15', 24, FALSE, NOW(), 'seokyun', NULL, NULL, 'N'),
-(2, 1, 'CONSOLATION', '신병위로휴가', '2025-06-01', 3, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),
-(3, 1, 'REWARD', '특급전사 포상휴가', '2025-06-20', 4, FALSE, NOW(), 'seokyun', NULL, NULL, 'N'),
+(1, 1, 'REGULAR', '정기휴가', '2026-03-15', 24, NOW(), 'seokyun', NULL, NULL, 'N'),
+(2, 1, 'CONSOLATION', '신병위로휴가', '2025-06-01', 3, NOW(), 'seokyun', NULL, NULL, 'N'),
+(3, 1, 'REWARD', '특급전사 포상휴가', '2025-06-20', 4, NOW(), 'seokyun', NULL, NULL, 'N'),
 
 -- 회원 2(육군)의 정기휴가(연가) 처리 시나리오
--- 사용내역 vacation_name은 "정기휴가 사용"으로 통일 (표시용 "N차"는 조회 시점에 동적 계산)
-(4, 2, 'REGULAR', '정기휴가', '2025-01-01', 24, FALSE, NOW(), 'seokyun', NULL, NULL, 'N'),     -- 총 부여 휴가
-(5, 2, 'REGULAR', '정기휴가 사용', '2025-05-01', 4, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),     -- 4일 사용
-(6, 2, 'REGULAR', '정기휴가 사용', '2025-07-01', 5, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),     -- 5일 사용
-(7, 2, 'PETITION', '자격증시험', '2023-08-01', 2, TRUE, NOW(), 'seokyun', NULL, NULL, 'N');
+(4, 2, 'REGULAR', '정기휴가', '2025-01-01', 24, NOW(), 'seokyun', NULL, NULL, 'N'),     -- 총 부여 휴가
+(5, 2, 'PETITION', '자격증시험', '2023-08-01', 2, NOW(), 'seokyun', NULL, NULL, 'N');
+
+-- vacation_history = 각 부여(vacation_id)에 걸린 사용내역. remaining = vacation_day - SUM(used_day).
+INSERT INTO `vacation_history`
+(`history_id`, `vacation_id`, `used_date`, `used_day`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`)
+VALUES
+(1, 2, '2025-06-01', 3, NOW(), 'seokyun', NULL, NULL, 'N'),   -- 회원1 신병위로휴가 3일 전부 사용
+(2, 4, '2025-05-01', 4, NOW(), 'seokyun', NULL, NULL, 'N'),   -- 회원2 정기휴가 1차 사용
+(3, 4, '2025-07-01', 5, NOW(), 'seokyun', NULL, NULL, 'N'),   -- 회원2 정기휴가 2차 사용
+(4, 5, '2023-08-01', 2, NOW(), 'seokyun', NULL, NULL, 'N');   -- 회원2 자격증시험 청원휴가 2일 전부 사용
 
 
 -- --------------------------------------------------------------------
@@ -1740,18 +1747,8 @@ VALUES
    {"type":"insurance","productId":1,"name":"KB 해외여행보험"},
    {"type":"card","productId":4,"name":"WE:SH Travel 카드"}
   ]',
- 4, NOW(), 'jotaeseok', 'N'),
- 
--- 회원3 : 국내 여행
-(3, 3, '부산 여행', '서울', '부산', TRUE, 'premium',
- '2027-01-10', '2027-01-12', 1500000,
- '[
-	 {"type":"tour","name":"감천문화마을","info":"이곳은 원래 달동네였으나 2009년부터 관광지 개발을 했습니다.","image":"https://serpapi.com/searches/6a5e672571a41dfc92d32afe/images/a0iTqz3Qmsf2emXFXkb6f1Ht7Db-jXjOtcZ8g1bvoaQ.jpeg"}
-	]',
- '[
-   {"type":"card","productId":2,"name":"노리2 체크카드"}
-  ]',
- NULL, NOW(), 'jotaeseok', 'N');
+ 4, NOW(), 'jotaeseok', 'N');
+
 
 
 -- --------------------------------------------------------------------

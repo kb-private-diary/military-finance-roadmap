@@ -166,21 +166,27 @@ const submitGoal = async () => {
         />
       </label>
 
-      <BaseInput
-        v-model="form.region"
-        type="select"
-        label="거주 지역"
-        placeholder="지역 선택"
-        :options="REGION_OPTIONS"
-      />
+      <div class="field">
+        <BaseInput
+          v-model="form.region"
+          type="select"
+          label="거주 지역"
+          placeholder="지역 선택"
+          :options="REGION_OPTIONS"
+        />
+        <p class="field__hint">전기차 구매 시 지역별 보조금 계산에 활용돼요</p>
+      </div>
 
-      <BaseInput
-        v-model="form.experienceYears"
-        type="select"
-        label="운전 경력"
-        placeholder="운전 경력 선택"
-        :options="EXPERIENCE_OPTIONS"
-      />
+      <div class="field">
+        <BaseInput
+          v-model="form.experienceYears"
+          type="select"
+          label="운전 경력"
+          placeholder="운전 경력 선택"
+          :options="EXPERIENCE_OPTIONS"
+        />
+        <p class="field__hint">예상 보험료 계산에 활용돼요</p>
+      </div>
 
       <p v-if="submitError" class="form-error text-caption" role="alert">
         {{ submitError }}

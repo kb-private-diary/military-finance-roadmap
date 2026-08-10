@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import socialApi from '@/api/socialApi';
 import BaseCard from '@/components/common/BaseCard.vue';
+import BaseModal from '@/components/common/BaseModal.vue';
 import CategoryButton from '@/components/common/CategoryButton.vue';
 import DonutChart from '@/components/common/DonutChart.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
@@ -37,16 +38,33 @@ const BADGE_IMAGES = {
   8: savingMasterImage,
 };
 
-const BADGE_DESCRIPTIONS = {
-  1: '비교 그룹 저축률 상위 1%',
-  2: '비교 그룹 저축률 상위 5%',
-  3: '비교 그룹 저축률 상위 10%',
-  4: '비교 그룹 저축률 상위 30%',
-  5: '복무 진행률 50% 달성',
-  6: '복무 진행률 75% 달성',
-  7: '복무 진행률 100% 달성',
-  8: '지난달보다 후회 소비 줄이기',
+const BADGE_NAMES = {
+  1: '상위 1%',
+  2: '상위 5%',
+  3: '상위 10%',
+  4: '상위 30%',
+  5: '적금 진행 50%',
+  6: '적금 진행 75%',
+  7: '적금 진행 100%',
+  8: '절약 달인',
 };
+
+const BADGE_DESCRIPTIONS = {
+  1: '같은 계급 장병 중 월급 대비 적금 납입 비율 상위 1% 달성',
+  2: '같은 계급 장병 중 월급 대비 적금 납입 비율 상위 5% 달성',
+  3: '같은 계급 장병 중 월급 대비 적금 납입 비율 상위 10% 달성',
+  4: '같은 계급 장병 중 월급 대비 적금 납입 비율 상위 30% 달성',
+  5: '가입한 군적금의 평균 납입 진행률 50% 달성',
+  6: '가입한 군적금의 평균 납입 진행률 75% 달성',
+  7: '가입한 군적금의 평균 납입 진행률 100% 달성',
+  8: '소비 리뷰를 작성하고 지난달 후회 소비를 전월보다 감소',
+};
+
+const BADGE_GUIDE_GROUPS = [
+  { title: '저축률 뱃지', badgeIds: [1, 2, 3, 4] },
+  { title: '적금 진행 뱃지', badgeIds: [5, 6, 7] },
+  { title: '소비 습관 뱃지', badgeIds: [8] },
+];
 
 // 프로필 카드 대표 뱃지 3칸. 각 배열은 상위 등급 → 하위 등급 순으로 적는다.
 // 랭킹은 id가 작을수록 상위(1=상위 1%)이고 진행률은 id가 클수록 상위(7=100%)라 순서가 반대다.
@@ -57,18 +75,19 @@ const REPRESENTATIVE_BADGE_TIERS = [
 ];
 
 const RANKING_IMAGES = [ranking1Image, ranking2Image, ranking3Image];
-const CHART_COLORS = [
-  'var(--chart-1)',
-  'var(--chart-2)',
-  'var(--chart-3)',
-  'var(--chart-4)',
-];
+const ROADMAP_CATEGORY_COLORS = {
+  1: 'var(--pastel-blue)',
+  2: 'var(--pastel-yellow)',
+  3: 'var(--pastel-green)',
+  4: 'var(--pastel-pink)',
+};
 
 const activeScope = ref('ALL');
 const stats = ref(null);
 const distribution = ref([]);
 const ranking = ref(null);
 const badges = ref([]);
+const isBadgeGuideOpen = ref(false);
 const loading = ref(true);
 const errorMessage = ref('');
 const badgeErrorMessage = ref('');
@@ -103,15 +122,48 @@ const representativeBadges = computed(() =>
 const chartItems = computed(() =>
   distribution.value
     .filter((item) => item.interestCount > 0)
-    .map((item, index) => ({
+    .map((item) => ({
       label: item.categoryName,
       value: item.interestCount,
-      color: CHART_COLORS[index % CHART_COLORS.length],
+      color:
+        ROADMAP_CATEGORY_COLORS[item.categoryId] ?? 'var(--pastel-purple)',
       percentage: item.percentage,
     })),
 );
 
 const hasInterestData = computed(() => chartItems.value.length > 0);
+
+const savingsPercentileLabel = computed(() => {
+  const memberCount = stats.value?.comparisonMemberCount;
+  const higherCount = stats.value?.higherSavingsCount;
+  const lowerCount = stats.value?.lowerSavingsCount;
+  if (!memberCount || higherCount == null || lowerCount == null) return null;
+  if (memberCount < 5) return '비교 인원 부족';
+
+  const topPercent = Math.ceil(((higherCount + 1) * 100) / memberCount);
+  if (topPercent <= 80) return `상위 ${topPercent}%`;
+
+  const bottomPercent = Math.ceil(((lowerCount + 1) * 100) / memberCount);
+  return `하위 ${bottomPercent}%`;
+});
+
+const badgeGuideGroups = computed(() =>
+  BADGE_GUIDE_GROUPS.map((group) => ({
+    ...group,
+    badges: group.badgeIds.map((badgeId) => {
+      const userBadge = badgeList.value.find(
+        (badge) => badge.badgeId === badgeId,
+      );
+      return {
+        badgeId,
+        name: BADGE_NAMES[badgeId],
+        image: BADGE_IMAGES[badgeId],
+        description: BADGE_DESCRIPTIONS[badgeId],
+        achieved: userBadge?.achieved ?? null,
+      };
+    }),
+  })),
+);
 
 // 비교 모수는 "선택한 범위 + 나와 같은 계급"이다. 계급을 빼고 적으면
 // 화면의 순위·평균이 어느 집단 기준인지 오해하게 되므로 문구에 함께 드러낸다.
@@ -243,9 +295,20 @@ onMounted(retry);
               {{ stats.unitName || '부대 미등록' }}
             </p>
           </div>
-          <div class="profile-card__saving">
-            <span>현재 납입액</span>
-            <strong>{{ formatWon(stats.currentSavings) }}</strong>
+          <div class="profile-card__aside">
+            <button
+              type="button"
+              class="badge-help-button"
+              aria-label="뱃지 종류와 획득 방법 보기"
+              title="뱃지 안내"
+              @click="isBadgeGuideOpen = true"
+            >
+              ?
+            </button>
+            <div class="profile-card__saving">
+              <span>현재 납입액</span>
+              <strong>{{ formatWon(stats.currentSavings) }}</strong>
+            </div>
           </div>
         </div>
 
@@ -292,9 +355,8 @@ onMounted(retry);
             <p class="text-overline">나와 평균의 차이</p>
             <h2 id="comparison-title" class="text-title">저축률 비교</h2>
           </div>
-          <p class="rank-summary">
-            <strong>{{ stats.savingsRank }}위</strong>
-            <span>/ {{ stats.comparisonMemberCount }}명</span>
+          <p v-if="savingsPercentileLabel" class="rank-summary">
+            <strong>{{ savingsPercentileLabel }}</strong>
           </p>
         </div>
 
@@ -370,6 +432,10 @@ onMounted(retry);
               {{ ranking?.title }}
             </h2>
           </div>
+          <p v-if="ranking?.myUnitRank" class="rank-summary">
+            <span>내 부대 </span>
+            <strong>{{ ranking.myUnitRank }}위</strong>
+          </p>
         </div>
 
         <ol v-if="ranking?.rankings?.length" class="ranking-list">
@@ -412,6 +478,45 @@ onMounted(retry);
         {{ errorMessage }}
       </p>
     </template>
+
+    <BaseModal
+      v-model="isBadgeGuideOpen"
+      title="뱃지 종류와 획득 방법"
+      confirm-text="확인"
+    >
+      <div class="badge-guide">
+        <section
+          v-for="group in badgeGuideGroups"
+          :key="group.title"
+          class="badge-guide__group"
+        >
+          <h4>{{ group.title }}</h4>
+          <ul>
+            <li v-for="badge in group.badges" :key="badge.badgeId">
+              <img :src="badge.image" :alt="badge.name" />
+              <div>
+                <div class="badge-guide__heading">
+                  <strong>{{ badge.name }}</strong>
+                  <span :class="{ 'is-achieved': badge.achieved }">
+                    {{
+                      badge.achieved == null
+                        ? '상태 확인 불가'
+                        : badge.achieved
+                          ? '획득'
+                          : '미획득'
+                    }}
+                  </span>
+                </div>
+                <p>{{ badge.description }}</p>
+              </div>
+            </li>
+          </ul>
+        </section>
+        <p class="badge-guide__note text-caption">
+          중도 해지한 적금은 납입 진행률 뱃지 계산에서 제외됩니다.
+        </p>
+      </div>
+    </BaseModal>
   </main>
 </template>
 
@@ -472,6 +577,35 @@ onMounted(retry);
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+}
+
+.profile-card__aside {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.badge-help-button {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--surface-default);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  place-items: center;
+}
+
+.badge-help-button:focus-visible {
+  outline: 2px solid var(--surface-default);
+  outline-offset: 2px;
 }
 
 .profile-card__name {
@@ -561,6 +695,87 @@ onMounted(retry);
   place-items: center;
 }
 
+.badge-guide {
+  max-height: 58vh;
+  padding-right: 2px;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.badge-guide::-webkit-scrollbar {
+  display: none;
+}
+
+.badge-guide__group + .badge-guide__group {
+  margin-top: 18px;
+}
+
+.badge-guide__group h4 {
+  margin: 0 0 8px;
+  color: var(--text-strong);
+  font-size: 14px;
+}
+
+.badge-guide__group ul {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.badge-guide__group li {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 9px;
+  border-radius: 10px;
+  background: var(--surface-subtle);
+}
+
+.badge-guide__group img {
+  width: 46px;
+  height: 46px;
+  object-fit: contain;
+}
+
+.badge-guide__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.badge-guide__heading strong {
+  color: var(--text-strong);
+  font-size: 13px;
+}
+
+.badge-guide__heading span {
+  flex: none;
+  color: var(--text-hint);
+  font-size: 10px;
+}
+
+.badge-guide__heading span.is-achieved {
+  color: var(--military-green);
+  font-weight: 700;
+}
+
+.badge-guide__group p {
+  margin: 3px 0 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.badge-guide__note {
+  margin: 14px 0 0;
+}
+
 .scope-tabs {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -591,6 +806,8 @@ onMounted(retry);
   margin: 0;
   color: var(--text-hint);
   font-size: 12px;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .rank-summary strong {

@@ -3,7 +3,8 @@
 
 // ── 금액 ──────────────────────────────────────────────────────
 // 원 단위 + 3자리 콤마 + "원"  →  formatWon(1200000) === "1,200,000원"
-export const formatWon = (amount) => `${(amount ?? 0).toLocaleString('ko-KR')}원`;
+export const formatWon = (amount) =>
+  `${(amount ?? 0).toLocaleString('ko-KR')}원`;
 
 // 만원 단위 + "만원"  →  formatManwon(1200000) === "120만원"
 // 금액이 커서 만원 단위가 자연스러운 화면에서 사용 (한 화면 안에선 한 단위로 통일).
@@ -13,7 +14,31 @@ export const formatManwon = (amount) =>
 
 // 이미 "만원" 단위로 내려오는 금액 표기용  →  formatManwonUnit(1200) === "1,200만원"
 // car 도메인처럼 백엔드 DTO가 만원 단위 정수를 그대로 내려주는 화면에서 사용 (formatManwon과 달리 나누지 않음).
-export const formatManwonUnit = (amount) => `${(amount ?? 0).toLocaleString('ko-KR')}만원`;
+export const formatManwonUnit = (amount) =>
+  `${(amount ?? 0).toLocaleString('ko-KR')}만원`;
+
+// 딱 떨어지는 금액을 "1천원"·"30만원"·"1백만원"처럼 가장 자연스러운 단위로 축약 표기.
+// 상품 납입한도(minLimit/maxLimit, 실제로는 1천~300만원대)처럼 천원 단위 이상으로 딱 떨어지는 금액에 쓴다.
+// 10,000원 이상이면 사실상 formatManwon과 같은 결과라 그대로 재사용하고(중복 방지),
+// formatManwon이 다루지 못하는 두 경우만 이 함수가 따로 처리한다:
+//   ① 10,000원 미만(예: 1,000원) — formatManwon은 반올림으로 "0만원"이 돼버려서 못 씀
+//   ② 100만~900만원 — "100만원" 대신 "1백만원" 스타일을 우선하고 싶을 때
+// formatKoreanWon(1000) === "1천원" / formatKoreanWon(300000) === "30만원"(=formatManwon과 동일)
+// formatKoreanWon(1000000) === "1백만원"
+export const formatKoreanWon = (amount) => {
+  const value = amount ?? 0;
+  if (value === 0) return '0원';
+  if (value < 10000 && value % 1000 === 0) {
+    return `${value / 1000}천원`;
+  }
+  if (value % 1000000 === 0 && value / 1000000 < 10) {
+    return `${value / 1000000}백만원`;
+  }
+  if (value % 10000 === 0) {
+    return formatManwon(value);
+  }
+  return formatWon(value);
+};
 
 // ── 금액 입력창 (실시간 콤마 포맷) ──────────────────────────────
 // 타이핑 중 표시용: 숫자 아닌 문자 제거 + 3자리 콤마  →  formatAmountInput('1200000') === "1,200,000"

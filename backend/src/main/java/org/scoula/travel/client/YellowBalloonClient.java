@@ -49,10 +49,8 @@ public class YellowBalloonClient {
     private static final int MAX_RESULTS = 10;
     private static final Map<String, List<String>> CITY_ALIASES = Map.of(
             "호치민", List.of("호치민", "호찌민", "SGN"),
-            "호찌민", List.of("호치민", "호찌민", "SGN"),
             "도쿄", List.of("도쿄", "동경", "NRT", "HND"),
-            "교토", List.of("교토", "교토시", "KIX", "ITM"),
-            "하롱베이", List.of("하롱베이", "하롱", "HPH", "HAN"));
+            "교토", List.of("교토", "교토시", "KIX", "ITM"));
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 

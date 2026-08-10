@@ -4,10 +4,12 @@
 import { ref, computed, onMounted } from 'vue';
 
 import { useRouter } from 'vue-router';
+import { useToast } from '@/composables/useToast';
 
 import BaseCard from '@/components/common/BaseCard.vue';
 import CategoryButton from '@/components/common/CategoryButton.vue';
 import LikeButton from '@/components/common/LikeButton.vue';
+import BaseModal from '@/components/common/BaseModal.vue';
 
 import rabbitImage from '@/assets/images/roadmap/rabbit.png';
 import travelImage from '@/assets/images/roadmap/travel.png';
@@ -26,6 +28,11 @@ const selectedRoadmapCategory = ref('ALL');
 const roadmaps = ref([]);
 const isLoading = ref(false);
 const visibleCount = ref(4);
+const isDeleteModalOpen = ref(false);
+const deleteTarget = ref(null);
+const isDeleting = ref(false);
+
+const { show } = useToast();
 
 const emptyStateTitle = computed(
   () => emptyStateMap[selectedRoadmapCategory.value].title,
@@ -214,6 +221,41 @@ const toggleBookmark = async (roadmap) => {
   }
 };
 
+// 삭제할 로드맵 선택
+const openDeleteModal = (roadmap) => {
+  deleteTarget.value = roadmap;
+  isDeleteModalOpen.value = true;
+};
+
+// 로드맵 삭제
+const handleDeleteRoadmap = async () => {
+  if (!deleteTarget.value || isDeleting.value) {
+    return;
+  }
+
+  try {
+    isDeleting.value = true;
+
+    await roadmapApi.deleteRoadmapGoal(
+      deleteTarget.value.goalId,
+      deleteTarget.value.categoryId,
+    );
+
+    isDeleteModalOpen.value = false;
+    deleteTarget.value = null;
+
+    show('로드맵이 삭제되었습니다.', 'success');
+
+    await fetchRoadmaps(selectedRoadmapCategory.value);
+  } catch (error) {
+    console.error('로드맵 삭제 실패:', error);
+
+    show('로드맵을 삭제하지 못했습니다.', 'error');
+  } finally {
+    isDeleting.value = false;
+  }
+};
+
 const showMoreRoadmaps = () => {
   visibleCount.value += 4;
 };
@@ -356,9 +398,19 @@ onMounted(async () => {
                   {{ roadmap.categoryLabel }}
                 </span>
 
-                <strong class="saved-card__title">
-                  {{ roadmap.title }}
-                </strong>
+                <div class="saved-card__title-row">
+                  <strong class="saved-card__title">
+                    {{ roadmap.title }}
+                  </strong>
+
+                  <!-- 관심 등록 -->
+                  <div class="saved-card__like" @click.stop>
+                    <LikeButton
+                      :model-value="roadmap.liked"
+                      @update:model-value="toggleBookmark(roadmap)"
+                    />
+                  </div>
+                </div>
 
                 <p v-if="roadmap.description" class="saved-card__description">
                   {{ roadmap.description }}
@@ -369,12 +421,47 @@ onMounted(async () => {
                 </p>
               </div>
 
-              <div @click.stop>
-                <LikeButton
-                  :model-value="roadmap.liked"
-                  @update:model-value="toggleBookmark(roadmap)"
-                />
-              </div>
+              <!-- 삭제 -->
+              <button
+                type="button"
+                class="saved-card__delete"
+                aria-label="로드맵 삭제"
+                @click.stop="openDeleteModal(roadmap)"
+              >
+                <svg
+                  class="saved-card__delete-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M3 6h18"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                  />
+                  <path
+                    d="M8 6V4.5C8 3.67 8.67 3 9.5 3h5c.83 0 1.5.67 1.5 1.5V6"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M19 6l-.7 13a2 2 0 0 1-2 1.9H7.7a2 2 0 0 1-2-1.9L5 6"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M10 10v7M14 10v7"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </button>
             </div>
           </BaseCard>
           <button
@@ -388,6 +475,20 @@ onMounted(async () => {
         </template>
       </div>
     </section>
+    <!-- 로드맵 삭제 확인 -->
+    <BaseModal
+      v-model="isDeleteModalOpen"
+      title="로드맵 삭제"
+      confirm-text="삭제"
+      :confirm-disabled="isDeleting"
+      @confirm="handleDeleteRoadmap"
+    >
+      <p class="roadmap-main__modal-message">이 로드맵을 삭제하시겠습니까?</p>
+
+      <p class="roadmap-main__modal-description">
+        삭제한 로드맵은 목록에서 더 이상 확인할 수 없습니다.
+      </p>
+    </BaseModal>
   </div>
 </template>
 
@@ -530,12 +631,45 @@ onMounted(async () => {
   line-height: 1.2;
 }
 
-.saved-card__title {
+.saved-card__title-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
   margin-top: 6px;
+}
+
+.saved-card__title {
+  margin: 0;
   color: var(--text-body);
   font-size: 14px;
   font-weight: 700;
   line-height: 1.35;
+}
+
+.saved-card__like {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.saved-card__delete {
+  display: flex;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.saved-card__delete-icon {
+  width: 17px;
+  height: 17px;
 }
 
 .saved-card__description {

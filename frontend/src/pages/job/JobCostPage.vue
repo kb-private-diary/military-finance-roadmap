@@ -10,6 +10,7 @@ import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.v
 import calculatorIcon from '@/assets/images/calculator.png';
 import jobApi from '@/api/jobApi';
 import { formatWon } from '@/util/format';
+import regretApi from '@/api/regretApi';
 
 const route = useRoute();
 const router = useRouter();
@@ -21,9 +22,8 @@ const qualifications = ref([]);
 const courses = ref([]);
 const isLoading = ref(false);
 
-// TODO: 오픈뱅킹 최근 1개월 지출 조회 API 연동 후 실제 값으로 교체
-// 세미 시연용 임시 데이터
-const monthlySpending = ref(1250000);
+// 최근 1개월 실제 지출 금액
+const monthlySpending = ref(0);
 
 // ── 비용 계산 ─────────────────────────────────────────────────
 
@@ -115,6 +115,32 @@ const fetchJobGoalDetail = async () => {
   }
 };
 
+// ── 최근 1개월 지출 조회 ────────────────────────────────────────
+const fetchMonthlySpending = async () => {
+  try {
+    // 로그인 사용자의 전체 지출 내역 조회
+    const spendings = await regretApi.findSpendings();
+
+    const today = new Date();
+    const oneMonthAgo = new Date(today);
+
+    // 오늘 기준 한 달 전 날짜 계산
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+
+    // 최근 1개월 내 지출만 합산
+    monthlySpending.value = spendings
+      .filter((spending) => {
+        const spentAt = new Date(spending.spentAt);
+
+        return spentAt >= oneMonthAgo && spentAt <= today;
+      })
+      .reduce((total, spending) => total + Number(spending.amount ?? 0), 0);
+  } catch (error) {
+    console.error('최근 1개월 지출 조회 실패:', error);
+    monthlySpending.value = 0;
+  }
+};
+
 // ── 화면 이동 ─────────────────────────────────────────────────
 const handleNext = () => {
   router.push({
@@ -129,6 +155,7 @@ const handlePrev = () => {
 
 onMounted(() => {
   fetchJobGoalDetail();
+  fetchMonthlySpending();
 });
 </script>
 
@@ -260,10 +287,6 @@ onMounted(() => {
               <dd>{{ formatWon(totalAmount) }}</dd>
             </div>
           </dl>
-
-          <p class="spending-compare__notice">
-            현재는 세미 시연용 임시 지출 데이터를 사용하고 있습니다.
-          </p>
         </section>
       </BaseCard>
 
