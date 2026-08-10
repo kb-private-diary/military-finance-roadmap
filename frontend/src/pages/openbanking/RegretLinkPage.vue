@@ -4,6 +4,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import openbankingApi from '@/api/openbankingApi';
+import dashboardApi from '@/api/dashboardApi';
 import { useToast } from '@/composables/useToast';
 
 const router = useRouter();
@@ -11,6 +12,7 @@ const { show } = useToast();
 
 const linked = ref(false);      // 오픈뱅킹 연동 여부
 const accounts = ref([]);       // 연동 계좌 목록 (Mock)
+const savings = ref(null);      // 군적금 만기금 (석윤 dashboard API - 만기 예상 수령액)
 const loading = ref(true);
 const unlinking = ref(false);
 
@@ -36,12 +38,27 @@ const load = async () => {
     linked.value = await openbankingApi.getStatus();
     if (linked.value) {
       accounts.value = (await openbankingApi.getAccounts()) || [];
+      // 멘토 조언: 적금 파트(석윤 dashboard) API를 끌어다 만기 예상 수령액 표시
+      try {
+        savings.value = await dashboardApi.findSavingsStatus();
+      } catch {
+        savings.value = null; // 만기금 조회 실패해도 연동 현황은 보여줌
+      }
     }
   } catch {
     show('연동 현황을 불러오지 못했어요.', 'error');
   } finally {
     loading.value = false;
   }
+};
+
+// 적금 만기까지 남은 납입 회차 (만기일 기준 프론트 계산) - 멘토: 미래 회차 표시
+const remainingText = (a) => {
+  if (a.accountType !== 'SAVING' || !a.maturityDate) return '';
+  const m = new Date(a.maturityDate);
+  const now = new Date();
+  const months = (m.getFullYear() - now.getFullYear()) * 12 + (m.getMonth() - now.getMonth());
+  return months > 0 ? `만기까지 ${months}회 남음` : '만기 도래';
 };
 
 // 연동/재연동은 온보딩 흐름 재사용
@@ -75,11 +92,16 @@ onMounted(load);
     <!-- 연동된 경우: 계좌 목록 + 해제 -->
     <template v-else-if="linked">
       <p class="oblink__status oblink__status--on">✅ 오픈뱅킹이 연동되어 있어요</p>
+      <div v-if="savings" class="oblink__maturity">
+        <span class="oblink__maturity-label">💰 만기 예상 수령액</span>
+        <b class="oblink__maturity-amt">{{ (savings.expectedMaturityTotal ?? 0).toLocaleString('ko-KR') }}원</b>
+      </div>
       <div class="oblink__list">
         <div v-for="a in accounts" :key="a.fintechUseNum" class="oblink__acc">
           <span class="oblink__acc-name">{{ a.bankName }} {{ a.productName }}</span>
           <span class="oblink__acc-bal">{{ balanceText(a) }}</span>
           <span v-if="rateText(a)" class="oblink__acc-rate">{{ rateText(a) }}</span>
+          <span v-if="remainingText(a)" class="oblink__acc-remain">{{ remainingText(a) }}</span>
         </div>
       </div>
       <button type="button" class="oblink__unlink" :disabled="unlinking" @click="handleUnlink">
@@ -121,6 +143,24 @@ onMounted(load);
   color: var(--text-muted);
   margin-bottom: 20px;
 }
+.oblink__maturity {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  background: var(--kb-gray-pale, #f5f5f7);
+  border-radius: 12px;
+}
+.oblink__maturity-label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.oblink__maturity-amt {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
 .oblink__list {
   display: flex;
   flex-direction: column;
@@ -148,6 +188,10 @@ onMounted(load);
   font-size: 12px;
   color: var(--kb-yellow-dark, #b8860b);
   font-weight: 600;
+}
+.oblink__acc-remain {
+  font-size: 12px;
+  color: var(--text-muted);
 }
 .oblink__unlink {
   width: 100%;
