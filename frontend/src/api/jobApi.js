@@ -91,11 +91,4 @@ export default {
 
     return data.data;
   },
-
-  // 진로 목표 삭제
-  async deleteJobGoal(goalId) {
-    const { data } = await instance.delete(`${BASE_URL}/goals/${goalId}`);
-
-    return data.data;
-  },
 };

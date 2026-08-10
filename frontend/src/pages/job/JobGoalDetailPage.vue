@@ -11,7 +11,6 @@ import regretApi from '@/api/regretApi';
 import BaseCard from '@/components/common/BaseCard.vue';
 import BaseTag from '@/components/common/BaseTag.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
-import BaseModal from '@/components/common/BaseModal.vue';
 
 import calculatorImage from '@/assets/images/calculator.png';
 
@@ -24,11 +23,8 @@ const { show } = useToast();
 const goalId = computed(() => Number(route.params.goalId));
 
 const loading = ref(false);
-const deleting = ref(false);
 const detail = ref(null);
 const loadError = ref('');
-
-const isDeleteModalOpen = ref(false);
 
 // ─────────────────────────────────────────────
 // 탭 - 기존 구조 고정
@@ -502,40 +498,6 @@ const getBadgeVariant = (product) => {
   }
 
   return 'gray';
-};
-
-// ─────────────────────────────────────────────
-// 삭제
-// ─────────────────────────────────────────────
-
-const openDeleteModal = () => {
-  isDeleteModalOpen.value = true;
-};
-
-const handleDelete = async () => {
-  if (deleting.value) {
-    return;
-  }
-
-  try {
-    deleting.value = true;
-
-    await jobApi.deleteJobGoal(goalId.value);
-
-    isDeleteModalOpen.value = false;
-
-    show('진로 로드맵이 삭제되었습니다.', 'success');
-
-    await router.push({
-      name: 'RoadmapMain',
-    });
-  } catch (error) {
-    console.error('진로 목표 삭제 실패:', error);
-
-    show('진로 로드맵을 삭제하지 못했습니다.', 'error');
-  } finally {
-    deleting.value = false;
-  }
 };
 
 const handleConfirm = async () => {
@@ -1219,21 +1181,12 @@ onMounted(async () => {
       @primary-click="handleConfirm"
     />
 
-    <!-- 삭제 확인 -->
-    <BaseModal
-      v-model="isDeleteModalOpen"
-      title="진로 로드맵 삭제"
-      confirm-text="삭제"
-      @confirm="handleDelete"
-    >
-      <p class="job-detail__modal-message">
-        이 진로 로드맵을 삭제하시겠습니까?
-      </p>
-
-      <p class="job-detail__modal-description">
-        삭제한 로드맵은 목록에서 더 이상 확인할 수 없습니다.
-      </p>
-    </BaseModal>
+    <!-- 하단 확인 버튼 -->
+    <BottomButtonBar
+      primary-label="확인"
+      :primary-disabled="loading"
+      @primary-click="handleConfirm"
+    />
   </div>
 </template>
 

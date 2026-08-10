@@ -177,14 +177,25 @@ const yearOptions = Array.from({ length: 6 }, (_, i) => {
   };
 });
 
-// 월 옵션: 1~12월
-const monthOptions = Array.from({ length: 12 }, (_, i) => {
-  const month = i + 1;
+// 월 옵션: 선택한 연도가 올해라면 현재 월부터 선택 가능
+const currentMonth = new Date().getMonth() + 1;
 
-  return {
-    value: month,
-    label: `${month}월`,
-  };
+const monthOptions = computed(() => {
+  if (!expectedYear.value) {
+    return [];
+  }
+
+  const startMonth =
+    Number(expectedYear.value) === currentYear ? currentMonth : 1;
+
+  return Array.from({ length: 13 - startMonth }, (_, index) => {
+    const month = startMonth + index;
+
+    return {
+      value: month,
+      label: `${month}월`,
+    };
+  });
 });
 
 const expectedDate = computed(() => {
@@ -270,6 +281,11 @@ watch(
   goalType,
   async () => {
     if (isRestoring.value) return;
+
+    // 진로 유형 변경 시 기존 선택값 초기화
+    expectedYear.value = '';
+    expectedMonth.value = '';
+    isOptionDropdownOpen.value = false;
 
     await loadGoalOptions();
   },
