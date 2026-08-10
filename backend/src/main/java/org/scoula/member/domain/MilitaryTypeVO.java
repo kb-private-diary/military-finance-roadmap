@@ -9,4 +9,5 @@ import org.scoula.common.domain.BaseVO;
 public class MilitaryTypeVO extends BaseVO {
     private Integer typeId;
     private String typeName;
+    private Integer regularVacationDays;
 }

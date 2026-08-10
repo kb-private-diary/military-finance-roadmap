@@ -19,6 +19,7 @@ import org.scoula.saving.util.MilitarySavingRateResolver;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 
+import org.scoula.dashboard.domain.VacationHistoryVO;
 import org.scoula.dashboard.domain.VacationVO;
 import org.scoula.dashboard.dto.DashboardBasicResponseDTO;
 // openbanking 패키지에서 VO 객체 import (향후 교체)
@@ -29,6 +30,7 @@ import org.scoula.dashboard.dto.DashboardVacationCreateRequestDTO;
 import org.scoula.dashboard.dto.DashboardVacationDetailResponseDTO;
 import org.scoula.dashboard.dto.DashboardVacationItemDTO;
 import org.scoula.dashboard.dto.DashboardVacationListResponseDTO;
+import org.scoula.dashboard.dto.DashboardVacationUsageCreateRequestDTO;
 import org.scoula.dashboard.dto.DashboardVacationUsageDTO;
 import org.scoula.dashboard.mapper.DashboardMapper;
 import org.scoula.push.service.PushNotificationService;
@@ -37,10 +39,10 @@ import org.scoula.push.service.PushNotificationService;
 @RequiredArgsConstructor
 @Log4j2
 public class DashboardServiceImpl implements DashboardService {
-    // 정기휴가(연가) 카테고리 코드. 마스터(부여) 행 하나 + 사용내역 행 여러 개로 관리된다.
+    // 정기휴가(연가) 카테고리 코드. 가입 시 서버가 자동 부여하며, 이 카테고리는 직접 등록·수정·삭제할 수 없다.
     private static final String CATEGORY_REGULAR = "REGULAR";
 
-    // 허용되는 휴가 카테고리 전체 목록. REGULAR은 등록(사용내역 추가) 전용이며 수정 대상에서는 제외된다.
+    // 허용되는 휴가 카테고리 전체 목록.
     private static final Set<String> VALID_CATEGORIES =
             Set.of(CATEGORY_REGULAR, "REWARD", "CONSOLATION", "PETITION", "ETC");
 
@@ -148,32 +150,22 @@ public class DashboardServiceImpl implements DashboardService {
     @Transactional(readOnly = true)
     public DashboardVacationListResponseDTO findVacations(Long userId) {
         List<VacationVO> vacations = this.mapper.findVacationListByUserId(userId);
-        VacationGroups groups = this.groupVacations(vacations);
 
-        // REGULAR 사용내역은 마스터의 days 안에 이미 포함된 몫이라 totalDays엔 더하지 않는다.
-        int regularUsedDays = this.sumDays(groups.regularUsages);
-        int totalDays = groups.regularMaster != null ? this.dayCountOf(groups.regularMaster) : 0;
-        int usedDays = regularUsedDays;
-
+        int totalDays = 0;
+        int usedDays = 0;
         List<DashboardVacationItemDTO> items = new ArrayList<>();
-        for (VacationVO vacation : groups.others) {
+        for (VacationVO vacation : vacations) {
             int days = this.dayCountOf(vacation);
+            int used = this.sumUsedDays(vacation.getVacationId());
             totalDays += days;
-            if (Boolean.TRUE.equals(vacation.getVacationState())) {
-                usedDays += days;
-            }
-            items.add(DashboardVacationItemDTO.of(vacation));
+            usedDays += used;
+            items.add(DashboardVacationItemDTO.of(vacation, days - used));
         }
 
-        // 사용완료(isUsed=true) 카드는 뒤로. 안정정렬이라 같은 isUsed 안에서는 위에서 쌓인
-        // 획득일 최신순이 그대로 유지된다.
-        items.sort(Comparator.comparing(DashboardVacationItemDTO::getIsUsed));
-
-        if (groups.regularMaster != null) {
-            int regularRemainingDays = this.dayCountOf(groups.regularMaster) - regularUsedDays;
-            items.add(0, DashboardVacationItemDTO.ofRegularMaster(
-                    groups.regularMaster, regularRemainingDays));
-        }
+        // REGULAR는 항상 맨 앞에 고정. 그 다음은 사용완료(isUsed=true) 카드가 뒤로 가고,
+        // 안정정렬이라 같은 그룹 안에서는 위에서 쌓인 획득일 최신순이 그대로 유지된다.
+        items.sort(Comparator.comparing(this::isNonRegular)
+                .thenComparing(DashboardVacationItemDTO::getIsUsed));
 
         return DashboardVacationListResponseDTO.builder()
                 .totalDays(totalDays)
@@ -191,27 +183,12 @@ public class DashboardServiceImpl implements DashboardService {
             throw BusinessException.notFound("휴가 정보를 찾을 수 없습니다.", "DASH_003");
         }
 
-        if (!this.isRegularMaster(vacation)) {
-            return DashboardVacationDetailResponseDTO.of(vacation, null, null);
-        }
+        List<VacationHistoryVO> histories =
+                this.mapper.findVacationHistoryListByVacationId(vacationId);
+        List<DashboardVacationUsageDTO> usages =
+                histories.stream().map(DashboardVacationUsageDTO::of).toList();
 
-        // REGULAR 마스터 상세는 사용내역 목록(1차/2차...)까지 같이 내려줘야 등록·삭제 화면을 그릴 수 있다.
-        List<VacationVO> vacations = this.mapper.findVacationListByUserId(userId);
-        VacationGroups groups = this.groupVacations(vacations);
-
-        List<DashboardVacationUsageDTO> usages = new ArrayList<>();
-        for (VacationVO usage : groups.regularUsages) {
-            usages.add(DashboardVacationUsageDTO.of(usage));
-        }
-        // 획득일 오름차순(오래된 것부터)으로 정렬 후, 그 순서를 기준으로 "N차"를 매 조회마다
-        // 새로 매긴다. 저장된 이름을 그대로 쓰면 중간 차수를 삭제했을 때 번호가 중복될 수 있다.
-        usages.sort(Comparator.comparing(DashboardVacationUsageDTO::getAcquiredDate));
-        for (int i = 0; i < usages.size(); i++) {
-            usages.get(i).setName((i + 1) + "차 정기휴가");
-        }
-
-        int usedDays = this.sumDays(groups.regularUsages);
-        int remainingDays = this.dayCountOf(vacation) - usedDays;
+        int remainingDays = this.dayCountOf(vacation) - this.sumHistoryDays(histories);
 
         return DashboardVacationDetailResponseDTO.of(vacation, remainingDays, usages);
     }
@@ -220,37 +197,20 @@ public class DashboardServiceImpl implements DashboardService {
     @Transactional
     public Long createVacation(
             Long userId, String createdNm, DashboardVacationCreateRequestDTO request) {
-        if (!VALID_CATEGORIES.contains(request.getCategory())) {
+        String category = request.getCategory();
+        if (!VALID_CATEGORIES.contains(category)) {
             throw BusinessException.badRequest("유효하지 않은 휴가 카테고리입니다.", "DASH_007");
         }
-        boolean isRegular = CATEGORY_REGULAR.equals(request.getCategory());
-
-        String name;
-        LocalDate acquiredDate;
-        boolean isUsed;
-
-        if (isRegular) {
-            // REGULAR로 등록하는 건 전부 사용내역이다 (마스터는 이미 시드로 존재, 여기선 안 만듦).
-            // name/acquiredDate/isUsed는 프론트가 안 보내므로 서버가 자동으로 채운다.
-            // 저장되는 이름 자체는 의미 없다 - 상세 조회 시 정렬 순서 기준으로 "N차"를 동적으로 매긴다.
-            this.validateRegularUsage(userId, request.getDays());
-            name = "정기휴가 사용";
-            acquiredDate = LocalDate.now();
-            isUsed = true;
-        } else {
-            this.validateNonRegularFields(request);
-            name = request.getName();
-            acquiredDate = request.getAcquiredDate();
-            isUsed = Boolean.TRUE.equals(request.getIsUsed());
+        if (CATEGORY_REGULAR.equals(category)) {
+            throw BusinessException.badRequest("정기휴가는 직접 등록할 수 없습니다.", "DASH_010");
         }
 
         VacationVO vacation = VacationVO.builder()
                 .userId(userId)
-                .vacationCate(request.getCategory())
-                .vacationName(name)
-                .vacationGet(acquiredDate)
+                .vacationCate(category)
+                .vacationName(request.getName())
+                .vacationGet(request.getAcquiredDate())
                 .vacationDay(request.getDays())
-                .vacationState(isUsed)
                 .build();
         vacation.setCreatedNm(createdNm);
 
@@ -258,7 +218,7 @@ public class DashboardServiceImpl implements DashboardService {
 
         // 웹푸시 연동 테스트용 - 다른 도메인이 push를 이렇게 갖다 쓰면 된다는 실사용 예시
         this.pushNotificationService.send(
-                userId, "휴가 등록 완료", name + "이(가) 등록됐어요!", "VACATION");
+                userId, "휴가 등록 완료", request.getName() + "이(가) 등록됐어요!", "VACATION");
 
         return vacation.getVacationId();
     }
@@ -272,8 +232,8 @@ public class DashboardServiceImpl implements DashboardService {
         if (vacation == null) {
             throw BusinessException.notFound("휴가 정보를 찾을 수 없습니다.", "DASH_003");
         }
-        // REGULAR(마스터/사용내역)는 등록·삭제로만 관리되며 이 API로 수정할 수 없다.
-        if (this.isRegularMaster(vacation) || this.isRegularUsage(vacation)) {
+        // REGULAR는 가입 시 자동 부여되며 이 API로 수정할 수 없다.
+        if (CATEGORY_REGULAR.equals(vacation.getVacationCate())) {
             throw BusinessException.badRequest("정기휴가는 이 API로 수정할 수 없습니다.", "DASH_008");
         }
 
@@ -281,13 +241,16 @@ public class DashboardServiceImpl implements DashboardService {
         if (!VALID_CATEGORIES.contains(category) || CATEGORY_REGULAR.equals(category)) {
             throw BusinessException.badRequest("유효하지 않은 휴가 카테고리입니다.", "DASH_007");
         }
-        this.validateNonRegularFields(request);
+        int usedDays = this.sumUsedDays(vacationId);
+        if (request.getDays() < usedDays) {
+            throw BusinessException.badRequest(
+                    "이미 사용한 일수(" + usedDays + "일)보다 적게 설정할 수 없습니다.", "DASH_012");
+        }
 
         vacation.setVacationCate(category);
         vacation.setVacationName(request.getName());
         vacation.setVacationGet(request.getAcquiredDate());
         vacation.setVacationDay(request.getDays());
-        vacation.setVacationState(Boolean.TRUE.equals(request.getIsUsed()));
         vacation.setModifiedNm(modifiedNm);
 
         this.mapper.updateVacation(vacation);
@@ -300,94 +263,77 @@ public class DashboardServiceImpl implements DashboardService {
         if (vacation == null) {
             throw BusinessException.notFound("휴가 정보를 찾을 수 없습니다.", "DASH_003");
         }
-        // REGULAR 마스터는 입대 시 고정 부여된 총량이라 삭제 대상이 아니다.
-        // REGULAR 사용내역은 등록 취소 목적으로 삭제를 허용한다.
-        if (this.isRegularMaster(vacation)) {
-            throw BusinessException.badRequest("정기휴가 마스터는 삭제할 수 없습니다.", "DASH_009");
+        // REGULAR는 입대 시 고정 부여된 총량이라 삭제 대상이 아니다.
+        if (CATEGORY_REGULAR.equals(vacation.getVacationCate())) {
+            throw BusinessException.badRequest("정기휴가는 삭제할 수 없습니다.", "DASH_009");
         }
 
         this.mapper.deleteVacation(vacationId, modifiedNm);
     }
 
-    // 비REGULAR 카테고리는 name/acquiredDate/isUsed가 전부 필수다.
-    // @Valid로 조건부 필수를 표현할 수 없어 여기서 직접 검증한다. (createVacation·updateVacation 공용)
-    private void validateNonRegularFields(DashboardVacationCreateRequestDTO request) {
-        if (request.getName() == null || request.getName().isBlank()
-                || request.getAcquiredDate() == null
-                || request.getIsUsed() == null) {
-            throw BusinessException.badRequest("이름·획득일·사용여부는 필수입니다.", "DASH_006");
-        }
-    }
-
-    // REGULAR 사용내역 등록 검증(잔여일수 초과 확인)
-    private void validateRegularUsage(Long userId, Integer requestedDays) {
-        List<VacationVO> vacations = this.mapper.findVacationListByUserId(userId);
-        VacationGroups groups = this.groupVacations(vacations);
-
-        if (groups.regularMaster == null) {
-            throw BusinessException.notFound("정기휴가 부여 내역을 찾을 수 없습니다.", "DASH_004");
+    @Override
+    @Transactional
+    public Long createVacationUsage(
+            Long userId, String createdNm, Long vacationId,
+            DashboardVacationUsageCreateRequestDTO request) {
+        VacationVO vacation = this.mapper.findVacationById(vacationId, userId);
+        if (vacation == null) {
+            throw BusinessException.notFound("휴가 정보를 찾을 수 없습니다.", "DASH_003");
         }
 
-        int regularUsedDays = this.sumDays(groups.regularUsages);
-        int remainingDays = this.dayCountOf(groups.regularMaster) - regularUsedDays;
-        if (requestedDays > remainingDays) {
-            throw BusinessException.badRequest("정기휴가 잔여일수를 초과했습니다.", "DASH_005");
-        }
-    }
-
-    // vacations를 REGULAR 마스터/REGULAR 사용내역/그 외 카테고리로 분류한다.
-    // findVacations·findVacationDetail·validateAndCountRegularUsage가 공통으로 사용한다.
-    private VacationGroups groupVacations(List<VacationVO> vacations) {
-        VacationVO regularMaster = null;
-        List<VacationVO> regularUsages = new ArrayList<>();
-        List<VacationVO> others = new ArrayList<>();
-
-        for (VacationVO vacation : vacations) {
-            if (this.isRegularMaster(vacation)) {
-                regularMaster = vacation;
-            } else if (this.isRegularUsage(vacation)) {
-                regularUsages.add(vacation);
-            } else {
-                others.add(vacation);
-            }
+        if (request.getUsedDate().isBefore(vacation.getVacationGet())) {
+            throw BusinessException.badRequest("사용일은 휴가 획득일보다 이전일 수 없습니다.", "DASH_013");
         }
 
-        return new VacationGroups(regularMaster, regularUsages, others);
+        int remainingDays = this.dayCountOf(vacation) - this.sumUsedDays(vacationId);
+        if (request.getDays() > remainingDays) {
+            throw BusinessException.badRequest("휴가 잔여일수를 초과했습니다.", "DASH_005");
+        }
+
+        VacationHistoryVO history = VacationHistoryVO.builder()
+                .vacationId(vacationId)
+                .usedDate(request.getUsedDate())
+                .usedDay(request.getDays())
+                .build();
+        history.setCreatedNm(createdNm);
+
+        this.mapper.insertVacationHistory(history);
+
+        this.pushNotificationService.send(
+                userId, "휴가 등록 완료",
+                vacation.getVacationName() + " 사용내역이 등록됐어요!", "VACATION");
+
+        return history.getHistoryId();
     }
 
-    private boolean isRegularMaster(VacationVO vacation) {
-        return CATEGORY_REGULAR.equals(vacation.getVacationCate())
-                && !Boolean.TRUE.equals(vacation.getVacationState());
+    @Override
+    @Transactional
+    public void deleteVacationUsage(Long userId, Long historyId, String modifiedNm) {
+        VacationHistoryVO history = this.mapper.findVacationHistoryById(historyId, userId);
+        if (history == null) {
+            throw BusinessException.notFound("사용내역을 찾을 수 없습니다.", "DASH_011");
+        }
+
+        this.mapper.deleteVacationHistory(historyId, modifiedNm);
     }
 
-    private boolean isRegularUsage(VacationVO vacation) {
-        return CATEGORY_REGULAR.equals(vacation.getVacationCate())
-                && Boolean.TRUE.equals(vacation.getVacationState());
+    private int sumUsedDays(Long vacationId) {
+        return this.sumHistoryDays(this.mapper.findVacationHistoryListByVacationId(vacationId));
+    }
+
+    private int sumHistoryDays(List<VacationHistoryVO> histories) {
+        int sum = 0;
+        for (VacationHistoryVO history : histories) {
+            sum += history.getUsedDay() != null ? history.getUsedDay() : 0;
+        }
+        return sum;
     }
 
     private int dayCountOf(VacationVO vacation) {
         return vacation.getVacationDay() != null ? vacation.getVacationDay() : 0;
     }
 
-    private int sumDays(List<VacationVO> vacations) {
-        int sum = 0;
-        for (VacationVO vacation : vacations) {
-            sum += this.dayCountOf(vacation);
-        }
-        return sum;
-    }
-
-    // groupVacations()의 분류 결과를 담는 내부 값 객체.
-    private static final class VacationGroups {
-        private final VacationVO regularMaster;
-        private final List<VacationVO> regularUsages;
-        private final List<VacationVO> others;
-
-        private VacationGroups(
-                VacationVO regularMaster, List<VacationVO> regularUsages, List<VacationVO> others) {
-            this.regularMaster = regularMaster;
-            this.regularUsages = regularUsages;
-            this.others = others;
-        }
+    private boolean isNonRegular(DashboardVacationItemDTO item) {
+        return !CATEGORY_REGULAR.equals(item.getCategory());
     }
 }

@@ -23,6 +23,7 @@ import org.scoula.dashboard.dto.DashboardSavingsResponseDTO;
 import org.scoula.dashboard.dto.DashboardVacationCreateRequestDTO;
 import org.scoula.dashboard.dto.DashboardVacationDetailResponseDTO;
 import org.scoula.dashboard.dto.DashboardVacationListResponseDTO;
+import org.scoula.dashboard.dto.DashboardVacationUsageCreateRequestDTO;
 import org.scoula.dashboard.service.DashboardService;
 import org.scoula.security.account.domain.CustomUser;
 
@@ -112,7 +113,7 @@ public class DashboardController {
         return ResponseEntity.ok(ApiResponse.success());
     }
 
-    // DASH-API-08: 휴가 삭제 (REGULAR 마스터 제외)
+    // DASH-API-08: 휴가 삭제 (REGULAR 제외)
     @DeleteMapping("/vacations/{vacationId}")
     public ResponseEntity<ApiResponse<Void>> deleteVacation(
             @AuthenticationPrincipal CustomUser customUser,
@@ -121,6 +122,35 @@ public class DashboardController {
         Long userId = customUser.getMember().getId();
         log.info("Deleting vacationId: {} for userId: {}", vacationId, userId);
         this.service.deleteVacation(userId, vacationId, customUser.getUsername());
+
+        return ResponseEntity.ok(ApiResponse.success());
+    }
+
+    // DASH-API-09: 휴가 사용내역 등록
+    @PostMapping("/vacations/{vacationId}/usages")
+    public ResponseEntity<ApiResponse<Long>> createVacationUsage(
+            @AuthenticationPrincipal CustomUser customUser,
+            @PathVariable Long vacationId,
+            @Valid @RequestBody DashboardVacationUsageCreateRequestDTO request
+    ) {
+        Long userId = customUser.getMember().getId();
+        log.info("Creating vacation usage for userId: {}, vacationId: {}", userId, vacationId);
+        Long historyId = this.service.createVacationUsage(
+                userId, customUser.getUsername(), vacationId, request);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(historyId));
+    }
+
+    // DASH-API-10: 휴가 사용내역 삭제
+    @DeleteMapping("/vacations/{vacationId}/usages/{historyId}")
+    public ResponseEntity<ApiResponse<Void>> deleteVacationUsage(
+            @AuthenticationPrincipal CustomUser customUser,
+            @PathVariable Long vacationId,
+            @PathVariable Long historyId
+    ) {
+        Long userId = customUser.getMember().getId();
+        log.info("Deleting vacation usage for userId: {}, historyId: {}", userId, historyId);
+        this.service.deleteVacationUsage(userId, historyId, customUser.getUsername());
 
         return ResponseEntity.ok(ApiResponse.success());
     }
