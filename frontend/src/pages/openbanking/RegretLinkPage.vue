@@ -19,7 +19,7 @@ const unlinking = ref(false);
 // 잔액/거래 표시 (적금=잔액, 입출금=거래내역 수집)
 const balanceText = (a) =>
   a.accountType === 'CHECKING'
-    ? '거래내역 수집'
+    ? '지출을 자동으로 정리해요'
     : `잔액 ${((a.balance ?? 0) / 10000).toLocaleString('ko-KR')}만원`;
 
 // 적금 금리·정부매칭·만기 표시 (적금 계좌만)
@@ -91,7 +91,7 @@ onMounted(load);
 
     <!-- 연동된 경우: 계좌 목록 + 해제 -->
     <template v-else-if="linked">
-      <p class="oblink__status oblink__status--on">✅ 오픈뱅킹이 연동되어 있어요</p>
+      <p class="oblink__status oblink__status--on">✅ 오픈뱅킹이 연결됐어요</p>
       <div v-if="savings" class="oblink__maturity">
         <span class="oblink__maturity-label">💰 만기 예상 수령액</span>
         <b class="oblink__maturity-amt">{{ (savings.expectedMaturityTotal ?? 0).toLocaleString('ko-KR') }}원</b>
@@ -111,7 +111,7 @@ onMounted(load);
 
     <!-- 미연동인 경우: 연동 유도 -->
     <template v-else>
-      <p class="oblink__status">아직 오픈뱅킹이 연동되어 있지 않아요</p>
+      <p class="oblink__status">아직 연동 전이에요</p>
       <p class="oblink__desc">연동하면 군적금 현황·지출 분석을 한눈에 볼 수 있어요</p>
       <button type="button" class="oblink__link" @click="goLink">오픈뱅킹 연동하기</button>
     </template>

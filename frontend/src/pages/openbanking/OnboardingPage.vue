@@ -26,9 +26,9 @@ const termsOpen = ref(true);
 const agreed = ref(false);
 const TERMS = [
   '이용 목적: 군적금 현황 관리 · 후회소비 회고 · 목표 로드맵',
-  '계좌 조회 (필수)',
-  '잔액 조회 (필수)',
-  '거래내역 조회 (필수)',
+  '내 계좌 확인 (필수)',
+  '잔액 확인 (필수)',
+  '지출·수입 내역 확인 (필수)',
   '이용 기간: 1년 (자동 갱신 가능)',
 ];
 
@@ -64,7 +64,7 @@ const linking = ref(false);
 // 잔액/거래 표시 (적금=잔액, 입출금=거래내역 수집)
 const balanceText = (a) =>
   a.accountType === 'CHECKING'
-    ? '거래내역 수집'
+    ? '지출을 자동으로 정리해요'
     : `잔액 ${((a.balance ?? 0) / 10000).toLocaleString('ko-KR')}만원`;
 
 // 적금 금리·정부매칭·만기 표시 (적금 계좌만) — "연 5.0% · 정부매칭 100% · 만기 2027-09-09"
@@ -159,7 +159,7 @@ const startService = async () => {
     <!-- STEP 3 · 계좌 선택 -->
     <template v-else-if="step === 3">
       <h2 class="ob-title sm">연동할 계좌 선택</h2>
-      <p class="ob-sub">연동할 계좌를 선택하세요 (기본 전체 선택)</p>
+      <p class="ob-sub">연동할 계좌를 골라주세요</p>
       <p v-if="accountsLoading" class="ob-sub">계좌 불러오는 중…</p>
       <div class="acc-list">
         <button
@@ -188,8 +188,8 @@ const startService = async () => {
     <!-- STEP 4 · 연동 완료 -->
     <template v-else>
       <img :src="soldierImg" alt="텅장일병 마스코트" class="mascot" />
-      <h2 class="ob-title">연동 완료!</h2>
-      <p class="ob-desc">총 계좌 {{ linkedAccounts.length }}개가 연동됐어요</p>
+      <h2 class="ob-title">연동됐어요!</h2>
+      <p class="ob-desc">{{ linkedAccounts.length }}개 계좌를 연동했어요</p>
       <div class="acc-list">
         <div v-for="a in linkedAccounts" :key="a.fintechUseNum" class="acc is-on">
           <span class="acc__check">✅</span>
