@@ -1,5 +1,6 @@
 package org.scoula.bookmark.mapper;
 
+import org.apache.ibatis.annotations.Param;
 import org.scoula.bookmark.domain.BookmarkVO;
 import org.scoula.bookmark.dto.BookmarkCreateDTO;
 import org.scoula.bookmark.dto.BookmarkDeleteDTO;
@@ -11,8 +12,7 @@ public interface BookmarkMapper {
     // 로그인 사용자의 관심 로드맵 목록 조회
     List<BookmarkVO> findBookmarkListByUserId(Long userId);
 
-    // 같은 카테고리에 이미 관심 등록한 로드맵이 있는지 조회
-    BookmarkVO findBookmarkByUserIdAndCategoryId(
+    BookmarkVO findBookmarkByUserIdAndGoal(
             BookmarkCreateDTO createDTO
     );
 
