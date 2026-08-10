@@ -185,8 +185,17 @@ public class RentServiceImpl implements RentService {
                 listing.getLatitude(), listing.getLongitude());
         PrecisionSimulationDTO simulation = buildPrecisionSimulation(goal, listing);
 
+        // step5 비용계산 관리비 표시용 - 면적앵커+시도계수로 월 관리비 계산 (regionCode/면적 없으면 0)
+        long mgmtFee = 0L;
+        if (listing.getRegionCode() != null && listing.getAreaSqm() != null) {
+            mgmtFee = this.utilityService.calcManagementFee(
+                    listing.getRegionCode(), listing.getAreaSqm().doubleValue());
+        }
+        ListingSummaryDTO listingSummary = ListingSummaryDTO.of(listing);
+        listingSummary.setMaintenanceFee(mgmtFee);
+
         return RentGoalDetailResponseDTO.of(goal).toBuilder()
-                .listing(ListingSummaryDTO.of(listing))
+                .listing(listingSummary)
                 .nearbyFacilities(facilities)
                 .precisionSimulation(simulation)
                 .build();
