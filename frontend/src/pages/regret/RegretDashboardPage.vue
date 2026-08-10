@@ -4,6 +4,8 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import regretApi from '@/api/regretApi';
+import roadmapApi from '@/api/roadmapApi';
+import rentApi from '@/api/rentApi';
 import { formatManwon, formatWon } from '@/util/format';
 import BaseCard from '@/components/common/BaseCard.vue';
 import DonutChart from '@/components/common/DonutChart.vue';
@@ -119,6 +121,7 @@ onMounted(() => {
   load();
   loadMonths();
   loadDaily();
+  loadRentCost();
 });
 
 const donutItems = computed(() => {
@@ -185,19 +188,38 @@ const goLabel = (label) =>
 // ── "이만큼 아끼면?" 로드맵 연결 ────────────────────────────────
 // 이번달 후회소비를 절감액으로 보고, 4개 로드맵 목표에 보탰을 때 효과 환산
 // TODO(백엔드): 각 로드맵 목표 잔여액 API 연동되면 가정치 대신 실값으로 계산
-const ASSUMED_MONTHLY_RENT = 530000; // 자취 실질월부담 가정 (매물 샘플 기준)
 const saveMonthly = computed(() => stats.value?.regretAmount ?? 0);
 const saveYear = computed(() => saveMonthly.value * 12);
-const extraRentMonths = computed(() =>
-  Math.max(Math.floor(saveYear.value / ASSUMED_MONTHLY_RENT), 1),
-);
+
+// 저장된 자취 로드맵의 월 주거비 (하드코딩 대신 실데이터). 로드맵 없으면 null → 등록 유도 멘트
+const rentMonthlyCost = ref(null);
+const loadRentCost = async () => {
+  try {
+    const list = await roadmapApi.findRoadmapList('rent');
+    if (list?.length) {
+      const goal = await rentApi.findGoal(list[0].goalId);
+      rentMonthlyCost.value =
+        goal?.precisionSimulation?.monthlyHousingCost?.housingTotal ?? null;
+    }
+  } catch {
+    rentMonthlyCost.value = null;
+  }
+};
+// 저장된 자취 로드맵 있으면 실 주거비로 "N개월 더" 환산, 없으면 null (유도 멘트로 분기)
+const extraRentMonths = computed(() => {
+  if (!rentMonthlyCost.value) return null;
+  return Math.max(Math.floor(saveYear.value / rentMonthlyCost.value), 1);
+});
 
 const roadmapCards = computed(() => [
   {
     key: 'rent',
     icon: '🏠',
     name: '자취',
-    desc: `1년 모으면 자취 ${extraRentMonths.value}개월 더`,
+    desc:
+      extraRentMonths.value != null
+        ? `1년 모으면 자취 ${extraRentMonths.value}개월 더`
+        : '자취 로드맵 등록하고 분석 받아보기',
     route: 'RentGoalCreate',
   },
   {
