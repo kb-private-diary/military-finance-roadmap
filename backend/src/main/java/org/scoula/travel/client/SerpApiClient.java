@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -34,6 +35,20 @@ public class SerpApiClient {
     private static final int CONNECT_TIMEOUT_MILLIS = 10_000;
     private static final int READ_TIMEOUT_MILLIS = 20_000;
     private static final int MAX_RESULTS = 10;
+    private static final Map<String, String> COUNTRY_CODES = Map.ofEntries(
+            Map.entry("대한민국", "kr"),
+            Map.entry("일본", "jp"),
+            Map.entry("베트남", "vn"),
+            Map.entry("태국", "th"),
+            Map.entry("대만", "tw"),
+            Map.entry("인도네시아", "id"),
+            Map.entry("필리핀", "ph"),
+            Map.entry("프랑스", "fr"),
+            Map.entry("스페인", "es"),
+            Map.entry("미국", "us"),
+            Map.entry("이탈리아", "it"),
+            Map.entry("호주", "au"),
+            Map.entry("영국", "gb"));
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -162,16 +177,7 @@ public class SerpApiClient {
     }
 
     private String countryCode(final String country) {
-        if ("대한민국".equals(country)) {
-            return "kr";
-        }
-        if ("일본".equals(country)) {
-            return "jp";
-        }
-        if ("베트남".equals(country)) {
-            return "vn";
-        }
-        return "kr";
+        return COUNTRY_CODES.getOrDefault(country, "kr");
     }
 
     private boolean isLimitError(final String error) {
