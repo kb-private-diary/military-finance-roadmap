@@ -5,14 +5,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -25,6 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.log4j.Log4j2;
 
 import org.scoula.common.exception.BusinessException;
+import org.scoula.travel.util.TravelPriceCalculator;
 
 /**
  * FlightAPI.io 왕복 항공권 가격 클라이언트.
@@ -60,9 +59,7 @@ public class FlightApiClient {
         String response = this.fetch(
                 departureAirport, destinationAirport, departureDate, returnDate);
         List<BigDecimal> prices = this.extractPrices(response);
-        return prices.get(0)
-                .setScale(0, RoundingMode.HALF_UP)
-                .longValue();
+        return TravelPriceCalculator.findMedian(prices);
     }
 
     private void validateRequest(LocalDate departureDate, LocalDate returnDate) {
@@ -172,7 +169,6 @@ public class FlightApiClient {
             if (prices.isEmpty()) {
                 throw this.flightNotFound();
             }
-            Collections.sort(prices);
             return prices;
         } catch (BusinessException e) {
             throw e;
