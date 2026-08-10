@@ -7,6 +7,7 @@ import { useRoute, useRouter } from 'vue-router';
 import dashboardApi from '@/api/dashboardApi';
 import { useToast } from '@/composables/useToast';
 import BaseInput from '@/components/common/BaseInput.vue';
+import BaseModal from '@/components/common/BaseModal.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 
 const CATEGORY_OPTIONS = [
@@ -72,10 +73,12 @@ const isFormValid = computed(
 
 const goPrevious = () => router.back();
 
+const isDeleteModalOpen = ref(false);
+const openDeleteModal = () => {
+  isDeleteModalOpen.value = true;
+};
+
 const deleteVacation = async () => {
-  if (!confirm('이 휴가를 삭제하시겠습니까?')) {
-    return;
-  }
   isSubmitting.value = true;
   try {
     await dashboardApi.deleteVacation(vacationId.value);
@@ -90,7 +93,10 @@ const deleteVacation = async () => {
 
 const submit = async () => {
   if (isBelowUsedDays.value) {
-    show(`이미 ${usedDays.value}일 사용해서 그보다 적게는 설정할 수 없어요.`, 'error');
+    show(
+      `이미 ${usedDays.value}일 사용해서 그보다 적게는 설정할 수 없어요.`,
+      'error',
+    );
     return;
   }
   if (!isFormValid.value) {
@@ -134,7 +140,7 @@ onMounted(fetchDetail);
         class="vacation-edit__delete-btn"
         aria-label="휴가 삭제"
         :disabled="isSubmitting"
-        @click="deleteVacation"
+        @click="openDeleteModal"
       >
         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path
@@ -192,6 +198,16 @@ onMounted(fetchDetail);
       @primary-click="submit"
       @secondary-click="goPrevious"
     />
+
+    <BaseModal
+      v-model="isDeleteModalOpen"
+      title="휴가 삭제"
+      confirm-text="삭제"
+      cancel-text="취소"
+      @confirm="deleteVacation"
+    >
+      <p class="vacation-edit__modal-message">이 휴가를 삭제하시겠습니까?</p>
+    </BaseModal>
   </div>
 </template>
 

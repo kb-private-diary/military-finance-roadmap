@@ -8,6 +8,7 @@ import dashboardApi from '@/api/dashboardApi';
 import { useToast } from '@/composables/useToast';
 import BaseCard from '@/components/common/BaseCard.vue';
 import BaseInput from '@/components/common/BaseInput.vue';
+import BaseModal from '@/components/common/BaseModal.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import ProgressBar from '@/components/common/ProgressBar.vue';
 import { formatDate } from '@/util/format';
@@ -74,7 +75,9 @@ const isOverRemaining = computed(() => {
 // 사용일이 휴가 획득일보다 이전인지 (미래 날짜는 허용 — 미리 예약 등록 가능)
 const isBeforeAcquired = computed(
   () =>
-    detail.value && newUsageDate.value && newUsageDate.value < detail.value.acquiredDate,
+    detail.value &&
+    newUsageDate.value &&
+    newUsageDate.value < detail.value.acquiredDate,
 );
 
 // 등록 버튼 아래에 보여줄 에러 문구 (해당되는 게 없으면 null)
@@ -114,13 +117,25 @@ const registerUsage = async () => {
   }
 };
 
-const deleteUsage = async (usage) => {
-  if (!confirm('이 사용내역을 삭제하시겠습니까?')) {
+// 삭제 확인 모달이 어떤 사용내역을 대상으로 열렸는지 기억해둔다 (모달 자체는 화면에 하나뿐).
+const isDeleteModalOpen = ref(false);
+const usageToDelete = ref(null);
+
+const openDeleteModal = (usage) => {
+  usageToDelete.value = usage;
+  isDeleteModalOpen.value = true;
+};
+
+const deleteUsage = async () => {
+  if (!usageToDelete.value) {
     return;
   }
   isSubmitting.value = true;
   try {
-    await dashboardApi.deleteVacationUsage(vacationId.value, usage.historyId);
+    await dashboardApi.deleteVacationUsage(
+      vacationId.value,
+      usageToDelete.value.historyId,
+    );
     await fetchDetail();
   } catch (error) {
     console.error(error);
@@ -130,6 +145,7 @@ const deleteUsage = async (usage) => {
     );
   } finally {
     isSubmitting.value = false;
+    usageToDelete.value = null;
   }
 };
 
@@ -186,7 +202,7 @@ onMounted(fetchDetail);
               class="usage-card__delete-btn"
               aria-label="사용내역 삭제"
               :disabled="isSubmitting"
-              @click="deleteUsage(usage)"
+              @click="openDeleteModal(usage)"
             >
               <svg
                 viewBox="0 0 24 24"
@@ -262,6 +278,18 @@ onMounted(fetchDetail);
       @primary-click="goComplete"
       @secondary-click="goPrevious"
     />
+
+    <BaseModal
+      v-model="isDeleteModalOpen"
+      title="사용내역 삭제"
+      confirm-text="삭제"
+      cancel-text="취소"
+      @confirm="deleteUsage"
+    >
+      <p class="vacation-usage__modal-message">
+        이 사용내역을 삭제하시겠습니까?
+      </p>
+    </BaseModal>
   </div>
 </template>
 
