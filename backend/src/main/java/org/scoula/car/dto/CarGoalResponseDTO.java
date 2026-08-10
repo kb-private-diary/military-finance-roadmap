@@ -22,5 +22,6 @@ public class CarGoalResponseDTO {
     private Long selectedModelId;
     private String selectedModelName;
     private Integer selectedYear;
+    private Integer selectedMileageKm;
     private String status;
 }
