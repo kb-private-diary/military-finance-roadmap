@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -24,15 +25,16 @@ import org.scoula.common.response.ApiResponse;
 import org.scoula.security.account.domain.CustomUser;
 import org.scoula.travel.dto.CityCostResponseDTO;
 import org.scoula.travel.dto.TravelCostResponseDTO;
+import org.scoula.travel.dto.TravelCostStyleUpdateRequestDTO;
 import org.scoula.travel.dto.TravelGoalCreateRequestDTO;
+import org.scoula.travel.dto.TravelGoalDetailResponseDTO;
 import org.scoula.travel.dto.TravelGoalDraftResponseDTO;
+import org.scoula.travel.dto.TravelPackageResponseDTO;
+import org.scoula.travel.dto.TravelPackageUpdateRequestDTO;
 import org.scoula.travel.dto.TravelPlaceResponseDTO;
 import org.scoula.travel.dto.TravelPlaceSelectionDTO;
 import org.scoula.travel.dto.TravelPlacesUpdateRequestDTO;
-import org.scoula.travel.dto.TravelPackageResponseDTO;
-import org.scoula.travel.dto.TravelPackageUpdateRequestDTO;
 import org.scoula.travel.dto.TravelProductRecommendationResponseDTO;
-import org.scoula.travel.dto.TravelProductsUpdateRequestDTO;
 import org.scoula.travel.service.TravelService;
 
 // 여행 로드맵 REST 컨트롤러
@@ -57,7 +59,7 @@ public class TravelController {
     @PostMapping("/goals")
     @ApiOperation(value = "여행 목표 등록",
             notes = "여행 조건(기간·스타일·예산)만 저장하고 생성된 goalId 를 반환한다. "
-                    + "places 는 step3, products 는 step4 에서 갱신한다.")
+                    + "places 는 step3에서 갱신한다.")
     public ResponseEntity<ApiResponse<Long>> createGoal(
             @AuthenticationPrincipal final CustomUser customUser,
             @RequestBody TravelGoalCreateRequestDTO request) {
@@ -75,6 +77,19 @@ public class TravelController {
             @AuthenticationPrincipal final CustomUser customUser) {
         return ResponseEntity.ok(ApiResponse.success(
                 this.service.findCurrentDraft(customUser.getMember().getId())));
+    }
+
+    @GetMapping("/goals/{goalId}")
+    @ApiOperation(
+            value = "여행 목표 상세 조회",
+            notes = "본인이 저장한 여행 목표의 선택 장소, 예상 경비, 금융상품을 조회한다.")
+    public ResponseEntity<ApiResponse<TravelGoalDetailResponseDTO>>
+            getGoalDetail(
+            @AuthenticationPrincipal final CustomUser customUser,
+            @PathVariable final Long goalId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                this.service.getGoalDetail(
+                        customUser.getMember().getId(), goalId)));
     }
 
     @PatchMapping("/goals/{goalId}")
@@ -108,6 +123,23 @@ public class TravelController {
     public ResponseEntity<ApiResponse<TravelCostResponseDTO>> findCost(
             @PathVariable Long goalId) {
         return ResponseEntity.ok(ApiResponse.success(this.service.findCost(goalId)));
+    }
+
+    @PatchMapping("/goals/{goalId}/costs/style")
+    @ApiOperation(
+            value = "여행 스타일 및 예상 경비 변경",
+            notes = "Step 2에서 선택한 스타일을 저장하고 일반 기준 교통비·숙박비에 "
+                    + "스타일 배율을 적용해 관광비와 총 예상 경비를 갱신한다.")
+    public ResponseEntity<ApiResponse<Void>> updateCostStyle(
+            @AuthenticationPrincipal final CustomUser customUser,
+            @PathVariable final Long goalId,
+            @RequestBody final TravelCostStyleUpdateRequestDTO request) {
+        this.service.updateCostStyle(
+                customUser.getMember().getId(),
+                goalId,
+                customUser.getUsername(),
+                request);
+        return ResponseEntity.ok(ApiResponse.success());
     }
 
     @GetMapping("/goals/{goalId}/places")
@@ -175,7 +207,7 @@ public class TravelController {
     @ApiOperation(
             value = "여행 금융상품 추천 조회",
             notes = "여행 카테고리 카드, 판매 중인 적금, 여행자보험을 "
-                    + "조회하고 기존 관심 상품 선택 상태를 함께 반환한다.")
+                    + "추천 목록으로 반환한다.")
     public ResponseEntity<ApiResponse<
             TravelProductRecommendationResponseDTO>> findProducts(
             @AuthenticationPrincipal final CustomUser customUser,
@@ -184,29 +216,28 @@ public class TravelController {
                 this.service.findProducts(customUser.getMember().getId(), goalId)));
     }
 
-    @PatchMapping("/goals/{goalId}/products")
-    @ApiOperation(
-            value = "관심 금융상품 저장",
-            notes = "사용자가 선택한 금융상품을 여행 목표의 JSON 목록으로 저장한다.")
-    public ResponseEntity<ApiResponse<Void>> updateProducts(
-            @AuthenticationPrincipal final CustomUser customUser,
-            @PathVariable final Long goalId,
-            @RequestBody final TravelProductsUpdateRequestDTO request) {
-        this.service.updateProducts(
-                customUser.getMember().getId(), goalId,
-                customUser.getUsername(), request);
-        return ResponseEntity.ok(ApiResponse.success());
-    }
-
     @PostMapping("/goals/{goalId}/confirm")
     @ApiOperation(
             value = "여행 로드맵 저장",
-            notes = "관심 금융상품 저장을 마친 목표를 DRAFT에서 CONFIRMED로 전환한다.")
+            notes = "작성 중인 목표를 DRAFT에서 CONFIRMED로 전환한다.")
     public ResponseEntity<ApiResponse<Void>> confirmGoal(
             @AuthenticationPrincipal final CustomUser customUser,
             @PathVariable final Long goalId) {
         this.service.confirmGoal(
                 customUser.getMember().getId(), goalId, customUser.getUsername());
+        return ResponseEntity.ok(ApiResponse.success());
+    }
+
+    @DeleteMapping("/goals/{goalId}")
+    @ApiOperation(
+            value = "여행 목표 삭제",
+            notes = "본인의 여행 목표를 소프트 삭제한다.")
+    public ResponseEntity<ApiResponse<Void>> deleteGoal(
+            @AuthenticationPrincipal final CustomUser customUser,
+            @PathVariable final Long goalId) {
+        this.service.deleteGoal(
+                customUser.getMember().getId(), goalId,
+                customUser.getUsername());
         return ResponseEntity.ok(ApiResponse.success());
     }
 
