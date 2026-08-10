@@ -259,7 +259,9 @@ const handlePrev = () => {
             <span class="recommend-card__name">{{ item.modelName }}</span>
             <span v-if="item.fuelType === '전기'" class="recommend-card__ev-badge">EV</span>
             <span class="recommend-card__fuel">{{ item.fuelType }}</span>
-            <span v-if="item.assumedYear" class="recommend-card__year">{{ item.assumedYear }}년식</span>
+            <span v-if="item.assumedYear" class="recommend-card__year">
+              {{ item.assumedYear }}년식<template v-if="isUsedCarGoal"> · {{ formatKm(selectedMileageKm) }}</template>
+            </span>
           </div>
           <div class="recommend-card__price-row">
             <span class="recommend-card__price-label">

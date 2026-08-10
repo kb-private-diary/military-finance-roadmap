@@ -55,6 +55,16 @@ const savingsRate = computed(() => {
   return Math.min(100, Math.round((currentManwon / budgetStatus.value.effectiveBudget) * 100));
 });
 
+// 후회소비 인사이트: 오픈뱅킹 미연동이거나 후회소비가 없으면 백엔드가 필드를 안 채워서 자동으로 숨겨진다.
+const showRegretInsight = computed(() => !!budgetStatus.value?.avgRegretSpending);
+const regretCoveragePercent = computed(() => {
+  if (!budgetStatus.value?.remainingAmount) return 100;
+  return Math.min(
+    100,
+    Math.round((budgetStatus.value.regretSavingsAmount / budgetStatus.value.remainingAmount) * 100),
+  );
+});
+
 const loadDetail = async () => {
   loading.value = true;
   loadError.value = '';
@@ -153,6 +163,19 @@ const goToRoadmap = () => {
             (군적금 만기예상액 {{ formatManwonUnit(Math.round(savings.expectedMaturityTotal / 10000)) }})
           </p>
         </BaseCard>
+
+        <!-- 후회소비 인사이트 -->
+        <div v-if="showRegretInsight" class="insight">
+          <p class="insight__tag">⭐ 후회소비 인사이트</p>
+          <p class="insight__text">
+            최근 {{ budgetStatus.regretSavingsMonths }}개월간 월평균 후회소비가
+            <strong>{{ formatManwonUnit(budgetStatus.avgRegretSpending) }}</strong>이에요.
+            이걸 {{ budgetStatus.regretSavingsMonths }}개월만 모으면
+            <strong>{{ formatManwonUnit(budgetStatus.regretSavingsAmount) }}</strong>
+            — 목표까지 남은 {{ formatManwonUnit(budgetStatus.remainingAmount) }}의
+            <strong class="insight__hl">{{ regretCoveragePercent }}%</strong>를 채울 수 있어요.
+          </p>
+        </div>
 
         <div class="tab-row">
           <button
@@ -400,6 +423,34 @@ const goToRoadmap = () => {
   margin: 10px 0 0;
   color: var(--text-muted);
   font-size: 12px;
+}
+
+.insight {
+  padding: 16px;
+  border-radius: 14px;
+  background: #fff9e0;
+  border: 1px solid #ffe9a8;
+}
+
+.insight__tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: #a9762a;
+  margin-bottom: 6px;
+}
+
+.insight__text {
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text-body);
+}
+
+.insight__text strong {
+  color: var(--text-strong);
+}
+
+.insight__hl {
+  color: #2e9e5b;
 }
 
 .tab-row {

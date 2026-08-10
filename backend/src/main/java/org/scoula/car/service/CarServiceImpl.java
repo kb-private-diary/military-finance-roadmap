@@ -36,6 +36,8 @@ import org.scoula.car.mapper.CarMapper;
 import org.scoula.common.exception.BusinessException;
 import org.scoula.dashboard.dto.DashboardSavingsResponseDTO;
 import org.scoula.dashboard.service.DashboardService;
+import org.scoula.regret.dto.RegretSpendingSummaryDTO;
+import org.scoula.regret.service.RegretService;
 
 @Service
 @RequiredArgsConstructor
@@ -86,9 +88,13 @@ public class CarServiceImpl implements CarService {
     private static final int FILTER_MAX_AGE_YEARS = 10;
     private static final int FILTER_MAX_MILEAGE_KM = 200_000;
 
+    // 후회소비 인사이트 절감 기준 개월수
+    private static final int REGRET_INSIGHT_MONTHS = 3;
+
     private final CarMapper carMapper;
     private final OpinetClient opinetClient;
     private final DashboardService dashboardService;
+    private final RegretService regretService;
 
     @Override
     @Transactional
@@ -542,12 +548,41 @@ public class CarServiceImpl implements CarService {
 
         long effectiveBudget = this.resolveEffectiveBudget(userId, goal.getBudget());
 
-        return CarBudgetStatusResponseDTO.builder()
+        CarBudgetStatusResponseDTO.CarBudgetStatusResponseDTOBuilder builder = CarBudgetStatusResponseDTO.builder()
                 .goalId(goalId)
                 .effectiveBudget(effectiveBudget)
                 .purchaseTotal(purchaseTotal)
-                .withinBudget(purchaseTotal <= effectiveBudget)
-                .build();
+                .withinBudget(purchaseTotal <= effectiveBudget);
+
+        this.addRegretInsight(builder, userId, effectiveBudget);
+
+        return builder.build();
+    }
+
+    // 최근 N개월 월평균 후회소비를 목표금액까지 남은 금액과 비교해서 인사이트에 채워준다.
+    // 오픈뱅킹 미연동이거나 후회소비가 없으면 필드를 전부 비워 카드 자체가 숨겨지게 한다.
+    private void addRegretInsight(
+            CarBudgetStatusResponseDTO.CarBudgetStatusResponseDTOBuilder builder, Long userId, long effectiveBudget) {
+        try {
+            RegretSpendingSummaryDTO spending = this.regretService.getSpendingSummary(userId, REGRET_INSIGHT_MONTHS);
+            if (spending == null || spending.getAvgRegretSpending() <= 0) {
+                return;
+            }
+            DashboardSavingsResponseDTO savings = this.dashboardService.findSavingsStatus(userId);
+            if (savings == null || savings.getCurrentTotalSavings() == null) {
+                return;
+            }
+
+            long avgRegretSpendingManwon = spending.getAvgRegretSpending() / 10_000;
+            long currentSavingsManwon = savings.getCurrentTotalSavings() / 10_000;
+
+            builder.avgRegretSpending(avgRegretSpendingManwon)
+                    .regretSavingsMonths(REGRET_INSIGHT_MONTHS)
+                    .regretSavingsAmount(avgRegretSpendingManwon * REGRET_INSIGHT_MONTHS)
+                    .remainingAmount(Math.max(0, effectiveBudget - currentSavingsManwon));
+        } catch (BusinessException e) {
+            // 오픈뱅킹 군적금 미연동 등 — 인사이트 카드 숨김
+        }
     }
 
     @Override
