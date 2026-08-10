@@ -5,16 +5,16 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
+import javax.validation.constraints.NotBlank;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class JobGoalCreateRequestDTO {
-    private Long userId;
 
     // J01: 취업, J02: 공무원, J03: 편입
+    @NotBlank(message = "목표 유형은 필수입니다")
     private String goalType;
 
     // 취업 / 공무원
@@ -25,5 +25,6 @@ public class JobGoalCreateRequestDTO {
     private Long majorId;
 
     // YYYY-MM
+    @NotBlank(message = "목표 예상 시기는 필수입니다")
     private String expectedDate;
 }

@@ -148,7 +148,7 @@ const getQualificationFee = (qualification) => {
 const getCoursePrice = (course) =>
   course.militaryPrice ?? course.discountPrice ?? course.originalPrice ?? 0;
 
-// ── 접수 D-Day ──
+// ── 시험 일정 D-Day ──
 const parseLocalDate = (dateValue) => {
   if (!dateValue) return null;
 
@@ -172,33 +172,70 @@ const getDayDifference = (targetDate) => {
 };
 
 const getScheduleLabel = (qualification) => {
-  const startDate = parseLocalDate(qualification.writtenRegStartDate);
-  const endDate = parseLocalDate(qualification.writtenRegEndDate);
+  const schedules = [
+    {
+      label: '필기 접수',
+      startDate: qualification.writtenRegStartDate,
+      endDate: qualification.writtenRegEndDate,
+    },
+    {
+      label: '필기시험',
+      startDate: qualification.writtenExamStartDate,
+      endDate: qualification.writtenExamEndDate,
+    },
+    {
+      label: '필기 합격발표',
+      startDate: qualification.writtenResultDate,
+      endDate: qualification.writtenResultDate,
+    },
+    {
+      label: '실기 접수',
+      startDate: qualification.practicalRegStartDate,
+      endDate: qualification.practicalRegEndDate,
+    },
+    {
+      label: '실기시험',
+      startDate: qualification.practicalExamStartDate,
+      endDate: qualification.practicalExamEndDate,
+    },
+    {
+      label: '최종 합격발표',
+      startDate: qualification.practicalResultDate,
+      endDate: qualification.practicalResultDate,
+    },
+  ].filter((schedule) => schedule.startDate);
 
-  if (!startDate || !endDate) {
-    return '다음 일정 미정';
+  const today = getToday();
+
+  for (const schedule of schedules) {
+    const startDate = parseLocalDate(schedule.startDate);
+    const endDate = parseLocalDate(schedule.endDate ?? schedule.startDate);
+
+    // 현재 진행 중인 일정
+    if (startDate <= today && today <= endDate) {
+      return `${schedule.label} 진행 중`;
+    }
+
+    // 가장 가까운 미래 일정
+    if (startDate > today) {
+      const difference = getDayDifference(startDate);
+
+      return `${schedule.label} D-${difference}`;
+    }
   }
 
-  const startDifference = getDayDifference(startDate);
-  const endDifference = getDayDifference(endDate);
-
-  if (startDifference > 0) {
-    return `필기 접수 시작 D-${startDifference}`;
-  }
-
-  if (endDifference > 0) {
-    return `필기 접수 마감 D-${endDifference}`;
-  }
-
-  if (endDifference === 0) {
-    return '오늘 필기 접수 마감';
-  }
-
-  return '다음 일정 미정';
+  return '올해 시험 일정 종료';
 };
 
 const hasSchedule = (qualification) =>
-  Boolean(qualification.writtenRegStartDate && qualification.writtenRegEndDate);
+  Boolean(
+    qualification.writtenRegStartDate ||
+    qualification.writtenExamStartDate ||
+    qualification.writtenResultDate ||
+    qualification.practicalRegStartDate ||
+    qualification.practicalExamStartDate ||
+    qualification.practicalResultDate,
+  );
 
 // ── 외부 링크 ──
 const openExternalLink = (url) => {
@@ -306,30 +343,6 @@ const handlePrev = () => {
             @click="toggleQualification(qualification.qualId)"
           >
             <div class="qualification-card__header">
-              <button
-                type="button"
-                class="selection-button"
-                :class="{
-                  'selection-button--selected': isQualificationSelected(
-                    qualification.qualId,
-                  ),
-                }"
-                :aria-label="`${qualification.qualName} 선택`"
-                @click.stop="toggleQualification(qualification.qualId)"
-              >
-                <svg
-                  v-if="isQualificationSelected(qualification.qualId)"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path d="m6 12 4 4 8-8" />
-                </svg>
-
-                <svg v-else viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M12 5v14M5 12h14" />
-                </svg>
-              </button>
-
               <div class="qualification-card__content">
                 <div class="qualification-card__title-row">
                   <h3 class="qualification-card__title">
@@ -359,13 +372,33 @@ const handlePrev = () => {
                 </p>
 
                 <div class="qualification-card__meta">
-                  <span v-if="getQualificationFee(qualification) > 0">
-                    {{ formatWon(getQualificationFee(qualification)) }}
+                  <span v-if="qualification.examRound">
+                    {{ qualification.examRound }}
                   </span>
 
-                  <span v-if="qualification.examRound">
-                    {{ qualification.examYear }}년
-                    {{ qualification.examRound }}
+                  <span
+                    v-if="
+                      qualification.writtenFee != null ||
+                      qualification.practicalFee != null
+                    "
+                    class="qualification-card__fee"
+                  >
+                    <template v-if="qualification.writtenFee != null">
+                      필기 {{ formatWon(qualification.writtenFee) }}
+                    </template>
+
+                    <template
+                      v-if="
+                        qualification.writtenFee != null &&
+                        qualification.practicalFee != null
+                      "
+                    >
+                      ·
+                    </template>
+
+                    <template v-if="qualification.practicalFee != null">
+                      실기 {{ formatWon(qualification.practicalFee) }}
+                    </template>
                   </span>
                 </div>
               </div>
@@ -414,27 +447,6 @@ const handlePrev = () => {
                   }"
                   @click="toggleCourse(course.courseId)"
                 >
-                  <span
-                    class="course-item__selection"
-                    :class="{
-                      'course-item__selection--selected': isCourseSelected(
-                        course.courseId,
-                      ),
-                    }"
-                  >
-                    <svg
-                      v-if="isCourseSelected(course.courseId)"
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                    >
-                      <path d="m6 12 4 4 8-8" />
-                    </svg>
-
-                    <svg v-else viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M12 5v14M5 12h14" />
-                    </svg>
-                  </span>
-
                   <span class="course-item__content">
                     <strong class="course-item__name">
                       {{ course.courseName }}
