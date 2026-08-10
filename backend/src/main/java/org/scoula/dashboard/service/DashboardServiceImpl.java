@@ -114,19 +114,7 @@ public class DashboardServiceImpl implements DashboardService {
         if (dischargeDate == null) {
             dischargeDate = LocalDate.now().plusMonths(24); // fallback
         }
-        
-        // 입대일 가져오기 (복무개월수 한도 계산용)
-        org.scoula.dashboard.dto.DashboardBasicResponseDTO basicInfo = this.mapper.findBasicInfoByUserId(userId);
-        LocalDate enlistDate = (basicInfo != null && basicInfo.getEnlistDate() != null) 
-                ? basicInfo.getEnlistDate() 
-                : LocalDate.now();
-        int totalServiceMonths = (int) ChronoUnit.MONTHS.between(
-                enlistDate.withDayOfMonth(1), 
-                dischargeDate.withDayOfMonth(1));
-        if (totalServiceMonths <= 0) {
-            totalServiceMonths = 1;
-        }
-        
+
         Long expectedMaturityTotal = 0L;
 
         if (accounts != null) {
@@ -147,21 +135,9 @@ public class DashboardServiceImpl implements DashboardService {
                         rateResolver
                 );
 
-                // 4. 총 원금 및 총 이자 합산
-                long totalPrincipal = calc.getTotalPrincipal();
-                double totalInterest = calc.getTotalInterest();
-
-                // 5. 정부 매칭지원금 계산 (military_saving_product.gov_match_rate 기준)
-                double matchingFund = totalPrincipal * rateResolver.getGovMatchRate();
-
-                // 매칭지원금 최대 한도 제한 (복무개월수 * 해당 계좌 월 납입액)
-                double maxMatchingFundLimit = (double) totalServiceMonths * monthlySave;
-                if (matchingFund > maxMatchingFundLimit) {
-                    matchingFund = maxMatchingFundLimit;
-                }
-                
-                // 6. 비과세 처리 적용(세금 0) 및 최종 예상 만기 수령액 합산
-                expectedMaturityTotal += (long) (totalPrincipal + totalInterest + matchingFund);
+                // 4. 총 원금·이자·매칭지원금 합산 (비과세 처리라 세금은 반영하지 않음)
+                expectedMaturityTotal += calc.getTotalPrincipal()
+                        + (long) calc.getTotalInterest() + calc.matchingFund;
             }
         }
         
