@@ -38,7 +38,14 @@ public class BookmarkServiceImpl implements BookmarkService {
     public Long createBookmark(BookmarkCreateDTO createDTO) {
 
         BookmarkVO existingBookmark =
-                this.bookmarkMapper.findBookmarkByUserIdAndCategoryId(createDTO);
+                this.bookmarkMapper.findBookmarkByUserIdAndGoal(createDTO);
+
+        if (existingBookmark != null) {
+            throw BusinessException.conflict(
+                    "이미 관심 등록한 로드맵입니다",
+                    "BOOK_001"
+            );
+        }
 
         if (existingBookmark != null) {
             throw BusinessException.conflict(
