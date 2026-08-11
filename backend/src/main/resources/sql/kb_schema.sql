@@ -1151,6 +1151,7 @@ CREATE TABLE `chat_message` (
   `source` VARCHAR(100) COMMENT '출처문서',
   `source_detail` VARCHAR(200) COMMENT '출처 캡션 (RAG 답변만, 예: KB국민은행 상품안내 · 장병내일준비적금 (2026년 3월 기준))',
   `is_ai_generated` BOOLEAN NOT NULL DEFAULT FALSE COMMENT 'AI 생성 답변 문구 표시 여부',
+  `langfuse_trace_id` VARCHAR(100) COMMENT 'Langfuse 트레이스 id (봇 답변만, 피드백을 같은 trace에 점수로 연결할 때 씀)',
   `created_date` DATETIME NOT NULL COMMENT '생성일시',
   `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
   `modified_date` DATETIME COMMENT '수정일시',

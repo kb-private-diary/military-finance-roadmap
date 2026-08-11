@@ -11,3 +11,4 @@ langchain
 langchain-google-genai
 langgraph
 langchain-chroma
+langfuse
