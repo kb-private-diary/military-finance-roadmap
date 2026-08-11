@@ -1,6 +1,7 @@
 <script setup>
-// SCR-JOB-01 · step1) 진로 목표 등록  (담당: 지원)
-// step1 - 목표 유형 (취업/공무원/편입)·희망 직무·시기 입력
+// SCR-JOB-01 · step1) 진로 목표 등록 (담당: 지원)
+// step1 - 목표 유형(취업/공무원/편입)·희망 직무·시기 입력
+
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import BaseInput from '@/components/common/BaseInput.vue';
@@ -17,7 +18,11 @@ const GOAL_TYPES = [
   { value: 'J02', label: '공무원' },
   { value: 'J03', label: '편입' },
 ];
+
 const goalType = ref('J01');
+
+// 이어쓰기 중인 DRAFT 목표 ID
+const currentGoalId = ref(null);
 
 const jobCodeLabel = computed(() => {
   if (goalType.value === 'J01') return '희망 직무';
@@ -44,6 +49,9 @@ const majorId = ref('');
 
 const optionLoading = ref(false);
 
+// 이어쓰기 복원 중 watch에 의해 값이 초기화되는 것을 막기 위한 플래그
+const isRestoring = ref(false);
+
 // 대분류 목록
 const parentCategories = computed(() =>
   categoryList.value.filter((category) => category.categoryLevel === 1),
@@ -54,7 +62,7 @@ const childCategories = computed(() =>
   categoryList.value.filter(
     (category) =>
       category.categoryLevel === 2 &&
-      category.parentId === parentCategoryId.value,
+      category.parentId === Number(parentCategoryId.value),
   ),
 );
 
@@ -72,43 +80,51 @@ const majorOptions = computed(() =>
   })),
 );
 
+// 취업·공무원 카테고리 조회
 const loadCategories = async () => {
   optionLoading.value = true;
 
   try {
     categoryList.value = await jobApi.findCategoryList(goalType.value);
-    parentCategoryId.value = '';
-    categoryId.value = '';
+
+    if (!isRestoring.value) {
+      parentCategoryId.value = '';
+      categoryId.value = '';
+    }
   } catch (error) {
     categoryList.value = [];
+    console.error('진로 카테고리 조회 실패:', error);
   } finally {
     optionLoading.value = false;
   }
 };
 
-watch(parentCategoryId, () => {
-  categoryId.value = '';
-});
-
+// 편입 대학 목록 조회
 const loadUniversities = async () => {
   optionLoading.value = true;
 
   try {
     universityList.value = await jobApi.findTransferUniversityList();
 
-    univId.value = '';
-    majorList.value = [];
-    majorId.value = '';
+    if (!isRestoring.value) {
+      univId.value = '';
+      majorList.value = [];
+      majorId.value = '';
+    }
   } catch (error) {
     universityList.value = [];
+    console.error('편입 대학 목록 조회 실패:', error);
   } finally {
     optionLoading.value = false;
   }
 };
 
+// 편입 학과 목록 조회
 const loadMajors = async () => {
-  majorList.value = [];
-  majorId.value = '';
+  if (!isRestoring.value) {
+    majorList.value = [];
+    majorId.value = '';
+  }
 
   if (!univId.value) return;
 
@@ -118,20 +134,24 @@ const loadMajors = async () => {
     majorList.value = await jobApi.findTransferMajorList(univId.value);
   } catch (error) {
     majorList.value = [];
+    console.error('편입 학과 목록 조회 실패:', error);
   } finally {
     optionLoading.value = false;
   }
 };
 
+// 목표 유형에 맞는 선택지 조회
 const loadGoalOptions = async () => {
-  categoryList.value = [];
-  parentCategoryId.value = '';
-  categoryId.value = '';
+  if (!isRestoring.value) {
+    categoryList.value = [];
+    parentCategoryId.value = '';
+    categoryId.value = '';
 
-  universityList.value = [];
-  univId.value = '';
-  majorList.value = [];
-  majorId.value = '';
+    universityList.value = [];
+    univId.value = '';
+    majorList.value = [];
+    majorId.value = '';
+  }
 
   if (goalType.value === 'J03') {
     await loadUniversities();
@@ -141,31 +161,41 @@ const loadGoalOptions = async () => {
   await loadCategories();
 };
 
-watch(parentCategoryId, () => {
-  categoryId.value = '';
-});
-
-watch(univId, loadMajors);
-
-watch(goalType, loadGoalOptions);
-
-onMounted(loadGoalOptions);
-
 // ── 목표 시기 (년 select + 월 select 조합) ──
 const expectedYear = ref('');
 const expectedMonth = ref('');
 
 // 연도 옵션: 올해 ~ 5년 후
 const currentYear = new Date().getFullYear();
+
 const yearOptions = Array.from({ length: 6 }, (_, i) => {
   const year = currentYear + i;
-  return { value: year, label: `${year}년` };
+
+  return {
+    value: year,
+    label: `${year}년`,
+  };
 });
 
-// 월 옵션: 1~12월
-const monthOptions = Array.from({ length: 12 }, (_, i) => {
-  const month = i + 1;
-  return { value: month, label: `${month}월` };
+// 월 옵션: 선택한 연도가 올해라면 현재 월부터 선택 가능
+const currentMonth = new Date().getMonth() + 1;
+
+const monthOptions = computed(() => {
+  if (!expectedYear.value) {
+    return [];
+  }
+
+  const startMonth =
+    Number(expectedYear.value) === currentYear ? currentMonth : 1;
+
+  return Array.from({ length: 13 - startMonth }, (_, index) => {
+    const month = startMonth + index;
+
+    return {
+      value: month,
+      label: `${month}월`,
+    };
+  });
 });
 
 const expectedDate = computed(() => {
@@ -174,6 +204,7 @@ const expectedDate = computed(() => {
   return `${expectedYear.value}-${String(expectedMonth.value).padStart(2, '0')}`;
 });
 
+// ── 드롭다운 표시 ──
 const isOptionDropdownOpen = ref(false);
 
 const selectedOptionLabel = computed(() => {
@@ -181,25 +212,30 @@ const selectedOptionLabel = computed(() => {
     const university = universityList.value.find(
       (item) => item.univId === Number(univId.value),
     );
+
     const major = majorList.value.find(
       (item) => item.majorId === Number(majorId.value),
     );
 
     if (!university || !major) return '';
+
     return `${university.univName} > ${major.majorName}`;
   }
 
   const parentCategory = parentCategories.value.find(
     (item) => item.categoryId === Number(parentCategoryId.value),
   );
+
   const childCategory = childCategories.value.find(
     (item) => item.categoryId === Number(categoryId.value),
   );
 
   if (!parentCategory || !childCategory) return '';
+
   return `${parentCategory.categoryName} > ${childCategory.categoryName}`;
 });
 
+// ── 선택 처리 ──
 const selectParentCategory = (selectedId) => {
   parentCategoryId.value = selectedId;
   categoryId.value = '';
@@ -220,6 +256,106 @@ const selectMajor = (selectedId) => {
   isOptionDropdownOpen.value = false;
 };
 
+// ── watch ──
+watch(
+  parentCategoryId,
+  () => {
+    if (isRestoring.value) return;
+
+    categoryId.value = '';
+  },
+  { flush: 'sync' },
+);
+
+watch(
+  univId,
+  async () => {
+    if (isRestoring.value) return;
+
+    await loadMajors();
+  },
+  { flush: 'sync' },
+);
+
+watch(
+  goalType,
+  async () => {
+    if (isRestoring.value) return;
+
+    // 진로 유형 변경 시 기존 선택값 초기화
+    expectedYear.value = '';
+    expectedMonth.value = '';
+    isOptionDropdownOpen.value = false;
+
+    await loadGoalOptions();
+  },
+  { flush: 'sync' },
+);
+
+// ── 작성 중인 목표 이어쓰기 ──
+const loadCurrentGoal = async () => {
+  isRestoring.value = true;
+
+  try {
+    // JWT 기준 로그인 사용자의 DRAFT 목표 조회
+    const currentGoal = await jobApi.findCurrentJobGoal();
+
+    // 작성 중인 목표가 없으면 기본 J01 선택지만 조회
+    if (!currentGoal) {
+      isRestoring.value = false;
+      await loadGoalOptions();
+      return;
+    }
+
+    // 이어쓰기 중인 DRAFT 목표 ID 저장
+    currentGoalId.value = currentGoal.goalId;
+
+    // 기존 목표 유형 복원
+    goalType.value = currentGoal.goalType;
+
+    // 목표 유형에 맞는 선택지 조회
+    if (currentGoal.goalType === 'J03') {
+      await loadUniversities();
+
+      univId.value = currentGoal.univId;
+
+      if (currentGoal.univId) {
+        majorList.value = await jobApi.findTransferMajorList(
+          currentGoal.univId,
+        );
+      }
+
+      majorId.value = currentGoal.majorId;
+    } else {
+      categoryList.value = await jobApi.findCategoryList(currentGoal.goalType);
+
+      // 저장된 중분류를 기준으로 부모 대분류 찾기
+      const selectedCategory = categoryList.value.find(
+        (category) => category.categoryId === Number(currentGoal.categoryId),
+      );
+
+      if (selectedCategory) {
+        parentCategoryId.value = selectedCategory.parentId;
+        categoryId.value = currentGoal.categoryId;
+      }
+    }
+
+    // YYYY-MM → 연도 / 월 복원
+    if (currentGoal.expectedDate) {
+      const [year, month] = currentGoal.expectedDate.split('-');
+
+      expectedYear.value = Number(year);
+      expectedMonth.value = Number(month);
+    }
+  } catch (error) {
+    console.error('작성 중인 진로 목표 조회 실패:', error);
+  } finally {
+    isRestoring.value = false;
+  }
+};
+
+onMounted(loadCurrentGoal);
+
 // ── 제출 가능 여부 ──
 const isFormValid = computed(() => {
   if (!expectedDate.value) return false;
@@ -231,25 +367,40 @@ const isFormValid = computed(() => {
   return !!categoryId.value;
 });
 
-// ── 등록 ──
+// ── 진로 목표 등록 / 이어쓰기 ──
 const handleSubmit = async () => {
   if (!isFormValid.value) return;
 
-  // TODO: JWT 미연동으로 userId 임시 하드코딩. 추후 auth store에서 가져오도록 교체
   const payload = {
-    userId: 1,
     goalType: goalType.value,
     categoryId: goalType.value === 'J03' ? null : Number(categoryId.value),
     univId: goalType.value === 'J03' ? Number(univId.value) : null,
     majorId: goalType.value === 'J03' ? Number(majorId.value) : null,
-
     expectedDate: expectedDate.value,
   };
 
-  const result = await jobApi.createJobGoal(payload);
-  const goalId = result.goalId;
+  try {
+    let goalId;
 
-  router.push({ name: 'JobRecommend', params: { goalId } });
+    if (currentGoalId.value) {
+      // 이어쓰기 → 기존 DRAFT 수정
+      await jobApi.updateJobGoal(currentGoalId.value, payload);
+
+      goalId = currentGoalId.value;
+    } else {
+      // 신규 등록 → 새로운 DRAFT 생성
+      const result = await jobApi.createJobGoal(payload);
+
+      goalId = result.goalId;
+    }
+
+    router.push({
+      name: 'JobRecommend',
+      params: { goalId },
+    });
+  } catch (error) {
+    console.error('진로 목표 저장 실패:', error);
+  }
 };
 </script>
 

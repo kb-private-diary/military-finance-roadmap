@@ -11,46 +11,32 @@ import {
 import { useRouter } from 'vue-router';
 import travelApi from '@/api/travelApi';
 import BaseInput from '@/components/common/BaseInput.vue';
-import CategoryButton from '@/components/common/CategoryButton.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
+import CascaderSelect from '@/components/common/CascaderSelect.vue';
+import DateRangePicker from '@/components/common/DateRangePicker.vue';
 import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
 import { toIsoDate } from '@/util/format';
+import {
+  DOMESTIC_COUNTRY,
+  DOMESTIC_REGIONS,
+  findDomesticRegion,
+} from './domesticRegions';
 
 const router = useRouter();
 
-const STYLE_OPTIONS = [
-  {
-    value: 'saving',
-    label: '최저가',
-    description:
-      '가성비 위주의 실속 있는 여행.\n최저가 숙박, 교통비를 조회하여 가장 저렴한 경우를 추천합니다.',
-  },
-  {
-    value: 'common',
-    label: '일반',
-    description:
-      '편안함과 만족도를 모두 잡은 표준 여행.\n적절한 이동 동선과 대중적인 식비를 반영한 균형 잡힌 일정입니다.',
-  },
-  {
-    value: 'premium',
-    label: '로열티',
-    description:
-      '여행지의 모든 걸 체험해보고 싶은 사람을 위한 여행.\n예산 제한 없이 여행지를 알차게 즐기는 완전 정복 여행입니다.',
-  },
-];
-
 const form = reactive({
   title: '',
+  departureGroup: '',
   departure: '',
-  destinationCountry: '',
+  destinationScope: '',
+  destinationGroup: '',
   destination: '',
-  style: '',
+  style: 'common',
   startDate: '',
   endDate: '',
   totalBudget: '',
 });
 
-const departureOptions = ref([]);
 const cities = ref([]);
 const loadingCities = ref(true);
 const loadError = ref('');
@@ -68,28 +54,135 @@ const unwrap = (response) => response.data?.data;
 const toOptions = (cities = []) =>
   cities.map(({ city }) => ({ label: city, value: city }));
 
-const destinationCountryOptions = computed(() =>
-  [...new Set(cities.value.map(({ country }) => country))]
-    .filter(Boolean)
-    .sort((a, b) => a.localeCompare(b, 'ko')),
+const toDomesticGroupValue = (region) => `domestic:${region}`;
+const toCountryGroupValue = (country) => `country:${country}`;
+const DOMESTIC_SCOPE = 'scope:domestic';
+const FOREIGN_SCOPE = 'scope:foreign';
+
+const destinationScopeOptions = [
+  { label: '국내', value: DOMESTIC_SCOPE },
+  { label: '해외', value: FOREIGN_SCOPE },
+];
+
+const domesticRegionOptions = computed(() => {
+  const availableDomesticCities = new Set(
+    cities.value
+      .filter(({ country }) => country === DOMESTIC_COUNTRY)
+      .map(({ city }) => city),
+  );
+
+  return Object.entries(DOMESTIC_REGIONS)
+    .filter(([, regionCities]) =>
+      regionCities.some((city) => availableDomesticCities.has(city)),
+    )
+    .map(([region]) => ({
+      label: region,
+      value: toDomesticGroupValue(region),
+    }));
+});
+
+const foreignCountryOptions = computed(() =>
+  [
+    ...new Set(
+      cities.value
+        .map(({ country }) => country)
+        .filter((country) => country && country !== DOMESTIC_COUNTRY),
+    ),
+  ]
+    .sort((a, b) => a.localeCompare(b, 'ko'))
+    .map((country) => ({
+      label: country,
+      value: toCountryGroupValue(country),
+    })),
 );
 
-const destinationCityOptions = computed(() =>
-  toOptions(
+const destinationGroupOptions = computed(() => [
+  ...domesticRegionOptions.value,
+  ...foreignCountryOptions.value,
+]);
+
+const destinationGroupsByScope = computed(() => ({
+  [DOMESTIC_SCOPE]: domesticRegionOptions.value,
+  [FOREIGN_SCOPE]: foreignCountryOptions.value,
+}));
+
+const toOptionsByGroup = (groups, excludedCity = '') =>
+  Object.fromEntries(
+    groups.map(({ value }) => [
+      value,
+      findCitiesByGroup(value, excludedCity),
+    ]),
+  );
+
+const findCitiesByGroup = (group, excludedCity = '') => {
+  const [groupType, groupName] = group.split(':');
+  const domesticCities = DOMESTIC_REGIONS[groupName] || [];
+
+  return toOptions(
     cities.value
-      .filter(
-        ({ country, city }) =>
-          country === form.destinationCountry &&
-          city !== form.departure,
-      )
+      .filter(({ country, city }) => {
+        if (city === excludedCity) return false;
+        if (groupType === 'domestic') {
+          return (
+            country === DOMESTIC_COUNTRY && domesticCities.includes(city)
+          );
+        }
+        return groupType === 'country' && country === groupName;
+      })
       .sort((a, b) => a.city.localeCompare(b.city, 'ko')),
-  ),
+  );
+};
+
+const departureOptionsByGroup = computed(() =>
+  toOptionsByGroup(domesticRegionOptions.value),
+);
+
+const destinationOptionsByGroup = computed(() =>
+  toOptionsByGroup(destinationGroupOptions.value, form.departure),
+);
+
+const departureLocation = computed({
+  get: () => [form.departureGroup, form.departure],
+  set: ([group = '', city = ''] = []) => {
+    form.departureGroup = group;
+    form.departure = city;
+  },
+});
+
+const destinationLocation = computed({
+  get: () => [
+    form.destinationScope,
+    form.destinationGroup,
+    form.destination,
+  ],
+  set: ([scope = '', group = '', city = ''] = []) => {
+    form.destinationScope = scope;
+    form.destinationGroup = group;
+    form.destination = city;
+  },
+});
+
+const travelDates = computed({
+  get: () => [form.startDate, form.endDate],
+  set: ([startDate = '', endDate = ''] = []) => {
+    form.startDate = startDate;
+    form.endDate = endDate;
+  },
+});
+
+watch(
+  () => form.departureGroup,
+  (group, previousGroup) => {
+    if (previousGroup && group !== previousGroup) {
+      form.departure = '';
+    }
+  },
 );
 
 watch(
-  () => form.destinationCountry,
-  (country, previousCountry) => {
-    if (previousCountry && country !== previousCountry) {
+  () => form.destinationGroup,
+  (group, previousGroup) => {
+    if (previousGroup && group !== previousGroup) {
       form.destination = '';
     }
   },
@@ -132,15 +225,35 @@ const toCostInputSnapshot = (request) =>
 const restoreDraft = (draft) => {
   if (!draft) return;
 
+  const departureCity = cities.value.find(
+    ({ city }) => city === draft.departure,
+  );
+  const departureRegion = findDomesticRegion(departureCity?.city);
   const destinationCity = cities.value.find(
     ({ city }) => city === draft.destination,
   );
+  const destinationRegion =
+    destinationCity?.country === DOMESTIC_COUNTRY
+      ? findDomesticRegion(destinationCity.city)
+      : '';
   draftGoalId.value = draft.goalId;
   form.title = draft.title || '';
+  form.departureGroup = departureRegion
+    ? toDomesticGroupValue(departureRegion)
+    : '';
   form.departure = draft.departure || '';
-  form.destinationCountry = destinationCity?.country || '';
+  form.destinationScope = destinationRegion
+    ? DOMESTIC_SCOPE
+    : destinationCity?.country
+      ? FOREIGN_SCOPE
+      : '';
+  form.destinationGroup = destinationRegion
+    ? toDomesticGroupValue(destinationRegion)
+    : destinationCity?.country
+      ? toCountryGroupValue(destinationCity.country)
+      : '';
   form.destination = draft.destination || '';
-  form.style = draft.style || '';
+  form.style = draft.style || 'common';
   form.startDate = draft.startDate || '';
   form.endDate = draft.endDate || '';
   form.totalBudget = draft.totalBudget ?? '';
@@ -162,11 +275,7 @@ onMounted(async () => {
 
     cities.value = unwrap(citiesResult.value) || [];
 
-    departureOptions.value = toOptions(
-      cities.value.filter(({ country }) => country === '대한민국'),
-    );
-
-    if (!departureOptions.value.length || !cities.value.length) {
+    if (!domesticRegionOptions.value.length || !cities.value.length) {
       throw new Error('도시 데이터가 비어 있습니다.');
     }
 
@@ -196,11 +305,11 @@ onBeforeUnmount(() => {
 const isFormValid = computed(
   () =>
     form.title.trim() &&
+    form.departureGroup &&
     form.departure &&
-    form.destinationCountry &&
+    form.destinationGroup &&
     form.destination &&
     form.departure !== form.destination &&
-    form.style &&
     form.startDate &&
     form.startDate >= today &&
     form.endDate &&
@@ -209,16 +318,6 @@ const isFormValid = computed(
     Number(form.totalBudget) > 0 &&
     !draftLoadFailed.value,
 );
-
-const selectedStyleDescription = computed(
-  () =>
-    STYLE_OPTIONS.find(({ value }) => value === form.style)
-      ?.description || '',
-);
-
-const selectStyle = (style) => {
-  form.style = style;
-};
 
 const submitGoal = async () => {
   if (!isFormValid.value || submitting.value) return;
@@ -230,12 +329,15 @@ const submitGoal = async () => {
     const request = toGoalRequest();
     let goalId = draftGoalId.value;
     let recalculate = false;
+    let destinationChanged = false;
 
     if (goalId) {
       const changed =
         JSON.stringify(request) !==
         JSON.stringify(initialFormSnapshot.value);
       if (changed) {
+        destinationChanged =
+          request.destination !== initialFormSnapshot.value.destination;
         recalculate =
           toCostInputSnapshot(request) !==
           toCostInputSnapshot(initialFormSnapshot.value);
@@ -246,6 +348,11 @@ const submitGoal = async () => {
       const response = await travelApi.createGoal(request);
       goalId = unwrap(response);
     }
+
+    if (destinationChanged) {
+      travelApi.clearPlaceCache(goalId);
+    }
+    void travelApi.prefetchPlaces(goalId);
 
     await router.push({
       name: 'TravelCost',
@@ -277,120 +384,35 @@ const submitGoal = async () => {
         placeholder="졸업 여행, 전역 여행 ..."
       />
 
-      <label class="field">
-        <span class="field__label text-label">출발지</span>
-        <span class="select-wrap">
-          <select
-            v-model="form.departure"
-            class="field__control field__control--line"
-            :disabled="loadingCities"
-          >
-            <option value="" disabled>
-              {{ loadingCities ? '불러오는 중...' : '선택' }}
-            </option>
-            <option
-              v-for="option in departureOptions"
-              :key="option.value"
-              :value="option.value"
-            >
-              {{ option.label }}
-            </option>
-          </select>
-        </span>
-      </label>
+      <CascaderSelect
+        v-model="departureLocation"
+        label="출발지"
+        :groups="domesticRegionOptions"
+        :children-by-group="departureOptionsByGroup"
+        :placeholder="loadingCities ? '불러오는 중...' : '출발지 선택'"
+        group-empty-text="왼쪽에서 권역을 선택해주세요."
+        child-empty-text="선택 가능한 출발지가 없습니다."
+        :disabled="loadingCities"
+      />
 
-      <fieldset class="field destination-field">
-        <legend class="field__label text-label">도착지</legend>
-        <div class="destination-field__row">
-          <label class="destination-select">
-            <span class="sr-only">도착 국가</span>
-            <span class="select-wrap">
-              <select
-                v-model="form.destinationCountry"
-                class="field__control field__control--line"
-                :disabled="loadingCities"
-              >
-                <option value="" disabled>
-                  {{ loadingCities ? '불러오는 중...' : '국가 선택' }}
-                </option>
-                <option
-                  v-for="country in destinationCountryOptions"
-                  :key="country"
-                  :value="country"
-                >
-                  {{ country }}
-                </option>
-              </select>
-            </span>
-          </label>
+      <CascaderSelect
+        v-model="destinationLocation"
+        label="도착지"
+        :groups="destinationScopeOptions"
+        :middle-by-group="destinationGroupsByScope"
+        :children-by-group="destinationOptionsByGroup"
+        :placeholder="loadingCities ? '불러오는 중...' : '도착지 선택'"
+        group-empty-text="왼쪽에서 국내 또는 해외를 선택해주세요."
+        middle-empty-text="가운데에서 권역 또는 국가를 선택해주세요."
+        child-empty-text="선택 가능한 도착지가 없습니다."
+        :disabled="loadingCities"
+      />
 
-          <label class="destination-select">
-            <span class="sr-only">도착 도시</span>
-            <span class="select-wrap">
-              <select
-                v-model="form.destination"
-                class="field__control field__control--line"
-                :disabled="loadingCities || !form.destinationCountry"
-              >
-                <option value="" disabled>
-                  {{ form.destinationCountry ? '도시 선택' : '국가 먼저 선택' }}
-                </option>
-                <option
-                  v-for="option in destinationCityOptions"
-                  :key="option.value"
-                  :value="option.value"
-                >
-                  {{ option.label }}
-                </option>
-              </select>
-            </span>
-          </label>
-        </div>
-      </fieldset>
-
-      <fieldset class="style-field">
-        <legend class="field__label text-label">여행 스타일</legend>
-        <div class="style-field__buttons">
-          <CategoryButton
-            v-for="option in STYLE_OPTIONS"
-            :key="option.value"
-            variant="oval-yellow"
-            :label="option.label"
-            :active="form.style === option.value"
-            @click="selectStyle(option.value)"
-          />
-        </div>
-        <p
-          v-if="selectedStyleDescription"
-          class="style-field__description text-caption"
-        >
-          {{ selectedStyleDescription }}
-        </p>
-      </fieldset>
-
-      <fieldset class="date-field">
-        <legend class="field__label text-label">여행일정</legend>
-        <div class="date-field__row">
-          <label class="date-control">
-            <span class="sr-only">출발일</span>
-            <input
-              v-model="form.startDate"
-              type="date"
-              :min="today"
-              :max="form.endDate || undefined"
-            />
-          </label>
-          <span class="date-field__separator">~</span>
-          <label class="date-control">
-            <span class="sr-only">도착일</span>
-            <input
-              v-model="form.endDate"
-              type="date"
-              :min="form.startDate || today"
-            />
-          </label>
-        </div>
-      </fieldset>
+      <DateRangePicker
+        v-model="travelDates"
+        label="여행일정"
+        :min="today"
+      />
 
       <BaseInput
         v-model="form.totalBudget"
@@ -438,149 +460,9 @@ const submitGoal = async () => {
   gap: 19px;
 }
 
-.field,
-.style-field,
-.date-field {
-  display: flex;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  flex-direction: column;
-  gap: 7px;
-  border: 0;
-}
-
-.field__label {
-  margin: 0;
-  padding: 0;
-}
-
-.field__control {
-  width: 100%;
-  height: 40px;
-  outline: none;
-  font-family: inherit;
-  font-size: 13px;
-}
-
-.field__control::placeholder {
-  color: var(--text-disabled);
-}
-
-.select-wrap {
-  position: relative;
-}
-
-.select-wrap::after {
-  position: absolute;
-  top: 50%;
-  right: 8px;
-  width: 7px;
-  height: 7px;
-  border-right: 1px solid var(--text-disabled);
-  border-bottom: 1px solid var(--text-disabled);
-  content: '';
-  pointer-events: none;
-  transform: translateY(-70%) rotate(45deg);
-}
-
-.field__control--line {
-  padding: 0 30px 0 12px;
-  appearance: none;
-  border: 0;
-  border-bottom: 2px solid var(--travel-accent-line);
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-muted);
-  text-align: center;
-  text-align-last: center;
-}
-
-.style-field__buttons {
-  display: flex;
-  gap: 8px;
-}
-
-.style-field__description {
-  margin: 2px 0 0;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: var(--surface-subtle);
-  color: var(--text-muted);
-  white-space: pre-line;
-  word-break: keep-all;
-}
-
-.destination-field__row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 14px;
-}
-
-.destination-select,
-.destination-select .select-wrap {
-  display: block;
-  min-width: 0;
-}
-
-.destination-select .field__control {
-  min-width: 0;
-  padding-right: 24px;
-  padding-left: 4px;
-  font-size: 12px;
-}
-
-.destination-select .select-wrap::after {
-  right: 5px;
-}
-
-.style-field__buttons :deep(.category-btn) {
-  min-height: 36px;
-  padding: 7px 10px;
-  font-size: 12px;
-}
-
-.date-field__row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1fr);
-  align-items: center;
-  gap: 12px;
-}
-
-.date-control input {
-  width: 100%;
-  height: 40px;
-  padding: 0 6px;
-  border: 0;
-  border-bottom: 2px solid var(--travel-accent-line);
-  border-radius: 0;
-  outline: none;
-  background: transparent;
-  color: var(--text-hint);
-  font-family: inherit;
-  font-size: 11px;
-}
-
-.date-field__separator {
-  color: var(--text-muted);
-  font-size: 12px;
-  text-align: center;
-}
-
 .form-error {
   margin: -3px 0 0;
   color: var(--danger);
-}
-
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
 }
 
 :global(.app-content.travel-scrollbar-hidden) {

@@ -11,4 +11,15 @@ export default {
     const { data } = await instance.get(`${BASE_URL}/goals/${category}`);
     return data.data;
   },
+
+  // ROAD-API-02: 로드맵 목표 삭제
+  async deleteRoadmapGoal(goalId, categoryId) {
+    const { data } = await instance.delete(`${BASE_URL}/goals/${goalId}`, {
+      params: {
+        categoryId,
+      },
+    });
+
+    return data.data;
+  },
 };

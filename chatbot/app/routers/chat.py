@@ -36,7 +36,7 @@ from app.schemas.product import (
     SubscriptionDetail,
     SubscriptionItem,
 )
-from app.services import cheongyakhome, fss, gemini, policy_docs, vectorstore
+from app.services import cheongyakhome, fss, gemini, langfuse_client, pii_filter, policy_docs, vectorstore
 from app.services import fund as fund_service
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
@@ -169,6 +169,10 @@ def send_message(
         raise BusinessException("질문을 입력해주세요", 400, "CHAT_002")
     if len(content) > MESSAGE_MAX_LENGTH:
         raise BusinessException(f"질문은 {MESSAGE_MAX_LENGTH}자 이내로 입력해주세요", 400, "CHAT_003")
+    # 주민번호·카드번호·전화번호·계좌번호로 보이는 패턴은 마스킹한 뒤 저장 및 Gemini 전달에 쓴다 -
+    # 사용자가 실수로 자기 정보를 그대로 입력해도 DB에 원문 그대로 남거나 외부 API로 넘어가지 않게
+    # 여기서 한 번만 치환해두면 아래 모든 흐름(저장·히스토리·AI 호출)에 자동으로 적용된다(2026-08-09).
+    content = pii_filter.mask_pii(content)
 
     session = (
         db.query(ChatSession)
@@ -200,7 +204,7 @@ def send_message(
     db.commit()
 
     try:
-        reply, source, source_detail, is_ai_generated, intent, source_url = gemini.generate_reply(
+        reply, source, source_detail, is_ai_generated, intent, source_url, langfuse_trace_id = gemini.generate_reply(
             content,
             history=history,
             force_intent="info" if payload.force_info else None,
@@ -208,8 +212,8 @@ def send_message(
         )
     except Exception:
         logger.exception("Gemini 응답 생성 실패 (session_id=%s)", payload.session_id)
-        reply, source, source_detail, is_ai_generated, intent, source_url = (
-            GEMINI_FAILURE_MESSAGE, "오류 안내", None, False, "info", None,
+        reply, source, source_detail, is_ai_generated, intent, source_url, langfuse_trace_id = (
+            GEMINI_FAILURE_MESSAGE, "오류 안내", None, False, "info", None, None,
         )
 
     bot_message = ChatMessage(
@@ -219,6 +223,9 @@ def send_message(
         source=source,
         source_detail=source_detail,
         is_ai_generated=is_ai_generated,
+        # 나중에 이 답변에 피드백이 달리면 Langfuse의 같은 trace에 점수로 연결하기 위해 저장해둔다
+        # (2026-08-10). Langfuse 비활성화 상태면 None.
+        langfuse_trace_id=langfuse_trace_id,
         created_date=datetime.now(),
         created_nm=str(session.user_id),
     )
@@ -471,6 +478,7 @@ def create_feedback(
     if payload.feedback not in FEEDBACK_VALUES:
         raise BusinessException("feedback 값은 like, neutral, dislike 중 하나여야 합니다", 400, "CHAT_007")
 
+    message = None
     if payload.message_id is not None:
         message = (
             db.query(ChatMessage)
@@ -496,6 +504,12 @@ def create_feedback(
     db.add(feedback)
     db.commit()
     db.refresh(feedback)
+
+    # 이 답변을 만든 Langfuse trace에 사용자 피드백(+사유)을 점수로 연결한다 - 관리자가 대시보드에서
+    # "왜 별로라고 했는지"를 그 대화의 전체 맥락(질문·검색된 자료·답변)과 함께 볼 수 있게 된다(2026-08-10).
+    if message is not None and message.langfuse_trace_id:
+        langfuse_client.score_trace(message.langfuse_trace_id, payload.feedback, payload.reason)
+
     return feedback
 
 
@@ -528,5 +542,5 @@ def get_recommendation(
 # 관리자 전용: 정책 문서 재인덱싱 트리거
 @router.post("/admin/reindex", response_model=ReindexResponse)
 def reindex_policy_docs(current_admin_user_id: int = Depends(get_current_admin_user_id)):
-    count = vectorstore.build_index(force=True)
-    return ReindexResponse(reindexed_chunks=count)
+    count, reembedded = vectorstore.build_index(force=True)
+    return ReindexResponse(reindexed_chunks=count, reembedded_chunks=reembedded)

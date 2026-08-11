@@ -27,7 +27,7 @@ export default {
     return data.data; // ApiResponse<DashboardVacationDetailResponseDTO> 래핑 해제
   },
 
-  // 휴가 등록 (DASH-API-06: POST /api/dashboard/vacations)
+  // 휴가 등록 (DASH-API-06: POST /api/dashboard/vacations, REGULAR 제외 - 가입 시 자동 부여)
   async createVacation(payload) {
     const { data } = await instance.post(`${BASE_URL}/vacations`, payload);
     return data.data; // ApiResponse<Long> 래핑 해제 (생성된 vacationId)
@@ -38,8 +38,22 @@ export default {
     await instance.put(`${BASE_URL}/vacations/${vacationId}`, payload);
   },
 
-  // 휴가 삭제 (DASH-API-08: DELETE /api/dashboard/vacations/{vacationId}, REGULAR 마스터 제외)
+  // 휴가 삭제 (DASH-API-08: DELETE /api/dashboard/vacations/{vacationId}, REGULAR 제외)
   async deleteVacation(vacationId) {
     await instance.delete(`${BASE_URL}/vacations/${vacationId}`);
+  },
+
+  // 휴가 사용내역 등록 (DASH-API-09: POST /api/dashboard/vacations/{vacationId}/usages)
+  async createVacationUsage(vacationId, payload) {
+    const { data } = await instance.post(
+      `${BASE_URL}/vacations/${vacationId}/usages`,
+      payload,
+    );
+    return data.data; // ApiResponse<Long> 래핑 해제 (생성된 historyId)
+  },
+
+  // 휴가 사용내역 삭제 (DASH-API-10: DELETE /api/dashboard/vacations/{vacationId}/usages/{historyId})
+  async deleteVacationUsage(vacationId, historyId) {
+    await instance.delete(`${BASE_URL}/vacations/${vacationId}/usages/${historyId}`);
   },
 };

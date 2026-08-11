@@ -90,4 +90,5 @@ class RecommendationItem(CamelModel):
 
 
 class ReindexResponse(CamelModel):
-    reindexed_chunks: int
+    reindexed_chunks: int  # 전체 청크 수 (재사용 + 새로 임베딩)
+    reembedded_chunks: int  # 그중 실제로 새로 임베딩한 청크 수 (내용이 바뀐/새 문서만) - 나머지는 기존 임베딩 재사용

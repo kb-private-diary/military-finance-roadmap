@@ -1,12 +1,13 @@
 <script setup>
 // SCR-DASH-03 · 휴가 추가/수정  (담당: 석윤)
-// 휴가 등록·수정 (개인 휴가 관리) — REGULAR(정기)는 VacationRegularPage 소관이라 여기 없음
+// 휴가 부여(grant) 등록·수정 — REGULAR(정기)는 가입 시 자동 부여라 여기 없음.
+// 실제 사용내역(회차) 등록·삭제는 VacationUsagePage 소관.
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import dashboardApi from '@/api/dashboardApi';
 import { useToast } from '@/composables/useToast';
 import BaseInput from '@/components/common/BaseInput.vue';
-import BaseRadioGroup from '@/components/common/BaseRadioGroup.vue';
+import BaseModal from '@/components/common/BaseModal.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 
 const CATEGORY_OPTIONS = [
@@ -14,11 +15,6 @@ const CATEGORY_OPTIONS = [
   { label: '위로휴가', value: 'CONSOLATION' },
   { label: '청원휴가', value: 'PETITION' },
   { label: '기타', value: 'ETC' },
-];
-
-const USED_OPTIONS = [
-  { label: '사용', value: true },
-  { label: '미사용', value: false },
 ];
 
 const route = useRoute();
@@ -34,7 +30,8 @@ const category = ref('');
 const name = ref('');
 const acquiredDate = ref('');
 const days = ref('');
-const isUsed = ref(false);
+// 수정 모드에서 이미 사용한 일수(=총 일수-잔여). 이보다 적은 일수로는 변경 못 하게 막는 하한선.
+const usedDays = ref(0);
 
 // 수정 모드는 최초 렌더부터 로딩 상태로 시작 (fetchDetail 완료 전 빈 폼이 잠깐 보이는 것 방지)
 const isLoading = ref(isEditMode.value);
@@ -53,7 +50,7 @@ const fetchDetail = async () => {
     name.value = detail.name;
     acquiredDate.value = detail.acquiredDate ?? '';
     days.value = detail.days;
-    isUsed.value = detail.isUsed;
+    usedDays.value = detail.days - detail.remainingDays;
   } catch (error) {
     console.error(error);
     loadError.value = '휴가 정보를 불러오지 못했습니다.';
@@ -62,20 +59,26 @@ const fetchDetail = async () => {
   }
 };
 
+// 이미 사용한 일수보다 적게는 못 바꾼다 (등록 모드에선 usedDays=0이라 항상 false)
+const isBelowUsedDays = computed(() => Number(days.value) < usedDays.value);
+
 const isFormValid = computed(
   () =>
     category.value !== '' &&
     name.value.trim() !== '' &&
     acquiredDate.value !== '' &&
-    Number(days.value) > 0,
+    Number(days.value) > 0 &&
+    !isBelowUsedDays.value,
 );
 
 const goPrevious = () => router.back();
 
+const isDeleteModalOpen = ref(false);
+const openDeleteModal = () => {
+  isDeleteModalOpen.value = true;
+};
+
 const deleteVacation = async () => {
-  if (!confirm('이 휴가를 삭제하시겠습니까?')) {
-    return;
-  }
   isSubmitting.value = true;
   try {
     await dashboardApi.deleteVacation(vacationId.value);
@@ -89,6 +92,13 @@ const deleteVacation = async () => {
 };
 
 const submit = async () => {
+  if (isBelowUsedDays.value) {
+    show(
+      `이미 ${usedDays.value}일 사용해서 그보다 적게는 설정할 수 없어요.`,
+      'error',
+    );
+    return;
+  }
   if (!isFormValid.value) {
     show('입력값을 모두 채워주세요.', 'error');
     return;
@@ -98,7 +108,6 @@ const submit = async () => {
     name: name.value,
     acquiredDate: acquiredDate.value,
     days: Number(days.value),
-    isUsed: isUsed.value,
   };
   isSubmitting.value = true;
   try {
@@ -131,7 +140,7 @@ onMounted(fetchDetail);
         class="vacation-edit__delete-btn"
         aria-label="휴가 삭제"
         :disabled="isSubmitting"
-        @click="deleteVacation"
+        @click="openDeleteModal"
       >
         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path
@@ -163,18 +172,23 @@ onMounted(fetchDetail);
         placeholder="휴가 이름 입력"
       />
       <BaseInput v-model="acquiredDate" type="date" label="획득일" />
-      <BaseInput
-        v-model="days"
-        type="number"
-        label="일수"
-        placeholder="일수 입력"
-      />
-      <BaseRadioGroup
-        v-model="isUsed"
-        name="isUsed"
-        label="사용 여부"
-        :options="USED_OPTIONS"
-      />
+      <div class="vacation-edit__field">
+        <BaseInput
+          v-model="days"
+          type="number"
+          label="일수"
+          placeholder="일수 입력"
+        />
+        <p
+          v-if="usedDays > 0"
+          class="vacation-edit__hint"
+          :class="{ 'vacation-edit__hint--error': isBelowUsedDays }"
+        >
+          이미 {{ usedDays }}일 사용했어요{{
+            isBelowUsedDays ? ' — 그보다 적게는 설정할 수 없어요.' : '.'
+          }}
+        </p>
+      </div>
     </template>
 
     <BottomButtonBar
@@ -184,6 +198,16 @@ onMounted(fetchDetail);
       @primary-click="submit"
       @secondary-click="goPrevious"
     />
+
+    <BaseModal
+      v-model="isDeleteModalOpen"
+      title="휴가 삭제"
+      confirm-text="삭제"
+      cancel-text="취소"
+      @confirm="deleteVacation"
+    >
+      <p class="vacation-edit__modal-message">이 휴가를 삭제하시겠습니까?</p>
+    </BaseModal>
   </div>
 </template>
 
@@ -231,6 +255,22 @@ onMounted(fetchDetail);
 }
 
 .vacation-edit__error {
+  color: var(--danger);
+}
+
+.vacation-edit__field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vacation-edit__hint {
+  margin: 0;
+  color: var(--text-hint);
+  font-size: 12px;
+}
+
+.vacation-edit__hint--error {
   color: var(--danger);
 }
 </style>

@@ -14,9 +14,9 @@ export default [
     meta: { requiresAuth: true },
   },
   {
-    path: '/dashboard/vacation/regular',
-    name: 'VacationRegular', // 정기 휴가 수정
-    component: () => import('@/pages/dashboard/VacationRegularPage.vue'),
+    path: '/dashboard/vacation/usage',
+    name: 'VacationUsage', // 휴가 사용내역 관리 (카테고리 공통)
+    component: () => import('@/pages/dashboard/VacationUsagePage.vue'),
     meta: { requiresAuth: true },
   },
 ];

@@ -18,7 +18,14 @@ const getLastSeenKey = () => {
 
 export function useNotificationBadge() {
   // 헤더 마운트 시 + 라우트 이동마다 호출해 최신 알림 유무를 다시 확인한다.
+  // 로그인 전 화면(로그인/회원가입 등)에도 헤더가 항상 떠 있으므로, 토큰 없이 API를 호출해
+  // 서버에 401만 남기지 않도록 로그인 상태일 때만 조회한다.
   const refreshUnreadStatus = async () => {
+    const authStore = useAuthStore();
+    if (!authStore.isLogin) {
+      hasUnread.value = false;
+      return;
+    }
     try {
       const history = await pushApi.findHistoryList();
       if (history.length === 0) {

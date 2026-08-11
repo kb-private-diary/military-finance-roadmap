@@ -25,37 +25,51 @@ VALUES
 
 
 -- --------------------------------------------------------------------
---  [석윤] 대시보드/ 휴가(vacation)
---  테이블: vacation
+--  [석윤] 대시보드/ 휴가(vacation, vacation_history)
+--  테이블: vacation(부여), vacation_history(사용내역)
 --  전제: user_id는 AUTO_INCREMENT라 아래 user 테스트 데이터가 순서대로 먼저 들어갔을 때
 --        cpl@kbthink.com -> id=1, vet@kbthink.com -> id=2 로 채번된다고 가정함.
 --        (INSERT INTO `user` ... VALUES ('cpl@kbthink.com', ...), ('vet@kbthink.com', ...))
+--  잔여일수 = vacation.vacation_day - SUM(vacation_history.used_day). 카테고리 구분 없이 동일 규칙.
 -- --------------------------------------------------------------------
 INSERT INTO `vacation`
-(`vacation_id`, `user_id`, `vacation_cate`, `vacation_name`, `vacation_get`, `vacation_day`, `vacation_state`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`)
+(`vacation_id`, `user_id`, `vacation_cate`, `vacation_name`, `vacation_get`, `vacation_day`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`)
 VALUES
 -- 회원 1: 현역 상병(cpl@kbthink.com, 입대 2025-09-01 / 전역예정 2027-02-28, 오늘 기준 복무중)
--- REGULAR는 마스터(총 부여, state=FALSE) 1건 + 사용내역(state=TRUE) N건으로 관리 (DashboardServiceImpl 규칙)
 -- 아직 복무중이라 정기휴가는 일부만 사용(잔여 있음), 다만 5개 카테고리는 전역자와 동일하게 전부 최소 1건씩 확보
-(1, 1, 'REGULAR', '정기휴가', '2025-09-01', 24, FALSE, NOW(), 'seokyun', NULL, NULL, 'N'),           -- 총 부여 휴가
-(2, 1, 'CONSOLATION', '신병위로휴가', '2025-10-15', 3, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),      -- 자대배치 후 사용
-(3, 1, 'REGULAR', '정기휴가 사용', '2026-02-01', 5, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),         -- 1차, 5일 사용
-(4, 1, 'PETITION', '자격증시험', '2026-03-01', 2, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),
-(5, 1, 'ETC', '경조사휴가', '2026-05-01', 1, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),
-(6, 1, 'REGULAR', '정기휴가 사용', '2026-06-15', 6, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),         -- 2차, 6일 사용 (누적 11일, 잔여 13일)
-(7, 1, 'REWARD', '체력우수 포상휴가', '2026-07-20', 2, false, NOW(), 'seokyun', NULL, NULL, 'N'),
+(1, 1, 'REGULAR', '정기휴가', '2025-09-01', 24, NOW(), 'seokyun', NULL, NULL, 'N'),
+(2, 1, 'CONSOLATION', '신병위로휴가', '2025-10-15', 3, NOW(), 'seokyun', NULL, NULL, 'N'),
+(3, 1, 'PETITION', '자격증시험', '2026-03-01', 2, NOW(), 'seokyun', NULL, NULL, 'N'),
+(4, 1, 'ETC', '경조사휴가', '2026-05-01', 1, NOW(), 'seokyun', NULL, NULL, 'N'),
+(5, 1, 'REWARD', '체력우수 포상휴가', '2026-07-20', 2, NOW(), 'seokyun', NULL, NULL, 'N'),   -- 미사용(잔여 2일)
 
 -- 회원 2: 전역자 병장(vet@kbthink.com, 입대 2024-06-01 / 전역 2025-11-30, 이미 전역 완료)
 -- 전역 완료 시나리오라 (a) 5개 카테고리(REGULAR/CONSOLATION/REWARD/PETITION/ETC) 전부 최소 1건씩 존재,
 -- (b) REGULAR는 총 부여(24일)만큼 사용내역 합계도 정확히 24일로 맞춰 잔여 0으로 마감
-(8, 2, 'REGULAR', '정기휴가', '2024-06-01', 24, FALSE, NOW(), 'seokyun', NULL, NULL, 'N'),            -- 총 부여 휴가
-(9, 2, 'CONSOLATION', '신병위로휴가', '2024-07-01', 3, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),       -- 자대배치 후 사용
-(10, 2, 'REGULAR', '정기휴가 사용', '2024-10-01', 8, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),         -- 1차, 8일 사용
-(11, 2, 'PETITION', '자격증시험', '2025-01-15', 2, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),
-(12, 2, 'REWARD', '사격우수 포상휴가', '2025-02-01', 4, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),
-(13, 2, 'REGULAR', '정기휴가 사용', '2025-05-01', 8, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),         -- 2차, 8일 사용
-(14, 2, 'ETC', '경조사휴가', '2025-09-01', 2, TRUE, NOW(), 'seokyun', NULL, NULL, 'N'),
-(15, 2, 'REGULAR', '정기휴가 사용', '2025-10-01', 8, TRUE, NOW(), 'seokyun', NULL, NULL, 'N');         -- 3차, 8일 사용 (합계 24일, 잔여 0)
+(6, 2, 'REGULAR', '정기휴가', '2024-06-01', 24, NOW(), 'seokyun', NULL, NULL, 'N'),
+(7, 2, 'CONSOLATION', '신병위로휴가', '2024-07-01', 3, NOW(), 'seokyun', NULL, NULL, 'N'),
+(8, 2, 'PETITION', '자격증시험', '2025-01-15', 2, NOW(), 'seokyun', NULL, NULL, 'N'),
+(9, 2, 'REWARD', '사격우수 포상휴가', '2025-02-01', 4, NOW(), 'seokyun', NULL, NULL, 'N'),
+(10, 2, 'ETC', '경조사휴가', '2025-09-01', 2, NOW(), 'seokyun', NULL, NULL, 'N');
+
+INSERT INTO `vacation_history`
+(`history_id`, `vacation_id`, `used_date`, `used_day`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`)
+VALUES
+-- 회원 1
+(1, 2, '2025-10-15', 3, NOW(), 'seokyun', NULL, NULL, 'N'),   -- 신병위로휴가 전부 사용
+(2, 1, '2026-02-01', 5, NOW(), 'seokyun', NULL, NULL, 'N'),   -- 정기휴가 1차, 5일 사용
+(3, 3, '2026-03-01', 2, NOW(), 'seokyun', NULL, NULL, 'N'),   -- 청원휴가 전부 사용
+(4, 4, '2026-05-01', 1, NOW(), 'seokyun', NULL, NULL, 'N'),   -- 경조사휴가 전부 사용
+(5, 1, '2026-06-15', 6, NOW(), 'seokyun', NULL, NULL, 'N'),   -- 정기휴가 2차, 6일 사용 (누적 11일, 잔여 13일)
+
+-- 회원 2 (REGULAR 합계 8+8+8=24일 -> 잔여 0)
+(6, 7, '2024-07-01', 3, NOW(), 'seokyun', NULL, NULL, 'N'),   -- 신병위로휴가 전부 사용
+(7, 6, '2024-10-01', 8, NOW(), 'seokyun', NULL, NULL, 'N'),   -- 정기휴가 1차, 8일 사용
+(8, 8, '2025-01-15', 2, NOW(), 'seokyun', NULL, NULL, 'N'),   -- 청원휴가 전부 사용
+(9, 9, '2025-02-01', 4, NOW(), 'seokyun', NULL, NULL, 'N'),   -- 포상휴가 전부 사용
+(10, 6, '2025-05-01', 8, NOW(), 'seokyun', NULL, NULL, 'N'),  -- 정기휴가 2차, 8일 사용
+(11, 10, '2025-09-01', 2, NOW(), 'seokyun', NULL, NULL, 'N'), -- 경조사휴가 전부 사용
+(12, 6, '2025-10-01', 8, NOW(), 'seokyun', NULL, NULL, 'N');  -- 정기휴가 3차, 8일 사용 (합계 24일, 잔여 0)
 
 
 
@@ -446,383 +460,6 @@ INSERT INTO `rent_goal_region`
 
 -- [건수 요약] saving_account 4 / saving_history 60 / income 28 / spending 21 / spending_review 19 / openbanking_link 6 / rent_goal 2 / rent_goal_region 3
 
--- ######################################################################
---  [태석] 저축 비교 페이지 테스트 인원 100명
--- ######################################################################
-
--- ── 회원 100명 (전원 상병) ──────────────────────────────────
---  군종·부대: 육군 52 / 해군 18 / 공군 20 / 해병대 10, 총 12개 부대
---  복무 8~15개월차로 흩어 놓아 적금 납입 회차가 서로 다릅니다.
---  password 는 자리표시자라 이 계정들로는 로그인할 수 없습니다(통계 모수 전용).
-INSERT INTO `user`
-(`user_id`, `password`, `name`, `phone`, `type_id`, `rank_id`,
- `unit_name`, `unit_code`, `enlist_date`, `discharge_date`,
- `login_provider`, `status`, `created_date`, `created_nm`, `del_yn`)
-VALUES
-    ('soldier001@kbthink.com', '$2a$10$socialTestDataPlaceholder', '김민준', '010-7000-0001', 1, 3, '수도방위사령부', 'AC01', '2025-12-06', '2027-06-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier002@kbthink.com', '$2a$10$socialTestDataPlaceholder', '이민준', '010-7000-0002', 1, 3, '수도방위사령부', 'AC01', '2025-11-06', '2027-05-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier003@kbthink.com', '$2a$10$socialTestDataPlaceholder', '박민준', '010-7000-0003', 1, 3, '수도방위사령부', 'AC01', '2025-10-06', '2027-04-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier004@kbthink.com', '$2a$10$socialTestDataPlaceholder', '최민준', '010-7000-0004', 1, 3, '수도방위사령부', 'AC01', '2025-09-06', '2027-03-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier005@kbthink.com', '$2a$10$socialTestDataPlaceholder', '정민준', '010-7000-0005', 1, 3, '수도방위사령부', 'AC01', '2025-08-06', '2027-02-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier006@kbthink.com', '$2a$10$socialTestDataPlaceholder', '강민준', '010-7000-0006', 1, 3, '수도방위사령부', 'AC01', '2025-07-06', '2027-01-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier007@kbthink.com', '$2a$10$socialTestDataPlaceholder', '조민준', '010-7000-0007', 1, 3, '수도방위사령부', 'AC01', '2025-06-06', '2026-12-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier008@kbthink.com', '$2a$10$socialTestDataPlaceholder', '윤민준', '010-7000-0008', 1, 3, '수도방위사령부', 'AC01', '2025-05-06', '2026-11-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier009@kbthink.com', '$2a$10$socialTestDataPlaceholder', '장민준', '010-7000-0009', 1, 3, '수도방위사령부', 'AC01', '2025-12-06', '2027-06-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier010@kbthink.com', '$2a$10$socialTestDataPlaceholder', '임민준', '010-7000-0010', 1, 3, '수도방위사령부', 'AC01', '2025-11-06', '2027-05-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier011@kbthink.com', '$2a$10$socialTestDataPlaceholder', '한민준', '010-7000-0011', 1, 3, '수도방위사령부', 'AC01', '2025-10-06', '2027-04-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier012@kbthink.com', '$2a$10$socialTestDataPlaceholder', '오민준', '010-7000-0012', 1, 3, '수도방위사령부', 'AC01', '2025-09-06', '2027-03-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier013@kbthink.com', '$2a$10$socialTestDataPlaceholder', '서민준', '010-7000-0013', 1, 3, '수도방위사령부', 'AC01', '2025-08-06', '2027-02-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier014@kbthink.com', '$2a$10$socialTestDataPlaceholder', '신민준', '010-7000-0014', 1, 3, '수도방위사령부', 'AC01', '2025-07-06', '2027-01-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier015@kbthink.com', '$2a$10$socialTestDataPlaceholder', '권민준', '010-7000-0015', 1, 3, '수도방위사령부', 'AC01', '2025-06-06', '2026-12-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier016@kbthink.com', '$2a$10$socialTestDataPlaceholder', '황민준', '010-7000-0016', 1, 3, '수도방위사령부', 'AC01', '2025-05-06', '2026-11-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier017@kbthink.com', '$2a$10$socialTestDataPlaceholder', '안민준', '010-7000-0017', 1, 3, '수도방위사령부', 'AC01', '2025-12-06', '2027-06-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier018@kbthink.com', '$2a$10$socialTestDataPlaceholder', '송민준', '010-7000-0018', 1, 3, '수도방위사령부', 'AC01', '2025-11-06', '2027-05-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier019@kbthink.com', '$2a$10$socialTestDataPlaceholder', '류민준', '010-7000-0019', 1, 3, '육군특수전사령부', 'AC02', '2025-10-06', '2027-04-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier020@kbthink.com', '$2a$10$socialTestDataPlaceholder', '전민준', '010-7000-0020', 1, 3, '육군특수전사령부', 'AC02', '2025-09-06', '2027-03-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier021@kbthink.com', '$2a$10$socialTestDataPlaceholder', '김서준', '010-7000-0021', 1, 3, '육군특수전사령부', 'AC02', '2025-08-06', '2027-02-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier022@kbthink.com', '$2a$10$socialTestDataPlaceholder', '이서준', '010-7000-0022', 1, 3, '육군특수전사령부', 'AC02', '2025-07-06', '2027-01-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier023@kbthink.com', '$2a$10$socialTestDataPlaceholder', '박서준', '010-7000-0023', 1, 3, '육군특수전사령부', 'AC02', '2025-06-06', '2026-12-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier024@kbthink.com', '$2a$10$socialTestDataPlaceholder', '최서준', '010-7000-0024', 1, 3, '육군특수전사령부', 'AC02', '2025-05-06', '2026-11-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier025@kbthink.com', '$2a$10$socialTestDataPlaceholder', '정서준', '010-7000-0025', 1, 3, '육군특수전사령부', 'AC02', '2025-12-06', '2027-06-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier026@kbthink.com', '$2a$10$socialTestDataPlaceholder', '강서준', '010-7000-0026', 1, 3, '육군특수전사령부', 'AC02', '2025-11-06', '2027-05-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier027@kbthink.com', '$2a$10$socialTestDataPlaceholder', '조서준', '010-7000-0027', 1, 3, '육군특수전사령부', 'AC02', '2025-10-06', '2027-04-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier028@kbthink.com', '$2a$10$socialTestDataPlaceholder', '윤서준', '010-7000-0028', 1, 3, '육군특수전사령부', 'AC02', '2025-09-06', '2027-03-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier029@kbthink.com', '$2a$10$socialTestDataPlaceholder', '장서준', '010-7000-0029', 1, 3, '육군특수전사령부', 'AC02', '2025-08-06', '2027-02-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier030@kbthink.com', '$2a$10$socialTestDataPlaceholder', '임서준', '010-7000-0030', 1, 3, '육군특수전사령부', 'AC02', '2025-07-06', '2027-01-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier031@kbthink.com', '$2a$10$socialTestDataPlaceholder', '한서준', '010-7000-0031', 1, 3, '육군특수전사령부', 'AC02', '2025-06-06', '2026-12-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier032@kbthink.com', '$2a$10$socialTestDataPlaceholder', '오서준', '010-7000-0032', 1, 3, '육군특수전사령부', 'AC02', '2025-05-06', '2026-11-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier033@kbthink.com', '$2a$10$socialTestDataPlaceholder', '서서준', '010-7000-0033', 1, 3, '육군특수전사령부', 'AC02', '2025-12-06', '2027-06-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier034@kbthink.com', '$2a$10$socialTestDataPlaceholder', '신서준', '010-7000-0034', 1, 3, '육군특수전사령부', 'AC02', '2025-11-06', '2027-05-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier035@kbthink.com', '$2a$10$socialTestDataPlaceholder', '권서준', '010-7000-0035', 1, 3, '육군특수전사령부', 'AC02', '2025-10-06', '2027-04-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier036@kbthink.com', '$2a$10$socialTestDataPlaceholder', '황서준', '010-7000-0036', 1, 3, '육군항공사령부', 'AC03', '2025-09-06', '2027-03-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier037@kbthink.com', '$2a$10$socialTestDataPlaceholder', '안서준', '010-7000-0037', 1, 3, '육군항공사령부', 'AC03', '2025-08-06', '2027-02-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier038@kbthink.com', '$2a$10$socialTestDataPlaceholder', '송서준', '010-7000-0038', 1, 3, '육군항공사령부', 'AC03', '2025-07-06', '2027-01-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier039@kbthink.com', '$2a$10$socialTestDataPlaceholder', '류서준', '010-7000-0039', 1, 3, '육군항공사령부', 'AC03', '2025-06-06', '2026-12-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier040@kbthink.com', '$2a$10$socialTestDataPlaceholder', '전서준', '010-7000-0040', 1, 3, '육군항공사령부', 'AC03', '2025-05-06', '2026-11-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier041@kbthink.com', '$2a$10$socialTestDataPlaceholder', '김도윤', '010-7000-0041', 1, 3, '육군항공사령부', 'AC03', '2025-12-06', '2027-06-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier042@kbthink.com', '$2a$10$socialTestDataPlaceholder', '이도윤', '010-7000-0042', 1, 3, '육군항공사령부', 'AC03', '2025-11-06', '2027-05-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier043@kbthink.com', '$2a$10$socialTestDataPlaceholder', '박도윤', '010-7000-0043', 1, 3, '육군항공사령부', 'AC03', '2025-10-06', '2027-04-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier044@kbthink.com', '$2a$10$socialTestDataPlaceholder', '최도윤', '010-7000-0044', 1, 3, '육군항공사령부', 'AC03', '2025-09-06', '2027-03-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier045@kbthink.com', '$2a$10$socialTestDataPlaceholder', '정도윤', '010-7000-0045', 1, 3, '육군항공사령부', 'AC03', '2025-08-06', '2027-02-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier046@kbthink.com', '$2a$10$socialTestDataPlaceholder', '강도윤', '010-7000-0046', 1, 3, '육군항공사령부', 'AC03', '2025-07-06', '2027-01-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier047@kbthink.com', '$2a$10$socialTestDataPlaceholder', '조도윤', '010-7000-0047', 1, 3, '육군항공사령부', 'AC03', '2025-06-06', '2026-12-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier048@kbthink.com', '$2a$10$socialTestDataPlaceholder', '윤도윤', '010-7000-0048', 1, 3, '육군항공사령부', 'AC03', '2025-05-06', '2026-11-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier049@kbthink.com', '$2a$10$socialTestDataPlaceholder', '장도윤', '010-7000-0049', 1, 3, '육군항공사령부', 'AC03', '2025-12-06', '2027-06-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier050@kbthink.com', '$2a$10$socialTestDataPlaceholder', '임도윤', '010-7000-0050', 1, 3, '육군항공사령부', 'AC03', '2025-11-06', '2027-05-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier051@kbthink.com', '$2a$10$socialTestDataPlaceholder', '한도윤', '010-7000-0051', 1, 3, '육군항공사령부', 'AC03', '2025-10-06', '2027-04-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier052@kbthink.com', '$2a$10$socialTestDataPlaceholder', '오도윤', '010-7000-0052', 1, 3, '육군항공사령부', 'AC03', '2025-09-06', '2027-03-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier053@kbthink.com', '$2a$10$socialTestDataPlaceholder', '서도윤', '010-7000-0053', 2, 3, '해군작전사령부', 'NC01', '2025-08-06', '2027-02-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier054@kbthink.com', '$2a$10$socialTestDataPlaceholder', '신도윤', '010-7000-0054', 2, 3, '해군작전사령부', 'NC01', '2025-07-06', '2027-01-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier055@kbthink.com', '$2a$10$socialTestDataPlaceholder', '권도윤', '010-7000-0055', 2, 3, '해군작전사령부', 'NC01', '2025-06-06', '2026-12-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier056@kbthink.com', '$2a$10$socialTestDataPlaceholder', '황도윤', '010-7000-0056', 2, 3, '해군작전사령부', 'NC01', '2025-05-06', '2026-11-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier057@kbthink.com', '$2a$10$socialTestDataPlaceholder', '안도윤', '010-7000-0057', 2, 3, '해군작전사령부', 'NC01', '2025-12-06', '2027-06-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier058@kbthink.com', '$2a$10$socialTestDataPlaceholder', '송도윤', '010-7000-0058', 2, 3, '해군작전사령부', 'NC01', '2025-11-06', '2027-05-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier059@kbthink.com', '$2a$10$socialTestDataPlaceholder', '류도윤', '010-7000-0059', 2, 3, '해군항공사령부', 'NC02', '2025-10-06', '2027-04-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier060@kbthink.com', '$2a$10$socialTestDataPlaceholder', '전도윤', '010-7000-0060', 2, 3, '해군항공사령부', 'NC02', '2025-09-06', '2027-03-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier061@kbthink.com', '$2a$10$socialTestDataPlaceholder', '김예준', '010-7000-0061', 2, 3, '해군항공사령부', 'NC02', '2025-08-06', '2027-02-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier062@kbthink.com', '$2a$10$socialTestDataPlaceholder', '이예준', '010-7000-0062', 2, 3, '해군항공사령부', 'NC02', '2025-07-06', '2027-01-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier063@kbthink.com', '$2a$10$socialTestDataPlaceholder', '박예준', '010-7000-0063', 2, 3, '해군항공사령부', 'NC02', '2025-06-06', '2026-12-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier064@kbthink.com', '$2a$10$socialTestDataPlaceholder', '최예준', '010-7000-0064', 2, 3, '해군항공사령부', 'NC02', '2025-05-06', '2026-11-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier065@kbthink.com', '$2a$10$socialTestDataPlaceholder', '정예준', '010-7000-0065', 2, 3, '진해해양사령부', 'NC03', '2025-12-06', '2027-06-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier066@kbthink.com', '$2a$10$socialTestDataPlaceholder', '강예준', '010-7000-0066', 2, 3, '진해해양사령부', 'NC03', '2025-11-06', '2027-05-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier067@kbthink.com', '$2a$10$socialTestDataPlaceholder', '조예준', '010-7000-0067', 2, 3, '진해해양사령부', 'NC03', '2025-10-06', '2027-04-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier068@kbthink.com', '$2a$10$socialTestDataPlaceholder', '윤예준', '010-7000-0068', 2, 3, '진해해양사령부', 'NC03', '2025-09-06', '2027-03-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier069@kbthink.com', '$2a$10$socialTestDataPlaceholder', '장예준', '010-7000-0069', 2, 3, '진해해양사령부', 'NC03', '2025-08-06', '2027-02-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier070@kbthink.com', '$2a$10$socialTestDataPlaceholder', '임예준', '010-7000-0070', 2, 3, '진해해양사령부', 'NC03', '2025-07-06', '2027-01-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier071@kbthink.com', '$2a$10$socialTestDataPlaceholder', '한예준', '010-7000-0071', 3, 3, '공군작전사령부', 'FC01', '2025-06-06', '2026-12-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier072@kbthink.com', '$2a$10$socialTestDataPlaceholder', '오예준', '010-7000-0072', 3, 3, '공군작전사령부', 'FC01', '2025-05-06', '2026-11-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier073@kbthink.com', '$2a$10$socialTestDataPlaceholder', '서예준', '010-7000-0073', 3, 3, '공군작전사령부', 'FC01', '2025-12-06', '2027-06-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier074@kbthink.com', '$2a$10$socialTestDataPlaceholder', '신예준', '010-7000-0074', 3, 3, '공군작전사령부', 'FC01', '2025-11-06', '2027-05-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier075@kbthink.com', '$2a$10$socialTestDataPlaceholder', '권예준', '010-7000-0075', 3, 3, '공군작전사령부', 'FC01', '2025-10-06', '2027-04-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier076@kbthink.com', '$2a$10$socialTestDataPlaceholder', '황예준', '010-7000-0076', 3, 3, '공군작전사령부', 'FC01', '2025-09-06', '2027-03-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier077@kbthink.com', '$2a$10$socialTestDataPlaceholder', '안예준', '010-7000-0077', 3, 3, '공군작전사령부', 'FC01', '2025-08-06', '2027-02-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier078@kbthink.com', '$2a$10$socialTestDataPlaceholder', '송예준', '010-7000-0078', 3, 3, '공중전투사령부', 'FC02', '2025-07-06', '2027-01-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier079@kbthink.com', '$2a$10$socialTestDataPlaceholder', '류예준', '010-7000-0079', 3, 3, '공중전투사령부', 'FC02', '2025-06-06', '2026-12-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier080@kbthink.com', '$2a$10$socialTestDataPlaceholder', '전예준', '010-7000-0080', 3, 3, '공중전투사령부', 'FC02', '2025-05-06', '2026-11-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier081@kbthink.com', '$2a$10$socialTestDataPlaceholder', '김시우', '010-7000-0081', 3, 3, '공중전투사령부', 'FC02', '2025-12-06', '2027-06-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier082@kbthink.com', '$2a$10$socialTestDataPlaceholder', '이시우', '010-7000-0082', 3, 3, '공중전투사령부', 'FC02', '2025-11-06', '2027-05-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier083@kbthink.com', '$2a$10$socialTestDataPlaceholder', '박시우', '010-7000-0083', 3, 3, '공중전투사령부', 'FC02', '2025-10-06', '2027-04-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier084@kbthink.com', '$2a$10$socialTestDataPlaceholder', '최시우', '010-7000-0084', 3, 3, '공중전투사령부', 'FC02', '2025-09-06', '2027-03-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier085@kbthink.com', '$2a$10$socialTestDataPlaceholder', '정시우', '010-7000-0085', 3, 3, '공군미사일방어사령부', 'FC03', '2025-08-06', '2027-02-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier086@kbthink.com', '$2a$10$socialTestDataPlaceholder', '강시우', '010-7000-0086', 3, 3, '공군미사일방어사령부', 'FC03', '2025-07-06', '2027-01-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier087@kbthink.com', '$2a$10$socialTestDataPlaceholder', '조시우', '010-7000-0087', 3, 3, '공군미사일방어사령부', 'FC03', '2025-06-06', '2026-12-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier088@kbthink.com', '$2a$10$socialTestDataPlaceholder', '윤시우', '010-7000-0088', 3, 3, '공군미사일방어사령부', 'FC03', '2025-05-06', '2026-11-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier089@kbthink.com', '$2a$10$socialTestDataPlaceholder', '장시우', '010-7000-0089', 3, 3, '공군미사일방어사령부', 'FC03', '2025-12-06', '2027-06-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier090@kbthink.com', '$2a$10$socialTestDataPlaceholder', '임시우', '010-7000-0090', 3, 3, '공군미사일방어사령부', 'FC03', '2025-11-06', '2027-05-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier091@kbthink.com', '$2a$10$socialTestDataPlaceholder', '한시우', '010-7000-0091', 4, 3, '제6해병여단', 'MB06', '2025-10-06', '2027-04-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier092@kbthink.com', '$2a$10$socialTestDataPlaceholder', '오시우', '010-7000-0092', 4, 3, '제6해병여단', 'MB06', '2025-09-06', '2027-03-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier093@kbthink.com', '$2a$10$socialTestDataPlaceholder', '서시우', '010-7000-0093', 4, 3, '제6해병여단', 'MB06', '2025-08-06', '2027-02-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier094@kbthink.com', '$2a$10$socialTestDataPlaceholder', '신시우', '010-7000-0094', 4, 3, '제6해병여단', 'MB06', '2025-07-06', '2027-01-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier095@kbthink.com', '$2a$10$socialTestDataPlaceholder', '권시우', '010-7000-0095', 4, 3, '제9해병여단', 'MB09', '2025-06-06', '2026-12-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier096@kbthink.com', '$2a$10$socialTestDataPlaceholder', '황시우', '010-7000-0096', 4, 3, '제9해병여단', 'MB09', '2025-05-06', '2026-11-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier097@kbthink.com', '$2a$10$socialTestDataPlaceholder', '안시우', '010-7000-0097', 4, 3, '제9해병여단', 'MB09', '2025-12-06', '2027-06-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier098@kbthink.com', '$2a$10$socialTestDataPlaceholder', '송시우', '010-7000-0098', 4, 3, '수도군단', 'MB90', '2025-11-06', '2027-05-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier099@kbthink.com', '$2a$10$socialTestDataPlaceholder', '류시우', '010-7000-0099', 4, 3, '수도군단', 'MB90', '2025-10-06', '2027-04-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N'),
-    ('soldier100@kbthink.com', '$2a$10$socialTestDataPlaceholder', '전시우', '010-7000-0100', 4, 3, '수도군단', 'MB90', '2025-09-06', '2027-03-06', 'local', 'ACTIVE', NOW(), 'TEST-SOCIAL', 'N');
-
--- ── 군적금 계좌 100건 ───────────────────────────────────────
---  월 납입액 540,000 ~ 100,000 (상병 월급 1,200,000 대비 45.0% ~ 8.3%)
---  상위 88명은 5,000원 간격으로 전부 다른 금액,
---  하위 12명은 최소 납입액 100,000 에 몰려 동점 처리도 함께 검증됩니다.
---  curr_amount = monthly_save x monthly_count 로 정합성을 맞췄습니다.
-INSERT INTO `saving_account`
-(`user_id`, `bank_code`, `monthly_save`, `monthly_count`, `curr_amount`,
- `account_status`, `created_date`, `created_nm`, `del_yn`)
-SELECT
-    member.id, source.bank_code, source.monthly_save, source.monthly_count,
-    source.curr_amount, 'ACTIVE', source.opened_at, 'TEST-SOCIAL', 'N'
-FROM (
-         SELECT 'soldier001@kbthink.com' AS email, '004' AS bank_code, 540000 AS monthly_save, 6 AS monthly_count, 3240000 AS curr_amount, '2026-01-06 09:00:00' AS opened_at
-         UNION ALL SELECT 'soldier002@kbthink.com', '003', 535000, 7, 3745000, '2025-12-06 09:00:00'
-         UNION ALL SELECT 'soldier003@kbthink.com', '088', 530000, 8, 4240000, '2025-11-06 09:00:00'
-         UNION ALL SELECT 'soldier004@kbthink.com', '011', 525000, 9, 4725000, '2025-10-06 09:00:00'
-         UNION ALL SELECT 'soldier005@kbthink.com', '004', 520000, 10, 5200000, '2025-09-06 09:00:00'
-         UNION ALL SELECT 'soldier006@kbthink.com', '003', 515000, 11, 5665000, '2025-08-06 09:00:00'
-         UNION ALL SELECT 'soldier007@kbthink.com', '088', 510000, 12, 6120000, '2025-07-06 09:00:00'
-         UNION ALL SELECT 'soldier008@kbthink.com', '011', 505000, 13, 6565000, '2025-06-06 09:00:00'
-         UNION ALL SELECT 'soldier009@kbthink.com', '004', 500000, 6, 3000000, '2026-01-06 09:00:00'
-         UNION ALL SELECT 'soldier010@kbthink.com', '003', 495000, 7, 3465000, '2025-12-06 09:00:00'
-         UNION ALL SELECT 'soldier011@kbthink.com', '088', 490000, 8, 3920000, '2025-11-06 09:00:00'
-         UNION ALL SELECT 'soldier012@kbthink.com', '011', 485000, 9, 4365000, '2025-10-06 09:00:00'
-         UNION ALL SELECT 'soldier013@kbthink.com', '004', 480000, 10, 4800000, '2025-09-06 09:00:00'
-         UNION ALL SELECT 'soldier014@kbthink.com', '003', 475000, 11, 5225000, '2025-08-06 09:00:00'
-         UNION ALL SELECT 'soldier015@kbthink.com', '088', 470000, 12, 5640000, '2025-07-06 09:00:00'
-         UNION ALL SELECT 'soldier016@kbthink.com', '011', 465000, 13, 6045000, '2025-06-06 09:00:00'
-         UNION ALL SELECT 'soldier017@kbthink.com', '004', 460000, 6, 2760000, '2026-01-06 09:00:00'
-         UNION ALL SELECT 'soldier018@kbthink.com', '003', 455000, 7, 3185000, '2025-12-06 09:00:00'
-         UNION ALL SELECT 'soldier019@kbthink.com', '088', 450000, 8, 3600000, '2025-11-06 09:00:00'
-         UNION ALL SELECT 'soldier020@kbthink.com', '011', 445000, 9, 4005000, '2025-10-06 09:00:00'
-         UNION ALL SELECT 'soldier021@kbthink.com', '004', 440000, 10, 4400000, '2025-09-06 09:00:00'
-         UNION ALL SELECT 'soldier022@kbthink.com', '003', 435000, 11, 4785000, '2025-08-06 09:00:00'
-         UNION ALL SELECT 'soldier023@kbthink.com', '088', 430000, 12, 5160000, '2025-07-06 09:00:00'
-         UNION ALL SELECT 'soldier024@kbthink.com', '011', 425000, 13, 5525000, '2025-06-06 09:00:00'
-         UNION ALL SELECT 'soldier025@kbthink.com', '004', 420000, 6, 2520000, '2026-01-06 09:00:00'
-         UNION ALL SELECT 'soldier026@kbthink.com', '003', 415000, 7, 2905000, '2025-12-06 09:00:00'
-         UNION ALL SELECT 'soldier027@kbthink.com', '088', 410000, 8, 3280000, '2025-11-06 09:00:00'
-         UNION ALL SELECT 'soldier028@kbthink.com', '011', 405000, 9, 3645000, '2025-10-06 09:00:00'
-         UNION ALL SELECT 'soldier029@kbthink.com', '004', 400000, 10, 4000000, '2025-09-06 09:00:00'
-         UNION ALL SELECT 'soldier030@kbthink.com', '003', 395000, 11, 4345000, '2025-08-06 09:00:00'
-         UNION ALL SELECT 'soldier031@kbthink.com', '088', 390000, 12, 4680000, '2025-07-06 09:00:00'
-         UNION ALL SELECT 'soldier032@kbthink.com', '011', 385000, 13, 5005000, '2025-06-06 09:00:00'
-         UNION ALL SELECT 'soldier033@kbthink.com', '004', 380000, 6, 2280000, '2026-01-06 09:00:00'
-         UNION ALL SELECT 'soldier034@kbthink.com', '003', 375000, 7, 2625000, '2025-12-06 09:00:00'
-         UNION ALL SELECT 'soldier035@kbthink.com', '088', 370000, 8, 2960000, '2025-11-06 09:00:00'
-         UNION ALL SELECT 'soldier036@kbthink.com', '011', 365000, 9, 3285000, '2025-10-06 09:00:00'
-         UNION ALL SELECT 'soldier037@kbthink.com', '004', 360000, 10, 3600000, '2025-09-06 09:00:00'
-         UNION ALL SELECT 'soldier038@kbthink.com', '003', 355000, 11, 3905000, '2025-08-06 09:00:00'
-         UNION ALL SELECT 'soldier039@kbthink.com', '088', 350000, 12, 4200000, '2025-07-06 09:00:00'
-         UNION ALL SELECT 'soldier040@kbthink.com', '011', 345000, 13, 4485000, '2025-06-06 09:00:00'
-         UNION ALL SELECT 'soldier041@kbthink.com', '004', 340000, 6, 2040000, '2026-01-06 09:00:00'
-         UNION ALL SELECT 'soldier042@kbthink.com', '003', 335000, 7, 2345000, '2025-12-06 09:00:00'
-         UNION ALL SELECT 'soldier043@kbthink.com', '088', 330000, 8, 2640000, '2025-11-06 09:00:00'
-         UNION ALL SELECT 'soldier044@kbthink.com', '011', 325000, 9, 2925000, '2025-10-06 09:00:00'
-         UNION ALL SELECT 'soldier045@kbthink.com', '004', 320000, 10, 3200000, '2025-09-06 09:00:00'
-         UNION ALL SELECT 'soldier046@kbthink.com', '003', 315000, 11, 3465000, '2025-08-06 09:00:00'
-         UNION ALL SELECT 'soldier047@kbthink.com', '088', 310000, 12, 3720000, '2025-07-06 09:00:00'
-         UNION ALL SELECT 'soldier048@kbthink.com', '011', 305000, 13, 3965000, '2025-06-06 09:00:00'
-         UNION ALL SELECT 'soldier049@kbthink.com', '004', 300000, 6, 1800000, '2026-01-06 09:00:00'
-         UNION ALL SELECT 'soldier050@kbthink.com', '003', 295000, 7, 2065000, '2025-12-06 09:00:00'
-         UNION ALL SELECT 'soldier051@kbthink.com', '088', 290000, 8, 2320000, '2025-11-06 09:00:00'
-         UNION ALL SELECT 'soldier052@kbthink.com', '011', 285000, 9, 2565000, '2025-10-06 09:00:00'
-         UNION ALL SELECT 'soldier053@kbthink.com', '004', 280000, 10, 2800000, '2025-09-06 09:00:00'
-         UNION ALL SELECT 'soldier054@kbthink.com', '003', 275000, 11, 3025000, '2025-08-06 09:00:00'
-         UNION ALL SELECT 'soldier055@kbthink.com', '088', 270000, 12, 3240000, '2025-07-06 09:00:00'
-         UNION ALL SELECT 'soldier056@kbthink.com', '011', 265000, 13, 3445000, '2025-06-06 09:00:00'
-         UNION ALL SELECT 'soldier057@kbthink.com', '004', 260000, 6, 1560000, '2026-01-06 09:00:00'
-         UNION ALL SELECT 'soldier058@kbthink.com', '003', 255000, 7, 1785000, '2025-12-06 09:00:00'
-         UNION ALL SELECT 'soldier059@kbthink.com', '088', 250000, 8, 2000000, '2025-11-06 09:00:00'
-         UNION ALL SELECT 'soldier060@kbthink.com', '011', 245000, 9, 2205000, '2025-10-06 09:00:00'
-         UNION ALL SELECT 'soldier061@kbthink.com', '004', 240000, 10, 2400000, '2025-09-06 09:00:00'
-         UNION ALL SELECT 'soldier062@kbthink.com', '003', 235000, 11, 2585000, '2025-08-06 09:00:00'
-         UNION ALL SELECT 'soldier063@kbthink.com', '088', 230000, 12, 2760000, '2025-07-06 09:00:00'
-         UNION ALL SELECT 'soldier064@kbthink.com', '011', 225000, 13, 2925000, '2025-06-06 09:00:00'
-         UNION ALL SELECT 'soldier065@kbthink.com', '004', 220000, 6, 1320000, '2026-01-06 09:00:00'
-         UNION ALL SELECT 'soldier066@kbthink.com', '003', 215000, 7, 1505000, '2025-12-06 09:00:00'
-         UNION ALL SELECT 'soldier067@kbthink.com', '088', 210000, 8, 1680000, '2025-11-06 09:00:00'
-         UNION ALL SELECT 'soldier068@kbthink.com', '011', 205000, 9, 1845000, '2025-10-06 09:00:00'
-         UNION ALL SELECT 'soldier069@kbthink.com', '004', 200000, 10, 2000000, '2025-09-06 09:00:00'
-         UNION ALL SELECT 'soldier070@kbthink.com', '003', 195000, 11, 2145000, '2025-08-06 09:00:00'
-         UNION ALL SELECT 'soldier071@kbthink.com', '088', 190000, 12, 2280000, '2025-07-06 09:00:00'
-         UNION ALL SELECT 'soldier072@kbthink.com', '011', 185000, 13, 2405000, '2025-06-06 09:00:00'
-         UNION ALL SELECT 'soldier073@kbthink.com', '004', 180000, 6, 1080000, '2026-01-06 09:00:00'
-         UNION ALL SELECT 'soldier074@kbthink.com', '003', 175000, 7, 1225000, '2025-12-06 09:00:00'
-         UNION ALL SELECT 'soldier075@kbthink.com', '088', 170000, 8, 1360000, '2025-11-06 09:00:00'
-         UNION ALL SELECT 'soldier076@kbthink.com', '011', 165000, 9, 1485000, '2025-10-06 09:00:00'
-         UNION ALL SELECT 'soldier077@kbthink.com', '004', 160000, 10, 1600000, '2025-09-06 09:00:00'
-         UNION ALL SELECT 'soldier078@kbthink.com', '003', 155000, 11, 1705000, '2025-08-06 09:00:00'
-         UNION ALL SELECT 'soldier079@kbthink.com', '088', 150000, 12, 1800000, '2025-07-06 09:00:00'
-         UNION ALL SELECT 'soldier080@kbthink.com', '011', 145000, 13, 1885000, '2025-06-06 09:00:00'
-         UNION ALL SELECT 'soldier081@kbthink.com', '004', 140000, 6, 840000, '2026-01-06 09:00:00'
-         UNION ALL SELECT 'soldier082@kbthink.com', '003', 135000, 7, 945000, '2025-12-06 09:00:00'
-         UNION ALL SELECT 'soldier083@kbthink.com', '088', 130000, 8, 1040000, '2025-11-06 09:00:00'
-         UNION ALL SELECT 'soldier084@kbthink.com', '011', 125000, 9, 1125000, '2025-10-06 09:00:00'
-         UNION ALL SELECT 'soldier085@kbthink.com', '004', 120000, 10, 1200000, '2025-09-06 09:00:00'
-         UNION ALL SELECT 'soldier086@kbthink.com', '003', 115000, 11, 1265000, '2025-08-06 09:00:00'
-         UNION ALL SELECT 'soldier087@kbthink.com', '088', 110000, 12, 1320000, '2025-07-06 09:00:00'
-         UNION ALL SELECT 'soldier088@kbthink.com', '011', 105000, 13, 1365000, '2025-06-06 09:00:00'
-         UNION ALL SELECT 'soldier089@kbthink.com', '004', 100000, 6, 600000, '2026-01-06 09:00:00'
-         UNION ALL SELECT 'soldier090@kbthink.com', '003', 100000, 7, 700000, '2025-12-06 09:00:00'
-         UNION ALL SELECT 'soldier091@kbthink.com', '088', 100000, 8, 800000, '2025-11-06 09:00:00'
-         UNION ALL SELECT 'soldier092@kbthink.com', '011', 100000, 9, 900000, '2025-10-06 09:00:00'
-         UNION ALL SELECT 'soldier093@kbthink.com', '004', 100000, 10, 1000000, '2025-09-06 09:00:00'
-         UNION ALL SELECT 'soldier094@kbthink.com', '003', 100000, 11, 1100000, '2025-08-06 09:00:00'
-         UNION ALL SELECT 'soldier095@kbthink.com', '088', 100000, 12, 1200000, '2025-07-06 09:00:00'
-         UNION ALL SELECT 'soldier096@kbthink.com', '011', 100000, 13, 1300000, '2025-06-06 09:00:00'
-         UNION ALL SELECT 'soldier097@kbthink.com', '004', 100000, 6, 600000, '2026-01-06 09:00:00'
-         UNION ALL SELECT 'soldier098@kbthink.com', '003', 100000, 7, 700000, '2025-12-06 09:00:00'
-         UNION ALL SELECT 'soldier099@kbthink.com', '088', 100000, 8, 800000, '2025-11-06 09:00:00'
-         UNION ALL SELECT 'soldier100@kbthink.com', '011', 100000, 9, 900000, '2025-10-06 09:00:00'
-     ) source
-         JOIN `user` member ON member.user_id = source.email;
-
--- ── 로드맵 목표 100건 ───────────────────────────────────────
---  관심도 차트 분포용. 회원 1명당 1건, 전부 CONFIRMED.
---  여행 45 / 진로 25 / 자동차 18 / 자취 12
-
-INSERT INTO `travel_goal`
-(`user_id`, `title`, `departure`, `destination`, `is_domestic`, `style`,
- `start_date`, `end_date`, `total_budget`, `status`,
- `created_date`, `created_nm`, `del_yn`)
-SELECT
-    member.id, '전역 후 여행', '서울', source.destination, source.is_domestic,
-    'common', '2027-03-05', '2027-03-08', source.total_budget, 'CONFIRMED',
-    NOW(), 'TEST-SOCIAL', 'N'
-FROM (
-         SELECT 'soldier001@kbthink.com' AS email, '부산' AS destination, 1 AS is_domestic, 800000 AS total_budget
-         UNION ALL SELECT 'soldier002@kbthink.com', '강릉', 1, 900000
-         UNION ALL SELECT 'soldier003@kbthink.com', '제주', 1, 1000000
-         UNION ALL SELECT 'soldier004@kbthink.com', '오사카', 0, 1100000
-         UNION ALL SELECT 'soldier005@kbthink.com', '다낭', 0, 1200000
-         UNION ALL SELECT 'soldier006@kbthink.com', '부산', 1, 800000
-         UNION ALL SELECT 'soldier007@kbthink.com', '강릉', 1, 900000
-         UNION ALL SELECT 'soldier008@kbthink.com', '제주', 1, 1000000
-         UNION ALL SELECT 'soldier009@kbthink.com', '오사카', 0, 1100000
-         UNION ALL SELECT 'soldier010@kbthink.com', '다낭', 0, 1200000
-         UNION ALL SELECT 'soldier011@kbthink.com', '부산', 1, 800000
-         UNION ALL SELECT 'soldier012@kbthink.com', '강릉', 1, 900000
-         UNION ALL SELECT 'soldier013@kbthink.com', '제주', 1, 1000000
-         UNION ALL SELECT 'soldier014@kbthink.com', '오사카', 0, 1100000
-         UNION ALL SELECT 'soldier015@kbthink.com', '다낭', 0, 1200000
-         UNION ALL SELECT 'soldier016@kbthink.com', '부산', 1, 800000
-         UNION ALL SELECT 'soldier017@kbthink.com', '강릉', 1, 900000
-         UNION ALL SELECT 'soldier018@kbthink.com', '제주', 1, 1000000
-         UNION ALL SELECT 'soldier019@kbthink.com', '오사카', 0, 1100000
-         UNION ALL SELECT 'soldier020@kbthink.com', '다낭', 0, 1200000
-         UNION ALL SELECT 'soldier021@kbthink.com', '부산', 1, 800000
-         UNION ALL SELECT 'soldier022@kbthink.com', '강릉', 1, 900000
-         UNION ALL SELECT 'soldier023@kbthink.com', '제주', 1, 1000000
-         UNION ALL SELECT 'soldier024@kbthink.com', '오사카', 0, 1100000
-         UNION ALL SELECT 'soldier025@kbthink.com', '다낭', 0, 1200000
-         UNION ALL SELECT 'soldier026@kbthink.com', '부산', 1, 800000
-         UNION ALL SELECT 'soldier027@kbthink.com', '강릉', 1, 900000
-         UNION ALL SELECT 'soldier028@kbthink.com', '제주', 1, 1000000
-         UNION ALL SELECT 'soldier029@kbthink.com', '오사카', 0, 1100000
-         UNION ALL SELECT 'soldier030@kbthink.com', '다낭', 0, 1200000
-         UNION ALL SELECT 'soldier031@kbthink.com', '부산', 1, 800000
-         UNION ALL SELECT 'soldier032@kbthink.com', '강릉', 1, 900000
-         UNION ALL SELECT 'soldier033@kbthink.com', '제주', 1, 1000000
-         UNION ALL SELECT 'soldier034@kbthink.com', '오사카', 0, 1100000
-         UNION ALL SELECT 'soldier035@kbthink.com', '다낭', 0, 1200000
-         UNION ALL SELECT 'soldier036@kbthink.com', '부산', 1, 800000
-         UNION ALL SELECT 'soldier037@kbthink.com', '강릉', 1, 900000
-         UNION ALL SELECT 'soldier038@kbthink.com', '제주', 1, 1000000
-         UNION ALL SELECT 'soldier039@kbthink.com', '오사카', 0, 1100000
-         UNION ALL SELECT 'soldier040@kbthink.com', '다낭', 0, 1200000
-         UNION ALL SELECT 'soldier041@kbthink.com', '부산', 1, 800000
-         UNION ALL SELECT 'soldier042@kbthink.com', '강릉', 1, 900000
-         UNION ALL SELECT 'soldier043@kbthink.com', '제주', 1, 1000000
-         UNION ALL SELECT 'soldier044@kbthink.com', '오사카', 0, 1100000
-         UNION ALL SELECT 'soldier045@kbthink.com', '다낭', 0, 1200000
-     ) source
-         JOIN `user` member ON member.user_id = source.email;
-
-INSERT INTO `job_goal`
-(`user_id`, `goal_type`, `expected_date`, `status`,
- `created_date`, `created_nm`, `del_yn`)
-SELECT
-    member.id, source.goal_type, '2027-09', 'CONFIRMED',
-    NOW(), 'TEST-SOCIAL', 'N'
-FROM (
-         SELECT 'soldier046@kbthink.com' AS email, 'J01' AS goal_type
-         UNION ALL SELECT 'soldier047@kbthink.com', 'J02'
-         UNION ALL SELECT 'soldier048@kbthink.com', 'J03'
-         UNION ALL SELECT 'soldier049@kbthink.com', 'J01'
-         UNION ALL SELECT 'soldier050@kbthink.com', 'J02'
-         UNION ALL SELECT 'soldier051@kbthink.com', 'J03'
-         UNION ALL SELECT 'soldier052@kbthink.com', 'J01'
-         UNION ALL SELECT 'soldier053@kbthink.com', 'J02'
-         UNION ALL SELECT 'soldier054@kbthink.com', 'J03'
-         UNION ALL SELECT 'soldier055@kbthink.com', 'J01'
-         UNION ALL SELECT 'soldier056@kbthink.com', 'J02'
-         UNION ALL SELECT 'soldier057@kbthink.com', 'J03'
-         UNION ALL SELECT 'soldier058@kbthink.com', 'J01'
-         UNION ALL SELECT 'soldier059@kbthink.com', 'J02'
-         UNION ALL SELECT 'soldier060@kbthink.com', 'J03'
-         UNION ALL SELECT 'soldier061@kbthink.com', 'J01'
-         UNION ALL SELECT 'soldier062@kbthink.com', 'J02'
-         UNION ALL SELECT 'soldier063@kbthink.com', 'J03'
-         UNION ALL SELECT 'soldier064@kbthink.com', 'J01'
-         UNION ALL SELECT 'soldier065@kbthink.com', 'J02'
-         UNION ALL SELECT 'soldier066@kbthink.com', 'J03'
-         UNION ALL SELECT 'soldier067@kbthink.com', 'J01'
-         UNION ALL SELECT 'soldier068@kbthink.com', 'J02'
-         UNION ALL SELECT 'soldier069@kbthink.com', 'J03'
-         UNION ALL SELECT 'soldier070@kbthink.com', 'J01'
-     ) source
-         JOIN `user` member ON member.user_id = source.email;
-
-INSERT INTO `car_goal`
-(`user_id`, `budget`, `is_new`, `experience_years`,
- `target_date`, `region`, `status`, `created_date`, `created_nm`, `del_yn`)
-SELECT
-    member.id, source.budget, source.is_new, source.experience_years,
-    '2027-10-01', '서울', 'CONFIRMED', NOW(), 'TEST-SOCIAL', 'N'
-FROM (
-         SELECT 'soldier071@kbthink.com' AS email, 12000000 AS budget, 0 AS is_new, 1 AS experience_years
-         UNION ALL SELECT 'soldier072@kbthink.com', 15000000, 1, 2
-         UNION ALL SELECT 'soldier073@kbthink.com', 18000000, 0, 3
-         UNION ALL SELECT 'soldier074@kbthink.com', 21000000, 1, 1
-         UNION ALL SELECT 'soldier075@kbthink.com', 12000000, 0, 2
-         UNION ALL SELECT 'soldier076@kbthink.com', 15000000, 1, 3
-         UNION ALL SELECT 'soldier077@kbthink.com', 18000000, 0, 1
-         UNION ALL SELECT 'soldier078@kbthink.com', 21000000, 1, 2
-         UNION ALL SELECT 'soldier079@kbthink.com', 12000000, 0, 3
-         UNION ALL SELECT 'soldier080@kbthink.com', 15000000, 1, 1
-         UNION ALL SELECT 'soldier081@kbthink.com', 18000000, 0, 2
-         UNION ALL SELECT 'soldier082@kbthink.com', 21000000, 1, 3
-         UNION ALL SELECT 'soldier083@kbthink.com', 12000000, 0, 1
-         UNION ALL SELECT 'soldier084@kbthink.com', 15000000, 1, 2
-         UNION ALL SELECT 'soldier085@kbthink.com', 18000000, 0, 3
-         UNION ALL SELECT 'soldier086@kbthink.com', 21000000, 1, 1
-         UNION ALL SELECT 'soldier087@kbthink.com', 12000000, 0, 2
-         UNION ALL SELECT 'soldier088@kbthink.com', 15000000, 1, 3
-     ) source
-         JOIN `user` member ON member.user_id = source.email;
-
-INSERT INTO `rent_goal`
-(`user_id`, `title`, `selection_mode`, `monthly_budget`,
- `residence_preset`, `residence_months`, `status`,
- `created_date`, `created_nm`, `del_yn`)
-SELECT
-    member.id, '전역 후 자취', 'REGION', source.monthly_budget,
-    source.residence_preset, source.residence_months, 'CONFIRMED',
-    NOW(), 'TEST-SOCIAL', 'N'
-FROM (
-         SELECT 'soldier089@kbthink.com' AS email, 500000 AS monthly_budget, 'SEMESTER' AS residence_preset, 6 AS residence_months
-         UNION ALL SELECT 'soldier090@kbthink.com', 550000, 'YEAR', 12
-         UNION ALL SELECT 'soldier091@kbthink.com', 600000, 'GRADUATE', 24
-         UNION ALL SELECT 'soldier092@kbthink.com', 650000, 'SEMESTER', 6
-         UNION ALL SELECT 'soldier093@kbthink.com', 500000, 'YEAR', 12
-         UNION ALL SELECT 'soldier094@kbthink.com', 550000, 'GRADUATE', 24
-         UNION ALL SELECT 'soldier095@kbthink.com', 600000, 'SEMESTER', 6
-         UNION ALL SELECT 'soldier096@kbthink.com', 650000, 'YEAR', 12
-         UNION ALL SELECT 'soldier097@kbthink.com', 500000, 'GRADUATE', 24
-         UNION ALL SELECT 'soldier098@kbthink.com', 550000, 'SEMESTER', 6
-         UNION ALL SELECT 'soldier099@kbthink.com', 600000, 'YEAR', 12
-         UNION ALL SELECT 'soldier100@kbthink.com', 650000, 'GRADUATE', 24
-     ) source
-         JOIN `user` member ON member.user_id = source.email;
-
 -- --------------------------------------------------------------------
 --  [태석] 여행 / 여행목표(travel_goal)
 --  테이블: travel_goal
@@ -1100,9 +737,9 @@ FROM (
      ) source
          JOIN `user` member ON member.user_id = source.email;
 
--- ── 로드맵 목표 100건 ───────────────────────────────────────
+-- ── 로드맵 목표 91건 ────────────────────────────────────────
 --  관심도 차트 분포용. 회원 1명당 1건, 전부 CONFIRMED.
---  여행 45 / 진로 25 / 자동차 18 / 자취 12
+--  여행 36 / 진로 25 / 자동차 18 / 자취 12
 
 INSERT INTO `travel_goal`
 (`user_id`, `title`, `departure`, `destination`, `is_domestic`, `style`,
@@ -1159,7 +796,10 @@ FROM (
          UNION ALL SELECT 'soldier044@kbthink.com', '오사카', 0, 1100000
          UNION ALL SELECT 'soldier045@kbthink.com', '다낭', 0, 1200000
      ) source
-         JOIN `user` member ON member.user_id = source.email;
+         JOIN `user` member ON member.user_id = source.email
+         JOIN `city_cost` city
+           ON city.city = source.destination
+          AND city.del_yn = 'N';
 
 INSERT INTO `job_goal`
 (`user_id`, `goal_type`, `expected_date`, `status`,

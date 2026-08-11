@@ -208,7 +208,7 @@ watch(
 );
 
 // ── 예적금 미리보기 (예금 1개 + 적금 2개 고정, 부족하면 있는 만큼만) ──
-// 전체 목록은 "+ 더보기"로 SimulatorProductListPage(적금/예금/정책 탭)에서 본다.
+// 전체 목록은 "+ 상품 계산해보기"로 SimulatorProductListPage(적금/예금/정책 탭)에서 본다.
 const savingProducts = ref([]);
 const depositProducts = ref([]);
 const isProductLoading = ref(true);
@@ -228,8 +228,16 @@ const fetchProducts = async () => {
       productApi.findSavingProductList('savings'),
       productApi.findSavingProductList('deposits'),
     ]);
-    savingProducts.value = savings;
-    depositProducts.value = deposits;
+    // 카테고리(적금/예금)를 항목에 같이 담아둬야, 미리보기에서 예금·적금이 섞인 채로도
+    // 클릭 시 어느 탭으로 이동해야 하는지 알 수 있다.
+    savingProducts.value = savings.map((item) => ({
+      ...item,
+      category: 'savings',
+    }));
+    depositProducts.value = deposits.map((item) => ({
+      ...item,
+      category: 'deposits',
+    }));
   } catch (error) {
     console.error(error);
     productError.value = '상품 정보를 불러오지 못했습니다.';
@@ -238,8 +246,12 @@ const fetchProducts = async () => {
   }
 };
 
-const goToSavingProductDetail = (productId) => {
-  router.push({ name: 'SavingProductDetail', params: { productId } });
+// 미리보기 카드를 누르면 상세페이지 대신, 그 상품이 바로 선택된 예적금 상품 계산기로 이동한다.
+const goToProductCalculator = (item) => {
+  router.push({
+    name: 'SimulatorProductList',
+    query: { tab: item.category, productId: item.productId },
+  });
 };
 
 const goToProductList = () => {
@@ -463,14 +475,14 @@ onMounted(() => {
       <div class="product-section__header">
         <div>
           <p class="product-section__eyebrow">모으고 또 모으자</p>
-          <h2 class="product-section__title">예적금 시뮬레이션</h2>
+          <h2 class="product-section__title">예적금 상품</h2>
         </div>
         <button
           type="button"
           class="product-section__more-btn"
           @click="goToProductList"
         >
-          + 더보기
+          + 상품 계산해보기
         </button>
       </div>
 
@@ -491,7 +503,7 @@ onMounted(() => {
           :key="item.productId"
           class="product-card"
           padding="14px 16px"
-          @click="goToSavingProductDetail(item.productId)"
+          @click="goToProductCalculator(item)"
         >
           <p class="product-card__title">{{ item.productName }}</p>
           <BaseTag

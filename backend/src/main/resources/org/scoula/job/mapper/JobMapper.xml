@@ -10,6 +10,7 @@
             parent_id,
             goal_type,
             category_name,
+            ncs_code,
             category_level,
             created_date,
             created_nm,
@@ -344,8 +345,6 @@
             실제 DDL(kb_schema.sql)에는 DEFAULT 값이 누락되어 있음.
             DB가 자동으로 채워주지 않으므로 status를 명시적으로 'DRAFT'로 INSERT함.
             추후 DDL 수정 시(kb_schema.sql에 DEFAULT 'DRAFT' 추가) 이 부분은 그대로 유지해도 무방.
-            TODO: created_nm은 원래 사용자 이름을 기록해야 하나, JWT 미연동으로 이름 정보를 알 수 없어
-            임시로 userId를 문자열로 기록함. 추후 JWT 연동 시 실제 사용자명으로 교체 예정.
         -->
         INSERT INTO job_goal (user_id,goal_type,category_id,univ_id,major_id,expected_date,
                             status,created_date,created_nm,del_yn)
@@ -353,6 +352,24 @@
         'DRAFT', NOW(), #{createdNm},'N')
 
     </insert>
+
+    <!-- 작성 중인 진로 목표 수정 -->
+    <update id="updateJobGoal"
+            parameterType="org.scoula.job.domain.JobGoalVO">
+
+        UPDATE job_goal
+        SET goal_type = #{goalType},
+            category_id = #{categoryId},
+            univ_id = #{univId},
+            major_id = #{majorId},
+            expected_date = #{expectedDate},
+            modified_date = NOW(),
+            modified_nm = #{modifiedNm}
+        WHERE goal_id = #{goalId}
+          AND status = 'DRAFT'
+          AND del_yn = 'N'
+
+    </update>
 
     <update id="deleteGoalQualificationByGoalId">
         UPDATE job_goal_qualification
@@ -365,6 +382,15 @@
 
     <update id="deleteGoalCourseByGoalId">
         UPDATE job_goal_course
+        SET del_yn = 'Y',
+            modified_date = NOW(),
+            modified_nm = #{modifiedNm}
+        WHERE goal_id = #{goalId}
+          AND del_yn = 'N'
+    </update>
+
+    <update id="deleteGoalTrainingByGoalId">
+        UPDATE job_goal_training
         SET del_yn = 'Y',
             modified_date = NOW(),
             modified_nm = #{modifiedNm}
@@ -393,24 +419,81 @@
         created_nm,
         del_yn
         )
-        SELECT
-        #{goalId},
-        q.qual_id,
-        COALESCE(
-        q.military_fee,
-        COALESCE(q.written_fee, 0) + COALESCE(q.practical_fee, 0)
-        ),
-        NOW(),
-        #{createdNm},
-        'N'
-        FROM job_qualification q
-        WHERE q.qual_id IN
-        <foreach collection="qualIds" item="qualId" open="(" separator="," close=")">
-            #{qualId}
+        VALUES
+        <foreach
+                collection="qualifications"
+                item="qualification"
+                separator=",">
+            (
+            #{goalId},
+            #{qualification.qualId},
+            #{qualification.selectedCost},
+            NOW(),
+            #{createdNm},
+            'N'
+            )
         </foreach>
-        AND q.del_yn = 'N'
+
         ON DUPLICATE KEY UPDATE
         selected_cost = VALUES(selected_cost),
+        modified_date = NOW(),
+        modified_nm = VALUES(created_nm),
+        del_yn = 'N'
+    </insert>
+
+    <!-- 선택한 훈련과정 저장 -->
+    <insert id="insertGoalTrainingList">
+        INSERT INTO job_goal_training (
+        goal_id,
+        external_code,
+        training_round,
+        institution_id,
+        training_name,
+        institution_name,
+        training_type,
+        address,
+        training_cost,
+        selected_cost,
+        start_date,
+        end_date,
+        detail_url,
+        created_date,
+        created_nm,
+        del_yn
+        )
+        VALUES
+        <foreach collection="trainings" item="training" separator=",">
+            (
+            #{goalId},
+            #{training.externalCode},
+            #{training.trainingRound},
+            #{training.institutionId},
+            #{training.trainingName},
+            #{training.institutionName},
+            #{training.trainingType},
+            #{training.address},
+            #{training.trainingCost},
+            #{training.selectedCost},
+            #{training.startDate},
+            #{training.endDate},
+            #{training.detailUrl},
+            NOW(),
+            #{createdNm},
+            'N'
+            )
+        </foreach>
+
+        ON DUPLICATE KEY UPDATE
+        institution_id = VALUES(institution_id),
+        training_name = VALUES(training_name),
+        institution_name = VALUES(institution_name),
+        training_type = VALUES(training_type),
+        address = VALUES(address),
+        training_cost = VALUES(training_cost),
+        selected_cost = VALUES(selected_cost),
+        start_date = VALUES(start_date),
+        end_date = VALUES(end_date),
+        detail_url = VALUES(detail_url),
         modified_date = NOW(),
         modified_nm = VALUES(created_nm),
         del_yn = 'N'
@@ -442,6 +525,21 @@
         FROM job_goal
         WHERE goal_id = #{goalId}
           AND del_yn = 'N'
+    </select>
+
+    <select
+            id="findCurrentJobGoalIdByUserId"
+            parameterType="long"
+            resultType="long">
+
+        SELECT goal_id
+        FROM job_goal
+        WHERE user_id = #{userId}
+          AND status = 'DRAFT'
+          AND del_yn = 'N'
+        ORDER BY goal_id DESC
+            LIMIT 1
+
     </select>
 
     <select id="findSelectedQualificationListByGoalId"
@@ -503,6 +601,35 @@
         ORDER BY gc.goal_course_id
     </select>
 
+    <select id="findSelectedTrainingListByGoalId"
+            parameterType="long"
+            resultType="org.scoula.job.domain.JobTrainingVO">
+        SELECT
+            goal_training_id,
+            goal_id,
+            external_code,
+            training_round,
+            institution_id,
+            training_name,
+            institution_name,
+            training_cost,
+            selected_cost,
+            address,
+            start_date,
+            end_date,
+            detail_url,
+            training_type,
+            created_date,
+            created_nm,
+            modified_date,
+            modified_nm,
+            del_yn
+        FROM job_goal_training
+        WHERE goal_id = #{goalId}
+          AND del_yn = 'N'
+        ORDER BY goal_training_id
+    </select>
+
     <select id="findJobGoalDetail"
             parameterType="Long"
             resultType="org.scoula.job.dto.JobGoalDetailResponseDTO">
@@ -543,6 +670,157 @@
 
         WHERE g.goal_id = #{goalId}
           AND g.del_yn = 'N'
+
+    </select>
+
+    <!-- Q-Net 동기화 대상 국가자격증 조회 -->
+    <select id="findQnetQualificationList"
+            resultType="org.scoula.job.domain.JobQualificationVO">
+
+        SELECT
+            qual_id,
+            qual_type,
+            external_code,
+            data_source,
+            qual_name,
+            qual_summary,
+            organization_name,
+            written_fee,
+            practical_fee,
+            military_fee,
+            detail_url,
+            last_synced_date,
+            created_date,
+            created_nm,
+            modified_date,
+            modified_nm,
+            del_yn
+        FROM job_qualification
+        WHERE data_source = 'D02'
+          AND external_code IS NOT NULL
+          AND external_code != ''
+      AND del_yn = 'N'
+        ORDER BY qual_id
+
+    </select>
+
+    <!-- Q-Net 응시료 갱신 -->
+    <update id="updateQualificationFee">
+
+        UPDATE job_qualification
+        SET written_fee = COALESCE(#{writtenFee}, written_fee),
+            practical_fee = COALESCE(#{practicalFee}, practical_fee),
+            last_synced_date = NOW(),
+            modified_date = NOW(),
+            modified_nm = 'QNET_BATCH'
+        WHERE qual_id = #{qualId}
+          AND del_yn = 'N'
+
+    </update>
+
+    <!--
+        Q-Net 시험일정 저장/갱신
+        동일 자격증 + 연도 + 회차가 이미 있으면 UPDATE
+    -->
+    <insert id="upsertQualificationSchedule">
+
+        INSERT INTO job_qualification_schedule (
+            qual_id,
+            exam_year,
+            exam_round,
+
+            written_reg_start_date,
+            written_reg_end_date,
+            written_exam_start_date,
+            written_exam_end_date,
+            written_result_date,
+
+            practical_reg_start_date,
+            practical_reg_end_date,
+            practical_exam_start_date,
+            practical_exam_end_date,
+            practical_result_date,
+
+            last_synced_date,
+            created_date,
+            created_nm,
+            del_yn
+        )
+        VALUES (
+                   #{qualId},
+                   #{examYear},
+                   #{examRound},
+
+                   #{schedule.writtenRegStartDate},
+                   #{schedule.writtenRegEndDate},
+                   #{schedule.writtenExamStartDate},
+                   #{schedule.writtenExamEndDate},
+                   #{schedule.writtenResultDate},
+
+                   #{schedule.practicalRegStartDate},
+                   #{schedule.practicalRegEndDate},
+                   #{schedule.practicalExamStartDate},
+                   #{schedule.practicalExamEndDate},
+                   #{schedule.practicalResultEndDate},
+
+                   NOW(),
+                   NOW(),
+                   'QNET_BATCH',
+                   'N'
+               )
+
+            ON DUPLICATE KEY UPDATE
+                 written_reg_start_date =
+                 COALESCE(VALUES(written_reg_start_date), written_reg_start_date),
+                 written_reg_end_date =
+                 COALESCE(VALUES(written_reg_end_date), written_reg_end_date),
+
+                 written_exam_start_date =
+                 COALESCE(VALUES(written_exam_start_date), written_exam_start_date),
+                 written_exam_end_date =
+                 COALESCE(VALUES(written_exam_end_date), written_exam_end_date),
+
+                 written_result_date =
+                 COALESCE(VALUES(written_result_date), written_result_date),
+
+                 practical_reg_start_date =
+                 COALESCE(VALUES(practical_reg_start_date), practical_reg_start_date),
+                 practical_reg_end_date =
+                 COALESCE(VALUES(practical_reg_end_date), practical_reg_end_date),
+
+                 practical_exam_start_date =
+                 COALESCE(VALUES(practical_exam_start_date), practical_exam_start_date),
+                 practical_exam_end_date =
+                 COALESCE(VALUES(practical_exam_end_date), practical_exam_end_date),
+
+                 practical_result_date =
+                 COALESCE(VALUES(practical_result_date), practical_result_date),
+
+                 last_synced_date = NOW(),
+                 modified_date = NOW(),
+                 modified_nm = 'QNET_BATCH',
+                 del_yn = 'N'
+
+    </insert>
+
+    <!-- 목표 ID로 선택한 직무 카테고리 조회 -->
+    <select id="findJobCategoryByGoalId"
+            parameterType="Long"
+            resultType="org.scoula.job.domain.JobCategoryVO">
+
+        SELECT
+            jc.category_id,
+            jc.parent_id,
+            jc.goal_type,
+            jc.category_name,
+            jc.ncs_code,
+            jc.category_level
+        FROM job_goal jg
+                 JOIN job_category jc
+                      ON jc.category_id = jg.category_id
+        WHERE jg.goal_id = #{goalId}
+          AND jg.del_yn = 'N'
+          AND jc.del_yn = 'N'
 
     </select>
 

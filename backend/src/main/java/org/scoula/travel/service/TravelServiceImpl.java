@@ -1,5 +1,6 @@
 package org.scoula.travel.service;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -26,6 +27,8 @@ import lombok.extern.log4j.Log4j2;
 
 import org.scoula.common.exception.BusinessException;
 import org.scoula.product.service.ProductService;
+import org.scoula.simulator.dto.SimulatorSavingDetailsResponseDTO;
+import org.scoula.simulator.service.SimulatorService;
 import org.scoula.travel.client.BookingApiClient;
 import org.scoula.travel.client.FlightApiClient;
 import org.scoula.travel.client.OdsayClient;
@@ -37,8 +40,11 @@ import org.scoula.travel.domain.TravelGoalVO;
 import org.scoula.travel.domain.TravelPackageVO;
 import org.scoula.travel.dto.CityCostResponseDTO;
 import org.scoula.travel.dto.TravelCostResponseDTO;
+import org.scoula.travel.dto.TravelCostStyleUpdateRequestDTO;
+import org.scoula.travel.dto.TravelBudgetPlanResponseDTO;
 import org.scoula.travel.dto.TravelFinancialProductResponseDTO;
 import org.scoula.travel.dto.TravelGoalCreateRequestDTO;
+import org.scoula.travel.dto.TravelGoalDetailResponseDTO;
 import org.scoula.travel.dto.TravelGoalDraftResponseDTO;
 import org.scoula.travel.dto.TravelPlaceResponseDTO;
 import org.scoula.travel.dto.TravelPlaceSelectionDTO;
@@ -48,10 +54,11 @@ import org.scoula.travel.dto.TravelPackageResponseDTO;
 import org.scoula.travel.dto.TravelPackageSearchDTO;
 import org.scoula.travel.dto.TravelPackageUpdateRequestDTO;
 import org.scoula.travel.dto.TravelProductRecommendationResponseDTO;
-import org.scoula.travel.dto.TravelProductSelectionDTO;
-import org.scoula.travel.dto.TravelProductsUpdateRequestDTO;
+import org.scoula.travel.dto.TravelStyleCostResponseDTO;
+import org.scoula.travel.dto.TravelUserFinanceDTO;
 import org.scoula.travel.mapper.TravelMapper;
 import org.scoula.travel.util.TravelDateCalculator;
+import org.scoula.travel.util.TravelPriceCalculator;
 
 @Log4j2
 @Service
@@ -65,12 +72,16 @@ public class TravelServiceImpl implements TravelService {
     private final SerpApiClient serpApiClient;
     private final YellowBalloonClient yellowBalloonClient;
     private final ProductService productService;
+    private final SimulatorService simulatorService;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Map<String, LocalDateTime> packageQueryCache =
             new ConcurrentHashMap<>();
 
     // 목표 상태값 (DRAFT / CONFIRMED / ARCHIVED)
     private static final String STATUS_DRAFT = "DRAFT";
+    private static final String BUDGET_PLAN_IN_SERVICE = "IN_SERVICE";
+    private static final String BUDGET_PLAN_AFTER_DISCHARGE =
+            "AFTER_DISCHARGE";
 
     private static final String DOMESTIC_COUNTRY = "대한민국";
     private static final DateTimeFormatter PACKAGE_DATE_FORMAT =
@@ -88,6 +99,15 @@ public class TravelServiceImpl implements TravelService {
 
     private static final Set<String> HOTEL_FALLBACK_CODES =
             Set.of("TRAVEL_020", "TRAVEL_021", "TRAVEL_022");
+
+    private static final BigDecimal TRANSPORT_SAVING_RATE =
+            new BigDecimal("0.90");
+    private static final BigDecimal TRANSPORT_PREMIUM_RATE =
+            new BigDecimal("1.20");
+    private static final BigDecimal HOTEL_SAVING_RATE =
+            new BigDecimal("0.80");
+    private static final BigDecimal HOTEL_PREMIUM_RATE =
+            new BigDecimal("1.35");
 
     @Transactional(readOnly = true)
     @Override
@@ -138,6 +158,132 @@ public class TravelServiceImpl implements TravelService {
         final TravelGoalVO goal =
                 this.mapper.findDraftGoalByUserId(userId);
         return goal == null ? null : TravelGoalDraftResponseDTO.of(goal);
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public TravelGoalDetailResponseDTO getGoalDetail(
+            final Long userId,
+            final Long goalId) {
+        final TravelGoalVO goal =
+                this.findOwnedGoalOrThrow(userId, goalId);
+        final TravelCostVO cost = this.findCostOrThrow(goalId);
+        final CityCostVO cityCost =
+                this.findCityCostOrThrow(goal.getDestination());
+        final TravelCostResponseDTO costResponse =
+                TravelCostResponseDTO.of(
+                        cost,
+                        goal.getStyle(),
+                        this.createStyleCostResponses(goal, cityCost, cost));
+        final TravelPackageVO selectedPackage = goal.getPackageId() == null
+                ? null
+                : this.mapper.getPackageById(goal.getPackageId());
+        final TravelPackageResponseDTO packageResponse =
+                selectedPackage == null
+                        ? null
+                        : TravelPackageResponseDTO.of(
+                                selectedPackage, goal.getPackageId());
+
+        return TravelGoalDetailResponseDTO.of(
+                goal,
+                costResponse,
+                this.readSelectedPlaces(goal),
+                packageResponse,
+                this.createProductRecommendations(),
+                this.createBudgetPlan(userId, goal, cost));
+    }
+
+    private TravelBudgetPlanResponseDTO createBudgetPlan(
+            final Long userId,
+            final TravelGoalVO goal,
+            final TravelCostVO cost) {
+        final long shortfall =
+                this.nvl(cost.getTotalCost()) - this.nvl(goal.getTotalBudget());
+        if (shortfall <= 0L) {
+            return null;
+        }
+
+        final TravelUserFinanceDTO finance =
+                this.mapper.findUserFinanceByUserId(userId);
+        if (finance == null || finance.getDischargeDate() == null) {
+            return null;
+        }
+
+        if (!goal.getStartDate().isAfter(finance.getDischargeDate())) {
+            return this.createInServiceBudgetPlan(shortfall, finance);
+        }
+        return this.createAfterDischargeBudgetPlan(
+                userId, shortfall, finance.getDischargeDate());
+    }
+
+    private TravelBudgetPlanResponseDTO createInServiceBudgetPlan(
+            final long shortfall,
+            final TravelUserFinanceDTO finance) {
+        final long monthlySalary = this.nvl(finance.getMonthlySalary());
+        final long monthlySaving = this.nvl(finance.getMonthlySaving());
+        final long monthlyAvailableAmount =
+                Math.max(0L, monthlySalary - monthlySaving);
+        final Integer requiredMonths = monthlyAvailableAmount > 0L
+                ? this.calculateRequiredMonths(
+                        shortfall, monthlyAvailableAmount)
+                : null;
+
+        return TravelBudgetPlanResponseDTO.builder()
+                .planType(BUDGET_PLAN_IN_SERVICE)
+                .shortfall(shortfall)
+                .dischargeDate(finance.getDischargeDate())
+                .monthlySalary(monthlySalary)
+                .monthlySaving(monthlySaving)
+                .monthlyAvailableAmount(monthlyAvailableAmount)
+                .requiredMonths(requiredMonths)
+                .build();
+    }
+
+    private TravelBudgetPlanResponseDTO createAfterDischargeBudgetPlan(
+            final Long userId,
+            final long shortfall,
+            final LocalDate dischargeDate) {
+        final SimulatorSavingDetailsResponseDTO savingDetails =
+                this.findSavingDetailsOrNull(userId);
+        final Long expectedMaturityAmount = savingDetails == null
+                ? null
+                : this.nvl(savingDetails.getTotalReceiptAmount());
+        final Long remainingAfterTravel = expectedMaturityAmount == null
+                ? null
+                : expectedMaturityAmount - shortfall;
+
+        return TravelBudgetPlanResponseDTO.builder()
+                .planType(BUDGET_PLAN_AFTER_DISCHARGE)
+                .shortfall(shortfall)
+                .dischargeDate(dischargeDate)
+                .expectedMaturityAmount(expectedMaturityAmount)
+                .remainingAfterTravel(remainingAfterTravel)
+                .build();
+    }
+
+    private SimulatorSavingDetailsResponseDTO findSavingDetailsOrNull(
+            final Long userId) {
+        try {
+            return this.simulatorService.findSavingDetails(userId);
+        } catch (BusinessException exception) {
+            if ("SIMUL_001".equals(exception.getCode())
+                    || "SIMUL_002".equals(exception.getCode())) {
+                log.info(
+                        "여행 자금 안내용 군적금 정보를 찾을 수 없습니다: userId={}, code={}",
+                        userId,
+                        exception.getCode());
+                return null;
+            }
+            throw exception;
+        }
+    }
+
+    private int calculateRequiredMonths(
+            final long shortfall,
+            final long monthlyAvailableAmount) {
+        final long months = shortfall / monthlyAvailableAmount
+                + (shortfall % monthlyAvailableAmount == 0L ? 0L : 1L);
+        return (int) Math.min(months, Integer.MAX_VALUE);
     }
 
     @Transactional
@@ -267,9 +413,13 @@ public class TravelServiceImpl implements TravelService {
         TravelGoalVO goal = this.getGoalOrThrow(goalId);
         CityCostVO cityCost = this.findCityCostOrThrow(goal.getDestination());
 
-        final long flightCost =
+        final long commonFlightCost =
                 this.calculateTransportationCost(goal, cityCost);
-        final long hotelCost = this.calculateHotelCost(goal, cityCost);
+        final long commonHotelCost = this.calculateHotelCost(goal, cityCost);
+        final long flightCost = this.findTransportationCostByStyle(
+                commonFlightCost, goal.getStyle());
+        final long hotelCost = this.findHotelCostByStyle(
+                commonHotelCost, goal.getStyle());
         final int days = TravelDateCalculator.calculateTravelDays(
                 goal.getStartDate(), goal.getEndDate());
         long dailyCost = this.findDailyCost(cityCost, goal.getStyle());
@@ -284,8 +434,9 @@ public class TravelServiceImpl implements TravelService {
 
         final TravelCostVO cost = new TravelCostVO();
         cost.setGoalId(goalId);
-        cost.setFlightCost(flightCost);
-        cost.setHotelCost(hotelCost);
+        // 기존 컬럼은 모든 스타일 계산의 기준이 되는 일반 가격을 저장한다.
+        cost.setFlightCost(commonFlightCost);
+        cost.setHotelCost(commonHotelCost);
         cost.setLivingCost(livingCost);
         cost.setTotalCost(totalCost);
         cost.setRemainingBudget(remainingBudget);
@@ -458,6 +609,47 @@ public class TravelServiceImpl implements TravelService {
         }
     }
 
+    private long findTransportationCostByStyle(
+            final long commonCost,
+            final String style) {
+        return this.applyStyleRate(
+                commonCost,
+                style,
+                TRANSPORT_SAVING_RATE,
+                TRANSPORT_PREMIUM_RATE);
+    }
+
+    private long findHotelCostByStyle(
+            final long commonCost,
+            final String style) {
+        return this.applyStyleRate(
+                commonCost,
+                style,
+                HOTEL_SAVING_RATE,
+                HOTEL_PREMIUM_RATE);
+    }
+
+    private long applyStyleRate(
+            final long commonCost,
+            final String style,
+            final BigDecimal savingRate,
+            final BigDecimal premiumRate) {
+        final BigDecimal rate;
+        if ("saving".equals(style)) {
+            rate = savingRate;
+        } else if ("common".equals(style)) {
+            rate = BigDecimal.ONE;
+        } else if ("premium".equals(style)) {
+            rate = premiumRate;
+        } else {
+            throw BusinessException.badRequest(
+                    "여행 스타일을 선택해주세요.",
+                    "TRAVEL_008");
+        }
+
+        return TravelPriceCalculator.applyRate(commonCost, rate);
+    }
+
     private long findDailyCost(CityCostVO cityCost, String style) {
         Long dailyCost = cityCost.costByStyle(style);
         if (dailyCost == null) {
@@ -478,8 +670,90 @@ public class TravelServiceImpl implements TravelService {
     @Transactional(readOnly = true)
     @Override
     public TravelCostResponseDTO findCost(final Long goalId) {
-        this.getGoalOrThrow(goalId);
-        return TravelCostResponseDTO.of(this.findCostOrThrow(goalId));
+        final TravelGoalVO goal = this.getGoalOrThrow(goalId);
+        final TravelCostVO cost = this.findCostOrThrow(goalId);
+        final CityCostVO cityCost =
+                this.findCityCostOrThrow(goal.getDestination());
+        return TravelCostResponseDTO.of(
+                cost,
+                goal.getStyle(),
+                this.createStyleCostResponses(goal, cityCost, cost));
+    }
+
+    @Transactional
+    @Override
+    public void updateCostStyle(
+            final Long userId,
+            final Long goalId,
+            final String userName,
+            final TravelCostStyleUpdateRequestDTO request) {
+        final String requestedStyle =
+                request == null ? null : request.getStyle();
+        this.validateStyle(requestedStyle);
+
+        final TravelGoalVO goal =
+                this.findOwnedDraftGoalOrThrow(userId, goalId);
+        final TravelCostVO cost = this.findCostOrThrow(goalId);
+        final CityCostVO cityCost =
+                this.findCityCostOrThrow(goal.getDestination());
+        final String style = requestedStyle.toLowerCase();
+        final long flightCost = this.findTransportationCostByStyle(
+                this.nvl(cost.getFlightCost()), style);
+        final long hotelCost = this.findHotelCostByStyle(
+                this.nvl(cost.getHotelCost()), style);
+        final int days = TravelDateCalculator.calculateTravelDays(
+                goal.getStartDate(), goal.getEndDate());
+        final long livingCost = this.findDailyCost(cityCost, style) * days;
+        final long totalCost = flightCost + hotelCost + livingCost;
+
+        if (this.mapper.updateGoalStyle(
+                goalId, userId, style, userName) == 0) {
+            throw BusinessException.conflict(
+                    "작성 중인 여행 목표만 수정할 수 있습니다.",
+                    "TRAVEL_029");
+        }
+
+        cost.setLivingCost(livingCost);
+        cost.setTotalCost(totalCost);
+        cost.setRemainingBudget(
+                this.nvl(goal.getTotalBudget()) - totalCost);
+        cost.setModifiedNm(userName);
+        if (this.mapper.updateCost(cost) == 0) {
+            throw BusinessException.conflict(
+                    "예상 경비를 갱신하지 못했습니다.",
+                    "TRAVEL_029");
+        }
+    }
+
+    private List<TravelStyleCostResponseDTO> createStyleCostResponses(
+            final TravelGoalVO goal,
+            final CityCostVO cityCost,
+            final TravelCostVO cost) {
+        final int days = TravelDateCalculator.calculateTravelDays(
+                goal.getStartDate(), goal.getEndDate());
+        final long commonFlightCost = this.nvl(cost.getFlightCost());
+        final long commonHotelCost = this.nvl(cost.getHotelCost());
+
+        return VALID_STYLES.stream()
+                .map(style -> {
+                    final long flightCost =
+                            this.findTransportationCostByStyle(
+                                    commonFlightCost, style);
+                    final long hotelCost = this.findHotelCostByStyle(
+                            commonHotelCost, style);
+                    final long livingCost =
+                            this.findDailyCost(cityCost, style) * days;
+                    final long totalCost =
+                            flightCost + hotelCost + livingCost;
+                    return TravelStyleCostResponseDTO.of(
+                            style,
+                            flightCost,
+                            hotelCost,
+                            livingCost,
+                            totalCost,
+                            this.nvl(goal.getTotalBudget()) - totalCost);
+                })
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
@@ -536,6 +810,11 @@ public class TravelServiceImpl implements TravelService {
     public List<TravelPlaceSelectionDTO> getSelectedPlaces(
             final Long goalId) {
         final TravelGoalVO goal = this.getGoalOrThrow(goalId);
+        return this.readSelectedPlaces(goal);
+    }
+
+    private List<TravelPlaceSelectionDTO> readSelectedPlaces(
+            final TravelGoalVO goal) {
         if (goal.getPlaces() == null || goal.getPlaces().trim().isEmpty()) {
             return List.of();
         }
@@ -546,7 +825,10 @@ public class TravelServiceImpl implements TravelService {
                     new TypeReference<List<TravelPlaceSelectionDTO>>() {
                     });
         } catch (final JsonProcessingException e) {
-            log.warn("관심 여행지 JSON 파싱 오류: goalId={}", goalId, e);
+            log.warn(
+                    "관심 여행지 JSON 파싱 오류: goalId={}",
+                    goal.getGoalId(),
+                    e);
             throw new BusinessException(
                     "저장된 관심 여행지 정보를 불러올 수 없습니다.",
                     HttpStatus.INTERNAL_SERVER_ERROR,
@@ -746,12 +1028,12 @@ public class TravelServiceImpl implements TravelService {
     public TravelProductRecommendationResponseDTO findProducts(
             final Long userId,
             final Long goalId) {
-        final TravelGoalVO goal = this.findOwnedGoalOrThrow(userId, goalId);
-        return this.createProductRecommendations(goal);
+        this.findOwnedGoalOrThrow(userId, goalId);
+        return this.createProductRecommendations();
     }
 
     private TravelProductRecommendationResponseDTO
-            createProductRecommendations(final TravelGoalVO goal) {
+            createProductRecommendations() {
         final List<TravelFinancialProductResponseDTO> cards =
                 this.productService
                         .findCardProductListByCategory(
@@ -777,82 +1059,7 @@ public class TravelServiceImpl implements TravelService {
         return TravelProductRecommendationResponseDTO.of(
                 cards,
                 savings,
-                insurances,
-                this.findSelectedProducts(goal));
-    }
-
-    private List<TravelProductSelectionDTO> findSelectedProducts(
-            final TravelGoalVO goal) {
-        if (goal.getProducts() == null
-                || goal.getProducts().trim().isEmpty()) {
-            return List.of();
-        }
-
-        try {
-            return this.objectMapper.readValue(
-                    goal.getProducts(),
-                    new TypeReference<List<TravelProductSelectionDTO>>() {
-                    });
-        } catch (final JsonProcessingException exception) {
-            log.warn("금융상품 JSON 파싱 오류: goalId={}",
-                    goal.getGoalId(), exception);
-            throw new BusinessException(
-                    "저장된 금융상품 정보를 불러올 수 없습니다.",
-                    HttpStatus.INTERNAL_SERVER_ERROR,
-                    "TRAVEL_034");
-        }
-    }
-
-    @Transactional
-    @Override
-    public void updateProducts(
-            final Long userId,
-            final Long goalId,
-            final String userName,
-            final TravelProductsUpdateRequestDTO request) {
-        final TravelGoalVO goal =
-                this.findOwnedDraftGoalOrThrow(userId, goalId);
-        if (request == null || request.getProducts() == null) {
-            throw BusinessException.badRequest(
-                    "관심 금융상품 목록을 입력해주세요.",
-                    "TRAVEL_036");
-        }
-
-        this.validateProducts(request.getProducts());
-        try {
-            goal.setProducts(this.objectMapper.writeValueAsString(
-                    request.getProducts()));
-            goal.setModifiedNm(userName);
-            if (this.mapper.updateGoalProducts(goal) == 0) {
-                throw BusinessException.conflict(
-                        "작성 중인 여행 목표만 수정할 수 있습니다.",
-                        "TRAVEL_029");
-            }
-        } catch (final JsonProcessingException exception) {
-            log.warn("금융상품 JSON 변환 오류: goalId={}",
-                    goalId, exception);
-            throw new BusinessException(
-                    "금융상품 정보를 저장할 수 없습니다.",
-                    HttpStatus.INTERNAL_SERVER_ERROR,
-                    "TRAVEL_035");
-        }
-    }
-
-    private void validateProducts(
-            final List<TravelProductSelectionDTO> products) {
-        for (final TravelProductSelectionDTO product : products) {
-            if (product == null
-                    || product.getType() == null
-                    || product.getType().trim().isEmpty()
-                    || product.getProductId() == null
-                    || product.getProductId().trim().isEmpty()
-                    || product.getName() == null
-                    || product.getName().trim().isEmpty()) {
-                throw BusinessException.badRequest(
-                        "관심 금융상품 정보를 확인해주세요.",
-                        "TRAVEL_037");
-            }
-        }
+                insurances);
     }
 
     @Transactional
@@ -863,18 +1070,26 @@ public class TravelServiceImpl implements TravelService {
             final String userName) {
         final TravelGoalVO goal =
                 this.findOwnedDraftGoalOrThrow(userId, goalId);
-        if (goal.getProducts() == null) {
-            throw BusinessException.badRequest(
-                    "관심 금융상품 저장을 먼저 완료해주세요.",
-                    "TRAVEL_038");
-        }
-
         goal.setModifiedNm(userName);
-        this.mapper.archiveConfirmedGoalByUserId(goal);
         if (this.mapper.confirmGoal(goal) == 0) {
             throw BusinessException.conflict(
                     "작성 중인 여행 목표만 저장할 수 있습니다.",
                     "TRAVEL_029");
+        }
+    }
+
+    @Transactional
+    @Override
+    public void deleteGoal(
+            final Long userId,
+            final Long goalId,
+            final String userName) {
+        this.findOwnedGoalOrThrow(userId, goalId);
+        this.mapper.softDeleteCostByGoalId(goalId, userName);
+        if (this.mapper.softDeleteGoal(goalId, userId, userName) == 0) {
+            throw BusinessException.conflict(
+                    "여행 목표를 삭제하지 못했습니다.",
+                    "TRAVEL_037");
         }
     }
 

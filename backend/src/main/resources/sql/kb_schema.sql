@@ -1,10 +1,10 @@
 SET FOREIGN_KEY_CHECKS = 0;
 
 /*
-총 테이블 갯수: 69개
+총 테이블 갯수: 70개
 
 [테이블 구분]
-- 회원/공통: user, military_types, military_unit, military_rank, badge, user_badge, terms, terms_agreement, vacation
+- 회원/공통: user, military_types, military_unit, military_rank, badge, user_badge, terms, terms_agreement, vacation, vacation_history
 - 예적금/금융: bank_category, saving_product, military_saving_product, card_product, saving_account, saving_history, policy_product
 - 목표/로드맵 공통: roadmap_category, user_bookmark
 - 여행 목표: travel_goal, travel_cost, city_cost, hotel_cost, flight_cost, travel_package, travel_insurance
@@ -20,6 +20,7 @@ DROP TABLE IF EXISTS `military_types`;
 CREATE TABLE `military_types` (
   `type_id` INT PRIMARY KEY NOT NULL COMMENT '군종ID',
   `type_name` VARCHAR(20) NOT NULL COMMENT '군종명',
+  `regular_vacation_days` INT NOT NULL COMMENT '정기휴가(연가) 총 부여일수',
   `created_date` DATETIME NOT NULL COMMENT '생성일시',
   `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
   `modified_date` DATETIME COMMENT '수정일시',
@@ -252,6 +253,8 @@ CREATE TABLE `saving_history` (
   `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
 );
 
+-- vacation = 부여(grant). 실제 사용내역은 vacation_history에서 관리하며,
+-- 잔여일수 = vacation_day - SUM(vacation_history.used_day)로 파생 계산한다.
 DROP TABLE IF EXISTS `vacation`;
 CREATE TABLE `vacation` (
   `vacation_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '휴가ID',
@@ -259,8 +262,20 @@ CREATE TABLE `vacation` (
   `vacation_cate` VARCHAR(20) NOT NULL COMMENT '휴가 카테고리',
   `vacation_name` VARCHAR(100) NOT NULL COMMENT '휴가 이름',
   `vacation_get` DATE NOT NULL COMMENT '휴가 획득날짜',
-  `vacation_day` INT NOT NULL COMMENT '휴가일수',
-  `vacation_state` BOOLEAN NOT NULL COMMENT '사용여부',
+  `vacation_day` INT NOT NULL COMMENT '휴가 총 부여일수',
+  `created_date` DATETIME NOT NULL COMMENT '생성날짜',
+  `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+  `modified_date` DATETIME COMMENT '수정날짜',
+  `modified_nm` VARCHAR(50) COMMENT '수정자',
+  `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
+);
+
+DROP TABLE IF EXISTS `vacation_history`;
+CREATE TABLE `vacation_history` (
+  `history_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '휴가사용ID',
+  `vacation_id` BIGINT NOT NULL COMMENT '휴가ID(부여)',
+  `used_date` DATE NOT NULL COMMENT '사용일',
+  `used_day` INT NOT NULL COMMENT '사용일수',
   `created_date` DATETIME NOT NULL COMMENT '생성날짜',
   `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
   `modified_date` DATETIME COMMENT '수정날짜',
@@ -458,6 +473,7 @@ CREATE TABLE `job_category` (
     `parent_id` BIGINT COMMENT '상위분류ID',
     `goal_type` CHAR(3) NOT NULL COMMENT '목표유형(J01:취업, J02:공무원)',
     `category_name` VARCHAR(100) NOT NULL COMMENT '분류명',
+    `ncs_code` VARCHAR(8) COMMENT '고용24 NCS 직종코드',
     `category_level` TINYINT NOT NULL COMMENT '분류레벨(1:대분류, 2:중분류)',
     `created_date` DATETIME NOT NULL COMMENT '생성일시',
     `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
@@ -660,6 +676,31 @@ CREATE TABLE `job_goal_course` (
     `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부',
      UNIQUE (`goal_id`, `course_id`)
 );
+
+DROP TABLE IF EXISTS `job_goal_training`;
+CREATE TABLE `job_goal_training` (
+     `goal_training_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '목표훈련과정선택ID',
+     `goal_id` BIGINT NOT NULL COMMENT '목표ID',
+     `external_code` VARCHAR(50) NOT NULL COMMENT '고용24훈련과정ID',
+     `training_round` INT NOT NULL COMMENT '훈련회차',
+     `institution_id` VARCHAR(50) NOT NULL COMMENT '고용24훈련기관ID',
+     `training_name` VARCHAR(255) NOT NULL COMMENT '훈련과정명',
+     `institution_name` VARCHAR(255) COMMENT '훈련기관명',
+     `training_type` VARCHAR(100) COMMENT '훈련유형',
+     `address` VARCHAR(255) COMMENT '훈련지역',
+     `training_cost` BIGINT COMMENT '선택당시 전체훈련비',
+     `selected_cost` BIGINT COMMENT '선택당시 본인부담금',
+     `start_date` DATE COMMENT '훈련시작일',
+     `end_date` DATE COMMENT '훈련종료일',
+     `detail_url` VARCHAR(500) COMMENT '훈련과정상세URL',
+     `created_date` DATETIME NOT NULL COMMENT '생성일시',
+     `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+     `modified_date` DATETIME COMMENT '수정일시',
+     `modified_nm` VARCHAR(50) COMMENT '수정자',
+     `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부',
+     UNIQUE (`goal_id`, `external_code`, `training_round`)
+);
+
 
 DROP TABLE IF EXISTS `job_recommend_service`;
 CREATE TABLE `job_recommend_service` (
@@ -1136,6 +1177,7 @@ CREATE TABLE `chat_message` (
   `source` VARCHAR(100) COMMENT '출처문서',
   `source_detail` VARCHAR(200) COMMENT '출처 캡션 (RAG 답변만, 예: KB국민은행 상품안내 · 장병내일준비적금 (2026년 3월 기준))',
   `is_ai_generated` BOOLEAN NOT NULL DEFAULT FALSE COMMENT 'AI 생성 답변 문구 표시 여부',
+  `langfuse_trace_id` VARCHAR(100) COMMENT 'Langfuse 트레이스 id (봇 답변만, 피드백을 같은 trace에 점수로 연결할 때 씀)',
   `created_date` DATETIME NOT NULL COMMENT '생성일시',
   `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
   `modified_date` DATETIME COMMENT '수정일시',
@@ -1396,6 +1438,8 @@ ALTER TABLE `job_goal_qualification` COMMENT='사용자가 목표별로 선택�
 
 ALTER TABLE `job_goal_course` COMMENT='사용자가 목표별로 선택한 인강 데이터';
 
+ALTER TABLE `job_goal_training` COMMENT='사용자가 목표별로 선택한 고용24 훈련과정 데이터';
+
 ALTER TABLE `job_recommend_service` COMMENT='목표유형별 정책 및 KB서비스 기준정보';
 
 ALTER TABLE `car_goal` COMMENT = '회원이 등록한 자동차 구매 목표 정보';
@@ -1478,6 +1522,8 @@ ALTER TABLE `military_saving_product` ADD FOREIGN KEY (`bank_code`) REFERENCES `
 
 ALTER TABLE `vacation` ADD FOREIGN KEY (`user_id`) REFERENCES `user` (`id`);
 
+ALTER TABLE `vacation_history` ADD FOREIGN KEY (`vacation_id`) REFERENCES `vacation` (`vacation_id`);
+
 ALTER TABLE `travel_goal` ADD FOREIGN KEY (`user_id`) REFERENCES `user` (`id`);
 
 ALTER TABLE `travel_goal` ADD FOREIGN KEY (`package_id`) REFERENCES `travel_package` (`package_id`);
@@ -1527,6 +1573,8 @@ ALTER TABLE `job_transfer_major_course` ADD FOREIGN KEY (`course_id`) REFERENCES
 ALTER TABLE `job_goal_qualification` ADD FOREIGN KEY (`goal_id`) REFERENCES `job_goal` (`goal_id`);
 
 ALTER TABLE `job_goal_qualification` ADD FOREIGN KEY (`qual_id`) REFERENCES `job_qualification` (`qual_id`);
+
+ALTER TABLE `job_goal_training` ADD FOREIGN KEY (`goal_id`) REFERENCES `job_goal` (`goal_id`);
 
 ALTER TABLE `job_goal_course` ADD FOREIGN KEY (`goal_id`) REFERENCES `job_goal` (`goal_id`);
 

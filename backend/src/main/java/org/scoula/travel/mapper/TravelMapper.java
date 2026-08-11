@@ -12,6 +12,7 @@ import org.scoula.travel.domain.TravelInsuranceVO;
 import org.scoula.travel.domain.TravelPackageVO;
 import org.scoula.travel.dto.TravelQuarterCostSearchDTO;
 import org.scoula.travel.dto.TravelPackageSearchDTO;
+import org.scoula.travel.dto.TravelUserFinanceDTO;
 
 public interface TravelMapper {
 
@@ -35,6 +36,11 @@ public interface TravelMapper {
 
     int updateGoal(final TravelGoalVO vo);
 
+    int updateGoalStyle(@Param("goalId") final Long goalId,
+                        @Param("userId") final Long userId,
+                        @Param("style") final String style,
+                        @Param("modifiedNm") final String modifiedNm);
+
     int updateGoalPlaces(@Param("goalId") final Long goalId,
                          @Param("places") final String places,
                          @Param("modifiedNm") final String modifiedNm);
@@ -45,6 +51,9 @@ public interface TravelMapper {
 
     TravelCostVO findCostByGoalId(@Param("goalId") final Long goalId);
 
+    TravelUserFinanceDTO findUserFinanceByUserId(
+            @Param("userId") final Long userId);
+
     Long findFlightCostByQuarter(
             final TravelQuarterCostSearchDTO request);
 
@@ -53,6 +62,9 @@ public interface TravelMapper {
 
     TravelPackageVO findPackageByGoodsCode(
             @Param("goodsCode") final String goodsCode);
+
+    TravelPackageVO getPackageById(
+            @Param("packageId") final Long packageId);
 
     List<TravelPackageVO> findPackagesByDestination(
             final TravelPackageSearchDTO request);
@@ -70,10 +82,14 @@ public interface TravelMapper {
     List<SavingProductVO> findTravelSavingProductList(
             @Param("codePrefix") final String codePrefix);
 
-    int updateGoalProducts(final TravelGoalVO goal);
-
-    int archiveConfirmedGoalByUserId(final TravelGoalVO goal);
-
     int confirmGoal(final TravelGoalVO goal);
+
+    int softDeleteGoal(@Param("goalId") final Long goalId,
+                       @Param("userId") final Long userId,
+                       @Param("modifiedNm") final String modifiedNm);
+
+    int softDeleteCostByGoalId(
+            @Param("goalId") final Long goalId,
+            @Param("modifiedNm") final String modifiedNm);
 
 }
