@@ -17,6 +17,7 @@
         SET car_type_code = #{carTypeCode},
             selected_model_id = #{selectedModelId},
             selected_year = #{selectedYear},
+            selected_mileage_km = #{selectedMileageKm},
             status = #{status},
             modified_date = NOW(),
             modified_nm = #{userId}
@@ -93,7 +94,7 @@
     <sql id="carGoalDetailColumns">
         g.goal_id, g.budget, g.car_type_code, g.is_new, g.experience_years,
         g.target_date, g.region, g.selected_model_id, m.model_name AS selectedModelName,
-        g.selected_year, g.status
+        g.selected_year, g.selected_mileage_km, g.status
     </sql>
 
     <select id="selectCarGoalsByUserId" resultType="org.scoula.car.dto.CarGoalResponseDTO">

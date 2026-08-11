@@ -79,4 +79,25 @@ defineProps({
   background-color: var(--rent-pink);
   color: var(--surface-default);
 }
+
+/* 로드맵 카테고리 파스텔 배지 */
+.base-tag--pastel-blue {
+  background-color: var(--pastel-blue);
+  color: var(--text-strong);
+}
+
+.base-tag--pastel-yellow {
+  background-color: var(--pastel-yellow);
+  color: var(--text-strong);
+}
+
+.base-tag--pastel-green {
+  background-color: var(--pastel-green);
+  color: var(--text-strong);
+}
+
+.base-tag--pastel-pink {
+  background-color: var(--pastel-pink);
+  color: var(--text-strong);
+}
 </style>

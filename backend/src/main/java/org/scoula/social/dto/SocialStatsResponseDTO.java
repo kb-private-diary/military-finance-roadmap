@@ -19,4 +19,6 @@ public class SocialStatsResponseDTO {
     private Double averageSavingsRate;
     private Integer savingsRank;
     private Integer comparisonMemberCount;
+    private Integer higherSavingsCount;
+    private Integer lowerSavingsCount;
 }

@@ -2,7 +2,6 @@ package org.scoula.simulator.service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -46,6 +45,9 @@ public class SimulatorServiceImpl implements SimulatorService {
     private static final String SIMULATION_BANK_CODE = "004";
     // 장병내일준비적금 제도상 월 납입 총한도(여러 은행 계좌 합산 기준, 특정 은행 상품 한도와는 별개)
     private static final long MAX_SAVE_AMOUNT = 550000;
+    private static final double MONTHS_IN_YEAR = 12.0;
+    // 전역일이 없을 때(연동 전 등) 쓰는 폴백 복무기간. 육군·해병대 기준 18개월.
+    private static final int DEFAULT_SERVICE_MONTHS = 18;
 
     @Transactional(readOnly = true)
     @Override
@@ -55,7 +57,6 @@ public class SimulatorServiceImpl implements SimulatorService {
         List<SimulatorSavingAccountDTO> accounts = this.findAccountsOrThrow(userId);
 
         LocalDate dischargeDate = this.resolveDischargeDate(userDates);
-        int totalServiceMonths = this.resolveTotalServiceMonths(userDates, dischargeDate);
 
         long monthlySaveTotal = 0L;
         long currentPaidAmountTotal = 0L;
@@ -94,11 +95,7 @@ public class SimulatorServiceImpl implements SimulatorService {
             currentPaidAmountTotal += calc.pastPrincipal;
             expectedPrincipalTotal += calc.getTotalPrincipal();
             expectedInterestTotal += calc.getTotalInterest();
-
-            // 3. 계좌별 매칭지원금 및 최대 한도(복무개월수 * 월납입액) 제한 적용
-            expectedMatchingFundTotal += this.calculateMatchingFund(
-                    calc.getTotalPrincipal(), rateResolver.getGovMatchRate(),
-                    totalServiceMonths, monthlySave);
+            expectedMatchingFundTotal += calc.matchingFund;
         }
 
         long totalReceiptAmount = expectedPrincipalTotal + (long) expectedInterestTotal + expectedMatchingFundTotal;
@@ -123,7 +120,6 @@ public class SimulatorServiceImpl implements SimulatorService {
         List<SimulatorSavingAccountDTO> accounts = this.findAccountsOrThrow(userId);
 
         LocalDate dischargeDate = this.resolveDischargeDate(userDates);
-        int totalServiceMonths = this.resolveTotalServiceMonths(userDates, dischargeDate);
         LocalDate today = LocalDate.now();
 
         if (!today.isBefore(dischargeDate)) {
@@ -153,11 +149,8 @@ public class SimulatorServiceImpl implements SimulatorService {
                     rateResolver
             );
 
-            long accountMatchingFund = this.calculateMatchingFund(
-                    calc.getTotalPrincipal(), rateResolver.getGovMatchRate(),
-                    totalServiceMonths, monthlySave);
             totalMaturityAmount +=
-                    calc.getTotalPrincipal() + (long) calc.getTotalInterest() + accountMatchingFund;
+                    calc.getTotalPrincipal() + (long) calc.getTotalInterest() + calc.matchingFund;
 
             // 중도해지는 정부매칭지원금 없음. 이미 낸 회차(과거 이력)만 대상.
             BigDecimal basicRate = rateResolver.getBasicRate();
@@ -334,31 +327,13 @@ public class SimulatorServiceImpl implements SimulatorService {
     // ------------------------- 계산 헬퍼 -------------------------
 
     private double calculateSimpleInterest(long amount, double annualRate, int investedMonths) {
-        return amount * annualRate * (investedMonths / 12.0);
+        return amount * annualRate * (investedMonths / MONTHS_IN_YEAR);
     }
 
     private LocalDate resolveDischargeDate(SimulatorUserDatesDTO userDates) {
         return userDates.getDischargeDate() != null
                 ? userDates.getDischargeDate()
-                : LocalDate.now().plusMonths(18);
-    }
-
-    // 복무개월수 계산 (매칭지원금 최대 한도 용도)
-    private int resolveTotalServiceMonths(
-            SimulatorUserDatesDTO userDates, LocalDate dischargeDate) {
-        LocalDate enlistDate =
-                userDates.getEnlistDate() != null ? userDates.getEnlistDate() : LocalDate.now();
-        int totalServiceMonths = (int) ChronoUnit.MONTHS.between(
-                enlistDate.withDayOfMonth(1), dischargeDate.withDayOfMonth(1));
-        return totalServiceMonths > 0 ? totalServiceMonths : 1;
-    }
-
-    // 계좌별 정부매칭지원금 (복무개월수 * 월납입액 한도 적용)
-    private long calculateMatchingFund(
-            long totalPrincipal, double govMatchRate, int totalServiceMonths, long monthlySave) {
-        long matchingFund = (long) (totalPrincipal * govMatchRate);
-        long maxMatchingFund = (long) totalServiceMonths * monthlySave;
-        return Math.min(matchingFund, maxMatchingFund);
+                : LocalDate.now().plusMonths(DEFAULT_SERVICE_MONTHS);
     }
 
     private SimulatorCalculateResponseDTO buildSimulationResponse(

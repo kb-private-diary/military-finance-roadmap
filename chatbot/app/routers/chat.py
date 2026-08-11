@@ -36,7 +36,7 @@ from app.schemas.product import (
     SubscriptionDetail,
     SubscriptionItem,
 )
-from app.services import cheongyakhome, fss, gemini, langfuse_client, policy_docs, vectorstore
+from app.services import cheongyakhome, fss, gemini, langfuse_client, pii_filter, policy_docs, vectorstore
 from app.services import fund as fund_service
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
@@ -169,6 +169,10 @@ def send_message(
         raise BusinessException("질문을 입력해주세요", 400, "CHAT_002")
     if len(content) > MESSAGE_MAX_LENGTH:
         raise BusinessException(f"질문은 {MESSAGE_MAX_LENGTH}자 이내로 입력해주세요", 400, "CHAT_003")
+    # 주민번호·카드번호·전화번호·계좌번호로 보이는 패턴은 마스킹한 뒤 저장 및 Gemini 전달에 쓴다 -
+    # 사용자가 실수로 자기 정보를 그대로 입력해도 DB에 원문 그대로 남거나 외부 API로 넘어가지 않게
+    # 여기서 한 번만 치환해두면 아래 모든 흐름(저장·히스토리·AI 호출)에 자동으로 적용된다(2026-08-09).
+    content = pii_filter.mask_pii(content)
 
     session = (
         db.query(ChatSession)
@@ -538,5 +542,5 @@ def get_recommendation(
 # 관리자 전용: 정책 문서 재인덱싱 트리거
 @router.post("/admin/reindex", response_model=ReindexResponse)
 def reindex_policy_docs(current_admin_user_id: int = Depends(get_current_admin_user_id)):
-    count = vectorstore.build_index(force=True)
-    return ReindexResponse(reindexed_chunks=count)
+    count, reembedded = vectorstore.build_index(force=True)
+    return ReindexResponse(reindexed_chunks=count, reembedded_chunks=reembedded)

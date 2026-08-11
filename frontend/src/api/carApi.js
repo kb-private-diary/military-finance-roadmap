@@ -15,8 +15,8 @@ export default {
     return api.get(`${BASE_URL}/goals/${goalId}`);
   },
 
-  findRecommendations(goalId) {
-    return api.get(`${BASE_URL}/goals/${goalId}/recommendations`);
+  findRecommendations(goalId, params) {
+    return api.get(`${BASE_URL}/goals/${goalId}/recommendations`, { params });
   },
 
   selectModel(goalId, request) {

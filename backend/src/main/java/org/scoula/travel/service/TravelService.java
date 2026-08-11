@@ -4,15 +4,16 @@ import java.util.List;
 
 import org.scoula.travel.dto.CityCostResponseDTO;
 import org.scoula.travel.dto.TravelCostResponseDTO;
+import org.scoula.travel.dto.TravelCostStyleUpdateRequestDTO;
 import org.scoula.travel.dto.TravelGoalCreateRequestDTO;
 import org.scoula.travel.dto.TravelGoalDraftResponseDTO;
+import org.scoula.travel.dto.TravelGoalDetailResponseDTO;
 import org.scoula.travel.dto.TravelPlaceResponseDTO;
 import org.scoula.travel.dto.TravelPlaceSelectionDTO;
 import org.scoula.travel.dto.TravelPlacesUpdateRequestDTO;
 import org.scoula.travel.dto.TravelPackageResponseDTO;
 import org.scoula.travel.dto.TravelPackageUpdateRequestDTO;
 import org.scoula.travel.dto.TravelProductRecommendationResponseDTO;
-import org.scoula.travel.dto.TravelProductsUpdateRequestDTO;
 
 /**
  * 여행 로드맵 서비스.
@@ -35,6 +36,10 @@ public interface TravelService {
 
     TravelGoalDraftResponseDTO findCurrentDraft(final Long userId);
 
+    TravelGoalDetailResponseDTO getGoalDetail(
+            final Long userId,
+            final Long goalId);
+
     void updateGoal(
             final Long userId,
             final Long goalId,
@@ -46,6 +51,12 @@ public interface TravelService {
 
     // 산출된 예상 경비 조회
     TravelCostResponseDTO findCost(Long goalId);
+
+    void updateCostStyle(
+            final Long userId,
+            final Long goalId,
+            final String userName,
+            final TravelCostStyleUpdateRequestDTO request);
 
     // 저장된 목표의 도착지를 기준으로 관광지 또는 맛집을 검색한다.
     List<TravelPlaceResponseDTO> searchPlaces(
@@ -73,13 +84,12 @@ public interface TravelService {
             final Long userId,
             final Long goalId);
 
-    void updateProducts(
+    void confirmGoal(
             final Long userId,
             final Long goalId,
-            final String userName,
-            final TravelProductsUpdateRequestDTO request);
+            final String userName);
 
-    void confirmGoal(
+    void deleteGoal(
             final Long userId,
             final Long goalId,
             final String userName);

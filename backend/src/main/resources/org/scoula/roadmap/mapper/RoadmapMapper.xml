@@ -190,4 +190,50 @@
 
     </select>
 
+    <!-- 로드맵 목표 soft delete -->
+    <update id="deleteRoadmapGoal">
+        <choose>
+            <!-- 여행 -->
+            <when test="categoryId == 1">
+                UPDATE travel_goal
+            </when>
+
+            <!-- 진로 -->
+            <when test="categoryId == 2">
+                UPDATE job_goal
+            </when>
+
+            <!-- 자동차 -->
+            <when test="categoryId == 3">
+                UPDATE car_goal
+            </when>
+
+            <!-- 자취 -->
+            <when test="categoryId == 4">
+                UPDATE rent_goal
+            </when>
+        </choose>
+
+        SET
+        del_yn = 'Y',
+        modified_date = NOW(),
+        modified_nm = #{modifiedNm}
+        WHERE goal_id = #{goalId}
+        AND user_id = #{userId}
+        AND del_yn = 'N'
+    </update>
+
+    <!-- 삭제한 로드맵의 관심등록 soft delete -->
+    <update id="deleteBookmarkByGoal">
+        UPDATE user_bookmark
+        SET
+        del_yn = 'Y',
+        modified_date = NOW(),
+        modified_nm = #{modifiedNm}
+        WHERE user_id = #{userId}
+        AND category_id = #{categoryId}
+        AND goal_id = #{goalId}
+        AND del_yn = 'N'
+    </update>
+
 </mapper>

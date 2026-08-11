@@ -126,18 +126,15 @@ onBeforeUnmount(() => {
               selectedPackageId === travelPackage.packageId,
           }"
         >
-          <label
+          <button
+            type="button"
             class="package-card__select"
+            :aria-label="`${travelPackage.name} 선택`"
+            :aria-pressed="
+              selectedPackageId === travelPackage.packageId
+            "
+            @click="selectPackage(travelPackage.packageId)"
           >
-            <input
-              class="package-card__checkbox"
-              type="checkbox"
-              :checked="
-                selectedPackageId === travelPackage.packageId
-              "
-              :aria-label="`${travelPackage.name} 선택`"
-              @change="selectPackage(travelPackage.packageId)"
-            />
             <img
               v-if="travelPackage.imageUrl"
               :src="travelPackage.imageUrl"
@@ -169,7 +166,7 @@ onBeforeUnmount(() => {
                 {{ formatWon(travelPackage.minPrice) }}
               </span>
             </span>
-          </label>
+          </button>
 
           <a
             class="package-card__external"
@@ -285,16 +282,27 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: 94px 1fr;
   width: 100%;
+  min-height: 112px;
+  padding: 0;
+  border: 0;
   background: transparent;
   color: inherit;
+  font-family: inherit;
   text-align: left;
   cursor: pointer;
 }
 
+.package-card__select:focus-visible {
+  outline: 2px solid var(--kb-yellow-deep);
+  outline-offset: -2px;
+}
+
 .package-card__select img,
 .package-card__placeholder {
+  align-self: stretch;
   width: 94px;
-  height: 112px;
+  height: 100%;
+  min-height: 112px;
   object-fit: cover;
 }
 
@@ -342,17 +350,6 @@ onBeforeUnmount(() => {
   color: var(--travel-primary-dark);
   font-size: 14px;
   font-weight: 700;
-}
-
-.package-card__checkbox {
-  position: absolute;
-  z-index: 2;
-  top: 7px;
-  right: 7px;
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  accent-color: var(--kb-yellow-deep);
 }
 
 .package-card__external {

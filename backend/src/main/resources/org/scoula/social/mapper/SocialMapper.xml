@@ -92,6 +92,29 @@
          WHERE del_yn = 'N' AND status IN ('CONFIRMED', 'ARCHIVED')
     </sql>
 
+    <sql id="unitRankingCtes">
+        unit_stats AS (
+            SELECT
+                unit_code,
+                MAX(unit_name) AS unit_name,
+                ROUND(AVG(savings_rate), 1) AS savings_rate
+            FROM user_metrics
+            WHERE unit_code IS NOT NULL
+              AND unit_code != ''
+            GROUP BY unit_code
+            <!-- 평균이 0%인 부대는 순위에 올리지 않는다. -->
+            HAVING ROUND(AVG(savings_rate), 1) &gt; 0
+        ),
+        ranked_units AS (
+            SELECT
+                unit_code,
+                unit_name,
+                savings_rate,
+                DENSE_RANK() OVER (ORDER BY savings_rate DESC) AS unit_rank
+            FROM unit_stats
+        )
+    </sql>
+
     <select id="findUserContext" resultType="org.scoula.social.dto.SocialUserContextDTO">
         SELECT
             u.id AS userId,
@@ -150,18 +173,18 @@
             FROM user_metrics metrics
             WHERE <include refid="scopeCondition" />
         ),
-        ranked_metrics AS (
-            SELECT
-                user_id,
-                DENSE_RANK() OVER (ORDER BY savings_rate DESC) AS savings_rank,
-                COUNT(*) OVER () AS total_count
+        my_metrics AS (
+            SELECT savings_rate
             FROM scoped_metrics
+            WHERE user_id = #{userId}
         )
         SELECT
-            savings_rank AS `rank`,
-            total_count AS totalCount
-        FROM ranked_metrics
-        WHERE user_id = #{userId}
+            1 + SUM(CASE WHEN metrics.savings_rate &gt; me.savings_rate THEN 1 ELSE 0 END) AS `rank`,
+            COUNT(*) AS totalCount,
+            SUM(CASE WHEN metrics.savings_rate &gt; me.savings_rate THEN 1 ELSE 0 END) AS higherCount,
+            SUM(CASE WHEN metrics.savings_rate &lt; me.savings_rate THEN 1 ELSE 0 END) AS lowerCount
+        FROM scoped_metrics metrics
+        CROSS JOIN my_metrics me
     </select>
 
     <!--
@@ -200,26 +223,7 @@
     <select id="findUnitRankingList"
             resultType="org.scoula.social.dto.SocialRankingItemDTO">
         WITH <include refid="userMetricsCte" />,
-        unit_stats AS (
-            SELECT
-                unit_code,
-                MAX(unit_name) AS unit_name,
-                ROUND(AVG(savings_rate), 1) AS savings_rate
-            FROM user_metrics
-            WHERE unit_code IS NOT NULL
-              AND unit_code != ''
-            GROUP BY unit_code
-            <!-- 평균이 0%인 부대는 순위에 올리지 않는다. -->
-            HAVING ROUND(AVG(savings_rate), 1) &gt; 0
-        ),
-        ranked_units AS (
-            SELECT
-                unit_code,
-                unit_name,
-                savings_rate,
-                DENSE_RANK() OVER (ORDER BY savings_rate DESC) AS unit_rank
-            FROM unit_stats
-        )
+        <include refid="unitRankingCtes" />
         SELECT
             unit_rank AS `rank`,
             unit_name AS label,
@@ -228,6 +232,16 @@
         FROM ranked_units
         ORDER BY unit_rank, unit_name
         LIMIT 3
+    </select>
+
+    <select id="findUnitRank"
+            resultType="java.lang.Integer">
+        WITH <include refid="userMetricsCte" />,
+        <include refid="unitRankingCtes" />
+        SELECT
+            unit_rank
+        FROM ranked_units
+        WHERE unit_code = #{unitCode}
     </select>
 
     <select id="findBadgeListByUserId"
@@ -277,22 +291,59 @@
               AND spending.del_yn = 'N'
             GROUP BY DATE_FORMAT(spending.spent_at, '%Y-%m')
         ),
+        saving_account_progress AS (
+            SELECT
+                account.account_id,
+                account.user_id,
+                CASE
+                    WHEN account.account_status = 'MATURED' THEN 100.0
+                    ELSE LEAST(
+                        100.0,
+                        ROUND(
+                            account.monthly_count * 100.0
+                            / NULLIF(
+                                LEAST(
+                                    24,
+                                    GREATEST(
+                                        1,
+                                        TIMESTAMPDIFF(
+                                            MONTH,
+                                            DATE(COALESCE(account.open_date, account.created_date)),
+                                            member.discharge_date)
+                                    )
+                                ),
+                                0),
+                            1)
+                    )
+                END AS progress
+            FROM saving_account account
+            JOIN `user` member ON account.user_id = member.id
+            WHERE account.user_id = #{userId}
+              AND account.del_yn = 'N'
+              AND account.account_status IN ('ACTIVE', 'MATURED')
+              AND (
+                  account.account_status = 'MATURED'
+                  OR (
+                      COALESCE(account.open_date, account.created_date) IS NOT NULL
+                      AND member.discharge_date IS NOT NULL
+                  )
+              )
+        ),
+        saving_progress AS (
+            SELECT
+                user_id,
+                ROUND(AVG(progress), 1) AS progress
+            FROM saving_account_progress
+            GROUP BY user_id
+        ),
         badge_metrics AS (
             SELECT
                 ranked.peer_position,
                 ranked.total_count,
-                CASE
-                    WHEN user.enlist_date IS NULL OR user.discharge_date IS NULL THEN 0.0
-                    WHEN CURRENT_DATE &lt; user.enlist_date THEN 0.0
-                    WHEN CURRENT_DATE &gt;= user.discharge_date THEN 100.0
-                    ELSE LEAST(
-                        100.0,
-                        DATEDIFF(CURRENT_DATE, user.enlist_date) * 100.0
-                        / NULLIF(DATEDIFF(user.discharge_date, user.enlist_date), 0)
-                    )
-                END AS service_progress
+                COALESCE(progress.progress, 0.0) AS saving_progress
             FROM ranked_metrics ranked
-            JOIN `user` user ON ranked.user_id = user.id
+            LEFT JOIN saving_progress progress
+                ON ranked.user_id = progress.user_id
             WHERE ranked.user_id = #{userId}
         )
         SELECT earned_badges.badge_id
@@ -309,11 +360,11 @@
             SELECT 4 FROM badge_metrics
              WHERE peer_position * 100.0 / total_count &lt;= 30
             UNION ALL
-            SELECT 5 FROM badge_metrics WHERE service_progress &gt;= 50
+            SELECT 5 FROM badge_metrics WHERE saving_progress &gt;= 50
             UNION ALL
-            SELECT 6 FROM badge_metrics WHERE service_progress &gt;= 75
+            SELECT 6 FROM badge_metrics WHERE saving_progress &gt;= 75
             UNION ALL
-            SELECT 7 FROM badge_metrics WHERE service_progress &gt;= 100
+            SELECT 7 FROM badge_metrics WHERE saving_progress &gt;= 100
             UNION ALL
             SELECT 8
             WHERE EXISTS (

@@ -17,24 +17,39 @@
 
 SET FOREIGN_KEY_CHECKS = 0;   -- FK 체크 OFF (여기서부터)
 
--- ── 마스터 데이터 (각자 준비, 순서 무관) ──────────────────────────
--- 파일 준비되면 주석(--) 풀어서 추가. 파일명 규칙: 도메인_이니셜.sql
-SOURCE master/region_sy.sql;      -- 법정동 (수연)
-SOURCE master/school_sy.sql;      -- 학교 (수연)
-SOURCE master/station_sy.sql;     -- 지하철역 (수연)
-SOURCE master/utility_sy.sql;     -- 공과금 계수 (수연)
-SOURCE master/common_seok.sql;    -- 공통(군종/부대/계급/은행/로드맵카테고리) (석윤) ※ user/saving_account FK·급여계산에 필수
-SOURCE master/saving_seok.sql;    -- 예적금/군적금/정책상품 (석윤) ※ military_saving_product 만기계산에 필수
-SOURCE master/merchant_sy.sql;    -- 가맹점 카테고리 매핑 (수연)
-SOURCE master/housing_sy.sql;     -- 주거 금융상품 (수연)
-SOURCE master/job_jiwon.sql;      -- 진로 마스터 데이터 (지원)
-SOURCE master/travel_jts.sql;     -- 여행 지역, 항공비, 숙박비, 상품 (조태석)
-SOURCE master/badge_jts.sql;      -- 사용자 뱃지 정보 (조태석)
-SOURCE master/car_hb.sql;      -- 자동차 (호빈)
+-- ── 마스터 데이터 ──────────────────────────
+-- 주석은 SOURCE 윗줄에 쓸 것 (같은 줄 주석은 경로 인식 오류남)
+-- 법정동 (수연)
+SOURCE master/region_sy.sql;
+-- 학교 (수연)
+SOURCE master/school_sy.sql;
+-- 지하철역 (수연)
+SOURCE master/station_sy.sql;
+-- 공과금 계수 (수연)
+SOURCE master/utility_sy.sql;
+-- 공통(군종/부대/계급/은행/로드맵카테고리) (석윤) ※ user/saving_account FK·급여계산에 필수
+SOURCE master/common_seok.sql;
+-- 예적금/군적금/정책상품 (석윤) ※ military_saving_product 만기계산에 필수
+SOURCE master/saving_seok.sql;
+-- 가맹점 카테고리 매핑 (수연)
+SOURCE master/merchant_sy.sql;
+-- 주거 금융상품 (수연)
+SOURCE master/housing_sy.sql;
+-- 진로 마스터 데이터 (지원)
+SOURCE master/job_jiwon.sql;
+-- 여행 지역, 항공비, 숙박비, 상품 (조태석)
+SOURCE master/travel_jts.sql;
+-- 사용자 뱃지 정보 (조태석)
+SOURCE master/badge_jts.sql;
+-- 자동차 (호빈)
+SOURCE master/car_hb.sql;
+-- 약관 (호빈)
+SOURCE master/terms_hb.sql;
 -- ... 각자 파일 여기에 추가
 
 -- ── 데모 트랜잭션 데이터 (마스터 뒤에 로드) ───────────────────────
-SOURCE demo/kb_demo_reviews.sql;         -- 후회소비 데모: user(id=1,2)/vacation/chat (호빈 start) + 오픈뱅킹/적금/자취 (수연 병합)
+-- 후회소비 데모: user(id=1,2)/vacation/chat (호빈 start) + 오픈뱅킹/적금/자취 (수연 병합)
+SOURCE demo/kb_demo_reviews.sql;
 
 SET FOREIGN_KEY_CHECKS = 1;   -- FK 체크 ON (다시 켬)
 

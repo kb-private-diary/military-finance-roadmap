@@ -18,6 +18,16 @@ final class InternationalAirportCodes {
         Map<String, String> airportCodes = new HashMap<>();
         airportCodes.put("일본", "NRT");
         airportCodes.put("베트남", "HAN");
+        airportCodes.put("태국", "BKK");
+        airportCodes.put("대만", "TPE");
+        airportCodes.put("인도네시아", "CGK");
+        airportCodes.put("필리핀", "MNL");
+        airportCodes.put("프랑스", "CDG");
+        airportCodes.put("스페인", "MAD");
+        airportCodes.put("미국", "JFK");
+        airportCodes.put("이탈리아", "FCO");
+        airportCodes.put("호주", "SYD");
+        airportCodes.put("영국", "LHR");
         COUNTRY_AIRPORT_CODES = Collections.unmodifiableMap(airportCodes);
     }
 

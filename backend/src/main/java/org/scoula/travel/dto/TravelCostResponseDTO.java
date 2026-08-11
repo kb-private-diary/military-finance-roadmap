@@ -1,5 +1,7 @@
 package org.scoula.travel.dto;
 
+import java.util.List;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -21,16 +23,37 @@ public class TravelCostResponseDTO {
     private Long livingCost;
     private Long totalCost;
     private Long remainingBudget;
+    private String selectedStyle;
+    private List<TravelStyleCostResponseDTO> styleCosts;
 
-    public static TravelCostResponseDTO of(TravelCostVO vo) {
+    public static TravelCostResponseDTO of(
+            final TravelCostVO vo,
+            final String selectedStyle,
+            final List<TravelStyleCostResponseDTO> styleCosts) {
+        final TravelStyleCostResponseDTO selectedCost = styleCosts.stream()
+                .filter(cost -> cost.getStyle().equals(selectedStyle))
+                .findFirst()
+                .orElse(null);
         return TravelCostResponseDTO.builder()
                 .costId(vo.getCostId())
                 .goalId(vo.getGoalId())
-                .flightCost(vo.getFlightCost())
-                .hotelCost(vo.getHotelCost())
-                .livingCost(vo.getLivingCost())
-                .totalCost(vo.getTotalCost())
-                .remainingBudget(vo.getRemainingBudget())
+                .flightCost(selectedCost == null
+                        ? vo.getFlightCost()
+                        : selectedCost.getFlightCost())
+                .hotelCost(selectedCost == null
+                        ? vo.getHotelCost()
+                        : selectedCost.getHotelCost())
+                .livingCost(selectedCost == null
+                        ? vo.getLivingCost()
+                        : selectedCost.getLivingCost())
+                .totalCost(selectedCost == null
+                        ? vo.getTotalCost()
+                        : selectedCost.getTotalCost())
+                .remainingBudget(selectedCost == null
+                        ? vo.getRemainingBudget()
+                        : selectedCost.getRemainingBudget())
+                .selectedStyle(selectedStyle)
+                .styleCosts(styleCosts)
                 .build();
     }
 

@@ -24,6 +24,8 @@ public interface SocialMapper {
     // 부대별 평균 저축률 TOP 3. scope·계급과 무관하게 항상 전체 부대가 대상
     List<SocialRankingItemDTO> findUnitRankingList(SocialScopeCriteriaDTO criteria);
 
+    Integer findUnitRank(SocialScopeCriteriaDTO criteria);
+
     List<SocialBadgeItemDTO> findBadgeListByUserId(Long userId);
 
     List<Integer> findEarnedBadgeIdList(Long userId);
