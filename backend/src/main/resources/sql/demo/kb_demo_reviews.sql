@@ -516,6 +516,61 @@ INSERT INTO `spending_review`
 -- [데모추가 건수] spending +32건(id 22~53) / spending_review +22건(id 20~41)
 --   · 미점호(리뷰無): 10건(22~31)  · REGRET: 12건(캘린더10 + 7월2)  · SATISFIED: 6건  · SOSO: 4건
 
+-- ── [데모추가2, 08-09] 캘린더 색 더 다양화 + 미점호 넉넉히 20건 (created_nm='demo_cal_*') ──
+--  demo_hb 위에 얹어: 8월 8일 다양한 레벨 + 7월(월이동 데모) + 미점호 20건
+INSERT INTO `spending`
+(`spending_id`, `user_id`, `merchant_name`, `category`, `amount`, `spent_at`,
+ `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`) VALUES
+-- ① 이번달(2026-08) 후회소비 - 날짜별 레벨 다양
+(54, 1, '김밥천국',   'FOOD',        8000,  '2026-08-01 12:30:00', NOW(), 'demo_cal_regret',     NULL, NULL, 'N'),
+(55, 1, '무신사',     'SHOPPING',    25000, '2026-08-02 15:10:00', NOW(), 'demo_cal_regret',     NULL, NULL, 'N'),
+(56, 1, 'CGV 서면',   'CULTURE',     45000, '2026-08-03 19:00:00', NOW(), 'demo_cal_regret',     NULL, NULL, 'N'),
+(57, 1, '배달의민족', 'DELIVERY',    62000, '2026-08-04 20:30:00', NOW(), 'demo_cal_regret',     NULL, NULL, 'N'),
+(58, 1, '메가커피',   'CAFE',        6500,  '2026-08-05 09:20:00', NOW(), 'demo_cal_regret',     NULL, NULL, 'N'),
+(59, 1, '카카오T',    'TRANSPORT',   18000, '2026-08-06 18:00:00', NOW(), 'demo_cal_regret',     NULL, NULL, 'N'),
+(60, 1, '쿠팡',       'SHOPPING',    55000, '2026-08-07 21:00:00', NOW(), 'demo_cal_regret',     NULL, NULL, 'N'),
+(61, 1, '요기요',     'DELIVERY',    38000, '2026-08-08 13:40:00', NOW(), 'demo_cal_regret',     NULL, NULL, 'N'),
+-- ② 지난달(2026-07) 후회소비 - 월 이동 데모용
+(62, 1, '스타벅스',   'CAFE',        28000, '2026-07-02 14:00:00', NOW(), 'demo_cal_regret_jul', NULL, NULL, 'N'),
+(63, 1, '편의점 CU',  'CONVENIENCE', 9000,  '2026-07-05 22:10:00', NOW(), 'demo_cal_regret_jul', NULL, NULL, 'N'),
+(64, 1, '무신사',     'SHOPPING',    55000, '2026-07-09 16:30:00', NOW(), 'demo_cal_regret_jul', NULL, NULL, 'N'),
+(65, 1, '배달의민족', 'DELIVERY',    40000, '2026-07-13 20:00:00', NOW(), 'demo_cal_regret_jul', NULL, NULL, 'N'),
+(66, 1, '넷플릭스',   'CULTURE',     15000, '2026-07-16 10:00:00', NOW(), 'demo_cal_regret_jul', NULL, NULL, 'N'),
+(67, 1, '쿠팡',       'SHOPPING',    48000, '2026-07-20 19:20:00', NOW(), 'demo_cal_regret_jul', NULL, NULL, 'N'),
+(68, 1, '메가커피',   'CAFE',        7000,  '2026-07-24 09:00:00', NOW(), 'demo_cal_regret_jul', NULL, NULL, 'N'),
+(69, 1, '요기요',     'DELIVERY',    33000, '2026-07-27 21:30:00', NOW(), 'demo_cal_regret_jul', NULL, NULL, 'N'),
+(70, 1, 'CGV 서면',   'CULTURE',     60000, '2026-07-30 18:00:00', NOW(), 'demo_cal_regret_jul', NULL, NULL, 'N'),
+-- ③ 미점호 20건 (소비점호 대기, spending_review 없음)
+(71, 1, '군마트 PX',  'PX',          8500,  '2026-08-01 17:30:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(72, 1, 'GS25',       'CONVENIENCE', 4800,  '2026-08-01 08:15:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(73, 1, '스타벅스',   'CAFE',        6300,  '2026-08-02 10:00:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(74, 1, '맘스터치',   'FOOD',        11000, '2026-08-02 19:20:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(75, 1, '배달의민족', 'DELIVERY',    23000, '2026-08-03 20:40:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(76, 1, '스팀',       'GAME',        33000, '2026-08-03 23:10:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(77, 1, 'CU',         'CONVENIENCE', 3900,  '2026-08-04 07:50:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(78, 1, '군마트 PX',  'PX',          12500, '2026-08-04 18:00:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(79, 1, '메가커피',   'CAFE',        4500,  '2026-08-05 09:30:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(80, 1, '무신사',     'SHOPPING',    41000, '2026-08-05 15:00:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(81, 1, '카카오T',    'TRANSPORT',   9800,  '2026-08-05 21:00:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(82, 1, '요기요',     'DELIVERY',    19500, '2026-08-06 20:00:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(83, 1, 'GS25',       'CONVENIENCE', 5200,  '2026-08-06 12:30:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(84, 1, '넥슨',       'GAME',        29000, '2026-08-06 22:40:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(85, 1, '김밥천국',   'FOOD',        7500,  '2026-08-07 12:00:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(86, 1, '스타벅스',   'CAFE',        11800, '2026-08-07 16:20:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(87, 1, '쿠팡',       'SHOPPING',    36000, '2026-08-07 21:30:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(88, 1, '군마트 PX',  'PX',          6700,  '2026-08-08 08:40:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(89, 1, 'CGV 서면',   'CULTURE',     15000, '2026-08-08 14:00:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(90, 1, '배달의민족', 'DELIVERY',    21000, '2026-08-08 20:10:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N');
+
+-- ①② 후회소비에 REGRET 리뷰 부여 (review_id 자동, created_nm으로 매칭 / 미점호(③)는 제외)
+INSERT INTO `spending_review` (`spending_id`, `review_type`, `reviewed_at`, `created_date`, `created_nm`, `del_yn`)
+SELECT s.`spending_id`, 'REGRET', s.`spent_at`, NOW(), 'demo_cal', 'N'
+  FROM `spending` s
+ WHERE s.`user_id` = 1
+   AND s.`created_nm` IN ('demo_cal_regret', 'demo_cal_regret_jul')
+   AND s.`del_yn` = 'N'
+   AND NOT EXISTS (SELECT 1 FROM `spending_review` r WHERE r.`spending_id` = s.`spending_id` AND r.`del_yn` = 'N');
+
 -- ── 오픈뱅킹 연동(openbanking_link) : 계좌당 1행, fintech_use_num 전부 유니크 ─
 --  적금계좌는 account_id 채움, 입출금계좌는 account_id NULL
 INSERT INTO `openbanking_link`
