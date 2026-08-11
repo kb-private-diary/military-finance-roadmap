@@ -18,9 +18,13 @@ const router = useRouter();
 const goalId = computed(() => Number(route.params.goalId));
 
 // ── 조회 상태 ─────────────────────────────────────────────────
+const goalType = ref('');
 const qualifications = ref([]);
 const courses = ref([]);
+const trainings = ref([]);
 const isLoading = ref(false);
+
+const isEmployment = computed(() => goalType.value === 'J01');
 
 // 최근 1개월 실제 지출 금액
 const monthlySpending = ref(0);
@@ -40,14 +44,21 @@ const courseTotal = computed(() =>
   courses.value.reduce((sum, item) => sum + Number(item.selectedCost ?? 0), 0),
 );
 
+// 훈련과정 예상비용
+// 실제 준비비용이므로 전체 훈련비가 아닌 본인부담금(selectedCost) 사용
+const trainingTotal = computed(() =>
+  trainings.value.reduce((sum, item) => sum + Number(item.selfPayment ?? 0), 0),
+);
+
 // 총 예상 준비비용
 const totalAmount = computed(
-  () => qualificationTotal.value + courseTotal.value,
+  () => qualificationTotal.value + courseTotal.value + trainingTotal.value,
 );
 
 // 선택한 전체 준비항목 수
 const selectedItemCount = computed(
-  () => qualifications.value.length + courses.value.length,
+  () =>
+    qualifications.value.length + courses.value.length + trainings.value.length,
 );
 
 // 자격증·어학 비용 비율
@@ -61,7 +72,14 @@ const qualificationRate = computed(() => {
 const courseRate = computed(() => {
   if (totalAmount.value === 0) return 0;
 
-  return 100 - qualificationRate.value;
+  return Math.round((courseTotal.value / totalAmount.value) * 100);
+});
+
+// 훈련과정 비용 비율
+const trainingRate = computed(() => {
+  if (totalAmount.value === 0) return 0;
+
+  return Math.round((trainingTotal.value / totalAmount.value) * 100);
 });
 
 // 최근 1개월 지출 대비 예상 준비비용 비율
@@ -80,13 +98,33 @@ const largestCostMessage = computed(() => {
     return '선택한 준비 항목의 비용 정보가 없습니다.';
   }
 
-  if (qualificationTotal.value === courseTotal.value) {
-    return '두 준비 항목의 비용 비중이 같아요.';
+  const costItems = [
+    {
+      label: '자격증·어학',
+      amount: qualificationTotal.value,
+    },
+    {
+      label: '인터넷 강의',
+      amount: courseTotal.value,
+    },
+  ];
+
+  if (isEmployment.value) {
+    costItems.push({
+      label: '훈련과정',
+      amount: trainingTotal.value,
+    });
   }
 
-  return qualificationTotal.value > courseTotal.value
-    ? '자격증·어학 비용의 비중이 가장 커요.'
-    : '인터넷 강의 비용의 비중이 가장 커요.';
+  const maxAmount = Math.max(...costItems.map((item) => item.amount));
+
+  const largestItems = costItems.filter((item) => item.amount === maxAmount);
+
+  if (largestItems.length > 1) {
+    return '준비 항목의 비용 비중이 같아요.';
+  }
+
+  return `${largestItems[0].label} 비용의 비중이 가장 커요.`;
 });
 
 // ── 목표 상세 조회 ────────────────────────────────────────────
@@ -101,8 +139,10 @@ const fetchJobGoalDetail = async () => {
 
     const detail = await jobApi.findJobGoalDetail(goalId.value);
 
+    goalType.value = detail?.goalType ?? '';
     qualifications.value = detail?.qualifications ?? [];
     courses.value = detail?.courses ?? [];
+    trainings.value = detail?.trainings ?? [];
   } catch (error) {
     console.error('진로 목표 상세 조회 실패:', error);
 
@@ -195,7 +235,11 @@ onMounted(() => {
           <div
             class="stacked-bar"
             role="img"
-            :aria-label="`자격증·어학 ${qualificationRate}%, 인터넷 강의 ${courseRate}%`"
+            :aria-label="
+              isEmployment
+                ? `자격증·어학 ${qualificationRate}%, 인터넷 강의 ${courseRate}%, 훈련과정 ${trainingRate}%`
+                : `자격증·어학 ${qualificationRate}%, 인터넷 강의 ${courseRate}%`
+            "
           >
             <div
               v-if="qualificationRate > 0"
@@ -213,6 +257,14 @@ onMounted(() => {
               :style="{ width: `${courseRate}%` }"
             >
               <span v-if="courseRate >= 15"> {{ courseRate }}% </span>
+            </div>
+
+            <div
+              v-if="isEmployment && trainingRate > 0"
+              class="stacked-bar__item stacked-bar__item--training"
+              :style="{ width: `${trainingRate}%` }"
+            >
+              <span v-if="trainingRate >= 15"> {{ trainingRate }}% </span>
             </div>
           </div>
 
@@ -239,6 +291,18 @@ onMounted(() => {
               </strong>
 
               <span class="cost-row__rate"> {{ courseRate }}% </span>
+            </li>
+
+            <li v-if="isEmployment" class="cost-row">
+              <span class="cost-row__dot cost-row__dot--training"></span>
+
+              <span class="cost-row__name">훈련과정</span>
+
+              <strong class="cost-row__amount">
+                {{ formatWon(trainingTotal) }}
+              </strong>
+
+              <span class="cost-row__rate"> {{ trainingRate }}% </span>
             </li>
           </ul>
 
@@ -427,6 +491,10 @@ onMounted(() => {
   background: var(--chart-2);
 }
 
+.stacked-bar__item--training {
+  background: var(--chart-3);
+}
+
 .cost-composition__list {
   display: flex;
   flex-direction: column;
@@ -455,6 +523,10 @@ onMounted(() => {
 
 .cost-row__dot--course {
   background: var(--chart-2);
+}
+
+.cost-row__dot--training {
+  background: var(--chart-3);
 }
 
 .cost-row__name {

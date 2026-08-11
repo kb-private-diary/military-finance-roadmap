@@ -57,6 +57,10 @@ const qualifications = computed(() => detail.value?.qualifications ?? []);
 
 const courses = computed(() => detail.value?.courses ?? []);
 
+const trainings = computed(() => detail.value?.trainings ?? []);
+
+const isEmployment = computed(() => detail.value?.goalType === 'J01');
+
 const policies = computed(() => detail.value?.policies ?? []);
 
 const financialProducts = computed(() => detail.value?.financialProducts ?? []);
@@ -78,12 +82,20 @@ const courseCost = computed(() =>
   courses.value.reduce((sum, item) => sum + Number(item.selectedCost ?? 0), 0),
 );
 
+// 훈련과정 비용
+const trainingCost = computed(() =>
+  trainings.value.reduce((sum, item) => sum + Number(item.selfPayment ?? 0), 0),
+);
+
 // 총 예상 준비 비용
-const totalCost = computed(() => qualificationCost.value + courseCost.value);
+const totalCost = computed(
+  () => qualificationCost.value + courseCost.value + trainingCost.value,
+);
 
 // 선택 준비 항목 개수
 const selectedItemCount = computed(
-  () => qualifications.value.length + courses.value.length,
+  () =>
+    qualifications.value.length + courses.value.length + trainings.value.length,
 );
 
 // 비용 비율
@@ -96,11 +108,51 @@ const qualificationRate = computed(() => {
 });
 
 const courseRate = computed(() => {
+  if (totalCost.value <= 0) return 0;
+
+  return Math.round((courseCost.value / totalCost.value) * 100);
+});
+
+const trainingRate = computed(() => {
+  if (totalCost.value <= 0) return 0;
+
+  return Math.round((trainingCost.value / totalCost.value) * 100);
+});
+
+// 가장 비중이 큰 준비 비용 안내
+const largestCostMessage = computed(() => {
   if (totalCost.value <= 0) {
-    return 0;
+    return '';
   }
 
-  return 100 - qualificationRate.value;
+  const items = [
+    {
+      label: '자격증·어학 준비 비용',
+      amount: qualificationCost.value,
+    },
+    {
+      label: '인터넷 강의 비용',
+      amount: courseCost.value,
+    },
+  ];
+
+  // 취업 목표일 때만 훈련과정 포함
+  if (isEmployment.value) {
+    items.push({
+      label: '훈련과정 비용',
+      amount: trainingCost.value,
+    });
+  }
+
+  const maxAmount = Math.max(...items.map((item) => item.amount));
+
+  const largestItems = items.filter((item) => item.amount === maxAmount);
+
+  if (largestItems.length > 1) {
+    return '준비 항목의 비용 비중이 같아요';
+  }
+
+  return `${largestItems[0].label}의 비중이 가장 커요`;
 });
 
 // ─────────────────────────────────────────────
@@ -554,6 +606,10 @@ onMounted(async () => {
         <p class="goal-summary-card__items">
           자격증·어학 {{ qualifications.length }}개 · 인터넷강의
           {{ courses.length }}개
+
+          <template v-if="isEmployment">
+            · 훈련과정 {{ trainings.length }}개
+          </template>
         </p>
       </BaseCard>
 
@@ -857,9 +913,127 @@ onMounted(async () => {
           </BaseCard>
         </div>
 
+        <!-- 훈련과정 -->
+        <div v-if="isEmployment && trainings.length > 0" class="detail-section">
+          <h2 class="detail-section__title text-label">훈련과정</h2>
+
+          <BaseCard
+            v-for="training in trainings"
+            :key="`${training.externalCode}-${training.trainingRound}`"
+            padding="0"
+            class="prep-item-card"
+          >
+            <button
+              type="button"
+              class="prep-item-card__toggle"
+              :aria-expanded="
+                isItemExpanded(
+                  `training-${training.externalCode}-${training.trainingRound}`,
+                )
+              "
+              @click="
+                toggleItemDetail(
+                  `training-${training.externalCode}-${training.trainingRound}`,
+                )
+              "
+            >
+              <div class="prep-item-card__header">
+                <div class="prep-item-card__title-wrap">
+                  <strong class="prep-item-card__title">
+                    {{ training.trainingName }}
+                  </strong>
+                </div>
+
+                <span
+                  class="prep-item-card__arrow"
+                  :class="{
+                    'is-expanded': isItemExpanded(
+                      `training-${training.externalCode}-${training.trainingRound}`,
+                    ),
+                  }"
+                  aria-hidden="true"
+                >
+                  ⌄
+                </span>
+              </div>
+
+              <div class="prep-item-card__next">
+                <span class="prep-item-card__next-label"> 훈련 정보 </span>
+
+                <strong class="prep-item-card__fallback">
+                  {{ training.institutionName || '고용24 훈련과정' }}
+                </strong>
+
+                <span v-if="training.startDate" class="prep-item-card__date">
+                  {{ formatDate(training.startDate) }}
+                  <template v-if="training.endDate">
+                    ~ {{ formatDate(training.endDate) }}
+                  </template>
+                </span>
+              </div>
+            </button>
+
+            <div
+              v-if="
+                isItemExpanded(
+                  `training-${training.externalCode}-${training.trainingRound}`,
+                )
+              "
+              class="prep-item-card__detail"
+            >
+              <div class="prep-item-card__detail-heading">
+                <strong>훈련과정 정보</strong>
+
+                <span v-if="training.trainingType">
+                  {{ training.trainingType }}
+                </span>
+              </div>
+
+              <div class="prep-info-list">
+                <div
+                  v-if="training.institutionName"
+                  class="prep-info-list__item"
+                >
+                  <span>훈련기관</span>
+                  <strong>{{ training.institutionName }}</strong>
+                </div>
+
+                <div v-if="training.address" class="prep-info-list__item">
+                  <span>훈련지역</span>
+                  <strong>{{ training.address }}</strong>
+                </div>
+
+                <div class="prep-info-list__item">
+                  <span>전체 훈련비</span>
+                  <strong>{{ formatAmount(training.trainingCost) }}</strong>
+                </div>
+
+                <div class="prep-info-list__item">
+                  <span>본인부담금</span>
+                  <strong>{{ formatAmount(training.selfPayment) }}</strong>
+                </div>
+              </div>
+
+              <button
+                v-if="training.detailUrl"
+                type="button"
+                class="prep-item-card__external"
+                @click.stop="openExternalLink(training.detailUrl)"
+              >
+                고용24에서 자세히 보기
+                <span aria-hidden="true">↗</span>
+              </button>
+            </div>
+          </BaseCard>
+        </div>
+
         <!-- Empty -->
         <div
-          v-if="qualifications.length === 0 && courses.length === 0"
+          v-if="
+            qualifications.length === 0 &&
+            courses.length === 0 &&
+            trainings.length === 0
+          "
           class="job-detail__empty"
         >
           선택한 준비 항목이 없습니다.
@@ -876,6 +1050,7 @@ onMounted(async () => {
 
           <div v-if="totalCost > 0" class="cost-bar">
             <div
+              v-if="qualificationRate > 0"
               class="cost-bar__qualification"
               :style="{
                 width: `${qualificationRate}%`,
@@ -883,9 +1058,18 @@ onMounted(async () => {
             ></div>
 
             <div
+              v-if="courseRate > 0"
               class="cost-bar__course"
               :style="{
                 width: `${courseRate}%`,
+              }"
+            ></div>
+
+            <div
+              v-if="isEmployment && trainingRate > 0"
+              class="cost-bar__training"
+              :style="{
+                width: `${trainingRate}%`,
               }"
             ></div>
           </div>
@@ -893,7 +1077,9 @@ onMounted(async () => {
           <div class="cost-list">
             <div class="cost-list__item">
               <div class="cost-list__label">
-                <span class="cost-list__dot cost-list__dot--qualification" />
+                <span
+                  class="cost-list__dot cost-list__dot--qualification"
+                ></span>
 
                 <span>자격증·어학</span>
               </div>
@@ -903,13 +1089,13 @@ onMounted(async () => {
                   {{ formatAmount(qualificationCost) }}
                 </strong>
 
-                <span> {{ qualificationRate }}% </span>
+                <span>{{ qualificationRate }}%</span>
               </div>
             </div>
 
             <div class="cost-list__item">
               <div class="cost-list__label">
-                <span class="cost-list__dot cost-list__dot--course" />
+                <span class="cost-list__dot cost-list__dot--course"></span>
 
                 <span>인터넷 강의</span>
               </div>
@@ -922,14 +1108,27 @@ onMounted(async () => {
                 <span>{{ courseRate }}%</span>
               </div>
             </div>
+
+            <!-- 취업(J01)일 때만 훈련과정 표시 -->
+            <div v-if="isEmployment" class="cost-list__item">
+              <div class="cost-list__label">
+                <span class="cost-list__dot cost-list__dot--training"></span>
+
+                <span>훈련과정</span>
+              </div>
+
+              <div class="cost-list__amount">
+                <strong>
+                  {{ formatAmount(trainingCost) }}
+                </strong>
+
+                <span>{{ trainingRate }}%</span>
+              </div>
+            </div>
           </div>
 
           <p v-if="totalCost > 0" class="cost-card__guide">
-            {{
-              qualificationCost >= courseCost
-                ? '자격증·어학 준비 비용의 비중이 가장 커요'
-                : '인터넷 강의 비용의 비중이 가장 커요'
-            }}
+            {{ largestCostMessage }}
           </p>
         </BaseCard>
 
@@ -993,6 +1192,28 @@ onMounted(async () => {
 
                 <strong>
                   {{ formatAmount(course.selectedCost) }}
+                </strong>
+              </div>
+            </div>
+
+            <!-- 훈련과정 -->
+            <div
+              v-if="isEmployment && trainings.length > 0"
+              class="cost-detail-group"
+            >
+              <strong class="cost-detail-group__title"> 훈련과정 </strong>
+
+              <div
+                v-for="training in trainings"
+                :key="`cost-training-${training.externalCode}-${training.trainingRound}`"
+                class="cost-detail-row"
+              >
+                <span>
+                  {{ training.trainingName }}
+                </span>
+
+                <strong>
+                  {{ formatAmount(training.selfPayment) }}
                 </strong>
               </div>
             </div>
@@ -1647,7 +1868,8 @@ onMounted(async () => {
 }
 
 .cost-bar__qualification,
-.cost-bar__course {
+.cost-bar__course,
+.cost-bar__training {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1663,6 +1885,11 @@ onMounted(async () => {
 .cost-bar__course {
   color: var(--text-body);
   background: var(--chart-4);
+}
+
+.cost-bar__training {
+  color: var(--text-body);
+  background: var(--chart-3);
 }
 
 .cost-list {
@@ -1716,6 +1943,10 @@ onMounted(async () => {
 
 .cost-list__dot--course {
   background: var(--chart-4);
+}
+
+.cost-list__dot--training {
+  background: var(--chart-3);
 }
 
 .cost-card__guide {

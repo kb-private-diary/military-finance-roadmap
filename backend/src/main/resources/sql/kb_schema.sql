@@ -473,6 +473,7 @@ CREATE TABLE `job_category` (
     `parent_id` BIGINT COMMENT '상위분류ID',
     `goal_type` CHAR(3) NOT NULL COMMENT '목표유형(J01:취업, J02:공무원)',
     `category_name` VARCHAR(100) NOT NULL COMMENT '분류명',
+    `ncs_code` VARCHAR(8) COMMENT '고용24 NCS 직종코드',
     `category_level` TINYINT NOT NULL COMMENT '분류레벨(1:대분류, 2:중분류)',
     `created_date` DATETIME NOT NULL COMMENT '생성일시',
     `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
@@ -675,6 +676,31 @@ CREATE TABLE `job_goal_course` (
     `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부',
      UNIQUE (`goal_id`, `course_id`)
 );
+
+DROP TABLE IF EXISTS `job_goal_training`;
+CREATE TABLE `job_goal_training` (
+     `goal_training_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '목표훈련과정선택ID',
+     `goal_id` BIGINT NOT NULL COMMENT '목표ID',
+     `external_code` VARCHAR(50) NOT NULL COMMENT '고용24훈련과정ID',
+     `training_round` INT NOT NULL COMMENT '훈련회차',
+     `institution_id` VARCHAR(50) NOT NULL COMMENT '고용24훈련기관ID',
+     `training_name` VARCHAR(255) NOT NULL COMMENT '훈련과정명',
+     `institution_name` VARCHAR(255) COMMENT '훈련기관명',
+     `training_type` VARCHAR(100) COMMENT '훈련유형',
+     `address` VARCHAR(255) COMMENT '훈련지역',
+     `training_cost` BIGINT COMMENT '선택당시 전체훈련비',
+     `selected_cost` BIGINT COMMENT '선택당시 본인부담금',
+     `start_date` DATE COMMENT '훈련시작일',
+     `end_date` DATE COMMENT '훈련종료일',
+     `detail_url` VARCHAR(500) COMMENT '훈련과정상세URL',
+     `created_date` DATETIME NOT NULL COMMENT '생성일시',
+     `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+     `modified_date` DATETIME COMMENT '수정일시',
+     `modified_nm` VARCHAR(50) COMMENT '수정자',
+     `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부',
+     UNIQUE (`goal_id`, `external_code`, `training_round`)
+);
+
 
 DROP TABLE IF EXISTS `job_recommend_service`;
 CREATE TABLE `job_recommend_service` (
@@ -1412,6 +1438,8 @@ ALTER TABLE `job_goal_qualification` COMMENT='사용자가 목표별로 선택�
 
 ALTER TABLE `job_goal_course` COMMENT='사용자가 목표별로 선택한 인강 데이터';
 
+ALTER TABLE `job_goal_training` COMMENT='사용자가 목표별로 선택한 고용24 훈련과정 데이터';
+
 ALTER TABLE `job_recommend_service` COMMENT='목표유형별 정책 및 KB서비스 기준정보';
 
 ALTER TABLE `car_goal` COMMENT = '회원이 등록한 자동차 구매 목표 정보';
@@ -1545,6 +1573,8 @@ ALTER TABLE `job_transfer_major_course` ADD FOREIGN KEY (`course_id`) REFERENCES
 ALTER TABLE `job_goal_qualification` ADD FOREIGN KEY (`goal_id`) REFERENCES `job_goal` (`goal_id`);
 
 ALTER TABLE `job_goal_qualification` ADD FOREIGN KEY (`qual_id`) REFERENCES `job_qualification` (`qual_id`);
+
+ALTER TABLE `job_goal_training` ADD FOREIGN KEY (`goal_id`) REFERENCES `job_goal` (`goal_id`);
 
 ALTER TABLE `job_goal_course` ADD FOREIGN KEY (`goal_id`) REFERENCES `job_goal` (`goal_id`);
 

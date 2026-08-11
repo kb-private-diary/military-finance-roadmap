@@ -6,6 +6,7 @@ import org.scoula.job.dto.JobGoalCreateResponseDTO;
 import org.scoula.job.dto.JobGoalDetailResponseDTO;
 import org.scoula.job.dto.JobPlanCreateRequestDTO;
 import org.scoula.job.dto.JobPlanCreateResponseDTO;
+import org.scoula.job.dto.JobTrainingDTO;
 import org.scoula.job.dto.JobTransferMajorDTO;
 import org.scoula.job.dto.JobTransferUniversityDTO;
 import org.scoula.job.dto.PrepItemRecommendResponseDTO;
@@ -41,7 +42,7 @@ public interface JobService {
     // 목표 기준 자격증·어학·인강 추천 조회
     PrepItemRecommendResponseDTO findPrepItemRecommend(Long goalId);
 
-    // 선택한 자격증·인강 저장
+    // 선택한 자격증·인강·훈련과정 저장
     JobPlanCreateResponseDTO createJobPlans(
             Long goalId,
             Long userId,
@@ -65,10 +66,9 @@ public interface JobService {
     // 작성 중인 진로 목표 조회
     JobGoalDetailResponseDTO findCurrentJobGoal(Long userId);
 
-    // 진로 목표 삭제
-    void deleteJobGoal(
+    // 선택한 직무와 지역을 기준으로 고용24 훈련과정 추천 조회
+    List<JobTrainingDTO> findTrainingRecommend(
             Long goalId,
-            Long userId,
-            String username
+            String regionCode
     );
 }

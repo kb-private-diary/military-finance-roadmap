@@ -5,6 +5,7 @@ import lombok.extern.log4j.Log4j2;
 import org.scoula.common.response.ApiResponse;
 import org.scoula.job.dto.JobCategoryDTO;
 import org.scoula.job.dto.JobGoalDetailResponseDTO;
+import org.scoula.job.dto.JobTrainingDTO;
 import org.scoula.job.dto.JobTransferMajorDTO;
 import org.scoula.job.dto.JobTransferUniversityDTO;
 import org.scoula.job.dto.JobGoalCreateRequestDTO;
@@ -18,7 +19,6 @@ import org.scoula.security.account.domain.CustomUser;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -115,6 +115,23 @@ public class JobController {
         return ResponseEntity.ok(ApiResponse.success(this.jobService.findPrepItemRecommend(goalId)));
     }
 
+    // GET /api/job/goals/{goalId}/trainings?regionCode=11
+    // 선택한 직무와 지역을 기준으로 고용24 훈련과정 추천 조회
+    @GetMapping("/goals/{goalId}/trainings")
+    public ResponseEntity<ApiResponse<List<JobTrainingDTO>>> findTrainingRecommend(
+            @PathVariable Long goalId,
+            @RequestParam String regionCode) {
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        this.jobService.findTrainingRecommend(
+                                goalId,
+                                regionCode
+                        )
+                )
+        );
+    }
+
     // POST /api/job/goals/{goalId}/plans → 준비항목 선택 저장
     @PostMapping("/goals/{goalId}/plans")
     public ResponseEntity<ApiResponse<JobPlanCreateResponseDTO>> createJobPlans(
@@ -154,22 +171,6 @@ public class JobController {
 
         this.jobService.confirmJobGoal(
                 goalId,
-                customUser.getMember().getId(),
-                customUser.getUsername()
-        );
-
-        return ResponseEntity.ok(ApiResponse.success(null));
-    }
-
-
-    // 진로 목표 삭제
-    // 실제 데이터를 삭제하지 않고 del_yn을 'Y'로 변경하는 soft delete 방식 사용
-    @DeleteMapping("/goals/{goalId}")
-    public ResponseEntity<ApiResponse<Void>> deleteJobGoal(
-            @AuthenticationPrincipal CustomUser customUser,
-            @PathVariable Long goalId) {
-
-        this.jobService.deleteJobGoal(goalId,
                 customUser.getMember().getId(),
                 customUser.getUsername()
         );

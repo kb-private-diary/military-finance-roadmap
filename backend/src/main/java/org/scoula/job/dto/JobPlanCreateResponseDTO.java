@@ -15,4 +15,5 @@ public class JobPlanCreateResponseDTO {
     private Long goalId;
     private List<JobQualificationDTO> qualifications;
     private List<JobCourseDTO> courses;
+    private List<JobTrainingDTO> trainings;
 }
