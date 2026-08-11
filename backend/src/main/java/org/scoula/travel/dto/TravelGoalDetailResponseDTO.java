@@ -34,6 +34,7 @@ public class TravelGoalDetailResponseDTO {
     private TravelPackageResponseDTO selectedPackage;
     private TravelProductRecommendationResponseDTO products;
     private TravelBudgetPlanResponseDTO budgetPlan;
+    private TravelRegretInsightResponseDTO regretInsight;
 
     public static TravelGoalDetailResponseDTO of(
             final TravelGoalVO goal,
@@ -41,7 +42,8 @@ public class TravelGoalDetailResponseDTO {
             final List<TravelPlaceSelectionDTO> places,
             final TravelPackageResponseDTO selectedPackage,
             final TravelProductRecommendationResponseDTO products,
-            final TravelBudgetPlanResponseDTO budgetPlan) {
+            final TravelBudgetPlanResponseDTO budgetPlan,
+            final TravelRegretInsightResponseDTO regretInsight) {
         return TravelGoalDetailResponseDTO.builder()
                 .goalId(goal.getGoalId())
                 .title(goal.getTitle())
@@ -58,6 +60,7 @@ public class TravelGoalDetailResponseDTO {
                 .selectedPackage(selectedPackage)
                 .products(products)
                 .budgetPlan(budgetPlan)
+                .regretInsight(regretInsight)
                 .build();
     }
 }
