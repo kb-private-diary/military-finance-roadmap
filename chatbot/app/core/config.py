@@ -28,3 +28,9 @@ FSS_API_KEY = os.getenv("FSS_API_KEY", "")
 CHEONGYAKHOME_API_KEY = os.getenv("CHEONGYAKHOME_API_KEY", "")
 FUND_API_KEY = os.getenv("FUND_API_KEY", "")
 ONTONG_YOUTH_API_KEY = os.getenv("ONTONG_YOUTH_API_KEY", "")
+
+# LLM 트레이싱/평가(Langfuse) - 키가 없으면(로컬에서 아직 발급 안 받은 팀원) 콜백을 그냥 안 붙이도록
+# gemini.py에서 이 값들의 존재 여부로 분기한다 - 선택 기능이라 없어도 챗봇 자체는 정상 동작해야 함.
+LANGFUSE_SECRET_KEY = os.getenv("LANGFUSE_SECRET_KEY", "")
+LANGFUSE_PUBLIC_KEY = os.getenv("LANGFUSE_PUBLIC_KEY", "")
+LANGFUSE_BASE_URL = os.getenv("LANGFUSE_BASE_URL", "")

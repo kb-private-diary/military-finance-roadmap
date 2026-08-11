@@ -10,7 +10,7 @@ import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
 import { useToast } from '@/composables/useToast';
-import { formatWon } from '@/util/format';
+import { formatWon, formatDate } from '@/util/format';
 import jobApi from '@/api/jobApi';
 
 const route = useRoute();
@@ -34,10 +34,12 @@ const submitting = ref(false);
 const goalType = ref('');
 const qualifications = ref([]);
 const courses = ref([]);
+const trainings = ref([]);
 
 // ── 선택 상태 ──
 const selectedQualIds = ref(new Set());
 const selectedCourseIds = ref(new Set());
+const selectedTrainingKeys = ref(new Set());
 
 const isEmployment = computed(() => goalType.value === 'J01');
 
@@ -55,9 +57,13 @@ const goalTypeLabel = computed(() => {
 
 const selectedQualCount = computed(() => selectedQualIds.value.size);
 const selectedCourseCount = computed(() => selectedCourseIds.value.size);
+const selectedTrainingCount = computed(() => selectedTrainingKeys.value.size);
 
 const totalSelectedCount = computed(
-  () => selectedQualCount.value + selectedCourseCount.value,
+  () =>
+    selectedQualCount.value +
+    selectedCourseCount.value +
+    selectedTrainingCount.value,
 );
 
 const isFormValid = computed(
@@ -69,16 +75,29 @@ const loadRecommend = async () => {
   loading.value = true;
 
   try {
+    // 자격증·어학 및 인강 추천 조회
     const result = await jobApi.findPrepItemRecommend(goalId);
 
     goalType.value = result.goalType ?? '';
     qualifications.value = result.qualifications ?? [];
     courses.value = result.courses ?? [];
+
+    // 취업 목표인 경우 고용24 훈련과정 추천 조회
+    if (goalType.value === 'J01') {
+      trainings.value = await jobApi.findTrainingRecommend(
+        goalId,
+        '11', // TODO: 테스트용 서울 지역코드
+      );
+
+      console.log('훈련과정 추천 결과:', trainings.value);
+    }
   } catch (error) {
     goalType.value = '';
     qualifications.value = [];
     courses.value = [];
+    trainings.value = [];
 
+    console.error('추천 조회 실패:', error);
     show('추천 정보를 불러오지 못했습니다.', 'error');
   } finally {
     loading.value = false;
@@ -133,8 +152,25 @@ const toggleCourse = (courseId) => {
   selectedCourseIds.value = next;
 };
 
-const formatAmount = (amount) =>
-  amount != null ? `${amount.toLocaleString()}원` : '';
+// 훈련과정 선택 처리
+const getTrainingKey = (training) =>
+  `${training.externalCode}-${training.trainingRound}`;
+
+const isTrainingSelected = (training) =>
+  selectedTrainingKeys.value.has(getTrainingKey(training));
+
+const toggleTraining = (training) => {
+  const key = getTrainingKey(training);
+  const next = new Set(selectedTrainingKeys.value);
+
+  if (next.has(key)) {
+    next.delete(key);
+  } else {
+    next.add(key);
+  }
+
+  selectedTrainingKeys.value = next;
+};
 
 // ── 금액 ──
 const getQualificationFee = (qualification) => {
@@ -251,9 +287,15 @@ const handleConfirm = async () => {
   submitting.value = true;
 
   try {
+    // 선택한 훈련과정만 추출
+    const selectedTrainings = trainings.value.filter((training) =>
+      selectedTrainingKeys.value.has(getTrainingKey(training)),
+    );
+
     const result = await jobApi.createJobPlans(goalId, {
       qualIds: Array.from(selectedQualIds.value),
       courseIds: Array.from(selectedCourseIds.value),
+      trainings: selectedTrainings,
     });
 
     show('준비 항목을 저장했어요.', 'success');
@@ -493,9 +535,79 @@ const handlePrev = () => {
       <!-- 취업: 훈련과정 탭 -->
       <section v-else-if="isEmployment" class="job-recommend__list">
         <EmptyState
+          v-if="trainings.length === 0"
           title="추천 훈련과정이 없습니다."
-          description="정부지원 훈련과정 추천은 추후 제공될 예정입니다."
+          description="현재 조건에 맞는 고용24 훈련과정이 없습니다."
         />
+
+        <template v-else>
+          <BaseCard
+            v-for="training in trainings"
+            :key="`${training.externalCode}-${training.trainingRound}`"
+            padding="18px"
+            class="training-card"
+            :class="{
+              'training-card--selected': isTrainingSelected(training),
+            }"
+            @click="toggleTraining(training)"
+          >
+            <div class="training-card__header">
+              <div class="training-card__content">
+                <div class="training-card__badges">
+                  <span
+                    v-if="training.trainingType"
+                    class="training-card__badge"
+                  >
+                    {{ training.trainingType }}
+                  </span>
+
+                  <span v-if="training.address" class="training-card__region">
+                    {{ training.address }}
+                  </span>
+                </div>
+
+                <h3 class="training-card__title">
+                  {{ training.trainingName }}
+                </h3>
+
+                <p class="training-card__institution">
+                  {{ training.institutionName }}
+                </p>
+
+                <p class="training-card__period">
+                  {{ formatDate(training.startDate) }} ~
+                  {{ formatDate(training.endDate) }}
+                </p>
+
+                <div class="training-card__price">
+                  <span> 훈련비 {{ formatWon(training.trainingCost) }} </span>
+
+                  <strong>
+                    본인부담금 {{ formatWon(training.selfPayment) }}
+                  </strong>
+                </div>
+              </div>
+
+              <button
+                v-if="training.detailUrl"
+                type="button"
+                class="external-link-button"
+                aria-label="훈련과정 상세 페이지 열기"
+                @click.stop="openExternalLink(training.detailUrl)"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  class="external-link-icon"
+                >
+                  <path
+                    d="M14 5h5v5M19 5l-8 8M19 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"
+                  />
+                </svg>
+              </button>
+            </div>
+          </BaseCard>
+        </template>
       </section>
 
       <!-- 공무원·편입: 인터넷 강의 탭 -->
@@ -605,6 +717,16 @@ const handlePrev = () => {
         <strong>{{ selectedCourseCount }}</strong
         >개
       </span>
+
+      <template v-if="isEmployment">
+        <span class="job-recommend__selection-divider">·</span>
+
+        <span>
+          훈련과정
+          <strong>{{ selectedTrainingCount }}</strong
+          >개
+        </span>
+      </template>
     </div>
 
     <BottomButtonBar
@@ -970,5 +1092,88 @@ const handlePrev = () => {
 
 .job-recommend__selection-divider {
   color: var(--line-strong);
+}
+
+/* ── 고용24 훈련과정 ── */
+.training-card {
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.training-card--selected {
+  border-color: var(--kb-yellow);
+  box-shadow: 0 0 0 1px var(--kb-yellow);
+}
+
+.training-card__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.training-card__content {
+  min-width: 0;
+  flex: 1;
+}
+
+.training-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.training-card__badge {
+  padding: 4px 8px;
+  background: var(--kb-yellow-pale);
+  border-radius: 999px;
+  color: var(--kb-gray);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.training-card__region {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.training-card__title {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.training-card__institution {
+  margin: 6px 0 0;
+  color: var(--text-body);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.training-card__period {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.training-card__price {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.training-card__price span {
+  color: var(--text-muted);
+}
+
+.training-card__price strong {
+  color: var(--text-strong);
 }
 </style>

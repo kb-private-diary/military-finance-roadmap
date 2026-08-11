@@ -17,6 +17,8 @@ public class JobCategoryVO extends BaseVO {
 
     private String categoryName;
 
+    private String ncsCode;
+
     // 1: 대분류, 2: 중분류
     private Integer categoryLevel;
 }

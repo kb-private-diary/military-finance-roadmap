@@ -61,6 +61,18 @@ export default {
     return data.data;
   },
 
+  // 선택한 직무와 지역 기준 고용24 훈련과정 추천 조회
+  async findTrainingRecommend(goalId, regionCode) {
+    const { data } = await instance.get(
+      `${BASE_URL}/goals/${goalId}/trainings`,
+      {
+        params: { regionCode },
+      },
+    );
+
+    return data.data;
+  },
+
   // 선택한 자격증·어학 및 인강 저장
   async createJobPlans(goalId, requestDTO) {
     const { data } = await instance.post(

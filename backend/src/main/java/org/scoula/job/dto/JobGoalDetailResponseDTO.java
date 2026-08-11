@@ -31,6 +31,7 @@ public class JobGoalDetailResponseDTO {
 
     private List<JobQualificationDTO> qualifications;
     private List<JobCourseDTO> courses;
+    private List<JobTrainingDTO> trainings;
 
     private List<JobProductDTO> policies;
     private List<JobProductDTO> financialProducts;

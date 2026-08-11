@@ -11,4 +11,6 @@ public class JobPlanCreateRequestDTO {
 
     // 사용자가 선택한 인강 ID 목록
     private List<Long> courseIds;
+
+    private List<JobTrainingDTO> trainings;
 }
