@@ -165,8 +165,4 @@ export default {
   confirmGoal(goalId) {
     return api.post(`${BASE_URL}/goals/${goalId}/confirm`);
   },
-
-  deleteGoal(goalId) {
-    return api.delete(`${BASE_URL}/goals/${goalId}`);
-  },
 };
