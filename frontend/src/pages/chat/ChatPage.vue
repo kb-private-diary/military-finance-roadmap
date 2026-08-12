@@ -1,7 +1,7 @@
 <script setup>
 // SCR-CHAT-01 · 챗봇  (담당: 에스더)
 // FastAPI 챗봇 대화창 (JWT 공유) — 프로토타입(MilitaryChatbot.jsx) 기반, 실제 백엔드(chatApi) 연동
-import { computed, nextTick, onMounted, ref } from 'vue';
+import { computed, nextTick, onActivated, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import chatApi from '@/api/chatApi';
 import { useAuthStore } from '@/stores/auth';
@@ -11,6 +11,9 @@ import mascotImg from '@/assets/chat-mascot.png';
 import moodLikeImg from '@/assets/chat-mood-like.png';
 import moodNeutralImg from '@/assets/chat-mood-neutral.png';
 import moodDislikeImg from '@/assets/chat-mood-dislike.png';
+// 자유입력 목적/카테고리 매칭 로직은 겹치는 키워드 회귀가 잦아서 별도 모듈로 빼고
+// 자동 테스트(counselRouting.test.js)로 고정해뒀다(2026-08-12) - 자세한 이유는 그 파일 주석 참고.
+import { COUNSEL_GOALS, detectCounselGoal, detectDirectListCategory } from './counselRouting';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -246,27 +249,6 @@ const COUNSEL_PERIOD_NOTE = {
   '3년 이상': '장기 목표라 단기 변동성보다는 성향에 맞는 상품 위주로 안내드려요.',
 };
 
-/* 상담 되묻기 1단계 - 목적 선택지 (value는 이후 분기 흐름 판별용) */
-const COUNSEL_GOALS = [
-  { label: '목돈 모으기', value: 'savings' },
-  { label: '내 집 마련(청약)', value: 'housing' },
-  { label: '투자 수익', value: 'investment' },
-  { label: '생활자금 관리', value: 'spending' },
-];
-
-/* 자유입력에 목적이 이미 드러나 있으면(예: "투자해보고싶어") 목적을 다시 묻지 않고
-   바로 해당 목적의 되묻기로 들어간다. 애매하면(매칭 없음) 그대로 목적부터 물어본다. */
-const COUNSEL_GOAL_KEYWORDS = [
-  { value: 'investment', keywords: ['투자'] },
-  { value: 'housing', keywords: ['청약', '내 집', '집 마련', '전세', '매매'] },
-  { value: 'spending', keywords: ['생활비', '소비', '용돈'] },
-];
-
-const detectCounselGoal = (text) => {
-  const found = COUNSEL_GOAL_KEYWORDS.find((g) => g.keywords.some((k) => text.includes(k)));
-  return found ? COUNSEL_GOALS.find((g) => g.value === found.value) : null;
-};
-
 /* 상담 만족도 3단계 - value는 백엔드 feedback 값(like/neutral/dislike)과 그대로 매칭 */
 const MOOD_OPTIONS = [
   { value: 'dislike', label: '불만', img: moodDislikeImg },
@@ -303,6 +285,20 @@ const scrollCarouselBy = (msg, direction) => {
 const input = ref('');
 const typing = ref(false);
 const panel = ref(null); // 'actions' (종료하기 버튼 노출)
+
+// 실시간 상품 "목록"을 보여준 직후, 사용자가 그 목록에 대해 자유롭게 타이핑해서 물어보면
+// (예: "왜 하나밖에 없어?") 백엔드는 지금 화면에 뭐가 떠 있는지 전혀 모른 채로 일반 RAG 검색을
+// 타서 엉뚱한 정책 문서가 근거로 잡히는 문제가 있었다(2026-08-11 피드백) - 상품 상세의
+// product_context와 같은 방식으로, 방금 보여준 목록 정보를 바로 다음 자유입력 한 번에만
+// 근거로 실어 보낸다(1회성 - 쓰고 나면 비움).
+const lastListContext = ref(null);
+
+// 목돈 상담(목돈모으기→적금) 흐름에서 금액·기간을 이미 물어본 뒤엔, 장병내일준비적금 같은 고정
+// 상품(RAG문서)을 나중에 다른 경로로(예: "다른 적금 상품도 보여줘") 골라도 그 값 그대로 계산 결과가
+// 나와야 한다는 피드백(2026-08-11) - 예전엔 "사용자가 이 상품 쓴다고 한 적 없는데 무조건 계산기
+// 돌리는 게 부적절하다"는 반대 피드백으로 없앴었는데, 이번엔 "상담 흐름 안에서 명시적으로 금액·
+// 기간을 물어본 뒤"로 조건을 좁혀서 다시 넣는다 - 그 전까진 무조건 계산 안 하니 이전 피드백과도 안 어긋남.
+const activeSavingsBudget = ref(null); // { monthlyAmount, months }
 const inputRef = ref(null);
 
 // 상담 되묻기 중 숫자 등 자유입력 답변을 기다리는 상태 - 있으면 submitInput이 백엔드 대신 이 핸들러로 보낸다
@@ -411,17 +407,28 @@ const pushUser = (text, { skipLog = false } = {}) => {
   // askBackend로 가는 자유 질문은 그쪽(/messages)이 이미 서버에 저장하므로 여기서 또 남기면 중복된다.
   if (!skipLog) logTurn('user', text);
 };
-const pushError = () => {
+// customText를 넘기면(예: 백엔드가 준 400번대 검증 메시지) 그걸 그대로 보여주고,
+// 안 넘기면 기존 범용 오류 문구를 보여준다(2026-08-11 피드백 - 500자 초과처럼 사용자가
+// 바로 고칠 수 있는 입력 오류까지 "서버 상의 오류"로 뭉뚱그려 보여주던 문제).
+const pushError = (customText) => {
+  const errorText = customText || '서버 상의 오류가 있습니다. 잠시 후에 다시 시도해 주세요.';
   messages.value.push({
     id: genId(),
     role: 'error',
-    text: '서버 상의 오류가 있습니다. 잠시 후에 다시 시도해 주세요.',
+    text: errorText,
   });
+  // pushBot과 달리 오류 턴은 서버에 안 남고 panel도 안 켜져서, 오류 직후 새로고침/재진입하면
+  // 마지막 메시지가 사용자 턴에서 뚝 끊긴 것처럼 보이고 처음으로/종료하기 버튼도 영영 안 뜬다
+  // (실제 화면 버그 재현: '적금' 클릭 후 오류로 응답이 끊긴 세션을 새로고침하니 버튼이 안 나타남).
+  // 오류도 하나의 "턴 종료"로 취급해 로그를 남기고 패널을 다시 켜준다(2026-08-11).
+  panel.value = 'actions';
+  logTurn('bot', errorText);
   scrollToBottom();
 };
 
 const backToGuide = async () => {
   counselInputHandler.value = null;
+  activeSavingsBudget.value = null;
   pushBot(buildGuideMessage());
 };
 
@@ -611,6 +618,15 @@ const CATEGORY_LIST_SOURCE = {
   insurance: { label: 'KB손해보험다이렉트', url: 'https://direct.kbinsure.co.kr/home/' },
 };
 
+// "왜 하나밖에 없어?" 같은 목록 후속질문 답변에서 연결해줄 국민은행 "자체" 홈페이지 링크.
+// CATEGORY_LIST_SOURCE(금감원 비교 페이지)는 전체 은행 비교용이라 이 상황엔 안 맞다 - 우리가
+// 보여준 목록이 적은 건 국민은행 상품이 적어서가 아니라 우리가 쓰는 데이터 출처에 그거밖에
+// 없어서일 뿐이고, 실제로 더 보려면 국민은행 홈페이지로 가야 한다(2026-08-11 피드백).
+// 아직 예금만 링크 확보함 - 나머지 카테고리는 링크 받으면 추가.
+const KB_HOMEPAGE_URL = {
+  deposit: { label: 'KB국민은행 예금 상품 홈페이지', url: 'https://obank.kbstar.com/quics?page=C016528' },
+};
+
 // includeListings: false면 실시간 청약홈 "매물" 목록은 빼고 고정 상품만 보여준다.
 // 청약은 "내 집 마련(청약)" 상담(askGoal → housing)에서만 매물을 같이 보여주고,
 // 카테고리 목록(적금/예금/청약/투자) 탐색에서는 매물이 상품처럼 섞여 나오면 안 되니 뺀다.
@@ -648,6 +664,17 @@ const showProductCategoryList = async (category, categoryLabel, { includeListing
         })),
       ],
     });
+    const shownNames = [...fixedNames, ...top.map((p) => LIVE_ITEM_LABEL[category](p))];
+    const kbHomepage = KB_HOMEPAGE_URL[category];
+    lastListContext.value = {
+      productContext:
+        `[${categoryLabel} 목록] 지금 화면에 보여드린 상품은 총 ${shownNames.length}개(${shownNames.join(', ')})입니다. ` +
+        `현재 안내된 상품은 국민은행 상품입니다. ` +
+        `※ 다른 은행이나 전국은행연합회는 절대 언급하지 마세요. 더 많은 국민은행 상품이 궁금하다고 하면 ` +
+        `${kbHomepage ? '국민은행 홈페이지에서 확인해보라고 짧게 안내하세요.' : '국민은행에 직접 문의해보라고 짧게 안내하세요.'}`,
+      sourceUrl: kbHomepage?.url,
+      sourceLabel: kbHomepage?.label,
+    };
   } catch {
     typing.value = false;
     pushError();
@@ -732,7 +759,40 @@ const askLiveProductQuestion = (name, productContext, question) => {
   askBackend(question, { title: name, productContext });
 };
 
-const showLiveProductDetail = async (name, category) => {
+// 상품 목록 API(개수 목록)와 상세 API(getProduct) 둘 다 options에 saveTrm별 intrRate/intrRate2를
+// 그대로 내려주지만, 목록 쪽만 max_rate를 미리 계산해서 얹어준다(fss.py의 max_rate) - 상세 쪽엔
+// 없어서 여기서 옵션 배열로 직접 같은 방식(우대금리 있으면 그걸, 없으면 기본금리)으로 계산한다.
+const maxRateFromOptions = (options) =>
+  Math.max(0, ...(options || []).map((o) => o.intrRate2 ?? o.intrRate ?? 0));
+
+const showLiveProductDetail = async (name, category, { bypassBudgetCheck = false } = {}) => {
+  // 목돈 상담(적금)에서 금액·기간을 이미 물어본 상태로 "다른 적금 상품도 보여줘" 등으로 돌아와
+  // 실시간 상품을 고른 거면, 설명만 보여주지 말고 그 값으로 계산한 상담 결과를 보여준다
+  // (2026-08-11 피드백 - "다른 거 눌러보니까 적금 계산 안 나오고 상품 설명으로 바로 나온다").
+  // calculateSavingsEstimate가 자체적으로 pushUser를 호출하므로, 이 분기로 갈 땐 여기서
+  // 먼저 pushUser(name)을 부르면 안 된다 - 부르면 사용자 말풍선이 두 번 찍힌다(2026-08-11 발견).
+  // bypassBudgetCheck: calculateSavingsEstimate 결과 화면의 "자세히 보기" 버튼처럼, activeSavingsBudget이
+  // 살아있는 동안에도 무조건 설명(상세)을 보여줘야 하는 경우 true로 넘긴다 - 안 그러면 그 버튼을 눌러도
+  // 방금 본 계산 결과가 또 나오는 무한루프가 된다(고정 상품 자세히 보기에서 이미 한 번 겪은 것과 같은 패턴, 2026-08-11).
+  if (!bypassBudgetCheck && activeSavingsBudget.value && category === 'savings') {
+    panel.value = null;
+    typing.value = true;
+    try {
+      const { data: p } = await chatApi.getProduct(name, category);
+      typing.value = false;
+      const { monthlyAmount, months } = activeSavingsBudget.value;
+      calculateSavingsEstimate(
+        { finPrdtNm: p.finPrdtNm, korCoNm: p.korCoNm, maxRate: maxRateFromOptions(p.options) },
+        monthlyAmount,
+        months,
+      );
+    } catch {
+      typing.value = false;
+      pushError();
+    }
+    return;
+  }
+
   pushUser(name);
   panel.value = null;
   typing.value = true;
@@ -826,18 +886,38 @@ const openTerm = async (term) => {
 
 /* 상품 소개 후 자주 묻는 질문을 하나씩 골라 물어볼 수 있게 함 - 이미 물어본 질문은 다음 메뉴에서 빠진다 */
 const openDoc = (name) => {
+  // 목돈 상담에서 이미 금액·기간을 물어본 상태로 이 상품(적금 고정 상품)을 고른 거면, 설명 대신
+  // 그 값으로 계산한 상담 결과를 보여준다(2026-08-11 피드백). 그 전까진 일반 설명(RAG)으로 남긴다.
+  if (activeSavingsBudget.value && FIXED_PRODUCTS_BY_CATEGORY.savings.includes(name)) {
+    const { monthlyAmount, months } = activeSavingsBudget.value;
+    calculateFixedSavingsEstimate(name, monthlyAmount, months);
+    return;
+  }
   askProductQuestion(name, null);
 };
+
+// FIXED_PRODUCTS_BY_CATEGORY(장병내일준비적금 등 RAG 고정 문서)는 실제로 어느 카테고리(적금/청약/보험)
+// 소속인지 이름만 봐선 알 수 없어서, 역으로 찾아주는 조회용 맵 - "다른 O 상품도 보여줘" 버튼을
+// 붙일 때 카테고리 라벨이 필요해서 만들었다.
+const FIXED_PRODUCT_CATEGORY = Object.fromEntries(
+  Object.entries(FIXED_PRODUCTS_BY_CATEGORY).flatMap(([category, names]) => names.map((name) => [name, category])),
+);
 
 const askProductQuestion = (name, askedQuestion) => {
   const remaining = (PRODUCT_QUESTIONS[name] || []).filter((q) => q !== askedQuestion);
   const extraMenu = remaining.map((q) => ({ label: q, onClick: () => askProductQuestion(name, q) }));
+  // 실시간 상품 상세(showLiveProductDetail)에는 있던 "다른 O 상품도 보여줘" 버튼이 장병내일준비적금/
+  // 청년미래적금 같은 고정 문서 상품에는 빠져있었다(2026-08-11 피드백) - 같은 카테고리 목록으로
+  // 돌아갈 방법이 없어서 "처음으로"까지 눌러야 했던 문제라 여기도 똑같이 붙여준다.
+  const category = FIXED_PRODUCT_CATEGORY[name];
+  if (category) extraMenu.push(showMoreProductsAction(category));
   askBackend(askedQuestion || name, { title: askedQuestion || name, extraMenu });
 };
 
 /* 목돈 상담 - 되묻기형(목적 -> 목적별 분기) */
 const openCounsel = () => {
   counselInputHandler.value = null;
+  activeSavingsBudget.value = null; // 새 상담을 시작하니 이전에 물어봤던 금액·기간은 초기화
   pushUser('목돈 어떻게 쓸지 상담받기');
   panel.value = null;
   typing.value = true;
@@ -859,7 +939,7 @@ const startCounsel = (introText = null) => {
   });
 };
 
-const askGoal = (goal, { announce = true } = {}) => {
+const askGoal = (goal, { announce = true, introText = null } = {}) => {
   if (announce) pushUser(goal.label);
   panel.value = null;
 
@@ -923,18 +1003,21 @@ const askGoal = (goal, { announce = true } = {}) => {
   }
 
   // 목돈 모으기: 상품을 바로 추천하지 않고, 방식(적금/투자)부터 되물어 실제 상담으로 이어간다
-  askSavingsMethod();
+  askSavingsMethod(introText);
 };
 
 /* 목돈 모으기 - "어떤 방식으로" 되묻기. 적금은 실제 계산(월납입액/기간 직접입력 -> 계산기 API),
    예금은 실시간 예금 상품 목록, 투자는 기존 투자 수익 흐름(기간->성향->실시간 펀드) 재사용,
    목표부터 정하기는 상품이 아니라 기존 목표 로드맵 페이지(여행/자취/진로/자차)로 안내한다 */
-const askSavingsMethod = () => {
+// introText: 자유입력에서 목적이 이미 추론돼 안내 문구가 있는 경우, 별도 말풍선으로 안 띄우고
+// 이 되묻기 문구 앞에 합쳐서 한 말풍선으로 보여준다(2026-08-08 피드백의 startCounsel과 동일 패턴 -
+// "군적금으로 뭐하지?"처럼 목적 자동 인식으로 여기까지 바로 온 경우엔 이 병합이 빠져있었음, 2026-08-12 발견).
+const askSavingsMethod = (introText = null) => {
   typing.value = true;
   setTimeout(() => {
     typing.value = false;
     pushBot({
-      text: '어떤 방식으로 모으고 싶으세요?',
+      text: introText ? `${introText}\n어떤 방식으로 모으고 싶으세요?` : '어떤 방식으로 모으고 싶으세요?',
       // 되묻기는 질문의 일부라서 답변 카드 밖으로 안 빼고 카드 안에서 바로 고르게 한다(2026-08-06 피드백)
       menuInCard: true,
       menu: [
@@ -1074,6 +1157,9 @@ const handleSaveMonthsInput = async (text, monthlyAmount) => {
   }
   panel.value = null;
   typing.value = true;
+  // 이후 다른 경로(예: "다른 적금 상품도 보여줘")로 장병내일준비적금 같은 고정 상품을 골라도
+  // 이 금액·기간이 그대로 계산에 쓰이도록 기억해둔다.
+  activeSavingsBudget.value = { monthlyAmount, months };
   try {
     const { data: products } = await chatApi.listProducts('savings');
     typing.value = false;
@@ -1087,18 +1173,89 @@ const handleSaveMonthsInput = async (text, monthlyAmount) => {
       source: CATEGORY_LIST_SOURCE.savings.label,
       sourceUrl: CATEGORY_LIST_SOURCE.savings.url,
       menuCarousel: true,
-      menu: top.map((p) => ({
-        label: `${p.finPrdtNm} (${p.korCoNm} · 최고 ${p.maxRate}%)`,
-        onClick: () => calculateSavingsEstimate(p, monthlyAmount, months),
-        action: 'calculateSavingsEstimate',
-        args: [p, monthlyAmount, months],
-      })),
+      menu: [
+        // 장병내일준비적금/청년미래적금도 이 목록에서 바로 고를 수 있게 같이 넣는다(2026-08-11 피드백) -
+        // 예전엔 실시간 상품만 있어서, 군적금을 원하는 사용자는 "다른 상품도 보여줘"까지 돌아가야 했다.
+        ...FIXED_PRODUCTS_BY_CATEGORY.savings.map((name) => ({
+          label: name,
+          onClick: () => calculateFixedSavingsEstimate(name, monthlyAmount, months),
+          action: 'calculateFixedSavingsEstimate',
+          args: [name, monthlyAmount, months],
+        })),
+        ...top.map((p) => ({
+          label: `${p.finPrdtNm} (${p.korCoNm} · 최고 ${p.maxRate}%)`,
+          onClick: () => calculateSavingsEstimate(p, monthlyAmount, months),
+          action: 'calculateSavingsEstimate',
+          args: [p, monthlyAmount, months],
+        })),
+      ],
     });
     panel.value = 'actions';
   } catch {
     typing.value = false;
     pushError();
   }
+};
+
+// 장병내일준비적금처럼 금리·매칭지원금 비율이 고정돼 공개된 상품만 계산해준다 - 청년미래적금처럼
+// "은행마다 자율 결정"이라 고정 수치가 없는 상품은 숫자를 지어내면 안 되니 여기 안 넣는다.
+// 수치는 RAG 문서(장병내일준비적금 안내)에 안내된 것과 동일하게 맞춤(기본이자 5%, 매칭지원금 100%,
+// 최대 24개월, 개인별 월 최대 55만원).
+const FIXED_SAVINGS_RULES = {
+  장병내일준비적금: { maxMonths: 24, annualRate: 0.05, matchRate: 1.0, maxMonthlyAmount: 550000 },
+};
+
+const calculateFixedSavingsEstimate = (name, monthlyAmount, months) => {
+  pushUser(name);
+  panel.value = null;
+  typing.value = true;
+  setTimeout(() => {
+    typing.value = false;
+    const rule = FIXED_SAVINGS_RULES[name];
+    if (!rule) {
+      // 청년미래적금 등 고정 금리가 없는 상품은 예상 금액 대신, 확실히 아는 사실(정부기여금 비율)만 안내한다.
+      pushBot({
+        title: name,
+        text:
+          `${name}은(는) 금리를 은행마다 자율로 정해서 정확한 예상 금액은 계산해드리기 어려워요.\n` +
+          `다만 정부기여금은 월 납입액 기준 일반형 6%, 우대형 12%로 지급돼요.\n` +
+          `구체적인 가입 조건이 더 궁금하시면 말씀해주세요.`,
+        menuFit: true,
+        menu: [{ label: `${name} 자세히 보기`, onClick: () => askProductQuestion(name, null), action: 'askProductQuestion', args: [name, null] }],
+      });
+      panel.value = 'actions';
+      return;
+    }
+    const cappedMonths = Math.min(months, rule.maxMonths);
+    const cappedAmount = Math.min(monthlyAmount, rule.maxMonthlyAmount);
+    let totalInterest = 0;
+    for (let i = 1; i <= cappedMonths; i += 1) {
+      const investedMonths = cappedMonths - i + 1;
+      totalInterest += cappedAmount * rule.annualRate * (investedMonths / 12);
+    }
+    const totalPrincipal = cappedAmount * cappedMonths;
+    const matchingFund = totalPrincipal * rule.matchRate;
+    const totalReceiptAmount = totalPrincipal + totalInterest + matchingFund;
+    const capNotes = [];
+    if (months > rule.maxMonths) capNotes.push(`최대 가입기간이 ${rule.maxMonths}개월이라 ${rule.maxMonths}개월로 계산했어요.`);
+    if (monthlyAmount > rule.maxMonthlyAmount) capNotes.push(`개인별 최대 월 납입액이 ${won(rule.maxMonthlyAmount)}이라 그 금액으로 계산했어요.`);
+    pushBot({
+      title: '적금 상담 결과',
+      text:
+        `${name} 기준으로\n` +
+        `월 ${won(cappedAmount)}씩 ${cappedMonths}개월 납입하면\n` +
+        `원금 ${won(totalPrincipal)} + 이자(세전 예상) ${won(totalInterest)} + 정부 매칭지원금 ${won(matchingFund)}\n` +
+        `= 총 ${won(totalReceiptAmount)}을 받으실 수 있어요.\n` +
+        (capNotes.length ? `(${capNotes.join(' ')})\n` : '') +
+        `(실제 가입 조건 충족 여부에 따라 달라질 수 있어요)`,
+      menuFit: true,
+      // openDoc(name)을 쓰면 activeSavingsBudget이 살아있는 동안 이 버튼을 눌러도 방금 본 계산
+      // 결과가 또 나오는 무한루프가 됐다(2026-08-11 발견) - "자세히 보기"는 예산 상태와 상관없이
+      // 항상 설명(RAG)으로 가야 해서 askProductQuestion을 직접 부른다.
+      menu: [{ label: `${name} 자세히 보기`, onClick: () => askProductQuestion(name, null), action: 'askProductQuestion', args: [name, null] }],
+    });
+    panel.value = 'actions';
+  }, TYPING_DELAY_MS);
 };
 
 // won() - 상담 결과 문구 곳곳에서 반복 쓰여서 공용으로 뺌
@@ -1132,7 +1289,9 @@ const calculateSavingsEstimate = (product, monthlyAmount, months) => {
       menu: [
         {
           label: `${product.finPrdtNm} 자세히 보기`,
-          onClick: () => showLiveProductDetail(product.finPrdtNm, 'savings'),
+          // bypassBudgetCheck: true - 안 넘기면 activeSavingsBudget이 살아있는 동안 이 버튼이 방금 본
+          // 계산 결과를 또 보여주는 무한루프가 된다(2026-08-11 발견, showLiveProductDetail 정의부 참고).
+          onClick: () => showLiveProductDetail(product.finPrdtNm, 'savings', { bypassBudgetCheck: true }),
           action: 'showLiveProductDetail',
           args: [product.finPrdtNm, 'savings'],
         },
@@ -1208,7 +1367,10 @@ const finishCounsel = async (period, type) => {
 // productContext: 실시간 상품 상세를 이미 보여준 뒤 그 상품 하나에 대해 후속 질문할 때만 채운다
 // (buildLiveProductContext로 만든 텍스트). 채워지면 카테고리 전체가 아니라 이 상품 하나만 근거로
 // 답하도록 백엔드에 그대로 실어 보낸다(2026-08-07).
-const askBackend = async (text, { title, extraMenu = [], forceInfo = false, productContext = null } = {}) => {
+const askBackend = async (
+  text,
+  { title, extraMenu = [], forceInfo = false, productContext = null, fallbackSourceUrl = null, fallbackSourceLabel = null } = {},
+) => {
   counselInputHandler.value = null;
 
   // 자동차/자취/진로/계산기처럼 이미 우리 서비스에 있는 기능과 명확히 관련된 질문이면, AI(Gemini) 호출도
@@ -1251,11 +1413,18 @@ const askBackend = async (text, { title, extraMenu = [], forceInfo = false, prod
     // 되묻기 플로우로 분기한다 (WBS-6) - 가이드 화면의 "목돈 상담받기" 버튼과 동일한 흐름 재사용.
     // 텍스트에 목적이 이미 드러나 있으면(예: "투자해보고싶어") 목적 질문은 건너뛴다.
     if (botMsg.intent === 'counsel') {
+      const directCategory = detectDirectListCategory(text);
+      if (directCategory) {
+        // 상담 안내 문구("자세한 상담을 위해...")는 안 어울려서 안 보여주고 바로 목록으로 간다
+        await showProductCategoryList(directCategory.category, directCategory.label);
+        return;
+      }
       const matchedGoal = detectCounselGoal(text);
       if (matchedGoal) {
-        // 목적이 이미 텍스트에서 추론된 경우엔 되묻기 카드가 따로 없어서 합칠 대상이 없다 -> 안내만 먼저 띄운다
-        pushBot({ text: botMsg.content });
-        askGoal(matchedGoal, { announce: false });
+        // 안내 문구와 되묻기 카드를 별도 말풍선 2개로 따로 띄웠었는데, "목적 되묻기와 안내 문구를
+        // 한 말풍선으로 합친다(2026-08-08)"는 이미 정해진 방향이라 여기도 맞춘다(2026-08-12 발견) -
+        // introText로 넘겨서 askGoal 쪽(현재는 savings만) 되묻기 문구 앞에 합쳐서 한 번에 띄운다.
+        askGoal(matchedGoal, { announce: false, introText: botMsg.content });
       } else {
         // 목적 되묻기 카드와 안내 문구를 한 말풍선으로 합친다(2026-08-08 피드백)
         startCounsel(botMsg.content);
@@ -1306,8 +1475,10 @@ const askBackend = async (text, { title, extraMenu = [], forceInfo = false, prod
       title,
       text: answerText,
       source: botMsg.source,
-      sourceDetail: botMsg.sourceDetail,
-      sourceUrl: botMsg.sourceUrl,
+      // 목록 후속질문(product_context)은 백엔드가 RAG를 안 타서 sourceUrl이 안 내려온다 - 그 경우
+      // 방금 보여준 목록의 출처(금융감독원 비교 페이지 등)로라도 연결해준다(2026-08-11 피드백).
+      sourceDetail: botMsg.sourceUrl ? botMsg.sourceDetail : botMsg.sourceDetail || fallbackSourceLabel,
+      sourceUrl: botMsg.sourceUrl || fallbackSourceUrl,
       isAiGenerated: botMsg.isAiGenerated,
       // 카드 안에 넣었었는데, 상품 후속 질문 목록은 답변과는 별개의 선택지라 카드 밖으로 다시 빼고
       // 가이드 태그줄과 같은 국방색 번갈아 넣기 스타일로(2026-08-06 피드백)
@@ -1330,9 +1501,14 @@ const askBackend = async (text, { title, extraMenu = [], forceInfo = false, prod
     } catch {
       /* no-op */
     }
-  } catch {
+  } catch (error) {
     typing.value = false;
-    pushError();
+    // 400번대(글자수 초과 등 사용자가 바로 고칠 수 있는 입력 오류)는 백엔드가 준 구체적인 안내
+    // 문구를 그대로 보여주고, 그 외(500·네트워크 오류 등 사용자가 어찌할 수 없는 상황)는 기존처럼
+    // 범용 오류 문구를 보여준다.
+    const status = error?.response?.status;
+    const backendMessage = error?.response?.data?.message;
+    pushError(status && status < 500 ? backendMessage : undefined);
   }
 };
 
@@ -1380,9 +1556,24 @@ const submitInput = () => {
     return;
   }
 
+  // 방금 실시간 상품 "목록"을 보여준 직후의 자유 후속질문이면(예: "왜 하나밖에 없어?"), 그 목록
+  // 정보를 1회성으로 근거에 실어 보낸다 - 안 그러면 화면에 뭐가 떠 있는지 모른 채 일반 RAG 검색을
+  // 타서 엉뚱한 문서가 근거로 잡힌다(2026-08-11 피드백). 쓰고 나면 바로 비워서 다음 질문엔 안 새게 함.
+  const listContext = lastListContext.value;
+  lastListContext.value = null;
+
   // 그 외엔 백엔드의 classify_intent("counsel") 분류 결과로 상담형 되묻기 진입 여부를 판단한다
   // (askBackend 내부에서 botMsg.intent === 'counsel'이면 되묻기 플로우로 분기)
-  askBackend(trimmed);
+  askBackend(
+    trimmed,
+    listContext
+      ? {
+          productContext: listContext.productContext,
+          fallbackSourceUrl: listContext.sourceUrl,
+          fallbackSourceLabel: listContext.sourceLabel,
+        }
+      : {},
+  );
 };
 
 /* 만족도 설문 모달 - "종료하기" 클릭 시 오픈 */
@@ -1583,7 +1774,9 @@ const openHistory = () => {
     text: '날짜를 골라주세요.',
     // 카드 안 흰 버튼 대신 다른 선택지들과 같은 국방색 톤(연한 배경 + hover 시 진하게)으로 통일(2026-08-08 피드백)
     menuFit: true,
-    menu: dateEntries.map((d) => {
+    // 제목이 "최근" 이전 대화인데 실제론 날짜가 있는 만큼 전부 다 나오고 있었다(2026-08-11 피드백) -
+    // dateEntries는 오래된 순으로 쌓여있으니 뒤에서 3개(가장 최근 3일)만 자른다.
+    menu: dateEntries.slice(-3).map((d) => {
       const summary = summarizeDateEntry(d.index);
       const label = summary ? `${formatDate(d.id.replace('date-', ''))} · ${summary}` : d.label;
       return { label, onClick: () => jumpToDate(d.id), action: 'jumpToDate', args: [d.id] };
@@ -1637,14 +1830,25 @@ onMounted(async () => {
         messages.value = buildGreetAndGuide();
       }
     }
-    scrollToBottom();
   } catch {
     loadError.value = '챗봇을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.';
   } finally {
     const remaining = MIN_LANDING_MS - (Date.now() - landingStartedAt);
     if (remaining > 0) await wait(remaining);
     loading.value = false;
+    // loading이 false가 되기 전(랜딩 화면이 떠 있는 동안)엔 .app-content가 DOM에 없어서
+    // scrollToBottom을 여기서 부르기 전엔 아무 효과가 없었다 - 채팅 화면(맨 아래)이 아니라
+    // 맨 위부터 보이던 문제(2026-08-11 피드백). 실제 채팅 화면이 뜬 뒤로 옮김.
+    scrollToBottom();
   }
+});
+
+// App.vue에서 ChatPage를 KeepAlive로 감싸고 있어서(대화 상태 유지 목적), 다른 화면(자차 준비 등)
+// 갔다가 "뒤로가기"나 이동 버튼으로 돌아오면 컴포넌트가 새로 마운트되는 게 아니라 그대로 다시
+// 보여지기만 한다 - 그래서 onMounted는 다시 안 불리고, 스크롤 위치도 떠나기 전 그대로(주로 맨 위)
+// 남아있었다(2026-08-11 피드백). keep-alive 전용 훅인 onActivated에서 다시 맨 아래로 내려준다.
+onActivated(() => {
+  scrollToBottom();
 });
 </script>
 
@@ -2577,9 +2781,12 @@ onMounted(async () => {
   position: fixed;
   bottom: 68px;
   left: 50%;
-  transform: translateX(-50%);
+  /* max-width를 프레임 폭(393px)보다 살짝 줄여 .app-content의 세로 스크롤바(15px)를 안 덮게 함 -
+     그대로 393px면 이 fixed 패널이 스크롤바 자리까지 배경으로 덮어버려서, 채팅이 다 안 보이는
+     시점에도 스크롤바가 안 보이거나 클릭이 안 먹혔다(2026-08-11 피드백) */
+  transform: translateX(calc(-50% - 11.5px));
   width: 100%;
-  max-width: 393px;
+  max-width: 370px;
   padding: 10px 16px;
   background: var(--surface-cream);
   box-sizing: border-box;
@@ -2748,11 +2955,12 @@ onMounted(async () => {
   position: fixed;
   bottom: 0;
   left: 50%;
-  transform: translateX(-50%);
+  /* .chat-page__panel과 동일한 이유로 스크롤바(15px) 자리를 남겨둠(2026-08-11 피드백) */
+  transform: translateX(calc(-50% - 11.5px));
   display: flex;
   gap: 8px;
   width: 100%;
-  max-width: 393px;
+  max-width: 370px;
   padding: 12px 16px;
   padding-bottom: calc(12px + env(safe-area-inset-bottom));
   background: var(--surface-cream);
