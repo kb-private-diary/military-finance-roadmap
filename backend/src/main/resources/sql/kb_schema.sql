@@ -1,13 +1,13 @@
 SET FOREIGN_KEY_CHECKS = 0;
 
 /*
-총 테이블 갯수: 70개
+총 테이블 갯수: 83개
 
 [테이블 구분]
 - 회원/공통: user, military_types, military_unit, military_rank, badge, user_badge, terms, terms_agreement, vacation, vacation_history
 - 예적금/금융: bank_category, saving_product, military_saving_product, card_product, saving_account, saving_history, policy_product
 - 목표/로드맵 공통: roadmap_category, user_bookmark
-- 여행 목표: travel_goal, travel_cost, city_cost, hotel_cost, flight_cost, travel_package, travel_insurance
+- 여행 목표: travel_goal, travel_cost, city_cost, city_airport, hotel_cost, flight_cost, travel_package, travel_insurance
 - 진로 목표: job_goal, job_category, job_transfer_university, job_transfer_major_category, job_transfer_major, job_qualification, job_qualification_schedule, job_course, job_category_qualification, job_transfer_major_qualification, job_qualification_course, job_category_course, job_transfer_major_course, job_goal_qualification, job_goal_course, job_recommend_service
 - 자동차 목표: car_goal, car_model, car_type, car_insurance, car_ev, car_tax_prepay, car_tax
 - 자취/부동산 목표: rent_goal, rent_goal_region, school, region_code, rent_listing, region_fee_stat, rent_recommend, housing_loan, loan_recommend
@@ -383,6 +383,19 @@ CREATE TABLE `city_cost` (
   `modified_date` DATETIME COMMENT '수정일시',
   `modified_nm` VARCHAR(50) COMMENT '수정자',
   `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
+);
+
+DROP TABLE IF EXISTS `city_airport`;
+CREATE TABLE `city_airport` (
+  `city_airport_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '도시 공항 ID',
+  `city_cost_id` BIGINT NOT NULL COMMENT '도시 물가 ID',
+  `iata_code` CHAR(3) NOT NULL COMMENT 'IATA 공항 코드',
+  `created_date` DATETIME NOT NULL COMMENT '생성일시',
+  `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+  `modified_date` DATETIME COMMENT '수정일시',
+  `modified_nm` VARCHAR(50) COMMENT '수정자',
+  `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부',
+  UNIQUE KEY `uk_city_airport_city_cost` (`city_cost_id`)
 );
 
 DROP TABLE IF EXISTS `hotel_cost`;
@@ -1400,6 +1413,8 @@ ALTER TABLE `travel_cost` COMMENT = '여행 목표별 예상 경비 계산 결�
 
 ALTER TABLE `city_cost` COMMENT = '도시별 하루 물가 참조 데이터';
 
+ALTER TABLE `city_airport` COMMENT = '도시별 항공권 조회용 IATA 공항 코드';
+
 ALTER TABLE `hotel_cost` COMMENT = '하루 숙박비 참조 데이터';
 
 ALTER TABLE `flight_cost` COMMENT = '왕복 항공비 참조 데이터';
@@ -1529,6 +1544,8 @@ ALTER TABLE `travel_goal` ADD FOREIGN KEY (`user_id`) REFERENCES `user` (`id`);
 ALTER TABLE `travel_goal` ADD FOREIGN KEY (`package_id`) REFERENCES `travel_package` (`package_id`);
 
 ALTER TABLE `travel_cost` ADD FOREIGN KEY (`goal_id`) REFERENCES `travel_goal` (`goal_id`);
+
+ALTER TABLE `city_airport` ADD FOREIGN KEY (`city_cost_id`) REFERENCES `city_cost` (`city_cost_id`);
 
 ALTER TABLE `hotel_cost` ADD FOREIGN KEY (`city_cost_id`) REFERENCES `city_cost` (`city_cost_id`);
 

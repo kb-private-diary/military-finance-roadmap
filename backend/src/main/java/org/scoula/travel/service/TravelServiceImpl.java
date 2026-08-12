@@ -63,6 +63,7 @@ import org.scoula.travel.dto.TravelUserFinanceDTO;
 import org.scoula.travel.mapper.TravelMapper;
 import org.scoula.travel.util.TravelDateCalculator;
 import org.scoula.travel.util.TravelPriceCalculator;
+import org.scoula.travel.util.TravelPriceDistribution;
 
 @Log4j2
 @Service
@@ -80,6 +81,8 @@ public class TravelServiceImpl implements TravelService {
     private final RegretService regretService;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Map<String, LocalDateTime> packageQueryCache =
+            new ConcurrentHashMap<>();
+    private final Map<Long, CostPriceSnapshot> costPriceCache =
             new ConcurrentHashMap<>();
 
     // 목표 상태값 (DRAFT / CONFIRMED / ARCHIVED)
@@ -115,6 +118,19 @@ public class TravelServiceImpl implements TravelService {
             new BigDecimal("0.80");
     private static final BigDecimal HOTEL_PREMIUM_RATE =
             new BigDecimal("1.35");
+
+    private static final class CostPriceSnapshot {
+
+        private final TravelPriceDistribution transportation;
+        private final TravelPriceDistribution hotel;
+
+        private CostPriceSnapshot(
+                final TravelPriceDistribution transportation,
+                final TravelPriceDistribution hotel) {
+            this.transportation = transportation;
+            this.hotel = hotel;
+        }
+    }
 
     @Transactional(readOnly = true)
     @Override
@@ -177,11 +193,14 @@ public class TravelServiceImpl implements TravelService {
         final TravelCostVO cost = this.findCostOrThrow(goalId);
         final CityCostVO cityCost =
                 this.findCityCostOrThrow(goal.getDestination());
+        final CostPriceSnapshot priceSnapshot =
+                this.findPriceSnapshot(goal, cost);
         final TravelCostResponseDTO costResponse =
                 TravelCostResponseDTO.of(
                         cost,
                         goal.getStyle(),
-                        this.createStyleCostResponses(goal, cityCost, cost));
+                        this.createStyleCostResponses(
+                                goal, cityCost, priceSnapshot));
         final TravelPackageVO selectedPackage = goal.getPackageId() == null
                 ? null
                 : this.mapper.getPackageById(goal.getPackageId());
@@ -395,6 +414,9 @@ public class TravelServiceImpl implements TravelService {
         if (!costInputChanged && budgetChanged) {
             this.updateRemainingBudget(goalId, userName, request.getTotalBudget());
         }
+        if (costInputChanged) {
+            this.costPriceCache.remove(goalId);
+        }
     }
 
     private boolean hasCostCalculationInputChanged(
@@ -478,13 +500,16 @@ public class TravelServiceImpl implements TravelService {
         TravelGoalVO goal = this.getGoalOrThrow(goalId);
         CityCostVO cityCost = this.findCityCostOrThrow(goal.getDestination());
 
-        final long commonFlightCost =
-                this.calculateTransportationCost(goal, cityCost);
-        final long commonHotelCost = this.calculateHotelCost(goal, cityCost);
-        final long flightCost = this.findTransportationCostByStyle(
-                commonFlightCost, goal.getStyle());
-        final long hotelCost = this.findHotelCostByStyle(
-                commonHotelCost, goal.getStyle());
+        final TravelPriceDistribution transportationCosts =
+                this.calculateTransportationCosts(goal, cityCost);
+        final TravelPriceDistribution hotelCosts =
+                this.calculateHotelCosts(goal, cityCost);
+        final CostPriceSnapshot priceSnapshot = new CostPriceSnapshot(
+                transportationCosts, hotelCosts);
+        final long flightCost = this.findCostByStyle(
+                transportationCosts, goal.getStyle());
+        final long hotelCost = this.findCostByStyle(
+                hotelCosts, goal.getStyle());
         final int days = TravelDateCalculator.calculateTravelDays(
                 goal.getStartDate(), goal.getEndDate());
         long dailyCost = this.findDailyCost(cityCost, goal.getStyle());
@@ -500,8 +525,8 @@ public class TravelServiceImpl implements TravelService {
         final TravelCostVO cost = new TravelCostVO();
         cost.setGoalId(goalId);
         // 기존 컬럼은 모든 스타일 계산의 기준이 되는 일반 가격을 저장한다.
-        cost.setFlightCost(commonFlightCost);
-        cost.setHotelCost(commonHotelCost);
+        cost.setFlightCost(transportationCosts.getCommonCost());
+        cost.setHotelCost(hotelCosts.getCommonCost());
         cost.setLivingCost(livingCost);
         cost.setTotalCost(totalCost);
         cost.setRemainingBudget(remainingBudget);
@@ -521,6 +546,8 @@ public class TravelServiceImpl implements TravelService {
                 this.mapper.insertCost(cost);
             }
         }
+
+        this.costPriceCache.put(goalId, priceSnapshot);
 
         return cost.getCostId();
     }
@@ -556,29 +583,46 @@ public class TravelServiceImpl implements TravelService {
         return goal;
     }
 
-    private long calculateTransportationCost(
+    private TravelPriceDistribution calculateTransportationCosts(
             final TravelGoalVO goal,
             final CityCostVO cityCost) {
         if (Boolean.TRUE.equals(goal.getIsDomestic())) {
-            return this.odsayClient.estimateRoundTripCost(
-                    goal.getDeparture(), goal.getDestination());
+            final long transportationCost =
+                    this.odsayClient.estimateRoundTripCost(
+                            goal.getDeparture(), goal.getDestination());
+            return TravelPriceDistribution.fixed(transportationCost);
         }
 
+        final String departureAirport =
+                this.findAirportCodeOrThrow(goal.getDeparture());
+        final String destinationAirport =
+                this.findAirportCodeOrThrow(goal.getDestination());
         try {
-            return this.flightApiClient.estimateRoundTripCost(
-                    cityCost.getCountry(),
+            return this.flightApiClient.estimateRoundTripCosts(
+                    departureAirport,
+                    destinationAirport,
                     goal.getStartDate(),
                     goal.getEndDate());
         } catch (final BusinessException exception) {
             if (!FLIGHT_FALLBACK_CODES.contains(exception.getCode())) {
                 throw exception;
             }
-            return this.calculateFallbackFlightCost(
+            return this.calculateFallbackFlightCosts(
                     goal, cityCost, exception);
         }
     }
 
-    private long calculateFallbackFlightCost(
+    private String findAirportCodeOrThrow(final String city) {
+        final String airportCode = this.mapper.findAirportCodeByCity(city);
+        if (airportCode == null || airportCode.isBlank()) {
+            throw BusinessException.badRequest(
+                    "공항 코드가 등록되지 않은 도시입니다: " + city,
+                    "TRAVEL_016");
+        }
+        return airportCode;
+    }
+
+    private TravelPriceDistribution calculateFallbackFlightCosts(
             final TravelGoalVO goal,
             final CityCostVO cityCost,
             final BusinessException originalException) {
@@ -604,20 +648,23 @@ public class TravelServiceImpl implements TravelService {
                 cityCost.getCityCostId(),
                 quarter,
                 fallbackCost);
-        return fallbackCost;
+        return this.createFallbackPriceDistribution(
+                fallbackCost,
+                TRANSPORT_SAVING_RATE,
+                TRANSPORT_PREMIUM_RATE);
     }
 
-    private long calculateHotelCost(
+    private TravelPriceDistribution calculateHotelCosts(
             final TravelGoalVO goal,
             final CityCostVO cityCost) {
         final int nights = TravelDateCalculator.calculateNights(
                 goal.getStartDate(), goal.getEndDate());
         if (nights == 0) {
-            return 0L;
+            return TravelPriceDistribution.fixed(0L);
         }
 
         try {
-            return this.bookingApiClient.estimateHotelCost(
+            return this.bookingApiClient.estimateHotelCosts(
                     cityCost.getCountry(),
                     goal.getDestination(),
                     goal.getStartDate(),
@@ -626,12 +673,12 @@ public class TravelServiceImpl implements TravelService {
             if (!HOTEL_FALLBACK_CODES.contains(exception.getCode())) {
                 throw exception;
             }
-            return this.calculateFallbackHotelCost(
+            return this.calculateFallbackHotelCosts(
                     goal, cityCost, nights, exception);
         }
     }
 
-    private long calculateFallbackHotelCost(
+    private TravelPriceDistribution calculateFallbackHotelCosts(
             final TravelGoalVO goal,
             final CityCostVO cityCost,
             final int nights,
@@ -663,7 +710,10 @@ public class TravelServiceImpl implements TravelService {
                     nightlyCost,
                     nights,
                     fallbackCost);
-            return fallbackCost;
+            return this.createFallbackPriceDistribution(
+                    fallbackCost,
+                    HOTEL_SAVING_RATE,
+                    HOTEL_PREMIUM_RATE);
         } catch (final ArithmeticException exception) {
             log.warn(
                     "숙박비 DB 대체값 계산 범위 초과: "
@@ -674,45 +724,34 @@ public class TravelServiceImpl implements TravelService {
         }
     }
 
-    private long findTransportationCostByStyle(
+    private TravelPriceDistribution createFallbackPriceDistribution(
             final long commonCost,
-            final String style) {
-        return this.applyStyleRate(
-                commonCost,
-                style,
-                TRANSPORT_SAVING_RATE,
-                TRANSPORT_PREMIUM_RATE);
-    }
-
-    private long findHotelCostByStyle(
-            final long commonCost,
-            final String style) {
-        return this.applyStyleRate(
-                commonCost,
-                style,
-                HOTEL_SAVING_RATE,
-                HOTEL_PREMIUM_RATE);
-    }
-
-    private long applyStyleRate(
-            final long commonCost,
-            final String style,
             final BigDecimal savingRate,
             final BigDecimal premiumRate) {
-        final BigDecimal rate;
-        if ("saving".equals(style)) {
-            rate = savingRate;
-        } else if ("common".equals(style)) {
-            rate = BigDecimal.ONE;
-        } else if ("premium".equals(style)) {
-            rate = premiumRate;
-        } else {
-            throw BusinessException.badRequest(
-                    "여행 스타일을 선택해주세요.",
-                    "TRAVEL_008");
-        }
+        return TravelPriceDistribution.builder()
+                .savingCost(TravelPriceCalculator.applyRate(
+                        commonCost, savingRate))
+                .commonCost(commonCost)
+                .premiumCost(TravelPriceCalculator.applyRate(
+                        commonCost, premiumRate))
+                .build();
+    }
 
-        return TravelPriceCalculator.applyRate(commonCost, rate);
+    private long findCostByStyle(
+            final TravelPriceDistribution costs,
+            final String style) {
+        if ("saving".equals(style)) {
+            return costs.getSavingCost();
+        }
+        if ("common".equals(style)) {
+            return costs.getCommonCost();
+        }
+        if ("premium".equals(style)) {
+            return costs.getPremiumCost();
+        }
+        throw BusinessException.badRequest(
+                "여행 스타일을 선택해주세요.",
+                "TRAVEL_008");
     }
 
     private long findDailyCost(CityCostVO cityCost, String style) {
@@ -739,10 +778,13 @@ public class TravelServiceImpl implements TravelService {
         final TravelCostVO cost = this.findCostOrThrow(goalId);
         final CityCostVO cityCost =
                 this.findCityCostOrThrow(goal.getDestination());
+        final CostPriceSnapshot priceSnapshot =
+                this.findPriceSnapshot(goal, cost);
         return TravelCostResponseDTO.of(
                 cost,
                 goal.getStyle(),
-                this.createStyleCostResponses(goal, cityCost, cost));
+                this.createStyleCostResponses(
+                        goal, cityCost, priceSnapshot));
     }
 
     @Transactional
@@ -761,11 +803,13 @@ public class TravelServiceImpl implements TravelService {
         final TravelCostVO cost = this.findCostOrThrow(goalId);
         final CityCostVO cityCost =
                 this.findCityCostOrThrow(goal.getDestination());
+        final CostPriceSnapshot priceSnapshot =
+                this.findPriceSnapshot(goal, cost);
         final String style = requestedStyle.toLowerCase();
-        final long flightCost = this.findTransportationCostByStyle(
-                this.nvl(cost.getFlightCost()), style);
-        final long hotelCost = this.findHotelCostByStyle(
-                this.nvl(cost.getHotelCost()), style);
+        final long flightCost = this.findCostByStyle(
+                priceSnapshot.transportation, style);
+        final long hotelCost = this.findCostByStyle(
+                priceSnapshot.hotel, style);
         final int days = TravelDateCalculator.calculateTravelDays(
                 goal.getStartDate(), goal.getEndDate());
         final long livingCost = this.findDailyCost(cityCost, style) * days;
@@ -793,19 +837,16 @@ public class TravelServiceImpl implements TravelService {
     private List<TravelStyleCostResponseDTO> createStyleCostResponses(
             final TravelGoalVO goal,
             final CityCostVO cityCost,
-            final TravelCostVO cost) {
+            final CostPriceSnapshot priceSnapshot) {
         final int days = TravelDateCalculator.calculateTravelDays(
                 goal.getStartDate(), goal.getEndDate());
-        final long commonFlightCost = this.nvl(cost.getFlightCost());
-        final long commonHotelCost = this.nvl(cost.getHotelCost());
 
         return VALID_STYLES.stream()
                 .map(style -> {
-                    final long flightCost =
-                            this.findTransportationCostByStyle(
-                                    commonFlightCost, style);
-                    final long hotelCost = this.findHotelCostByStyle(
-                            commonHotelCost, style);
+                    final long flightCost = this.findCostByStyle(
+                            priceSnapshot.transportation, style);
+                    final long hotelCost = this.findCostByStyle(
+                            priceSnapshot.hotel, style);
                     final long livingCost =
                             this.findDailyCost(cityCost, style) * days;
                     final long totalCost =
@@ -819,6 +860,35 @@ public class TravelServiceImpl implements TravelService {
                             this.nvl(goal.getTotalBudget()) - totalCost);
                 })
                 .collect(Collectors.toList());
+    }
+
+    private CostPriceSnapshot findPriceSnapshot(
+            final TravelGoalVO goal,
+            final TravelCostVO cost) {
+        return this.costPriceCache.computeIfAbsent(
+                goal.getGoalId(),
+                ignored -> this.createFallbackPriceSnapshot(goal, cost));
+    }
+
+    private CostPriceSnapshot createFallbackPriceSnapshot(
+            final TravelGoalVO goal,
+            final TravelCostVO cost) {
+        final long commonTransportationCost =
+                this.nvl(cost.getFlightCost());
+        final TravelPriceDistribution transportationCosts =
+                Boolean.TRUE.equals(goal.getIsDomestic())
+                        ? TravelPriceDistribution.fixed(
+                                commonTransportationCost)
+                        : this.createFallbackPriceDistribution(
+                                commonTransportationCost,
+                                TRANSPORT_SAVING_RATE,
+                                TRANSPORT_PREMIUM_RATE);
+        final TravelPriceDistribution hotelCosts =
+                this.createFallbackPriceDistribution(
+                        this.nvl(cost.getHotelCost()),
+                        HOTEL_SAVING_RATE,
+                        HOTEL_PREMIUM_RATE);
+        return new CostPriceSnapshot(transportationCosts, hotelCosts);
     }
 
     @Transactional(readOnly = true)
