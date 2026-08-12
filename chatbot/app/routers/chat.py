@@ -172,7 +172,9 @@ def send_message(
     # 주민번호·카드번호·전화번호·계좌번호로 보이는 패턴은 마스킹한 뒤 저장 및 Gemini 전달에 쓴다 -
     # 사용자가 실수로 자기 정보를 그대로 입력해도 DB에 원문 그대로 남거나 외부 API로 넘어가지 않게
     # 여기서 한 번만 치환해두면 아래 모든 흐름(저장·히스토리·AI 호출)에 자동으로 적용된다(2026-08-09).
-    content = pii_filter.mask_pii(content)
+    masked_content = pii_filter.mask_pii(content)
+    pii_detected = masked_content != content
+    content = masked_content
 
     session = (
         db.query(ChatSession)
@@ -203,18 +205,25 @@ def send_message(
     db.add(user_message)
     db.commit()
 
-    try:
-        reply, source, source_detail, is_ai_generated, intent, source_url, langfuse_trace_id = gemini.generate_reply(
-            content,
-            history=history,
-            force_intent="info" if payload.force_info else None,
-            product_context=payload.product_context,
-        )
-    except Exception:
-        logger.exception("Gemini 응답 생성 실패 (session_id=%s)", payload.session_id)
+    if pii_detected:
+        # 개인정보가 감지되면 Gemini 호출 자체를 안 거치고 결정적으로 같은 안내만 준다 -
+        # 마스킹된 텍스트를 의도분류(LLM)에 맡기면 케이스마다 다른 답이 나왔었다(pii_filter.py 주석 참고).
         reply, source, source_detail, is_ai_generated, intent, source_url, langfuse_trace_id = (
-            GEMINI_FAILURE_MESSAGE, "오류 안내", None, False, "info", None, None,
+            pii_filter.PII_DETECTED_REPLY, "개인정보 안내", None, False, "info", None, None,
         )
+    else:
+        try:
+            reply, source, source_detail, is_ai_generated, intent, source_url, langfuse_trace_id = gemini.generate_reply(
+                content,
+                history=history,
+                force_intent="info" if payload.force_info else None,
+                product_context=payload.product_context,
+            )
+        except Exception:
+            logger.exception("Gemini 응답 생성 실패 (session_id=%s)", payload.session_id)
+            reply, source, source_detail, is_ai_generated, intent, source_url, langfuse_trace_id = (
+                GEMINI_FAILURE_MESSAGE, "오류 안내", None, False, "info", None, None,
+            )
 
     bot_message = ChatMessage(
         session_id=payload.session_id,
