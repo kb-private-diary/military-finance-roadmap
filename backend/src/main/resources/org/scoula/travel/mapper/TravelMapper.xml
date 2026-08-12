@@ -383,23 +383,4 @@
           AND del_yn = 'N'
     </update>
 
-    <update id="softDeleteGoal">
-        UPDATE travel_goal
-        SET del_yn = 'Y',
-            modified_date = NOW(),
-            modified_nm = #{modifiedNm}
-        WHERE goal_id = #{goalId}
-          AND user_id = #{userId}
-          AND del_yn = 'N'
-    </update>
-
-    <update id="softDeleteCostByGoalId">
-        UPDATE travel_cost
-        SET del_yn = 'Y',
-            modified_date = NOW(),
-            modified_nm = #{modifiedNm}
-        WHERE goal_id = #{goalId}
-          AND del_yn = 'N'
-    </update>
-
 </mapper>

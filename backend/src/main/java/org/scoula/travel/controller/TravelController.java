@@ -5,7 +5,6 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -225,19 +224,6 @@ public class TravelController {
             @PathVariable final Long goalId) {
         this.service.confirmGoal(
                 customUser.getMember().getId(), goalId, customUser.getUsername());
-        return ResponseEntity.ok(ApiResponse.success());
-    }
-
-    @DeleteMapping("/goals/{goalId}")
-    @ApiOperation(
-            value = "여행 목표 삭제",
-            notes = "본인의 여행 목표를 소프트 삭제한다.")
-    public ResponseEntity<ApiResponse<Void>> deleteGoal(
-            @AuthenticationPrincipal final CustomUser customUser,
-            @PathVariable final Long goalId) {
-        this.service.deleteGoal(
-                customUser.getMember().getId(), goalId,
-                customUser.getUsername());
         return ResponseEntity.ok(ApiResponse.success());
     }
 

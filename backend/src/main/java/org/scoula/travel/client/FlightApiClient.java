@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -104,7 +105,7 @@ public class FlightApiClient {
             if (status < 200 || status >= 300) {
                 // API 키가 URL 경로에 있으므로 전체 요청 URL은 절대 로그에 남기지 않는다.
                 log.warn("FlightAPI 호출 실패: status={}, body={}", status, body);
-                throw this.toApiException(status);
+                throw this.toApiException(status, body);
             }
             return body;
         } catch (BusinessException e) {
@@ -203,10 +204,12 @@ public class FlightApiClient {
         }
     }
 
-    private BusinessException toApiException(int status) {
-        if (status == 429) {
+    private BusinessException toApiException(
+            final int status,
+            final String body) {
+        if (status == 429 || this.isLimitExceeded(body)) {
             return new BusinessException(
-                    "FlightAPI 호출 한도 또는 속도 제한을 초과했습니다.",
+                    "항공권 API 호출 한도를 초과했습니다.",
                     HttpStatus.TOO_MANY_REQUESTS,
                     "TRAVEL_019");
         }
@@ -214,6 +217,18 @@ public class FlightApiClient {
             return this.flightNotFound();
         }
         return this.flightApiUnavailable();
+    }
+
+    private boolean isLimitExceeded(final String body) {
+        if (body == null || body.isBlank()) {
+            return false;
+        }
+        final String normalized = body.toLowerCase(Locale.ROOT);
+        return normalized.contains("quota")
+                || normalized.contains("rate limit")
+                || normalized.contains("request limit")
+                || normalized.contains("maximum limit")
+                || normalized.contains("credit");
     }
 
     private BusinessException flightApiUnavailable() {
