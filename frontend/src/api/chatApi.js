@@ -25,8 +25,11 @@ export default {
   // productContext: 실시간 상품 상세를 보고 나서 그 상품 하나에 대해 후속 질문할 때만 넘김
   // (이미 화면에 표시한 그 상품의 정보 텍스트 그대로) - 백엔드가 카테고리 전체가 아니라
   // 이 상품 하나만 근거로 답하게 한다(2026-08-07)
+  // Gemini 답변 생성이 가끔 15초를 넘겨서 공용 타임아웃(15초)에 걸려 취소되는 게 확인됨
+  // (2026-08-12 발견, Network 탭에서 15.0초에 cancel되는 것 재현) - listProducts처럼 이 호출만
+  // 넉넉하게 45초로 늘림.
   sendMessage(sessionId, content, forceInfo = false, productContext = null) {
-    return api.post(`${BASE_URL}/messages`, { sessionId, content, forceInfo, productContext });
+    return api.post(`${BASE_URL}/messages`, { sessionId, content, forceInfo, productContext }, { timeout: 45000 });
   },
 
   // 버튼으로 진행하는 되묻기·상품 목록 등 - AI 호출 없이 화면 문구를 그대로 기록만 한다

@@ -363,6 +363,12 @@ const logTurn = (role, content) => {
 // 화면엔 항상 마커 앞부분만 잘라서 보여준다.
 const MENU_MARKER = ' #MENU# ';
 
+// 오류 턴도 서버엔 role='bot'으로만 저장할 수 있어서(role은 user/bot만 허용됨), 새로고침 후
+// 복원하면 실시간일 땐 빨간 오류 말풍선(role='error')으로 보이던 게 일반 답변처럼 검게 바뀌어
+// AI가 실제로 생성한 답변인 것처럼 오해할 수 있었다(2026-08-12 발견). MENU_MARKER와 같은 방식으로
+// 텍스트 뒤에 몰래 마커를 붙여뒀다가, 복원할 때 이 마커가 있으면 role='error'로 되살린다.
+const ERROR_MARKER = ' #ERROR# ';
+
 // 메뉴 항목뿐 아니라 어떤 스타일(menuInCard/menuCarousel/menuFit/menuAlternate)로 보여줄지도
 // 같이 저장해둬야, 새로고침 후 복원된 메뉴도 실제 대화 때와 같은 모양(카드 안/가로 캐러셀 등)으로
 // 보인다 - 전엔 메뉴 항목만 복원되고 스타일은 기본값으로 되돌아갔었음(2026-08-06 피드백).
@@ -422,7 +428,7 @@ const pushError = (customText) => {
   // (실제 화면 버그 재현: '적금' 클릭 후 오류로 응답이 끊긴 세션을 새로고침하니 버튼이 안 나타남).
   // 오류도 하나의 "턴 종료"로 취급해 로그를 남기고 패널을 다시 켜준다(2026-08-11).
   panel.value = 'actions';
-  logTurn('bot', errorText);
+  logTurn('bot', errorText + ERROR_MARKER);
   scrollToBottom();
 };
 
@@ -755,8 +761,10 @@ const showMoreProductsAction = (category) =>
 
 // productContext: buildLiveProductContext로 만든, 이 상품 하나에 대한 (화면 표시분보다 풍부한) 정보 텍스트.
 // 백엔드가 카테고리 전체 요약이 아니라 이 텍스트 하나만 근거로 답하게 된다(2026-08-07).
-const askLiveProductQuestion = (name, productContext, question) => {
-  askBackend(question, { title: name, productContext });
+// category: 답변 뒤에도 "다른 O 상품도 보여줘" 버튼이 남아있어야 계속 다른 상품을 볼 수 있는데,
+// 이 후속질문 경로에만 extraMenu가 안 붙어있어서 답변 후 버튼이 통째로 사라졌었다(2026-08-12 발견).
+const askLiveProductQuestion = (name, productContext, question, category) => {
+  askBackend(question, { title: name, productContext, extraMenu: [showMoreProductsAction(category)] });
 };
 
 // 상품 목록 API(개수 목록)와 상세 API(getProduct) 둘 다 options에 saveTrm별 intrRate/intrRate2를
@@ -813,9 +821,9 @@ const showLiveProductDetail = async (name, category, { bypassBudgetCheck = false
       menu: [
         ...LIVE_FOLLOWUP_QUESTIONS[category].map((q) => ({
           label: q,
-          onClick: () => askLiveProductQuestion(name, qaContext, q),
+          onClick: () => askLiveProductQuestion(name, qaContext, q, category),
           action: 'askLiveProductQuestion',
-          args: [name, qaContext, q],
+          args: [name, qaContext, q, category],
         })),
         showMoreProductsAction(category),
       ],
@@ -903,9 +911,13 @@ const FIXED_PRODUCT_CATEGORY = Object.fromEntries(
   Object.entries(FIXED_PRODUCTS_BY_CATEGORY).flatMap(([category, names]) => names.map((name) => [name, category])),
 );
 
-const askProductQuestion = (name, askedQuestion) => {
-  const remaining = (PRODUCT_QUESTIONS[name] || []).filter((q) => q !== askedQuestion);
-  const extraMenu = remaining.map((q) => ({ label: q, onClick: () => askProductQuestion(name, q) }));
+// previouslyAsked: 지금까지 이 상품에 대해 물어본 질문 전부(호출마다 누적해서 넘겨받음).
+// 전엔 이번에 물어본 것 하나만 메뉴에서 뺐어서, 그 전에 이미 물어봤던 질문이 다시 나타나는
+// 문제가 있었다(2026-08-12 발견) - 방금 물어본 것까지 합쳐서 계속 쌓아가며 전부 제외한다.
+const askProductQuestion = (name, askedQuestion, previouslyAsked = []) => {
+  const askedSoFar = askedQuestion ? [...previouslyAsked, askedQuestion] : previouslyAsked;
+  const remaining = (PRODUCT_QUESTIONS[name] || []).filter((q) => !askedSoFar.includes(q));
+  const extraMenu = remaining.map((q) => ({ label: q, onClick: () => askProductQuestion(name, q, askedSoFar) }));
   // 실시간 상품 상세(showLiveProductDetail)에는 있던 "다른 O 상품도 보여줘" 버튼이 장병내일준비적금/
   // 청년미래적금 같은 고정 문서 상품에는 빠져있었다(2026-08-11 피드백) - 같은 카테고리 목록으로
   // 돌아갈 방법이 없어서 "처음으로"까지 눌러야 했던 문제라 여기도 똑같이 붙여준다.
@@ -1641,9 +1653,19 @@ const deriveHistoryMenu = (history, index) => {
     }
     const activeProduct = findActiveProductBefore(history, index);
     if (activeProduct && PRODUCT_QUESTIONS[activeProduct].includes(precedingUserText)) {
-      // 그 상품에 대한 후속 질문 중 하나였던 경우 -> 방금 물어본 것만 빼고 다시 보여준다
-      const remaining = PRODUCT_QUESTIONS[activeProduct].filter((q) => q !== precedingUserText);
-      return { menu: remaining.map((q) => ({ label: q, onClick: () => askProductQuestion(activeProduct, q) })) };
+      // 그 상품에 대한 후속 질문 중 하나였던 경우 -> 지금까지 이 상품에 물어본 질문을 전부 모아서
+      // 그것들만 빼고 다시 보여준다. 전엔 방금 물어본 것 하나만 뺐어서, 새로고침 후 복원하면
+      // 그 전에 이미 물어봤던 질문이 되살아나는 문제가 있었다(2026-08-12 발견, 라이브 화면과
+      // 동일한 버그가 히스토리 복원 로직에도 그대로 있었음).
+      const askedSoFar = [];
+      for (let i = index - 1; i >= 0; i -= 1) {
+        const msg = history[i];
+        if (msg.role !== 'user') continue;
+        if (msg.content === activeProduct) break; // 이 상품 Q&A가 시작된 지점까지 왔으면 멈춤
+        if (PRODUCT_QUESTIONS[activeProduct].includes(msg.content)) askedSoFar.push(msg.content);
+      }
+      const remaining = PRODUCT_QUESTIONS[activeProduct].filter((q) => !askedSoFar.includes(q));
+      return { menu: remaining.map((q) => ({ label: q, onClick: () => askProductQuestion(activeProduct, q, askedSoFar) })) };
     }
     const pageLink = PAGE_LINKS.find((p) => p.keywords.some((k) => precedingUserText.includes(k)));
     if (pageLink) {
@@ -1693,6 +1715,9 @@ const decodeMenuMarker = (content) => {
 const toBubble = (m, history, index) => {
   if (m.role === 'user') {
     return { id: `hist-${m.messageId}`, role: 'user', text: m.content, time: formatBubbleTime(m.createdDate) };
+  }
+  if (m.content.includes(ERROR_MARKER)) {
+    return { id: `hist-${m.messageId}`, role: 'error', text: m.content.replace(ERROR_MARKER, '') };
   }
   const decoded = decodeMenuMarker(m.content);
   if (decoded.menu) {
