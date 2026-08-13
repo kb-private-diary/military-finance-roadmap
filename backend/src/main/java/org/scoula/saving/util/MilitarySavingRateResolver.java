@@ -40,4 +40,11 @@ public class MilitarySavingRateResolver implements IntFunction<Double> {
     public BigDecimal getBasicRate() {
         return this.resolved != null ? this.resolved.getBasicRate() : BigDecimal.ZERO;
     }
+
+    // bankCode의 최대 가입가능 개월수(military_saving_product.max_join_month). apply()와 무관하게
+    // (은행 상품 하나당 고정값이라 구간 조회가 필요 없음) 독립적으로 조회하며, 상품 데이터가 없는
+    // 은행이면 null을 그대로 반환한다(폴백값 적용은 호출부 책임).
+    public Integer getMaxJoinMonth() {
+        return this.mapper.findMaxJoinMonth(this.bankCode);
+    }
 }

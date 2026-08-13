@@ -80,14 +80,18 @@ public class MilitarySavingsCalculator {
         if (rawMaturityMonths < 0) {
             rawMaturityMonths = 0;
         }
-        int totalMaturityMonths = Math.min(rawMaturityMonths, MAX_JOIN_MONTHS);
+        // 은행별 최대 가입기간(military_saving_product.max_join_month)을 우선 쓰고, 상품 데이터가 없는
+        // 은행이면 제도상 기본값(MAX_JOIN_MONTHS)으로 방어한다.
+        Integer bankMaxJoinMonth = rateResolver.getMaxJoinMonth();
+        int maxJoinMonths = bankMaxJoinMonth != null ? bankMaxJoinMonth : MAX_JOIN_MONTHS;
+        int totalMaturityMonths = Math.min(rawMaturityMonths, maxJoinMonths);
         result.totalMaturityMonths = totalMaturityMonths;
 
         // 이자 계산은 실제 만기일 기준 예치일수(/365)로 한다(은행 상품설명서 산식과 동일).
         // 최대 가입기간 캡에 걸린 경우(실제 복무기간이 상품 최대 가입기간을 초과)엔 상품 자체 만기(첫 납입일+최대 가입개월)를,
         // 그 외엔 실제 전역일을 만기일로 본다.
-        LocalDate maturityDate = rawMaturityMonths > MAX_JOIN_MONTHS
-                ? firstPayDate.plusMonths(MAX_JOIN_MONTHS)
+        LocalDate maturityDate = rawMaturityMonths > maxJoinMonths
+                ? firstPayDate.plusMonths(maxJoinMonths)
                 : dischargeDate;
         result.firstPayDate = firstPayDate;
         result.maturityDate = maturityDate;

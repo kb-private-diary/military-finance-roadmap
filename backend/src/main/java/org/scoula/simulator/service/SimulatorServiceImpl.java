@@ -269,6 +269,12 @@ public class SimulatorServiceImpl implements SimulatorService {
         return minLimit != null ? minLimit : 0L;
     }
 
+    // 기준 은행(SIMULATION_BANK_CODE)의 최대 가입가능 개월수. 상품 데이터가 없으면 제도상 기본값으로 방어
+    private int resolveMaxJoinMonths() {
+        Integer maxJoinMonth = this.militarySavingProductMapper.findMaxJoinMonth(SIMULATION_BANK_CODE);
+        return maxJoinMonth != null ? maxJoinMonth : MilitarySavingsCalculator.MAX_JOIN_MONTHS;
+    }
+
     private void validateSaveAmount(long amount, long minSaveAmount) {
         if (amount > MAX_SAVE_AMOUNT) {
             throw BusinessException.badRequest("납입 한도 55만 원을 초과했습니다.", "SIMUL_004");
@@ -280,9 +286,10 @@ public class SimulatorServiceImpl implements SimulatorService {
     }
     
     private void validateTotalMonths(long totalMonths) {
-        if (totalMonths > MilitarySavingsCalculator.MAX_JOIN_MONTHS) {
+        int maxJoinMonths = this.resolveMaxJoinMonths();
+        if (totalMonths > maxJoinMonths) {
             throw BusinessException.badRequest(
-                    "최대 가입기간 " + MilitarySavingsCalculator.MAX_JOIN_MONTHS + "개월을 초과했습니다.",
+                    "최대 가입기간 " + maxJoinMonths + "개월을 초과했습니다.",
                     "SIMUL_005");
         }
     }
