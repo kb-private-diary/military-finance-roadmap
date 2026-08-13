@@ -12,6 +12,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.regex.Pattern;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -24,6 +26,7 @@ import lombok.extern.log4j.Log4j2;
 
 import org.scoula.common.exception.BusinessException;
 import org.scoula.travel.util.TravelPriceCalculator;
+import org.scoula.travel.util.TravelPriceDistribution;
 
 /**
  * FlightAPI.io 왕복 항공권 가격 클라이언트.
@@ -34,6 +37,8 @@ public class FlightApiClient {
 
     private static final int CONNECT_TIMEOUT_MILLIS = 10_000;
     private static final int READ_TIMEOUT_MILLIS = 30_000;
+    private static final Pattern IATA_CODE_PATTERN =
+            Pattern.compile("^[A-Z]{3}$");
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -44,22 +49,33 @@ public class FlightApiClient {
     private String apiUrl;
 
     public long estimateRoundTripCost(
-            String destinationCountry,
-            LocalDate departureDate,
-            LocalDate returnDate) {
+            final String departureAirport,
+            final String destinationAirport,
+            final LocalDate departureDate,
+            final LocalDate returnDate) {
+        return this.estimateRoundTripCosts(
+                departureAirport,
+                destinationAirport,
+                departureDate,
+                returnDate).getCommonCost();
+    }
+
+    public TravelPriceDistribution estimateRoundTripCosts(
+            final String departureAirport,
+            final String destinationAirport,
+            final LocalDate departureDate,
+            final LocalDate returnDate) {
         this.validateRequest(departureDate, returnDate);
+        this.validateAirportCode(departureAirport);
+        this.validateAirportCode(destinationAirport);
         if (this.apiKey == null || this.apiKey.trim().isEmpty()) {
             throw this.flightApiUnavailable();
         }
 
-        String departureAirport =
-                InternationalAirportCodes.koreaDepartureAirport();
-        String destinationAirport =
-                InternationalAirportCodes.destinationAirport(destinationCountry);
-        String response = this.fetch(
+        final String response = this.fetch(
                 departureAirport, destinationAirport, departureDate, returnDate);
-        List<BigDecimal> prices = this.extractPrices(response);
-        return TravelPriceCalculator.findMedian(prices);
+        final List<BigDecimal> prices = this.extractPrices(response);
+        return TravelPriceCalculator.findPriceDistribution(prices);
     }
 
     private void validateRequest(LocalDate departureDate, LocalDate returnDate) {
@@ -77,6 +93,15 @@ public class FlightApiClient {
             throw BusinessException.badRequest(
                     "도착일이 출발일보다 빠를 수 없습니다.",
                     "TRAVEL_002");
+        }
+    }
+
+    private void validateAirportCode(final String airportCode) {
+        if (airportCode == null
+                || !IATA_CODE_PATTERN.matcher(airportCode).matches()) {
+            throw BusinessException.badRequest(
+                    "유효하지 않은 공항 코드입니다.",
+                    "TRAVEL_016");
         }
     }
 
@@ -104,7 +129,7 @@ public class FlightApiClient {
             if (status < 200 || status >= 300) {
                 // API 키가 URL 경로에 있으므로 전체 요청 URL은 절대 로그에 남기지 않는다.
                 log.warn("FlightAPI 호출 실패: status={}, body={}", status, body);
-                throw this.toApiException(status);
+                throw this.toApiException(status, body);
             }
             return body;
         } catch (BusinessException e) {
@@ -203,10 +228,12 @@ public class FlightApiClient {
         }
     }
 
-    private BusinessException toApiException(int status) {
-        if (status == 429) {
+    private BusinessException toApiException(
+            final int status,
+            final String body) {
+        if (status == 429 || this.isLimitExceeded(body)) {
             return new BusinessException(
-                    "FlightAPI 호출 한도 또는 속도 제한을 초과했습니다.",
+                    "항공권 API 호출 한도를 초과했습니다.",
                     HttpStatus.TOO_MANY_REQUESTS,
                     "TRAVEL_019");
         }
@@ -214,6 +241,18 @@ public class FlightApiClient {
             return this.flightNotFound();
         }
         return this.flightApiUnavailable();
+    }
+
+    private boolean isLimitExceeded(final String body) {
+        if (body == null || body.isBlank()) {
+            return false;
+        }
+        final String normalized = body.toLowerCase(Locale.ROOT);
+        return normalized.contains("quota")
+                || normalized.contains("rate limit")
+                || normalized.contains("request limit")
+                || normalized.contains("maximum limit")
+                || normalized.contains("credit");
     }
 
     private BusinessException flightApiUnavailable() {

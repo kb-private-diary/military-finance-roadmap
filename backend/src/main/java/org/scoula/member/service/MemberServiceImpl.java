@@ -133,6 +133,10 @@ public class MemberServiceImpl implements MemberService {
             throw BusinessException.badRequest("비밀번호가 일치하지 않습니다.", "MEM_004");
         }
 
+        if (dto.getTypeId() != null && this.militaryTypeMapper.findMilitaryType(dto.getTypeId()) == null) {
+            throw BusinessException.notFound("존재하지 않는 군종입니다.", "MEM_012");
+        }
+
         List<Long> requiredTermsIds = this.termsMapper.findRequiredIds();
         List<Long> agreedTermsIds = dto.getAgreedTermsIds() == null ? List.of() : dto.getAgreedTermsIds();
         if (!agreedTermsIds.containsAll(requiredTermsIds)) {

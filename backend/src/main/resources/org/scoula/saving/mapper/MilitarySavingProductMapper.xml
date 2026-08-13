@@ -55,4 +55,13 @@
         LIMIT 1
     </select>
 
+    <!-- max_join_month도 min_limit과 마찬가지로 은행 상품 하나당 고정값이라 아무 행이나 1건이면 충분하다 -->
+    <select id="findMaxJoinMonth" resultType="Integer">
+        SELECT max_join_month
+        FROM military_saving_product
+        WHERE bank_code = #{bankCode}
+          AND del_yn = 'N'
+        LIMIT 1
+    </select>
+
 </mapper>

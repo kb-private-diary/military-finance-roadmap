@@ -13,5 +13,6 @@ public class SocialRankingItemDTO {
     private Integer rank;
     private String label;
     private Double savingsRate;
+    private Double metricValue;
     private Boolean me;
 }

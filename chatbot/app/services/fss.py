@@ -1,10 +1,23 @@
-from typing import Dict, List
+import time
+from typing import Dict, List, Tuple
 
 import requests
 
 from app.core.config import FSS_API_KEY
 
 BASE_URL = "https://finlife.fss.or.kr/finlifeapi"
+
+# 적금은 은행권+저축은행권 전체 상품을 페이지째 다 훑은 뒤에야 KB국민은행 것만 걸러내는 구조라,
+# 캐싱 없이 매번 실시간 조회하면 30~50초씩 걸려서 프론트 axios 타임아웃(15초)에 걸려 취소돼버린다
+# (2026-08-11, "적금" 카테고리만 매번 서버 오류로 뜨는 문제로 발견). 예금/대출은 그보다는 빠르지만
+# 같은 구조라 언젠가 상품이 늘어나면 똑같이 느려질 수 있어 전부 캐싱한다.
+# 금리는 하루에도 잘 안 바뀌는 데이터라 10분 캐싱해도 실사용엔 지장 없지만, 캐시가 만료되는
+# 순간 "다음 한 번"은 여전히 느린 첫 조회를 그대로 타서 타임아웃이 재현됐다(2026-08-11, 재현 확인
+# - 취소된 요청 뒤에 캐시가 채워져서 재시도하면 바로 성공하는 패턴). 이 순간 자체를 줄이려고
+# 캐시 유지시간을 1시간으로 늘렸다(프론트 쪽 타임아웃도 별도로 60초로 늘려서 이중 방어).
+_CACHE_TTL_SECONDS = 3600
+_products_cache: Dict[str, Tuple[float, List[dict]]] = {}
+_loan_products_cache: Dict[str, Tuple[float, List[dict]]] = {}
 
 # 은행권, 저축은행권
 BANK_GROUPS = ["020000", "030300"]
@@ -59,7 +72,17 @@ def _fetch_page(endpoint: str, top_fin_grp_no: str, page_no: int) -> dict:
 
 
 def fetch_products(category: str) -> List[dict]:
-    """category: 'savings' 또는 'deposit'. 은행권+저축은행권을 합쳐서 상품코드 기준으로 옵션(금리)을 묶어 반환한다."""
+    """category: 'savings' 또는 'deposit'. 1시간 이내 재조회면 캐시를 그대로 반환한다."""
+    cached = _products_cache.get(category)
+    if cached and time.time() - cached[0] < _CACHE_TTL_SECONDS:
+        return cached[1]
+    result = _fetch_products_live(category)
+    _products_cache[category] = (time.time(), result)
+    return result
+
+
+def _fetch_products_live(category: str) -> List[dict]:
+    """은행권+저축은행권을 합쳐서 상품코드 기준으로 옵션(금리)을 묶어 반환한다(캐시 없이 실시간 조회)."""
     endpoint = PRODUCT_ENDPOINTS[category]
     products_by_code: Dict[str, dict] = {}
 
@@ -108,7 +131,17 @@ def max_rate(product: dict) -> float:
 
 
 def fetch_loan_products(category: str) -> List[dict]:
-    """category: 'mortgage' | 'jeonse' | 'creditLoan'. KB국민은행 상품만 걸러서 반환한다."""
+    """category: 'mortgage' | 'jeonse' | 'creditLoan'. 1시간 이내 재조회면 캐시를 그대로 반환한다."""
+    cached = _loan_products_cache.get(category)
+    if cached and time.time() - cached[0] < _CACHE_TTL_SECONDS:
+        return cached[1]
+    result = _fetch_loan_products_live(category)
+    _loan_products_cache[category] = (time.time(), result)
+    return result
+
+
+def _fetch_loan_products_live(category: str) -> List[dict]:
+    """KB국민은행 상품만 걸러서 반환한다(캐시 없이 실시간 조회)."""
     endpoint = LOAN_ENDPOINTS.get(category, CREDIT_LOAN_ENDPOINT)
     products_by_code: Dict[str, dict] = {}
 
@@ -168,3 +201,31 @@ def representative_loan_rate(product: dict) -> float:
         if option["lend_rate_min"] is not None or option["lend_rate_avg"] is not None
     ]
     return min(rates, default=0)
+
+
+# 캐시가 "비어있는 순간"(서버 첫 기동 직후, 또는 TTL 만료 직후) 자체를 없애기 위한 예열 함수.
+# TTL 체크 없이 무조건 실시간(_live) 함수를 호출해서 캐시를 강제로 새로 채운다(2026-08-11 추가).
+# main.py의 lifespan에서 (1) 서버 기동 시 1회, (2) TTL(1시간)이 지나기 전에 미리 주기적으로
+# 호출해서, 사용자가 캐시 만료 타이밍에 걸려 30~50초 콜드 조회를 직접 겪는 일이 없게 한다.
+PRODUCT_CATEGORIES_TO_WARM = ["savings", "deposit"]
+LOAN_CATEGORIES_TO_WARM = ["mortgage", "jeonse", "creditLoan"]
+
+
+def warm_cache() -> None:
+    """모든 카테고리를 실시간 조회해서 캐시를 강제로 갱신한다. 동기/블로킹 함수라 호출하는 쪽에서
+    asyncio.to_thread 등으로 이벤트 루프를 막지 않게 감싸서 써야 한다."""
+    for category in PRODUCT_CATEGORIES_TO_WARM:
+        try:
+            result = _fetch_products_live(category)
+            _products_cache[category] = (time.time(), result)
+        except Exception:
+            # 예열 실패는 그냥 넘어간다 - 다음 예열 주기 때 다시 시도되고, 그 사이엔 기존
+            # 캐시(있다면)나 사용자 요청 시 콜드 조회로 자연스럽게 대체된다.
+            pass
+
+    for category in LOAN_CATEGORIES_TO_WARM:
+        try:
+            result = _fetch_loan_products_live(category)
+            _loan_products_cache[category] = (time.time(), result)
+        except Exception:
+            pass

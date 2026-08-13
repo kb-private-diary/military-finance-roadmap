@@ -48,8 +48,11 @@ const draftLoadFailed = ref(false);
 let scrollContainer = null;
 
 const today = toIsoDate(new Date());
+const MANWON_TO_WON = 10_000;
 
 const unwrap = (response) => response.data?.data;
+const toWon = (amountInManwon) => Number(amountInManwon) * MANWON_TO_WON;
+const toManwon = (amountInWon) => Number(amountInWon) / MANWON_TO_WON;
 
 const toOptions = (cities = []) =>
   cities.map(({ city }) => ({ label: city, value: city }));
@@ -210,7 +213,7 @@ const toGoalRequest = () => ({
   style: form.style,
   startDate: form.startDate,
   endDate: form.endDate,
-  totalBudget: Number(form.totalBudget),
+  totalBudget: toWon(form.totalBudget),
 });
 
 const toCostInputSnapshot = (request) =>
@@ -256,7 +259,8 @@ const restoreDraft = (draft) => {
   form.style = draft.style || 'common';
   form.startDate = draft.startDate || '';
   form.endDate = draft.endDate || '';
-  form.totalBudget = draft.totalBudget ?? '';
+  form.totalBudget =
+    draft.totalBudget != null ? toManwon(draft.totalBudget) : '';
   initialFormSnapshot.value = toGoalRequest();
 };
 

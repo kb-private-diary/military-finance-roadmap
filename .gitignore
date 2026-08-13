@@ -38,3 +38,6 @@ env/
 application-secret.properties
 !application-secret.properties.example
 backend/src/main/resources/sql/DEMO_SETUP_GUIDE.md
+
+# Claude Code 로컬 작업 설정 (개인 도구 설정, 공유 코드 아님)
+.claude/
