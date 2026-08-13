@@ -5,7 +5,6 @@ import { computed, nextTick, onActivated, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import chatApi from '@/api/chatApi';
 import { useAuthStore } from '@/stores/auth';
-import { useToast } from '@/composables/useToast';
 import { formatDate } from '@/util/format';
 import mascotImg from '@/assets/chat-mascot.png';
 import moodLikeImg from '@/assets/chat-mood-like.png';
@@ -17,7 +16,6 @@ import { COUNSEL_GOALS, detectCounselGoal, detectDirectListCategory } from './co
 
 const router = useRouter();
 const auth = useAuthStore();
-const { show: showToast } = useToast();
 
 const userName = computed(() => auth.state.user.name || '고객');
 
@@ -392,7 +390,31 @@ const encodeMenuMarker = (msg) => {
   );
 };
 
+// 마지막으로 화면에 표시된 날짜 구분선의 날짜(toDateString() 형식). 히스토리를 불러올 때나
+// 새 세션을 시작할 때 맞춰두고, pushUser/pushBot이 호출될 때마다 오늘 날짜와 비교해서
+// 날짜가 바뀌었으면 구분선을 새로 끼워 넣는다 - 안 그러면 어제 대화를 이어서 오늘 첫 메시지를
+// 보내도 그 시점엔 오늘 날짜 구분선이 안 생기고(로드된 히스토리엔 아직 오늘 메시지가 없어서),
+// 새로고침해서 히스토리를 다시 불러와야만 구분선이 뒤늦게 생기는 문제가 있었다(2026-08-13 발견).
+const lastShownDay = ref(null);
+const ensureDateDivider = () => {
+  const today = new Date().toDateString();
+  if (lastShownDay.value === today) return;
+  messages.value.push({ id: `date-live-${genId()}`, role: 'date', label: dateLabelFor() });
+  lastShownDay.value = today;
+};
+
+// lastListContext는 "방금 보여준 목록 직후의 바로 다음 자유질문"에만 1회성으로 실어 보내려고 만든
+// 값이라, 그 사이에 다른 턴(상품 상세 클릭 등)이 하나라도 끼면 반드시 비워져야 한다. 안 그러면 예전
+// 목록 컨텍스트가 전혀 상관없는 나중 질문(예: "자동차 보험 뭐가 좋아?")에 계속 새어 들어간다
+// (2026-08-13 버그: 예금 목록 → 상품 상세 클릭 → 무관한 질문 순서에서 예금 목록 근거가 그대로 남아 엉뚱하게 답함).
+// 목록을 새로 보여줄 때도 pushBot이 먼저 불리고 lastListContext 대입은 그 다음이라(showProductCategoryList),
+// 여기서 지워도 방금 만든 새 값을 지우는 게 아니라 그 전의 오래된 값만 지우게 되어 안전하다.
+const invalidateStaleListContext = () => {
+  lastListContext.value = null;
+};
 const pushBot = (msg) => {
+  ensureDateDivider();
+  invalidateStaleListContext();
   messages.value.push({ id: genId(), role: 'bot', time: formatBubbleTime(), ...msg });
   panel.value = 'actions'; // 봇 답변이 나오면 항상 "종료하기"를 보여준다 (개별 함수마다 챙기지 않아도 되게)
   scrollToBottom();
@@ -408,6 +430,8 @@ const pushBot = (msg) => {
   if (lines.length) logTurn('bot', lines.join('\n') + encodeMenuMarker(msg));
 };
 const pushUser = (text, { skipLog = false } = {}) => {
+  ensureDateDivider();
+  invalidateStaleListContext();
   messages.value.push({ id: genId(), role: 'user', text, time: formatBubbleTime() });
   scrollToBottom();
   // askBackend로 가는 자유 질문은 그쪽(/messages)이 이미 서버에 저장하므로 여기서 또 남기면 중복된다.
@@ -417,6 +441,8 @@ const pushUser = (text, { skipLog = false } = {}) => {
 // 안 넘기면 기존 범용 오류 문구를 보여준다(2026-08-11 피드백 - 500자 초과처럼 사용자가
 // 바로 고칠 수 있는 입력 오류까지 "서버 상의 오류"로 뭉뚱그려 보여주던 문제).
 const pushError = (customText) => {
+  ensureDateDivider();
+  invalidateStaleListContext();
   const errorText = customText || '서버 상의 오류가 있습니다. 잠시 후에 다시 시도해 주세요.';
   messages.value.push({
     id: genId(),
@@ -1609,6 +1635,10 @@ const selectFeedbackLevel = (value) => {
   selectedFeedback.value = value;
 };
 
+// 만족도(좋아요/보통/싫어요)는 저위험 데이터라 저장 실패를 사용자에게 따로 알릴 필요가 없다고
+// 판단해 토스트 안내를 뺐다(2026-08-12 피드백) - 서버 쪽 진짜 오류는 서버 로그로 이미 잡히고,
+// 클라이언트에서 요청 자체가 막힌 경우(네트워크 등)는 애초에 서버 로그로도 못 잡는 케이스라
+// 토스트를 남겨도 실효성이 없었다. 성공/실패 상관없이 모달은 항상 닫고 감사 인사로 마무리한다.
 const submitFeedbackModal = async () => {
   if (!selectedFeedback.value || feedbackSubmitting.value) return;
   feedbackSubmitting.value = true;
@@ -1619,7 +1649,7 @@ const submitFeedbackModal = async () => {
       reason: selectedFeedback.value === 'dislike' ? feedbackReason.value.trim() || undefined : undefined,
     });
   } catch {
-    showToast('피드백 저장에 실패했어요', 'error');
+    // 실패해도 사용자에게 별도 안내 없이 조용히 넘어간다.
   } finally {
     feedbackSubmitting.value = false;
   }
@@ -1834,6 +1864,7 @@ onMounted(async () => {
 
     if (session.isNew) {
       messages.value = buildGreetAndGuide();
+      lastShownDay.value = new Date().toDateString();
     } else {
       // 유저당 세션을 하나만 재사용하지만, 예전에(하루 단위로 세션을 나누던 시절에) 만들어진
       // 계정은 세션이 여러 개 흩어져 있을 수 있다 - getAllHistory가 그 유저의 모든 세션을
@@ -1851,8 +1882,12 @@ onMounted(async () => {
           ...buildHistoryWithDateDividers(history, firstDay),
         ];
         restorePanelFromHistory(history);
+        // 마지막으로 보인 구분선은 히스토리의 마지막 메시지 날짜 - 그 이후 pushUser/pushBot이
+        // 호출될 때 오늘 날짜와 달라야만(즉 날짜가 실제로 바뀌었을 때만) 새 구분선이 생기게 한다.
+        lastShownDay.value = new Date(history[history.length - 1].createdDate).toDateString();
       } else {
         messages.value = buildGreetAndGuide();
+        lastShownDay.value = new Date().toDateString();
       }
     }
   } catch {
