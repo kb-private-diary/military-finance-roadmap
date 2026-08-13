@@ -44,7 +44,7 @@
 
         UNION ALL
 
-        <!-- 진로: 선택 자격증·어학 비용 + 선택 인강 비용 -->
+        <!-- 진로: 선택 자격증·어학 비용 + 선택 인강 비용 + 선택 훈련과정 본인부담금 -->
         SELECT
         jg.goal_id AS goalId,
         2 AS categoryId,
@@ -62,6 +62,13 @@
         FROM job_goal_course jgc
         WHERE jgc.goal_id = jg.goal_id
         AND jgc.del_yn = 'N'
+        ), 0)
+        +
+        COALESCE((
+        SELECT SUM(jgt.selected_cost)
+        FROM job_goal_training jgt
+        WHERE jgt.goal_id = jg.goal_id
+        AND jgt.del_yn = 'N'
         ), 0)
         ) AS amount,
         ub.created_date AS bookmarkedDate
@@ -133,23 +140,22 @@
     </select>
 
     <!--
-        MAIN-API-01: 다가오는 일정 조회
-        - 여행 출발일과 선택 자격증의 필기시험 시작일 통합 조회
-        - 오늘 이후 일정만 조회
-        - 날짜가 가까운 순으로 최대 2개 반환
-    -->
+         MAIN-API-01: 다가오는 일정 조회
+         - 여행 출발일과 선택 자격증의 시험일 통합 조회
+         - 진로는 필기·실기 중 아직 지나지 않은 가장 가까운 시험일 1건만 사용
+         - 카테고리(여행/진로)마다 가장 가까운 일정 1건씩, 최대 2개 반환
+     -->
     <select
             id="findUpcomingScheduleList"
             parameterType="long"
             resultType="org.scoula.main.dto.MainUpcomingScheduleDTO">
 
         SELECT
-        schedule.category AS category,
-        schedule.title AS title,
-        schedule.schedule_date AS scheduleDate,
-        DATEDIFF(schedule.schedule_date, CURDATE()) AS dDay
+        category,
+        title,
+        schedule_date AS scheduleDate,
+        DATEDIFF(schedule_date, CURDATE()) AS dDay
         FROM (
-        <!-- 여행 목표 출발일 -->
         SELECT
         'TRAVEL' AS category,
         tg.title AS title,
@@ -159,30 +165,61 @@
         AND tg.status = 'CONFIRMED'
         AND tg.del_yn = 'N'
         AND tg.start_date >= CURDATE()
+        ORDER BY tg.start_date ASC
+        LIMIT 1
+        ) AS t1
 
         UNION ALL
 
-        <!-- 사용자가 선택한 자격증의 필기시험 시작일 -->
+        SELECT
+        category,
+        title,
+        schedule_date AS scheduleDate,
+        DATEDIFF(schedule_date, CURDATE()) AS dDay
+        FROM (
         SELECT
         'JOB' AS category,
-        jq.qual_name AS title,
-        jqs.written_exam_start_date AS schedule_date
+        CONCAT(
+        jq.qual_name,
+        IF(nearest.written_exam_start_date >= CURDATE(), ' 필기', ' 실기')
+        ) AS title,
+        nearest.exam_date AS schedule_date
         FROM job_goal jg
         INNER JOIN job_goal_qualification jgq
-        ON jg.goal_id = jgq.goal_id
+        ON jgq.goal_id = jg.goal_id
         AND jgq.del_yn = 'N'
         INNER JOIN job_qualification jq
-        ON jgq.qual_id = jq.qual_id
+        ON jq.qual_id = jgq.qual_id
         AND jq.del_yn = 'N'
-        INNER JOIN job_qualification_schedule jqs
-        ON jq.qual_id = jqs.qual_id
+        INNER JOIN (
+        SELECT
+        s.qual_id,
+        s.written_exam_start_date,
+        IF(s.written_exam_start_date >= CURDATE(),
+        s.written_exam_start_date,
+        s.practical_exam_start_date) AS exam_date
+        FROM job_qualification_schedule s
+        WHERE s.del_yn = 'N'
+        AND s.schedule_id = (
+        SELECT s2.schedule_id
+        FROM job_qualification_schedule s2
+        WHERE s2.qual_id = s.qual_id
+        AND s2.del_yn = 'N'
+        AND (
+        s2.written_exam_end_date >= CURDATE()
+        OR s2.practical_exam_end_date >= CURDATE()
+        )
+        ORDER BY s2.exam_year, s2.schedule_id
+        LIMIT 1
+        )
+        ) AS nearest
+        ON nearest.qual_id = jq.qual_id
         WHERE jg.user_id = #{userId}
         AND jg.status = 'CONFIRMED'
         AND jg.del_yn = 'N'
-        AND jqs.written_exam_start_date >= CURDATE()
-        ) schedule
-        ORDER BY schedule.schedule_date ASC
-        LIMIT 2
+        ORDER BY nearest.exam_date ASC
+        LIMIT 1
+        ) AS t2
 
     </select>
 
