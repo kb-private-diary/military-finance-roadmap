@@ -9,8 +9,6 @@ import lombok.NoArgsConstructor;
 import org.scoula.dashboard.dto.DashboardBasicResponseDTO;
 import org.scoula.dashboard.dto.DashboardSavingsResponseDTO;
 import org.scoula.product.dto.SavingProductListResponseDTO;
-import org.scoula.regret.dto.RegretStatsResponseDTO;
-//import org.scoula.social.dto.SocialStatsResponseDTO;
 
 @Data
 @NoArgsConstructor
@@ -29,12 +27,6 @@ public class MainSummaryResponseDTO {
 
     // 여행 출발일과 진로 자격증 필기시험일 중 가장 가까운 일정 2개
     private List<MainUpcomingScheduleDTO> upcomingSchedules;
-
-    // 이번 달 후회소비 통계
-    private RegretStatsResponseDTO regret;
-
-    // 전우들 비교 통계
-    //private SocialStatsResponseDTO social;
 
     // 메인 배너에 노출할 KB 적금 상품 목록
     private List<SavingProductListResponseDTO> recommendedProducts;
