@@ -171,23 +171,6 @@ const goHome = () => {
           />
         </svg>
       </button>
-
-      <button
-        class="app-header__icon-btn"
-        type="button"
-        aria-label="홈으로"
-        @click="goHome"
-      >
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path
-            d="M4 11L12 4L20 11V19C20 19.5523 19.5523 20 19 20H15V14H9V20H5C4.44772 20 4 19.5523 4 19V11Z"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
-      </button>
     </div>
   </header>
 </template>
