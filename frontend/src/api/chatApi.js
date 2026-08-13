@@ -51,13 +51,17 @@ export default {
     return api.get(`${BASE_URL}/messages/${messageId}/recommendations`);
   },
 
+  // 서버가 외부(금융감독원 등) API를 캐시 없이 처음 조회할 때만 30~50초씩 걸릴 수 있어서
+  // (2026-08-11 발견), 공통 axios 기본 타임아웃(15초)보다 넉넉하게 이 호출에만 60초를 준다.
+  // 다른 화면(홈/대시보드 등)에서 쓰는 공통 axios 인스턴스 설정은 그대로 안 건드림.
   listProducts(category) {
-    return api.get(`${BASE_URL}/products`, { params: category ? { category } : undefined });
+    return api.get(`${BASE_URL}/products`, { params: category ? { category } : undefined, timeout: 60000 });
   },
 
   getProduct(name, category) {
     return api.get(`${BASE_URL}/products/${encodeURIComponent(name)}`, {
       params: category ? { category } : undefined,
+      timeout: 60000,
     });
   },
 };

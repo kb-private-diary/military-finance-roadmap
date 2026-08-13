@@ -5,7 +5,6 @@ import { useRoute, useRouter } from 'vue-router';
 import travelApi from '@/api/travelApi';
 import calculatorImage from '@/assets/images/calculator.png';
 import BaseCard from '@/components/common/BaseCard.vue';
-import BaseModal from '@/components/common/BaseModal.vue';
 import BaseTag from '@/components/common/BaseTag.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
@@ -25,9 +24,6 @@ const activeTab = ref('goal');
 const detail = ref(null);
 const loading = ref(true);
 const loadError = ref('');
-const deleting = ref(false);
-const deleteError = ref('');
-const isDeleteModalOpen = ref(false);
 let scrollContainer = null;
 
 const unwrap = (response) => response.data?.data;
@@ -41,6 +37,20 @@ const readErrorMessage = (error, fallback) =>
 const cost = computed(() => detail.value?.cost ?? {});
 const products = computed(() => detail.value?.products ?? {});
 const budgetPlan = computed(() => detail.value?.budgetPlan ?? null);
+const regretInsight = computed(() => detail.value?.regretInsight ?? null);
+const regretCoveragePercent = computed(() => {
+  const remainingAmount = Number(regretInsight.value?.remainingAmount ?? 0);
+  if (remainingAmount <= 0) return 100;
+
+  return Math.min(
+    100,
+    Math.round(
+      (Number(regretInsight.value?.regretSavingsAmount ?? 0) /
+        remainingAmount) *
+        100,
+    ),
+  );
+});
 
 const dateRange = computed(() => {
   if (!detail.value) return '';
@@ -168,29 +178,6 @@ const selectTab = (key) => {
 
 const goToRoadmap = () => router.push({ name: 'RoadmapMain' });
 
-const openDeleteModal = () => {
-  deleteError.value = '';
-  isDeleteModalOpen.value = true;
-};
-
-const deleteGoal = async () => {
-  if (deleting.value) return;
-
-  deleting.value = true;
-  deleteError.value = '';
-  try {
-    await travelApi.deleteGoal(goalId);
-    await router.replace({ name: 'RoadmapMain' });
-  } catch (error) {
-    deleteError.value = readErrorMessage(
-      error,
-      '여행 목표를 삭제하지 못했습니다.',
-    );
-  } finally {
-    deleting.value = false;
-  }
-};
-
 onMounted(() => {
   scrollContainer = document.querySelector('.app-content');
   scrollContainer?.classList.add('travel-scrollbar-hidden');
@@ -238,6 +225,27 @@ onBeforeUnmount(() => {
           </strong>
         </div>
       </BaseCard>
+
+      <section
+        v-if="regretInsight"
+        class="regret-insight"
+        aria-label="후회소비 절감 안내"
+      >
+        <p class="regret-insight__tag">⭐ 후회소비 인사이트</p>
+        <p class="regret-insight__text">
+          최근 {{ regretInsight.regretLookbackMonths }}개월간 월평균 후회소비가
+          <strong>{{ formatWon(regretInsight.avgRegretSpending) }}</strong
+          >이에요. 이 금액을
+          {{ regretInsight.regretSavingsMonths }}개월 동안 모으면
+          <strong>{{ formatWon(regretInsight.regretSavingsAmount) }}</strong
+          >으로, 여행 경비 부족분
+          <strong>{{ formatWon(regretInsight.remainingAmount) }}</strong>의
+          <strong class="regret-insight__rate">
+            {{ regretCoveragePercent }}%
+          </strong>
+          를 채울 수 있어요.
+        </p>
+      </section>
 
       <section class="detail-content">
         <div class="tab-row" role="tablist" aria-label="여행 상세 정보">
@@ -485,32 +493,13 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
-      <p v-if="deleteError" class="delete-error text-caption" role="alert">
-        {{ deleteError }}
-      </p>
     </template>
 
     <BottomButtonBar
       v-if="!loading && !loadError && detail"
       primary-label="확 인"
-      secondary-label="삭 제"
       @primary-click="goToRoadmap"
-      @secondary-click="openDeleteModal"
     />
-
-    <BaseModal
-      v-model="isDeleteModalOpen"
-      title="여행 로드맵 삭제"
-      confirm-text="삭제"
-      @confirm="deleteGoal"
-    >
-      <p class="delete-modal__message">
-        이 여행 로드맵을 삭제하시겠습니까?
-      </p>
-      <p class="delete-modal__description">
-        삭제한 로드맵은 목록에서 더 이상 확인할 수 없습니다.
-      </p>
-    </BaseModal>
   </div>
 </template>
 
@@ -534,8 +523,7 @@ onBeforeUnmount(() => {
   margin: 0;
 }
 
-.status-box--error,
-.delete-error {
+.status-box--error {
   color: var(--danger);
 }
 
@@ -606,6 +594,39 @@ onBeforeUnmount(() => {
   margin-top: 4px;
   color: var(--kb-gray);
   font-size: 24px;
+}
+
+.regret-insight {
+  padding: 16px;
+  border: 1px solid var(--kb-yellow-deep);
+  border-radius: 14px;
+  background: var(--kb-yellow-pale);
+}
+
+.regret-insight__tag,
+.regret-insight__text {
+  margin: 0;
+}
+
+.regret-insight__tag {
+  color: var(--brand-gold);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.regret-insight__text {
+  margin-top: 6px;
+  color: var(--text-body);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.regret-insight__text strong {
+  color: var(--text-strong);
+}
+
+.regret-insight__text .regret-insight__rate {
+  color: var(--success);
 }
 
 .detail-content {
@@ -957,26 +978,6 @@ onBeforeUnmount(() => {
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 2;
-}
-
-.delete-error {
-  margin: 0;
-  text-align: center;
-}
-
-.delete-modal__message {
-  margin: 0;
-  color: var(--text-strong);
-  font-size: 14px;
-  text-align: center;
-}
-
-.delete-modal__description {
-  margin: 8px 0 0;
-  color: var(--text-muted);
-  font-size: 12px;
-  line-height: 1.5;
-  text-align: center;
 }
 
 :global(.app-content.travel-scrollbar-hidden) {

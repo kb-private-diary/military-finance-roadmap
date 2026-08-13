@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -27,6 +28,8 @@ import lombok.extern.log4j.Log4j2;
 
 import org.scoula.common.exception.BusinessException;
 import org.scoula.product.service.ProductService;
+import org.scoula.regret.dto.RegretSpendingSummaryDTO;
+import org.scoula.regret.service.RegretService;
 import org.scoula.simulator.dto.SimulatorSavingDetailsResponseDTO;
 import org.scoula.simulator.service.SimulatorService;
 import org.scoula.travel.client.BookingApiClient;
@@ -50,6 +53,7 @@ import org.scoula.travel.dto.TravelPlaceResponseDTO;
 import org.scoula.travel.dto.TravelPlaceSelectionDTO;
 import org.scoula.travel.dto.TravelPlacesUpdateRequestDTO;
 import org.scoula.travel.dto.TravelQuarterCostSearchDTO;
+import org.scoula.travel.dto.TravelRegretInsightResponseDTO;
 import org.scoula.travel.dto.TravelPackageResponseDTO;
 import org.scoula.travel.dto.TravelPackageSearchDTO;
 import org.scoula.travel.dto.TravelPackageUpdateRequestDTO;
@@ -73,6 +77,7 @@ public class TravelServiceImpl implements TravelService {
     private final YellowBalloonClient yellowBalloonClient;
     private final ProductService productService;
     private final SimulatorService simulatorService;
+    private final RegretService regretService;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Map<String, LocalDateTime> packageQueryCache =
             new ConcurrentHashMap<>();
@@ -88,6 +93,8 @@ public class TravelServiceImpl implements TravelService {
             DateTimeFormatter.ofPattern("yyyy.MM.dd");
     private static final int PACKAGE_CACHE_HOURS = 6;
     private static final int ROADMAP_CATEGORY_TRAVEL = 1;
+    private static final int REGRET_LOOKBACK_MONTHS = 3;
+    private static final int MAX_REGRET_SAVINGS_MONTHS = 12;
     private static final String TRAVEL_SAVING_CODE_PREFIX = "TRV-";
 
     // 여행 스타일. city_cost 의 saving_cost / common_cost / premium_cost 에 대응.
@@ -190,7 +197,65 @@ public class TravelServiceImpl implements TravelService {
                 this.readSelectedPlaces(goal),
                 packageResponse,
                 this.createProductRecommendations(),
-                this.createBudgetPlan(userId, goal, cost));
+                this.createBudgetPlan(userId, goal, cost),
+                this.createRegretInsight(userId, goal, cost));
+    }
+
+    private TravelRegretInsightResponseDTO createRegretInsight(
+            final Long userId,
+            final TravelGoalVO goal,
+            final TravelCostVO cost) {
+        final long remainingAmount =
+                this.nvl(cost.getTotalCost()) - this.nvl(goal.getTotalBudget());
+        if (remainingAmount <= 0L) {
+            return null;
+        }
+
+        final int savingsMonths =
+                this.calculateRegretSavingsMonths(goal.getStartDate());
+        if (savingsMonths <= 0) {
+            return null;
+        }
+
+        try {
+            final RegretSpendingSummaryDTO spending =
+                    this.regretService.getSpendingSummary(
+                            userId, REGRET_LOOKBACK_MONTHS);
+            if (spending == null || spending.getAvgRegretSpending() <= 0L) {
+                return null;
+            }
+
+            final long avgRegretSpending = spending.getAvgRegretSpending();
+            return TravelRegretInsightResponseDTO.builder()
+                    .avgRegretSpending(avgRegretSpending)
+                    .regretLookbackMonths(REGRET_LOOKBACK_MONTHS)
+                    .regretSavingsMonths(savingsMonths)
+                    .regretSavingsAmount(
+                            avgRegretSpending * savingsMonths)
+                    .remainingAmount(remainingAmount)
+                    .build();
+        } catch (BusinessException exception) {
+            log.info(
+                    "여행 후회소비 인사이트 정보를 찾을 수 없습니다: userId={}, code={}",
+                    userId,
+                    exception.getCode());
+            return null;
+        }
+    }
+
+    private int calculateRegretSavingsMonths(final LocalDate startDate) {
+        if (startDate == null) {
+            return 0;
+        }
+
+        final long remainingDays =
+                ChronoUnit.DAYS.between(LocalDate.now(), startDate);
+        if (remainingDays <= 0L) {
+            return 0;
+        }
+
+        final long months = Math.max(1L, remainingDays / 30L);
+        return (int) Math.min(months, MAX_REGRET_SAVINGS_MONTHS);
     }
 
     private TravelBudgetPlanResponseDTO createBudgetPlan(
@@ -1075,21 +1140,6 @@ public class TravelServiceImpl implements TravelService {
             throw BusinessException.conflict(
                     "작성 중인 여행 목표만 저장할 수 있습니다.",
                     "TRAVEL_029");
-        }
-    }
-
-    @Transactional
-    @Override
-    public void deleteGoal(
-            final Long userId,
-            final Long goalId,
-            final String userName) {
-        this.findOwnedGoalOrThrow(userId, goalId);
-        this.mapper.softDeleteCostByGoalId(goalId, userName);
-        if (this.mapper.softDeleteGoal(goalId, userId, userName) == 0) {
-            throw BusinessException.conflict(
-                    "여행 목표를 삭제하지 못했습니다.",
-                    "TRAVEL_037");
         }
     }
 

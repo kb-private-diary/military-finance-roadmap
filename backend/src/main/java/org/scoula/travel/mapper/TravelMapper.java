@@ -84,12 +84,4 @@ public interface TravelMapper {
 
     int confirmGoal(final TravelGoalVO goal);
 
-    int softDeleteGoal(@Param("goalId") final Long goalId,
-                       @Param("userId") final Long userId,
-                       @Param("modifiedNm") final String modifiedNm);
-
-    int softDeleteCostByGoalId(
-            @Param("goalId") final Long goalId,
-            @Param("modifiedNm") final String modifiedNm);
-
 }

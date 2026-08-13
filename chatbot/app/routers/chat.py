@@ -316,13 +316,15 @@ def _subscription_items() -> List[dict]:
 
 
 def _fund_items() -> List[dict]:
+    # 서비스가 KB 전용이라 펀드도 다른 자산운용사 상품이 섞여 나오면 안 된다 - KB자산운용
+    # 펀드만 걸러주는 fetch_kb_funds()를 쓴다(2026-08-12 피드백, fund.py 주석 참고).
     return [
         FundItem(
             srtn_cd=fund["srtnCd"],
             fnd_nm=fund["fndNm"],
             fnd_tp=fund.get("fndTp"),
         ).model_dump(by_alias=True)
-        for fund in fund_service.fetch_funds()
+        for fund in fund_service.fetch_kb_funds()
     ]
 
 

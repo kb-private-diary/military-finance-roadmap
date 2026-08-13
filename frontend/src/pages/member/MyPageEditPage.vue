@@ -1,7 +1,7 @@
 <script setup>
 // SCR-MYP-02 · 회원정보 수정 (담당: 호빈)
 // 이름·전화번호·부대정보 수정 (군종/계급/입대일 등은 여기서 다루지 않음)
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import memberApi from '@/api/memberApi';
 import { useToast } from '@/composables/useToast';
@@ -24,14 +24,30 @@ const errorMessage = ref('');
 
 const canSubmit = computed(() => form.name && form.phone && !submitting.value);
 
+const unitOptions = ref([]);
+const loadMilitaryUnits = async (typeId) => {
+  if (!typeId) return;
+  const units = await memberApi.findMilitaryUnits(typeId);
+  unitOptions.value = units.map((u) => ({ label: u.unitName, value: u.unitCode }));
+};
+
+watch(
+  () => form.unitCode,
+  (unitCode) => {
+    const unit = unitOptions.value.find((u) => u.value === unitCode);
+    if (unit) form.unitName = unit.label;
+  },
+);
+
 const load = async () => {
   loading.value = true;
   try {
     const member = await memberApi.getMyInfo();
     form.name = member.name;
     form.phone = member.phone;
-    form.unitName = member.unitName || '';
     form.unitCode = member.unitCode || '';
+    form.unitName = member.unitName || '';
+    await loadMilitaryUnits(member.typeId);
   } catch (e) {
     errorMessage.value = e.response?.data?.message || '내 정보를 불러오지 못했습니다.';
   } finally {
@@ -66,8 +82,13 @@ onMounted(load);
       <form class="mypage-edit-form" @submit.prevent="submit">
         <BaseInput v-model="form.name" label="이름" placeholder="이름을 입력하세요" />
         <BaseInput v-model="form.phone" label="전화번호" placeholder="010-0000-0000" />
-        <BaseInput v-model="form.unitName" label="부대명" placeholder="예: 수도방위사령부" />
-        <BaseInput v-model="form.unitCode" label="부대코드" placeholder="부대코드 (선택)" />
+        <BaseInput
+          type="select"
+          v-model="form.unitCode"
+          label="부대명"
+          placeholder="부대를 선택하세요"
+          :options="unitOptions"
+        />
 
         <p v-if="errorMessage" class="mypage-edit-form__error text-caption">{{ errorMessage }}</p>
       </form>

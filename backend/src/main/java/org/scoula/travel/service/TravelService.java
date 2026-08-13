@@ -89,9 +89,4 @@ public interface TravelService {
             final Long goalId,
             final String userName);
 
-    void deleteGoal(
-            final Long userId,
-            final Long goalId,
-            final String userName);
-
 }
