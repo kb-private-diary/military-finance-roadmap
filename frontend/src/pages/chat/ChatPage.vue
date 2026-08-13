@@ -12,7 +12,12 @@ import moodNeutralImg from '@/assets/chat-mood-neutral.png';
 import moodDislikeImg from '@/assets/chat-mood-dislike.png';
 // 자유입력 목적/카테고리 매칭 로직은 겹치는 키워드 회귀가 잦아서 별도 모듈로 빼고
 // 자동 테스트(counselRouting.test.js)로 고정해뒀다(2026-08-12) - 자세한 이유는 그 파일 주석 참고.
-import { COUNSEL_GOALS, detectCounselGoal, detectDirectListCategory } from './counselRouting';
+import {
+  COUNSEL_GOALS,
+  detectCounselGoal,
+  detectDirectListCategory,
+  detectTentativeListCategory,
+} from './counselRouting';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -659,6 +664,63 @@ const KB_HOMEPAGE_URL = {
   deposit: { label: 'KB국민은행 예금 상품 홈페이지', url: 'https://obank.kbstar.com/quics?page=C016528' },
 };
 
+// 실시간(FSS/펀드 API) 상품은 원래 은행별/운용사별 개별 페이지가 없어서 다 같이 비교 페이지로만
+// 연결했는데(SOURCE_URL, fss.py), 실제로 아는 상품은 자체 상품 페이지로 개별 연결한다(2026-08-13,
+// 에스더가 직접 확인해서 보내준 링크). 상품명이 정확히 일치할 때만 적용되고, 여기 없는 상품은
+// 기존 출처(p.sourceUrl)로 자동 대체된다. label을 안 넣으면 기본값(LIVE_PRODUCT_SOURCE_LABEL)을 쓴다 -
+// 예적금은 KB 자체 페이지라 그대로 두고, 펀드는 KB가 아니라 제3자 사이트(FunETF, 삼성자산운용 운영)라
+// 다른 label을 따로 넣어줘야 한다.
+const LIVE_PRODUCT_SOURCE_LABEL = 'KB국민은행 상품안내';
+const FUNETF_LABEL = 'FunETF 펀드 상세정보';
+const LIVE_PRODUCT_SOURCE = {
+  'KB국민프리미엄적금(정액)': {
+    url: 'https://obank.kbstar.com/quics?page=C020702&cc=b061761:b061770&isNew=N&prcode=DP000428',
+  },
+  'KB내맘대로적금': { url: 'https://obank.kbstar.com/quics?page=C016528' },
+  'KB맑은하늘적금': {
+    url: 'https://obank.kbstar.com/quics?page=C020702&cc=b061761:b061770&isNew=N&prcode=DP000942',
+  },
+  'KB 특★한 적금': {
+    url: 'https://obank.kbstar.com/quics?page=C016613&cc=b061496:b061645&isNew=Y&prcode=DP01001566',
+  },
+  'KB Star 정기예금': {
+    url: 'https://obank.kbstar.com/quics?page=C016613&cc=b061496:b061645&isNew=Y&prcode=DP01000938',
+  },
+  // ETF는 표준코드 체계가 달라서(자체 상장코드) resolveLiveSource의 자동 생성 규칙이 안 통해
+  // 수동으로 남겨둔다 - 나머지 일반 펀드 7개(2026-08-13에 같이 받았던 것들)는 표준코드로 자동
+  // 생성한 링크가 아래 수동 링크와 정확히 일치하는 걸 확인해서 중복 등록을 없앴다.
+  'KB RISE 글로벌게임테크TOP3Plus 증권상장지수투자신탁(주식)': {
+    url: 'https://www.funetf.co.kr/product/etf/view/KR70114X0008',
+    label: FUNETF_LABEL,
+  },
+  // 원본 데이터 자체에 줄바꿈이 껴 있어서(FSS API 응답 그대로) 이름도 그대로 맞춰서 키를 잡아야 매칭된다.
+  'KB주택담보대출변동\n(일반자금)': {
+    url: 'https://obank.kbstar.com/quics?page=C103557&cc=b104363:b104516&isNew=N&prcode=LN20001160&QSL=F',
+  },
+  'KB스타 아파트담보대출 혼합금리(주택자금)': {
+    url: 'https://obank.kbstar.com/quics?page=C103557&cc=b104363:b104516&isNew=N&prcode=LN20001350&QSL=F',
+  },
+  'KB주택전세자금대출': { url: 'https://obank.kbstar.com/quics?page=C019479' },
+  'KB플러스전세자금대출': {
+    url: 'https://obank.kbstar.com/quics?page=C103507&cc=b104363%3Ab104516&isNew=N&prcode=LN20000041&QSL=F&QSL=F',
+  },
+  '일반신용대출': { url: 'https://obank.kbstar.com/quics?page=C103429' },
+  '마이너스한도대출': { url: 'https://zloan.kbstar.com/quics?page=C110940' },
+};
+
+// 투자(펀드)는 목돈 상담(투자 수익) 되묻기 결과에 따라 나오는 상품이 계속 바뀌어서 하나씩 링크를
+// 받는 게 사실상 불가능하다 - 대신 표준코드(asoStdCd)만 있으면 FunETF 상세페이지 URL을 그대로
+// 만들 수 있다는 걸 확인했으니(위 8개 등록 상품으로 대조 확인, 2026-08-13), 등록 안 된 일반
+// 펀드는 이 규칙으로 자동 생성한다. ETF는 표준코드가 안 맞아서(별도 상장코드 사용) 자동 생성
+// 대상에서 제외 - 이름에 "상장지수"가 들어간 상품이 ETF라는 걸 실제 데이터로 확인해서 그걸로 판별한다.
+const resolveLiveSource = (name, category, p) => {
+  if (LIVE_PRODUCT_SOURCE[name]) return LIVE_PRODUCT_SOURCE[name];
+  if (category === 'investment' && !name.includes('상장지수') && p.asoStdCd) {
+    return { url: `https://www.funetf.co.kr/product/fund/view/${p.asoStdCd}`, label: FUNETF_LABEL };
+  }
+  return null;
+};
+
 // includeListings: false면 실시간 청약홈 "매물" 목록은 빼고 고정 상품만 보여준다.
 // 청약은 "내 집 마련(청약)" 상담(askGoal → housing)에서만 매물을 같이 보여주고,
 // 카테고리 목록(적금/예금/청약/투자) 탐색에서는 매물이 상품처럼 섞여 나오면 안 되니 뺀다.
@@ -835,14 +897,17 @@ const showLiveProductDetail = async (name, category, { bypassBudgetCheck = false
     typing.value = false;
     const detailText = LIVE_DETAIL_TEXT[category](p);
     const qaContext = buildLiveProductContext(category, p);
+    // 이 상품의 실제 KB 페이지 링크를 알고 있으면 그걸로, 모르면 기존 출처(청약은 공고 링크,
+    // 예적금은 금감원 비교 페이지)로 대체한다.
+    const knownSource = resolveLiveSource(name, category, p);
     pushBot({
       title: name,
       text: detailText,
-      source: p.source,
+      source: knownSource ? knownSource.label || LIVE_PRODUCT_SOURCE_LABEL : p.source,
       // 청약: API 응답에 그 공고의 실제 상세 페이지 링크(PBLANC_URL)가 그대로 들어있어서 바로 연결.
       // 예적금(FSS): 은행별 개별 상품 페이지는 없어서, 대신 이 데이터가 나온 금감원 비교 페이지로 연결(source_url).
       // 펀드(금투협 표준코드): 아직 검증된 링크가 없어서 비워둠.
-      sourceUrl: category === 'subscription' ? p.pblancUrl : p.sourceUrl,
+      sourceUrl: knownSource ? knownSource.url : category === 'subscription' ? p.pblancUrl : p.sourceUrl,
       menuFit: true,
       menu: [
         ...LIVE_FOLLOWUP_QUESTIONS[category].map((q) => ({
@@ -1072,6 +1137,19 @@ const askSavingsMethod = (introText = null) => {
       ],
     });
   }, TYPING_DELAY_MS);
+};
+
+// "적금 들까"처럼 상품 종류가 이미 문장에 드러난 애매한 문장에서, askSavingsMethod의 4지선다
+// 되묻기를 또 거치지 않고 "OO 상품을 보여드릴까요?" 확인만으로 목록으로 보낼 때 쓰는 얇은
+// wrapper. chooseSavingsMethod처럼 onClick에서 pushUser 후 실제 동작으로 이어가고, ACTIONS
+// 맵에 등록해 히스토리 재생 시에도 버튼이 동일하게 복원되게 한다(2026-08-13).
+const confirmTentativeProductList = (category, label) => {
+  pushUser('네');
+  showProductCategoryList(category, label);
+};
+const declineTentativeProductList = () => {
+  pushUser('아니요, 다른 방식 볼래요');
+  askSavingsMethod();
 };
 
 const chooseSavingsMethod = (method) => {
@@ -1458,7 +1536,30 @@ const askBackend = async (
         return;
       }
       const matchedGoal = detectCounselGoal(text);
-      if (matchedGoal) {
+      // "적금 들까"처럼 목적(savings)뿐 아니라 상품 종류(적금/예금)까지 이미 문장에 드러난 경우엔,
+      // askSavingsMethod의 4지선다("어떤 방식으로 모으고 싶으세요?")를 또 거치게 하지 않고
+      // "OO 상품을 보여드릴까요?" 확인 한 번만 거쳐 바로 목록으로 보낸다(2026-08-13 피드백).
+      const tentativeCategory = matchedGoal?.value === 'savings' ? detectTentativeListCategory(text) : null;
+      if (tentativeCategory) {
+        pushBot({
+          text: `${botMsg.content}\n${tentativeCategory.label} 상품을 보여드릴까요?`,
+          menuInCard: true,
+          menu: [
+            {
+              label: '네',
+              onClick: () => confirmTentativeProductList(tentativeCategory.category, tentativeCategory.label),
+              action: 'confirmTentativeProductList',
+              args: [tentativeCategory.category, tentativeCategory.label],
+            },
+            {
+              label: '아니요, 다른 방식 볼래요',
+              onClick: declineTentativeProductList,
+              action: 'declineTentativeProductList',
+              args: [],
+            },
+          ],
+        });
+      } else if (matchedGoal) {
         // 안내 문구와 되묻기 카드를 별도 말풍선 2개로 따로 띄웠었는데, "목적 되묻기와 안내 문구를
         // 한 말풍선으로 합친다(2026-08-08)"는 이미 정해진 방향이라 여기도 맞춘다(2026-08-12 발견) -
         // introText로 넘겨서 askGoal 쪽(현재는 savings만) 되묻기 문구 앞에 합쳐서 한 번에 띄운다.
@@ -1564,6 +1665,8 @@ const ACTIONS = {
   goTo,
   askGoal,
   chooseSavingsMethod,
+  confirmTentativeProductList,
+  declineTentativeProductList,
   confirmGoalTarget,
   askType,
   finishCounsel,

@@ -332,6 +332,7 @@ def _fund_items() -> List[dict]:
             srtn_cd=fund["srtnCd"],
             fnd_nm=fund["fndNm"],
             fnd_tp=fund.get("fndTp"),
+            aso_std_cd=fund.get("asoStdCd"),
         ).model_dump(by_alias=True)
         for fund in fund_service.fetch_kb_funds()
     ]
@@ -450,6 +451,7 @@ def get_product(name: str, category: Optional[str] = Query(default=None)):
             ctg=fund.get("ctg"),
             setp_dt=fund.get("setpDt"),
             fnd_tp=fund.get("fndTp"),
+            aso_std_cd=fund.get("asoStdCd"),
             source=fund_service.SOURCE_LABEL,
         ).model_dump(by_alias=True)
 
