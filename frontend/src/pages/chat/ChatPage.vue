@@ -403,8 +403,18 @@ const ensureDateDivider = () => {
   lastShownDay.value = today;
 };
 
+// lastListContext는 "방금 보여준 목록 직후의 바로 다음 자유질문"에만 1회성으로 실어 보내려고 만든
+// 값이라, 그 사이에 다른 턴(상품 상세 클릭 등)이 하나라도 끼면 반드시 비워져야 한다. 안 그러면 예전
+// 목록 컨텍스트가 전혀 상관없는 나중 질문(예: "자동차 보험 뭐가 좋아?")에 계속 새어 들어간다
+// (2026-08-13 버그: 예금 목록 → 상품 상세 클릭 → 무관한 질문 순서에서 예금 목록 근거가 그대로 남아 엉뚱하게 답함).
+// 목록을 새로 보여줄 때도 pushBot이 먼저 불리고 lastListContext 대입은 그 다음이라(showProductCategoryList),
+// 여기서 지워도 방금 만든 새 값을 지우는 게 아니라 그 전의 오래된 값만 지우게 되어 안전하다.
+const invalidateStaleListContext = () => {
+  lastListContext.value = null;
+};
 const pushBot = (msg) => {
   ensureDateDivider();
+  invalidateStaleListContext();
   messages.value.push({ id: genId(), role: 'bot', time: formatBubbleTime(), ...msg });
   panel.value = 'actions'; // 봇 답변이 나오면 항상 "종료하기"를 보여준다 (개별 함수마다 챙기지 않아도 되게)
   scrollToBottom();
@@ -421,6 +431,7 @@ const pushBot = (msg) => {
 };
 const pushUser = (text, { skipLog = false } = {}) => {
   ensureDateDivider();
+  invalidateStaleListContext();
   messages.value.push({ id: genId(), role: 'user', text, time: formatBubbleTime() });
   scrollToBottom();
   // askBackend로 가는 자유 질문은 그쪽(/messages)이 이미 서버에 저장하므로 여기서 또 남기면 중복된다.
@@ -431,6 +442,7 @@ const pushUser = (text, { skipLog = false } = {}) => {
 // 바로 고칠 수 있는 입력 오류까지 "서버 상의 오류"로 뭉뚱그려 보여주던 문제).
 const pushError = (customText) => {
   ensureDateDivider();
+  invalidateStaleListContext();
   const errorText = customText || '서버 상의 오류가 있습니다. 잠시 후에 다시 시도해 주세요.';
   messages.value.push({
     id: genId(),
