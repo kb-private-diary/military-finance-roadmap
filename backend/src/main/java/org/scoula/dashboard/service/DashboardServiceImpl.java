@@ -46,6 +46,9 @@ public class DashboardServiceImpl implements DashboardService {
     private static final Set<String> VALID_CATEGORIES =
             Set.of(CATEGORY_REGULAR, "REWARD", "CONSOLATION", "PETITION", "ETC");
 
+    // 전역일이 없을 때(연동 전 등) 쓰는 폴백 복무기간(개월). SimulatorServiceImpl과 동일 값으로 통일.
+    private static final int DEFAULT_SERVICE_MONTHS = 24;
+
     // DashboardSavingAccountDTO account -> SavingAccountVO account 교체
     // VO getter 가 같은지 확인 필요(getOpenDate(), getMonthlySave() 등)
     private final DashboardMapper mapper;
@@ -114,7 +117,7 @@ public class DashboardServiceImpl implements DashboardService {
         
         LocalDate dischargeDate = this.mapper.findDischargeDateByUserId(userId);
         if (dischargeDate == null) {
-            dischargeDate = LocalDate.now().plusMonths(24); // fallback
+            dischargeDate = LocalDate.now().plusMonths(DEFAULT_SERVICE_MONTHS); // fallback
         }
 
         Long expectedMaturityTotal = 0L;

@@ -8,7 +8,8 @@ import org.scoula.saving.util.MilitarySavingRateResolver;
 
 public class MilitarySavingsCalculator {
 
-    private static final int MAX_JOIN_MONTHS = 24;
+    // 장병내일준비적금 제도상 최대 가입기간(개월). 다른 도메인에서도 같은 상한을 검증할 때 재사용한다.
+    public static final int MAX_JOIN_MONTHS = 24;
     private static final double DAYS_IN_YEAR = 365.0;
 
     public interface SavingHistory {
