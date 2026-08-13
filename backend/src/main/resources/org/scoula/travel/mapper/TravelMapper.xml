@@ -31,6 +31,17 @@
         LIMIT 1
     </select>
 
+    <select id="findAirportCodeByCity" resultType="java.lang.String">
+        SELECT ca.iata_code
+        FROM city_airport ca
+        INNER JOIN city_cost cc
+          ON cc.city_cost_id = ca.city_cost_id
+         AND cc.del_yn = 'N'
+        WHERE ca.del_yn = 'N'
+          AND cc.city = #{city}
+        LIMIT 1
+    </select>
+
     <!-- 여행 목표 (travel_goal) -->
 
     <!--

@@ -26,6 +26,7 @@ import lombok.extern.log4j.Log4j2;
 
 import org.scoula.common.exception.BusinessException;
 import org.scoula.travel.util.TravelPriceCalculator;
+import org.scoula.travel.util.TravelPriceDistribution;
 
 /**
  * RapidAPI의 Booking COM 호텔 검색 클라이언트.
@@ -55,30 +56,40 @@ public class BookingApiClient {
     private String apiUrl;
 
     public long estimateHotelCost(
-            String country,
-            String city,
-            LocalDate checkInDate,
-            LocalDate checkOutDate) {
+            final String country,
+            final String city,
+            final LocalDate checkInDate,
+            final LocalDate checkOutDate) {
+        return this.estimateHotelCosts(
+                country, city, checkInDate, checkOutDate)
+                .getCommonCost();
+    }
+
+    public TravelPriceDistribution estimateHotelCosts(
+            final String country,
+            final String city,
+            final LocalDate checkInDate,
+            final LocalDate checkOutDate) {
         this.validateRequest(country, city, checkInDate, checkOutDate);
 
         // 출발일과 도착일이 같으면 숙박하지 않는 당일 여행으로 본다.
         if (checkInDate.equals(checkOutDate)) {
-            return 0L;
+            return TravelPriceDistribution.fixed(0L);
         }
         if (this.apiKey == null || this.apiKey.trim().isEmpty()) {
             throw this.bookingApiUnavailable();
         }
 
-        String cacheKey = country + ":" + city;
+        final String cacheKey = country + ":" + city;
         DestinationInfo destination = this.destinationCache.get(cacheKey);
         if (destination == null) {
             destination = this.findDestination(country, city);
             this.destinationCache.put(cacheKey, destination);
         }
 
-        List<BigDecimal> prices = this.findHotelPrices(
+        final List<BigDecimal> prices = this.findHotelPrices(
                 destination, checkInDate, checkOutDate);
-        return TravelPriceCalculator.findMedian(prices);
+        return TravelPriceCalculator.findPriceDistribution(prices);
     }
 
     private void validateRequest(
