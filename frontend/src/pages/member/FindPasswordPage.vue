@@ -71,7 +71,7 @@ const submit = async () => {
       <form class="find-password-form" @submit.prevent="submit">
         <BaseInput v-model="form.userId" label="아이디" placeholder="이메일 아이디를 입력하세요" />
         <BaseInput v-model="form.name" label="이름" placeholder="이름을 입력하세요" />
-        <BaseInput v-model="form.phone" label="전화번호" placeholder="010-0000-0000" />
+        <BaseInput v-model="form.phone" type="phone" label="전화번호" placeholder="010-0000-0000" />
 
         <div class="find-password-form__field">
           <BaseInput

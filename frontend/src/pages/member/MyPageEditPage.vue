@@ -81,7 +81,7 @@ onMounted(load);
     <template v-else>
       <form class="mypage-edit-form" @submit.prevent="submit">
         <BaseInput v-model="form.name" label="이름" placeholder="이름을 입력하세요" />
-        <BaseInput v-model="form.phone" label="전화번호" placeholder="010-0000-0000" />
+        <BaseInput v-model="form.phone" type="phone" label="전화번호" placeholder="010-0000-0000" />
         <BaseInput
           type="select"
           v-model="form.unitCode"

@@ -28,4 +28,5 @@ public class MemberVO extends BaseVO {
     private String loginProvider;
     private String status;
     private LocalDateTime withdrawnAt;
+    private LocalDateTime passwordChangedAt;
 }
