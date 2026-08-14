@@ -202,10 +202,10 @@ public class DashboardServiceImpl implements DashboardService {
             Long userId, String createdNm, DashboardVacationCreateRequestDTO request) {
         String category = request.getCategory();
         if (!VALID_CATEGORIES.contains(category)) {
-            throw BusinessException.badRequest("유효하지 않은 휴가 카테고리입니다.", "DASH_007");
+            throw BusinessException.badRequest("유효하지 않은 휴가 카테고리입니다.", "DASH_005");
         }
         if (CATEGORY_REGULAR.equals(category)) {
-            throw BusinessException.badRequest("정기휴가는 직접 등록할 수 없습니다.", "DASH_010");
+            throw BusinessException.badRequest("정기휴가는 직접 등록할 수 없습니다.", "DASH_008");
         }
 
         VacationVO vacation = VacationVO.builder()
@@ -237,17 +237,17 @@ public class DashboardServiceImpl implements DashboardService {
         }
         // REGULAR는 가입 시 자동 부여되며 이 API로 수정할 수 없다.
         if (CATEGORY_REGULAR.equals(vacation.getVacationCate())) {
-            throw BusinessException.badRequest("정기휴가는 이 API로 수정할 수 없습니다.", "DASH_008");
+            throw BusinessException.badRequest("정기휴가는 이 API로 수정할 수 없습니다.", "DASH_006");
         }
 
         String category = request.getCategory();
         if (!VALID_CATEGORIES.contains(category) || CATEGORY_REGULAR.equals(category)) {
-            throw BusinessException.badRequest("유효하지 않은 휴가 카테고리입니다.", "DASH_007");
+            throw BusinessException.badRequest("유효하지 않은 휴가 카테고리입니다.", "DASH_005");
         }
         int usedDays = this.sumUsedDays(vacationId);
         if (request.getDays() < usedDays) {
             throw BusinessException.badRequest(
-                    "이미 사용한 일수(" + usedDays + "일)보다 적게 설정할 수 없습니다.", "DASH_012");
+                    "이미 사용한 일수(" + usedDays + "일)보다 적게 설정할 수 없습니다.", "DASH_010");
         }
 
         vacation.setVacationCate(category);
@@ -268,7 +268,7 @@ public class DashboardServiceImpl implements DashboardService {
         }
         // REGULAR는 입대 시 고정 부여된 총량이라 삭제 대상이 아니다.
         if (CATEGORY_REGULAR.equals(vacation.getVacationCate())) {
-            throw BusinessException.badRequest("정기휴가는 삭제할 수 없습니다.", "DASH_009");
+            throw BusinessException.badRequest("정기휴가는 삭제할 수 없습니다.", "DASH_007");
         }
 
         this.mapper.deleteVacation(vacationId, modifiedNm);
@@ -285,12 +285,12 @@ public class DashboardServiceImpl implements DashboardService {
         }
 
         if (request.getUsedDate().isBefore(vacation.getVacationGet())) {
-            throw BusinessException.badRequest("사용일은 휴가 획득일보다 이전일 수 없습니다.", "DASH_013");
+            throw BusinessException.badRequest("사용일은 휴가 획득일보다 이전일 수 없습니다.", "DASH_011");
         }
 
         int remainingDays = this.dayCountOf(vacation) - this.sumUsedDays(vacationId);
         if (request.getDays() > remainingDays) {
-            throw BusinessException.badRequest("휴가 잔여일수를 초과했습니다.", "DASH_005");
+            throw BusinessException.badRequest("휴가 잔여일수를 초과했습니다.", "DASH_004");
         }
 
         VacationHistoryVO history = VacationHistoryVO.builder()
@@ -314,7 +314,7 @@ public class DashboardServiceImpl implements DashboardService {
     public void deleteVacationUsage(Long userId, Long historyId, String modifiedNm) {
         VacationHistoryVO history = this.mapper.findVacationHistoryById(historyId, userId);
         if (history == null) {
-            throw BusinessException.notFound("사용내역을 찾을 수 없습니다.", "DASH_011");
+            throw BusinessException.notFound("사용내역을 찾을 수 없습니다.", "DASH_009");
         }
 
         this.mapper.deleteVacationHistory(historyId, modifiedNm);
