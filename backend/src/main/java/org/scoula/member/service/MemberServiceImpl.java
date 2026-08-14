@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import org.scoula.common.exception.BusinessException;
+import org.scoula.common.util.PhoneUtils;
 import org.scoula.common.util.RankCalculator;
 import org.scoula.dashboard.domain.VacationVO;
 import org.scoula.dashboard.mapper.DashboardMapper;
@@ -88,7 +89,10 @@ public class MemberServiceImpl implements MemberService {
 
     // 전화번호는 한 사람당 하나여야 하므로(아이디찾기 등에서 사람을 특정하는 기준이 됨) 계정 간 중복을 막는다.
     private void validatePhoneNotDuplicated(String phone) {
-        if (this.mapper.countByPhone(phone) > 0) {
+        if (!PhoneUtils.isValid(phone)) {
+            throw BusinessException.badRequest("전화번호 형식이 올바르지 않습니다.", "MEM_013");
+        }
+        if (this.mapper.countByPhone(PhoneUtils.normalize(phone)) > 0) {
             throw BusinessException.conflict("이미 사용중인 전화번호입니다.", "MEM_008");
         }
     }
@@ -140,6 +144,7 @@ public class MemberServiceImpl implements MemberService {
         }
 
         MemberVO member = dto.toVO();
+        member.setPhone(PhoneUtils.normalize(member.getPhone()));
         member.setPassword(this.passwordEncoder.encode(member.getPassword()));
         // 계급은 입력받지 않으므로(SignupMilitaryPage 참고) 입대일 기준으로 가입 시점에 바로 산정해둔다.
         // 그래야 익일 배치(RankPromotionScheduler) 전까지 계급이 비어 보이는 문제가 없다.
@@ -234,7 +239,8 @@ public class MemberServiceImpl implements MemberService {
 
     @Override
     public FindIdResponseDTO findUserId(FindIdRequestDTO request) {
-        List<MemberVO> matches = this.mapper.findByNameAndPhone(request.getName(), request.getPhone());
+        List<MemberVO> matches = this.mapper.findByNameAndPhone(
+                request.getName(), PhoneUtils.normalize(request.getPhone()));
         // 동명이인 등으로 여러 건이 매칭되면 특정 계정을 안전하게 골라낼 수 없으므로,
         // 개인정보 보호 차원에서 매칭 없음과 동일하게 처리한다.
         if (matches.size() != 1) {
@@ -250,7 +256,7 @@ public class MemberServiceImpl implements MemberService {
         MemberVO member = this.mapper.get(request.getUserId());
         boolean identityMatches = member != null
                 && member.getName().equals(request.getName())
-                && member.getPhone().equals(request.getPhone());
+                && member.getPhone().equals(PhoneUtils.normalize(request.getPhone()));
         if (!identityMatches) {
             throw BusinessException.notFound("일치하는 회원 정보가 없습니다.", "MEM_007");
         }
@@ -270,13 +276,19 @@ public class MemberServiceImpl implements MemberService {
         MemberVO member = Optional.ofNullable(this.mapper.get(userId))
                 .orElseThrow(() -> BusinessException.notFound("일치하는 정보가 없습니다.", "MEM_001"));
 
+        if (request.getName() == null || request.getName().isBlank()
+                || request.getPhone() == null || request.getPhone().isBlank()) {
+            throw BusinessException.badRequest("이름과 전화번호는 비워둘 수 없습니다.", "MEM_009");
+        }
+
+        String normalizedPhone = PhoneUtils.normalize(request.getPhone());
         // 전화번호를 실제로 바꾸는 경우에만 중복 체크한다 (그대로면 자기 자신과 충돌로 오탐).
-        if (!member.getPhone().equals(request.getPhone())) {
-            this.validatePhoneNotDuplicated(request.getPhone());
+        if (!member.getPhone().equals(normalizedPhone)) {
+            this.validatePhoneNotDuplicated(normalizedPhone);
         }
 
         member.setName(request.getName());
-        member.setPhone(request.getPhone());
+        member.setPhone(normalizedPhone);
         member.setUnitName(request.getUnitName());
         member.setUnitCode(request.getUnitCode());
         member.setModifiedNm(userId);
