@@ -50,6 +50,8 @@ SOURCE master/terms_hb.sql;
 -- ── 데모 트랜잭션 데이터 (마스터 뒤에 로드) ───────────────────────
 -- 후회소비 데모: user(id=1,2)/vacation/chat (호빈 start) + 오픈뱅킹/적금/자취 (수연 병합)
 SOURCE demo/kb_demo_reviews.sql;
+-- 전역자 저축 비교 통계·로드맵 관심도용 회원/군적금/납입 이력 100명 (태석)
+SOURCE demo/social_veteran_jts.sql;
 
 SET FOREIGN_KEY_CHECKS = 1;   -- FK 체크 ON (다시 켬)
 

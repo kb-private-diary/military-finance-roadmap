@@ -53,6 +53,10 @@ class FundItem(CamelModel):
     srtn_cd: str
     fnd_nm: str
     fnd_tp: Optional[str]
+    # 표준코드 - FunETF(funetf.co.kr, 삼성자산운용 운영) 상세페이지 URL이 이 코드 그대로라
+    # (예: /product/fund/view/{표준코드}) 프론트에서 상품 출처 링크를 자동 생성하는 데 쓴다
+    # (2026-08-13, 에스더가 실제 링크로 대조 확인). ETF는 이 코드로 안 맞아서 별도 처리 필요.
+    aso_std_cd: Optional[str] = None
 
 
 class FundDetail(CamelModel):
@@ -61,6 +65,7 @@ class FundDetail(CamelModel):
     ctg: Optional[str]
     setp_dt: Optional[str]
     fnd_tp: Optional[str]
+    aso_std_cd: Optional[str] = None
     source: str
 
 

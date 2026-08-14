@@ -9,6 +9,11 @@ from app.services.intent import classify_intent, classify_product_category
 _TOP_K = 3
 _LIVE_DATA_LIMIT = 5
 
+# "뭐가 좋아?", "어떤 게 나아?"처럼 상품명을 직접 언급하지 않는 비교/추천형 질문. mentioned_docs가
+# 비어서 예전엔 is_comparison이 절대 안 켜졌고, RAG가 여러 상품 문서를 끌어와도 "비교해서 답하라"는
+# 지시 없이 넘겨서 상품마다 비슷비슷한 답만 반복하는 문제가 있었다(2026-08-13 피드백).
+_COMPARISON_INTENT_KEYWORDS = ("뭐가 좋", "뭐가 나", "어떤 게 좋", "어느 게 좋", "어떤 게 나", "차이", "비교")
+
 IRRELEVANT_REPLY = (
     "죄송합니다, 본 챗봇은 군 재무·금융 상품 관련 질문만 답변 가능합니다. "
     "다른 질문으로 다시 문의해 주시기 바랍니다."
@@ -101,7 +106,9 @@ SYSTEM_INSTRUCTION = (
     "(예: ~해요, ~예요, ~까요, ~드릴까요, ~나요, ~죠 모두 금지 — '더 안내해 드릴까요?'가 아니라 '더 안내해 드리겠습니까?'로 쓴다). "
     "은행 상담원처럼 예의 있고 친절하되, 다나까 말투를 유지한다. "
     "[이전 대화]가 주어지면 그 문맥을 참고해서 자연스럽게 이어서 답한다 "
-    "(예: '그거 얼마야?'처럼 이전 답변을 가리키는 질문이면 무엇을 가리키는지 이전 대화에서 찾아 답한다)."
+    "(예: '그거 얼마야?'처럼 이전 답변을 가리키는 질문이면 무엇을 가리키는지 이전 대화에서 찾아 답한다). "
+    "[이전 대화]에서 이미 답한 내용을 이번 답변에서 그대로 반복하지 않는다 — 새로 묻는 부분 위주로 답하되, "
+    "꼭 필요하면 이미 말한 내용은 짧게만 다시 언급한다."
 )
 
 
@@ -268,13 +275,17 @@ def _build_context_node(state: ChatState) -> ChatState:
     context = "\n\n".join(text for text, _ in results)
     source = RAG_SOURCE_LABEL
     doc_names = [meta.get("doc_name") for _, meta in results if meta.get("doc_name")]
+    # 상품명을 직접 안 짚어도(mentioned_docs가 비어도), 질문에 비교/추천 의도가 보이고 RAG가
+    # 실제로 서로 다른 문서 2개 이상을 끌어왔다면 비교형으로 취급한다.
+    has_comparison_intent = any(kw in state["question"] for kw in _COMPARISON_INTENT_KEYWORDS)
+    is_comparison = len(mentioned_docs) >= 2 or (has_comparison_intent and len(set(doc_names)) >= 2)
     return {
         "context": context,
         "source": source,
         "doc_names": doc_names,
         "mentioned_docs": mentioned_docs,
         "is_ai_generated": True,
-        "is_comparison": len(mentioned_docs) >= 2,
+        "is_comparison": is_comparison,
     }
 
 

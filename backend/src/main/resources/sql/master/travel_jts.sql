@@ -132,6 +132,133 @@ VALUES
 
 
 -- --------------------------------------------------------------------
+--  [태석] 여행 / 도시별 공항 코드(city_airport)
+--  테이블: city_airport
+-- --------------------------------------------------------------------
+INSERT INTO city_airport (
+    city_cost_id,
+    iata_code,
+    created_date,
+    created_nm,
+    del_yn
+)
+SELECT
+    mapped.city_cost_id,
+    mapped.iata_code,
+    NOW(),
+    'jotaeseok',
+    'N'
+FROM (
+    SELECT
+        cc.city_cost_id,
+        CASE CONCAT(cc.country, '|', cc.city)
+            WHEN '대한민국|서울' THEN 'GMP'
+            WHEN '대한민국|인천' THEN 'ICN'
+            WHEN '대한민국|수원' THEN 'ICN'
+            WHEN '대한민국|성남' THEN 'GMP'
+            WHEN '대한민국|고양' THEN 'GMP'
+            WHEN '대한민국|용인' THEN 'ICN'
+            WHEN '대한민국|부천' THEN 'GMP'
+            WHEN '대한민국|안산' THEN 'ICN'
+            WHEN '대한민국|안양' THEN 'GMP'
+            WHEN '대한민국|평택' THEN 'CJJ'
+            WHEN '대한민국|김포' THEN 'GMP'
+            WHEN '대한민국|의정부' THEN 'GMP'
+            WHEN '대한민국|이천' THEN 'CJJ'
+            WHEN '대한민국|강릉' THEN 'YNY'
+            WHEN '대한민국|춘천' THEN 'GMP'
+            WHEN '대한민국|원주' THEN 'WJU'
+            WHEN '대한민국|대전' THEN 'CJJ'
+            WHEN '대한민국|청주' THEN 'CJJ'
+            WHEN '대한민국|충주' THEN 'CJJ'
+            WHEN '대한민국|천안' THEN 'CJJ'
+            WHEN '대한민국|공주' THEN 'CJJ'
+            WHEN '대한민국|보령' THEN 'KUV'
+            WHEN '대한민국|제천' THEN 'WJU'
+            WHEN '대한민국|서산' THEN 'ICN'
+            WHEN '대한민국|전주' THEN 'KUV'
+            WHEN '대한민국|익산' THEN 'KUV'
+            WHEN '대한민국|목포' THEN 'MWX'
+            WHEN '대한민국|여수' THEN 'RSU'
+            WHEN '대한민국|부산' THEN 'PUS'
+            WHEN '대한민국|대구' THEN 'TAE'
+            WHEN '대한민국|울산' THEN 'USN'
+            WHEN '대한민국|창원' THEN 'PUS'
+            WHEN '대한민국|김해' THEN 'PUS'
+            WHEN '대한민국|김천' THEN 'TAE'
+            WHEN '대한민국|안동' THEN 'TAE'
+            WHEN '대한민국|경주' THEN 'KPO'
+            WHEN '대한민국|거제' THEN 'HIN'
+            WHEN '대한민국|포항' THEN 'KPO'
+            WHEN '대한민국|진주' THEN 'HIN'
+            WHEN '대한민국|사천' THEN 'HIN'
+            WHEN '대한민국|상주' THEN 'TAE'
+            WHEN '대한민국|양산' THEN 'PUS'
+            WHEN '일본|도쿄' THEN 'HND'
+            WHEN '일본|오사카' THEN 'KIX'
+            WHEN '일본|후쿠오카' THEN 'FUK'
+            WHEN '일본|삿포로' THEN 'CTS'
+            WHEN '일본|교토' THEN 'KIX'
+            WHEN '베트남|다낭' THEN 'DAD'
+            WHEN '베트남|나트랑' THEN 'CXR'
+            WHEN '베트남|호치민' THEN 'SGN'
+            WHEN '베트남|하노이' THEN 'HAN'
+            WHEN '태국|방콕' THEN 'BKK'
+            WHEN '태국|푸켓' THEN 'HKT'
+            WHEN '태국|치앙마이' THEN 'CNX'
+            WHEN '태국|파타야' THEN 'UTP'
+            WHEN '태국|끄라비' THEN 'KBV'
+            WHEN '대만|타이베이' THEN 'TPE'
+            WHEN '대만|가오슝' THEN 'KHH'
+            WHEN '대만|타이중' THEN 'RMQ'
+            WHEN '대만|타이난' THEN 'TNN'
+            WHEN '인도네시아|발리' THEN 'DPS'
+            WHEN '인도네시아|자카르타' THEN 'CGK'
+            WHEN '인도네시아|욕야카르타' THEN 'YIA'
+            WHEN '필리핀|세부' THEN 'CEB'
+            WHEN '필리핀|보라카이' THEN 'MPH'
+            WHEN '필리핀|마닐라' THEN 'MNL'
+            WHEN '필리핀|보홀' THEN 'TAG'
+            WHEN '필리핀|팔라완' THEN 'PPS'
+            WHEN '프랑스|파리' THEN 'CDG'
+            WHEN '프랑스|니스' THEN 'NCE'
+            WHEN '프랑스|리옹' THEN 'LYS'
+            WHEN '프랑스|스트라스부르' THEN 'SXB'
+            WHEN '프랑스|마르세유' THEN 'MRS'
+            WHEN '스페인|바르셀로나' THEN 'BCN'
+            WHEN '스페인|마드리드' THEN 'MAD'
+            WHEN '스페인|세비야' THEN 'SVQ'
+            WHEN '스페인|그라나다' THEN 'GRX'
+            WHEN '스페인|발렌시아' THEN 'VLC'
+            WHEN '미국|뉴욕' THEN 'JFK'
+            WHEN '미국|로스앤젤레스' THEN 'LAX'
+            WHEN '미국|호놀룰루' THEN 'HNL'
+            WHEN '미국|샌프란시스코' THEN 'SFO'
+            WHEN '미국|라스베이거스' THEN 'LAS'
+            WHEN '이탈리아|로마' THEN 'FCO'
+            WHEN '이탈리아|피렌체' THEN 'FLR'
+            WHEN '이탈리아|베네치아' THEN 'VCE'
+            WHEN '이탈리아|밀라노' THEN 'MXP'
+            WHEN '이탈리아|나폴리' THEN 'NAP'
+            WHEN '호주|시드니' THEN 'SYD'
+            WHEN '호주|멜버른' THEN 'MEL'
+            WHEN '호주|브리즈번' THEN 'BNE'
+            WHEN '호주|골드코스트' THEN 'OOL'
+            WHEN '호주|퍼스' THEN 'PER'
+            WHEN '영국|런던' THEN 'LHR'
+            WHEN '영국|에든버러' THEN 'EDI'
+            WHEN '영국|맨체스터' THEN 'MAN'
+            WHEN '영국|리버풀' THEN 'LPL'
+            WHEN '영국|옥스퍼드' THEN 'LHR'
+            ELSE NULL
+        END AS iata_code
+    FROM city_cost cc
+    WHERE cc.del_yn = 'N'
+) mapped
+WHERE mapped.iata_code IS NOT NULL;
+
+
+-- --------------------------------------------------------------------
 --  [태석] 여행 / 숙박비(hotel_cost)
 --  테이블: hotel_cost
 -- --------------------------------------------------------------------

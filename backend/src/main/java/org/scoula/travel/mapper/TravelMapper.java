@@ -21,6 +21,8 @@ public interface TravelMapper {
     // 도시명으로 물가 조회. 도착지 검증과 경비 산출에 사용.
     CityCostVO findCityCostByCity(@Param("city") String city);
 
+    String findAirportCodeByCity(@Param("city") final String city);
+
     // 여행 목표 등록
     int insertGoal(TravelGoalVO vo);
 

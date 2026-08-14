@@ -13,6 +13,11 @@ public final class TravelPriceCalculator {
     }
 
     public static long findMedian(final List<BigDecimal> prices) {
+        return findPriceDistribution(prices).getCommonCost();
+    }
+
+    public static TravelPriceDistribution findPriceDistribution(
+            final List<BigDecimal> prices) {
         if (prices == null || prices.isEmpty()) {
             throw new IllegalArgumentException("가격 목록이 비어 있습니다.");
         }
@@ -25,16 +30,36 @@ public final class TravelPriceCalculator {
             throw new IllegalArgumentException("유효한 가격이 없습니다.");
         }
 
-        final int middle = sortedPrices.size() / 2;
-        final BigDecimal median;
-        if (sortedPrices.size() % 2 == 0) {
-            median = sortedPrices.get(middle - 1)
-                    .add(sortedPrices.get(middle))
-                    .divide(BigDecimal.valueOf(2), 0, RoundingMode.HALF_UP);
-        } else {
-            median = sortedPrices.get(middle);
+        return TravelPriceDistribution.builder()
+                .savingCost(findPercentile(sortedPrices, 0.25))
+                .commonCost(findPercentile(sortedPrices, 0.50))
+                .premiumCost(findPercentile(sortedPrices, 0.75))
+                .build();
+    }
+
+    private static long findPercentile(
+            final List<BigDecimal> sortedPrices,
+            final double percentile) {
+        if (sortedPrices.size() == 1) {
+            return roundToLong(sortedPrices.get(0));
         }
-        return median.setScale(0, RoundingMode.HALF_UP).longValueExact();
+
+        final double position = (sortedPrices.size() - 1) * percentile;
+        final int lowerIndex = (int) Math.floor(position);
+        final int upperIndex = (int) Math.ceil(position);
+        if (lowerIndex == upperIndex) {
+            return roundToLong(sortedPrices.get(lowerIndex));
+        }
+
+        final BigDecimal weight = BigDecimal.valueOf(position - lowerIndex);
+        final BigDecimal interpolated = sortedPrices.get(lowerIndex)
+                .multiply(BigDecimal.ONE.subtract(weight))
+                .add(sortedPrices.get(upperIndex).multiply(weight));
+        return roundToLong(interpolated);
+    }
+
+    private static long roundToLong(final BigDecimal price) {
+        return price.setScale(0, RoundingMode.HALF_UP).longValueExact();
     }
 
     public static long applyRate(

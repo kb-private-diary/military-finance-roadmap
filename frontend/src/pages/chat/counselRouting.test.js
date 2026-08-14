@@ -3,7 +3,7 @@
 // 고정해두는 것 - 새 키워드를 추가할 땐 이 테스트를 먼저 돌려보고, 깨지는 케이스가 있으면
 // 의도한 변경인지 확인한 뒤 여기도 같이 업데이트할 것.
 import { describe, expect, it } from 'vitest';
-import { detectCounselGoal, detectDirectListCategory } from './counselRouting';
+import { detectCounselGoal, detectDirectListCategory, detectTentativeListCategory } from './counselRouting';
 
 describe('detectCounselGoal', () => {
   it('"군적금으로 뭐하지?"는 목적을 savings로 자동 인식한다(상품 목록 직행 금지)', () => {
@@ -52,5 +52,23 @@ describe('detectDirectListCategory', () => {
     // 추천 의도는 있지만(추천), 적금/예금 키워드가 없어 COUNSEL_DIRECT_LIST_KEYWORDS.find가
     // undefined를 반환한다 - null이 아니라 undefined인 게 정상 동작(falsy면 충분).
     expect(detectDirectListCategory('투자 추천해줘')).toBeFalsy();
+  });
+});
+
+describe('detectTentativeListCategory', () => {
+  it('"아 그냥 적금 들까"는 확인 후 목록으로 갈 후보(savings)로 잡힌다(2026-08-13)', () => {
+    expect(detectTentativeListCategory('아 그냥 적금 들까')?.category).toBe('savings');
+  });
+
+  it('"예금이나 할까"는 확인 후 목록으로 갈 후보(deposit)로 잡힌다', () => {
+    expect(detectTentativeListCategory('예금이나 할까')?.category).toBe('deposit');
+  });
+
+  it('"군적금으로 뭐하지?"는 잡히지 않는다(단어 경계 밖 - 되묻기로 가야 함, 2026-08-12와 동일한 함정)', () => {
+    expect(detectTentativeListCategory('군적금으로 뭐하지?')).toBeFalsy();
+  });
+
+  it('문장 맨 앞에 붙어도 잡힌다("적금 할까")', () => {
+    expect(detectTentativeListCategory('적금 할까')?.category).toBe('savings');
   });
 });

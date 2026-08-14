@@ -5,7 +5,6 @@ import { computed, nextTick, onActivated, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import chatApi from '@/api/chatApi';
 import { useAuthStore } from '@/stores/auth';
-import { useToast } from '@/composables/useToast';
 import { formatDate } from '@/util/format';
 import mascotImg from '@/assets/chat-mascot.png';
 import moodLikeImg from '@/assets/chat-mood-like.png';
@@ -13,11 +12,15 @@ import moodNeutralImg from '@/assets/chat-mood-neutral.png';
 import moodDislikeImg from '@/assets/chat-mood-dislike.png';
 // 자유입력 목적/카테고리 매칭 로직은 겹치는 키워드 회귀가 잦아서 별도 모듈로 빼고
 // 자동 테스트(counselRouting.test.js)로 고정해뒀다(2026-08-12) - 자세한 이유는 그 파일 주석 참고.
-import { COUNSEL_GOALS, detectCounselGoal, detectDirectListCategory } from './counselRouting';
+import {
+  COUNSEL_GOALS,
+  detectCounselGoal,
+  detectDirectListCategory,
+  detectTentativeListCategory,
+} from './counselRouting';
 
 const router = useRouter();
 const auth = useAuthStore();
-const { show: showToast } = useToast();
 
 const userName = computed(() => auth.state.user.name || '고객');
 
@@ -392,7 +395,31 @@ const encodeMenuMarker = (msg) => {
   );
 };
 
+// 마지막으로 화면에 표시된 날짜 구분선의 날짜(toDateString() 형식). 히스토리를 불러올 때나
+// 새 세션을 시작할 때 맞춰두고, pushUser/pushBot이 호출될 때마다 오늘 날짜와 비교해서
+// 날짜가 바뀌었으면 구분선을 새로 끼워 넣는다 - 안 그러면 어제 대화를 이어서 오늘 첫 메시지를
+// 보내도 그 시점엔 오늘 날짜 구분선이 안 생기고(로드된 히스토리엔 아직 오늘 메시지가 없어서),
+// 새로고침해서 히스토리를 다시 불러와야만 구분선이 뒤늦게 생기는 문제가 있었다(2026-08-13 발견).
+const lastShownDay = ref(null);
+const ensureDateDivider = () => {
+  const today = new Date().toDateString();
+  if (lastShownDay.value === today) return;
+  messages.value.push({ id: `date-live-${genId()}`, role: 'date', label: dateLabelFor() });
+  lastShownDay.value = today;
+};
+
+// lastListContext는 "방금 보여준 목록 직후의 바로 다음 자유질문"에만 1회성으로 실어 보내려고 만든
+// 값이라, 그 사이에 다른 턴(상품 상세 클릭 등)이 하나라도 끼면 반드시 비워져야 한다. 안 그러면 예전
+// 목록 컨텍스트가 전혀 상관없는 나중 질문(예: "자동차 보험 뭐가 좋아?")에 계속 새어 들어간다
+// (2026-08-13 버그: 예금 목록 → 상품 상세 클릭 → 무관한 질문 순서에서 예금 목록 근거가 그대로 남아 엉뚱하게 답함).
+// 목록을 새로 보여줄 때도 pushBot이 먼저 불리고 lastListContext 대입은 그 다음이라(showProductCategoryList),
+// 여기서 지워도 방금 만든 새 값을 지우는 게 아니라 그 전의 오래된 값만 지우게 되어 안전하다.
+const invalidateStaleListContext = () => {
+  lastListContext.value = null;
+};
 const pushBot = (msg) => {
+  ensureDateDivider();
+  invalidateStaleListContext();
   messages.value.push({ id: genId(), role: 'bot', time: formatBubbleTime(), ...msg });
   panel.value = 'actions'; // 봇 답변이 나오면 항상 "종료하기"를 보여준다 (개별 함수마다 챙기지 않아도 되게)
   scrollToBottom();
@@ -408,6 +435,8 @@ const pushBot = (msg) => {
   if (lines.length) logTurn('bot', lines.join('\n') + encodeMenuMarker(msg));
 };
 const pushUser = (text, { skipLog = false } = {}) => {
+  ensureDateDivider();
+  invalidateStaleListContext();
   messages.value.push({ id: genId(), role: 'user', text, time: formatBubbleTime() });
   scrollToBottom();
   // askBackend로 가는 자유 질문은 그쪽(/messages)이 이미 서버에 저장하므로 여기서 또 남기면 중복된다.
@@ -417,6 +446,8 @@ const pushUser = (text, { skipLog = false } = {}) => {
 // 안 넘기면 기존 범용 오류 문구를 보여준다(2026-08-11 피드백 - 500자 초과처럼 사용자가
 // 바로 고칠 수 있는 입력 오류까지 "서버 상의 오류"로 뭉뚱그려 보여주던 문제).
 const pushError = (customText) => {
+  ensureDateDivider();
+  invalidateStaleListContext();
   const errorText = customText || '서버 상의 오류가 있습니다. 잠시 후에 다시 시도해 주세요.';
   messages.value.push({
     id: genId(),
@@ -633,6 +664,63 @@ const KB_HOMEPAGE_URL = {
   deposit: { label: 'KB국민은행 예금 상품 홈페이지', url: 'https://obank.kbstar.com/quics?page=C016528' },
 };
 
+// 실시간(FSS/펀드 API) 상품은 원래 은행별/운용사별 개별 페이지가 없어서 다 같이 비교 페이지로만
+// 연결했는데(SOURCE_URL, fss.py), 실제로 아는 상품은 자체 상품 페이지로 개별 연결한다(2026-08-13,
+// 에스더가 직접 확인해서 보내준 링크). 상품명이 정확히 일치할 때만 적용되고, 여기 없는 상품은
+// 기존 출처(p.sourceUrl)로 자동 대체된다. label을 안 넣으면 기본값(LIVE_PRODUCT_SOURCE_LABEL)을 쓴다 -
+// 예적금은 KB 자체 페이지라 그대로 두고, 펀드는 KB가 아니라 제3자 사이트(FunETF, 삼성자산운용 운영)라
+// 다른 label을 따로 넣어줘야 한다.
+const LIVE_PRODUCT_SOURCE_LABEL = 'KB국민은행 상품안내';
+const FUNETF_LABEL = 'FunETF 펀드 상세정보';
+const LIVE_PRODUCT_SOURCE = {
+  'KB국민프리미엄적금(정액)': {
+    url: 'https://obank.kbstar.com/quics?page=C020702&cc=b061761:b061770&isNew=N&prcode=DP000428',
+  },
+  'KB내맘대로적금': { url: 'https://obank.kbstar.com/quics?page=C016528' },
+  'KB맑은하늘적금': {
+    url: 'https://obank.kbstar.com/quics?page=C020702&cc=b061761:b061770&isNew=N&prcode=DP000942',
+  },
+  'KB 특★한 적금': {
+    url: 'https://obank.kbstar.com/quics?page=C016613&cc=b061496:b061645&isNew=Y&prcode=DP01001566',
+  },
+  'KB Star 정기예금': {
+    url: 'https://obank.kbstar.com/quics?page=C016613&cc=b061496:b061645&isNew=Y&prcode=DP01000938',
+  },
+  // ETF는 표준코드 체계가 달라서(자체 상장코드) resolveLiveSource의 자동 생성 규칙이 안 통해
+  // 수동으로 남겨둔다 - 나머지 일반 펀드 7개(2026-08-13에 같이 받았던 것들)는 표준코드로 자동
+  // 생성한 링크가 아래 수동 링크와 정확히 일치하는 걸 확인해서 중복 등록을 없앴다.
+  'KB RISE 글로벌게임테크TOP3Plus 증권상장지수투자신탁(주식)': {
+    url: 'https://www.funetf.co.kr/product/etf/view/KR70114X0008',
+    label: FUNETF_LABEL,
+  },
+  // 원본 데이터 자체에 줄바꿈이 껴 있어서(FSS API 응답 그대로) 이름도 그대로 맞춰서 키를 잡아야 매칭된다.
+  'KB주택담보대출변동\n(일반자금)': {
+    url: 'https://obank.kbstar.com/quics?page=C103557&cc=b104363:b104516&isNew=N&prcode=LN20001160&QSL=F',
+  },
+  'KB스타 아파트담보대출 혼합금리(주택자금)': {
+    url: 'https://obank.kbstar.com/quics?page=C103557&cc=b104363:b104516&isNew=N&prcode=LN20001350&QSL=F',
+  },
+  'KB주택전세자금대출': { url: 'https://obank.kbstar.com/quics?page=C019479' },
+  'KB플러스전세자금대출': {
+    url: 'https://obank.kbstar.com/quics?page=C103507&cc=b104363%3Ab104516&isNew=N&prcode=LN20000041&QSL=F&QSL=F',
+  },
+  '일반신용대출': { url: 'https://obank.kbstar.com/quics?page=C103429' },
+  '마이너스한도대출': { url: 'https://zloan.kbstar.com/quics?page=C110940' },
+};
+
+// 투자(펀드)는 목돈 상담(투자 수익) 되묻기 결과에 따라 나오는 상품이 계속 바뀌어서 하나씩 링크를
+// 받는 게 사실상 불가능하다 - 대신 표준코드(asoStdCd)만 있으면 FunETF 상세페이지 URL을 그대로
+// 만들 수 있다는 걸 확인했으니(위 8개 등록 상품으로 대조 확인, 2026-08-13), 등록 안 된 일반
+// 펀드는 이 규칙으로 자동 생성한다. ETF는 표준코드가 안 맞아서(별도 상장코드 사용) 자동 생성
+// 대상에서 제외 - 이름에 "상장지수"가 들어간 상품이 ETF라는 걸 실제 데이터로 확인해서 그걸로 판별한다.
+const resolveLiveSource = (name, category, p) => {
+  if (LIVE_PRODUCT_SOURCE[name]) return LIVE_PRODUCT_SOURCE[name];
+  if (category === 'investment' && !name.includes('상장지수') && p.asoStdCd) {
+    return { url: `https://www.funetf.co.kr/product/fund/view/${p.asoStdCd}`, label: FUNETF_LABEL };
+  }
+  return null;
+};
+
 // includeListings: false면 실시간 청약홈 "매물" 목록은 빼고 고정 상품만 보여준다.
 // 청약은 "내 집 마련(청약)" 상담(askGoal → housing)에서만 매물을 같이 보여주고,
 // 카테고리 목록(적금/예금/청약/투자) 탐색에서는 매물이 상품처럼 섞여 나오면 안 되니 뺀다.
@@ -809,14 +897,17 @@ const showLiveProductDetail = async (name, category, { bypassBudgetCheck = false
     typing.value = false;
     const detailText = LIVE_DETAIL_TEXT[category](p);
     const qaContext = buildLiveProductContext(category, p);
+    // 이 상품의 실제 KB 페이지 링크를 알고 있으면 그걸로, 모르면 기존 출처(청약은 공고 링크,
+    // 예적금은 금감원 비교 페이지)로 대체한다.
+    const knownSource = resolveLiveSource(name, category, p);
     pushBot({
       title: name,
       text: detailText,
-      source: p.source,
+      source: knownSource ? knownSource.label || LIVE_PRODUCT_SOURCE_LABEL : p.source,
       // 청약: API 응답에 그 공고의 실제 상세 페이지 링크(PBLANC_URL)가 그대로 들어있어서 바로 연결.
       // 예적금(FSS): 은행별 개별 상품 페이지는 없어서, 대신 이 데이터가 나온 금감원 비교 페이지로 연결(source_url).
       // 펀드(금투협 표준코드): 아직 검증된 링크가 없어서 비워둠.
-      sourceUrl: category === 'subscription' ? p.pblancUrl : p.sourceUrl,
+      sourceUrl: knownSource ? knownSource.url : category === 'subscription' ? p.pblancUrl : p.sourceUrl,
       menuFit: true,
       menu: [
         ...LIVE_FOLLOWUP_QUESTIONS[category].map((q) => ({
@@ -1046,6 +1137,19 @@ const askSavingsMethod = (introText = null) => {
       ],
     });
   }, TYPING_DELAY_MS);
+};
+
+// "적금 들까"처럼 상품 종류가 이미 문장에 드러난 애매한 문장에서, askSavingsMethod의 4지선다
+// 되묻기를 또 거치지 않고 "OO 상품을 보여드릴까요?" 확인만으로 목록으로 보낼 때 쓰는 얇은
+// wrapper. chooseSavingsMethod처럼 onClick에서 pushUser 후 실제 동작으로 이어가고, ACTIONS
+// 맵에 등록해 히스토리 재생 시에도 버튼이 동일하게 복원되게 한다(2026-08-13).
+const confirmTentativeProductList = (category, label) => {
+  pushUser('네');
+  showProductCategoryList(category, label);
+};
+const declineTentativeProductList = () => {
+  pushUser('아니요, 다른 방식 볼래요');
+  askSavingsMethod();
 };
 
 const chooseSavingsMethod = (method) => {
@@ -1432,7 +1536,30 @@ const askBackend = async (
         return;
       }
       const matchedGoal = detectCounselGoal(text);
-      if (matchedGoal) {
+      // "적금 들까"처럼 목적(savings)뿐 아니라 상품 종류(적금/예금)까지 이미 문장에 드러난 경우엔,
+      // askSavingsMethod의 4지선다("어떤 방식으로 모으고 싶으세요?")를 또 거치게 하지 않고
+      // "OO 상품을 보여드릴까요?" 확인 한 번만 거쳐 바로 목록으로 보낸다(2026-08-13 피드백).
+      const tentativeCategory = matchedGoal?.value === 'savings' ? detectTentativeListCategory(text) : null;
+      if (tentativeCategory) {
+        pushBot({
+          text: `${botMsg.content}\n${tentativeCategory.label} 상품을 보여드릴까요?`,
+          menuInCard: true,
+          menu: [
+            {
+              label: '네',
+              onClick: () => confirmTentativeProductList(tentativeCategory.category, tentativeCategory.label),
+              action: 'confirmTentativeProductList',
+              args: [tentativeCategory.category, tentativeCategory.label],
+            },
+            {
+              label: '아니요, 다른 방식 볼래요',
+              onClick: declineTentativeProductList,
+              action: 'declineTentativeProductList',
+              args: [],
+            },
+          ],
+        });
+      } else if (matchedGoal) {
         // 안내 문구와 되묻기 카드를 별도 말풍선 2개로 따로 띄웠었는데, "목적 되묻기와 안내 문구를
         // 한 말풍선으로 합친다(2026-08-08)"는 이미 정해진 방향이라 여기도 맞춘다(2026-08-12 발견) -
         // introText로 넘겨서 askGoal 쪽(현재는 savings만) 되묻기 문구 앞에 합쳐서 한 번에 띄운다.
@@ -1538,6 +1665,8 @@ const ACTIONS = {
   goTo,
   askGoal,
   chooseSavingsMethod,
+  confirmTentativeProductList,
+  declineTentativeProductList,
   confirmGoalTarget,
   askType,
   finishCounsel,
@@ -1609,6 +1738,10 @@ const selectFeedbackLevel = (value) => {
   selectedFeedback.value = value;
 };
 
+// 만족도(좋아요/보통/싫어요)는 저위험 데이터라 저장 실패를 사용자에게 따로 알릴 필요가 없다고
+// 판단해 토스트 안내를 뺐다(2026-08-12 피드백) - 서버 쪽 진짜 오류는 서버 로그로 이미 잡히고,
+// 클라이언트에서 요청 자체가 막힌 경우(네트워크 등)는 애초에 서버 로그로도 못 잡는 케이스라
+// 토스트를 남겨도 실효성이 없었다. 성공/실패 상관없이 모달은 항상 닫고 감사 인사로 마무리한다.
 const submitFeedbackModal = async () => {
   if (!selectedFeedback.value || feedbackSubmitting.value) return;
   feedbackSubmitting.value = true;
@@ -1619,7 +1752,7 @@ const submitFeedbackModal = async () => {
       reason: selectedFeedback.value === 'dislike' ? feedbackReason.value.trim() || undefined : undefined,
     });
   } catch {
-    showToast('피드백 저장에 실패했어요', 'error');
+    // 실패해도 사용자에게 별도 안내 없이 조용히 넘어간다.
   } finally {
     feedbackSubmitting.value = false;
   }
@@ -1834,6 +1967,7 @@ onMounted(async () => {
 
     if (session.isNew) {
       messages.value = buildGreetAndGuide();
+      lastShownDay.value = new Date().toDateString();
     } else {
       // 유저당 세션을 하나만 재사용하지만, 예전에(하루 단위로 세션을 나누던 시절에) 만들어진
       // 계정은 세션이 여러 개 흩어져 있을 수 있다 - getAllHistory가 그 유저의 모든 세션을
@@ -1851,8 +1985,12 @@ onMounted(async () => {
           ...buildHistoryWithDateDividers(history, firstDay),
         ];
         restorePanelFromHistory(history);
+        // 마지막으로 보인 구분선은 히스토리의 마지막 메시지 날짜 - 그 이후 pushUser/pushBot이
+        // 호출될 때 오늘 날짜와 달라야만(즉 날짜가 실제로 바뀌었을 때만) 새 구분선이 생기게 한다.
+        lastShownDay.value = new Date(history[history.length - 1].createdDate).toDateString();
       } else {
         messages.value = buildGreetAndGuide();
+        lastShownDay.value = new Date().toDateString();
       }
     }
   } catch {
