@@ -71,8 +71,13 @@ public class MemberServiceImpl implements MemberService {
     private final JwtProcessor jwtProcessor;
     private final UserDetailsMapper userDetailsMapper;
 
+    // user_id 컬럼이 VARCHAR(50)이므로 그 이상은 저장 시점에 DB 에러가 난다.
+    private static final int USER_ID_MAX_LENGTH = 50;
+    // BCrypt는 72바이트 이후를 무시하므로, 그보다 넉넉히 짧게 상한을 둬 절단으로 인한 인증 혼선을 막는다.
+    private static final int PASSWORD_MAX_LENGTH = 64;
+
     private void validateEmailFormat(String userId) {
-        if (userId == null || !EMAIL_PATTERN.matcher(userId).matches()) {
+        if (userId == null || userId.length() > USER_ID_MAX_LENGTH || !EMAIL_PATTERN.matcher(userId).matches()) {
             throw BusinessException.badRequest("사용할 수 없는 아이디입니다.", "MEM_005");
         }
     }
@@ -80,11 +85,12 @@ public class MemberServiceImpl implements MemberService {
     private void validatePasswordPolicy(String password) {
         boolean valid = password != null
                 && password.length() >= 8
+                && password.length() <= PASSWORD_MAX_LENGTH
                 && PASSWORD_HAS_DIGIT.matcher(password).matches()
                 && PASSWORD_HAS_SPECIAL.matcher(password).matches();
         if (!valid) {
             throw BusinessException.badRequest(
-                    "비밀번호는 8자 이상, 숫자와 특수문자를 포함해야 합니다.", "MEM_006");
+                    "비밀번호는 8자 이상 64자 이하, 숫자와 특수문자를 포함해야 합니다.", "MEM_006");
         }
     }
 
@@ -145,6 +151,9 @@ public class MemberServiceImpl implements MemberService {
                 && dto.getDischargeDate().isBefore(dto.getEnlistDate())) {
             throw BusinessException.badRequest("전역일은 입대일보다 빠를 수 없습니다.", "MEM_014");
         }
+        if (dto.getUnitCode() != null && this.militaryUnitMapper.findByUnitCode(dto.getUnitCode()) == null) {
+            throw BusinessException.badRequest("존재하지 않는 부대입니다.", "MEM_015");
+        }
 
         List<Long> requiredTermsIds = this.termsMapper.findRequiredIds();
         List<Long> agreedTermsIds = dto.getAgreedTermsIds() == null ? List.of() : dto.getAgreedTermsIds();
@@ -161,7 +170,12 @@ public class MemberServiceImpl implements MemberService {
             int monthsSinceEnlist = RankCalculator.monthsSinceEnlist(member.getEnlistDate(), LocalDate.now());
             member.setRankId(this.rankMapper.findRankIdByServiceMonths(monthsSinceEnlist));
         }
-        this.mapper.insert(member);
+        try {
+            this.mapper.insert(member);
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            // 동시 요청으로 애플리케이션 레벨 중복확인을 둘 다 통과한 경우, DB의 phone UNIQUE 제약이 최종 방어선이 된다.
+            throw BusinessException.conflict("이미 사용중인 전화번호입니다.", "MEM_008");
+        }
         this.createRegularVacation(member);
 
         if (!agreedTermsIds.isEmpty()) {
@@ -293,6 +307,12 @@ public class MemberServiceImpl implements MemberService {
         if (request.getName() == null || request.getName().isBlank()
                 || request.getPhone() == null || request.getPhone().isBlank()) {
             throw BusinessException.badRequest("이름과 전화번호는 비워둘 수 없습니다.", "MEM_009");
+        }
+        // name/unit_name은 VARCHAR(50), unit_code는 VARCHAR(20) — 그 이상은 저장 시점에 DB 에러가 난다.
+        if (request.getName().length() > 50
+                || (request.getUnitName() != null && request.getUnitName().length() > 50)
+                || (request.getUnitCode() != null && request.getUnitCode().length() > 20)) {
+            throw BusinessException.badRequest("입력값이 너무 깁니다.", "MEM_016");
         }
 
         String normalizedPhone = PhoneUtils.normalize(request.getPhone());
