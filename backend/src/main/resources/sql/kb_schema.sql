@@ -215,6 +215,7 @@ CREATE TABLE `user` (
   `status` VARCHAR(20) COMMENT '계정상태',
   `role` VARCHAR(20) NOT NULL DEFAULT 'USER' COMMENT '권한 (USER/ADMIN)',
   `withdrawn_at` DATETIME COMMENT '탈퇴일시',
+  `password_changed_at` DATETIME COMMENT '비밀번호 마지막 변경일시 (이 시점 이전에 발급된 refresh token 무효화용)',
   `created_date` DATETIME NOT NULL COMMENT '생성일시',
   `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
   `modified_date` DATETIME COMMENT '수정일시',

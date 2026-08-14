@@ -1,6 +1,7 @@
 package org.scoula.member.service;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -140,6 +141,10 @@ public class MemberServiceImpl implements MemberService {
         if (dto.getTypeId() != null && this.militaryTypeMapper.findMilitaryType(dto.getTypeId()) == null) {
             throw BusinessException.notFound("존재하지 않는 군종입니다.", "MEM_012");
         }
+        if (dto.getEnlistDate() != null && dto.getDischargeDate() != null
+                && dto.getDischargeDate().isBefore(dto.getEnlistDate())) {
+            throw BusinessException.badRequest("전역일은 입대일보다 빠를 수 없습니다.", "MEM_014");
+        }
 
         List<Long> requiredTermsIds = this.termsMapper.findRequiredIds();
         List<Long> agreedTermsIds = dto.getAgreedTermsIds() == null ? List.of() : dto.getAgreedTermsIds();
@@ -234,6 +239,11 @@ public class MemberServiceImpl implements MemberService {
         MemberVO member = this.userDetailsMapper.get(userId);
         if (member == null) {
             throw new UsernameNotFoundException(userId + "은 없는 id입니다.");
+        }
+        // 비밀번호 변경 이후 발급된 토큰이 아니면(=변경 이전 토큰이 탈취/유출된 상태라면) 재발급을 거부한다.
+        if (member.getPasswordChangedAt() != null && claims.getIssuedAt().toInstant()
+                .isBefore(member.getPasswordChangedAt().atZone(ZoneId.systemDefault()).toInstant())) {
+            throw new BadCredentialsException("비밀번호가 변경되어 재로그인이 필요합니다.");
         }
 
         String newAccessToken = this.jwtProcessor.generateToken(userId);
