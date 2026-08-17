@@ -204,7 +204,7 @@ CREATE TABLE `user` (
   `user_id` VARCHAR(50) UNIQUE NOT NULL COMMENT '회원아이디',
   `password` VARCHAR(200) COMMENT '비밀번호',
   `name` VARCHAR(50) COMMENT '이름',
-  `phone` VARCHAR(20) COMMENT '전화번호',
+  `phone` VARCHAR(20) UNIQUE COMMENT '전화번호',
   `type_id` INT COMMENT '군종ID',
   `rank_id` INT COMMENT '계급',
   `unit_name` VARCHAR(50) COMMENT '부대정보',
