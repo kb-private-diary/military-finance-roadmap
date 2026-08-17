@@ -60,8 +60,12 @@ public class SimulatorServiceImpl implements SimulatorService {
 
         long monthlySaveTotal = 0L;
         long currentPaidAmountTotal = 0L;
-        int maxCurrentPaidMonths = 0;
-        int maxJoinableMonths = 0;
+        long currentPaidInterestTotal = 0L;
+        int currentPaidMonths = 0;
+        int joinableMonths = 0;
+
+        LocalDate accountOpenDate = null;
+        LocalDate maturityDate = null;
 
         long expectedPrincipalTotal = 0L;
         double expectedInterestTotal = 0.0;
@@ -85,26 +89,31 @@ public class SimulatorServiceImpl implements SimulatorService {
                     rateResolver
             );
 
-            if (calc.actualTotalMonths > maxJoinableMonths) {
-                maxJoinableMonths = calc.actualTotalMonths;
-            }
-            if (calc.maxCurrentPaidMonths > maxCurrentPaidMonths) {
-                maxCurrentPaidMonths = calc.maxCurrentPaidMonths;
+            // 대표 계좌(가장 먼저 개설된 계좌) 기준으로 개설일·만기일·가입개월수·현재납입개월수를 통일한다.
+            if (accountOpenDate == null || calc.firstPayDate.isBefore(accountOpenDate)) {
+                accountOpenDate = calc.firstPayDate;
+                maturityDate = calc.maturityDate;
+                joinableMonths = calc.actualTotalMonths;
+                currentPaidMonths = calc.maxCurrentPaidMonths;
             }
 
             currentPaidAmountTotal += calc.pastPrincipal;
+            currentPaidInterestTotal += (long) calc.pastInterest;
             expectedPrincipalTotal += calc.getTotalPrincipal();
             expectedInterestTotal += calc.getTotalInterest();
             expectedMatchingFundTotal += calc.matchingFund;
         }
 
         long totalReceiptAmount = expectedPrincipalTotal + (long) expectedInterestTotal + expectedMatchingFundTotal;
-        
+
         return SimulatorSavingDetailsResponseDTO.builder()
+                .accountOpenDate(accountOpenDate)
+                .maturityDate(maturityDate)
                 .monthlySaveTotal(monthlySaveTotal)
-                .joinableMonths(maxJoinableMonths)
+                .joinableMonths(joinableMonths)
                 .currentPaidAmount(currentPaidAmountTotal)
-                .currentPaidMonths(maxCurrentPaidMonths)
+                .currentPaidMonths(currentPaidMonths)
+                .currentPaidInterest(currentPaidInterestTotal)
                 .expectedPrincipal(expectedPrincipalTotal)
                 .expectedInterest((long) expectedInterestTotal)
                 .expectedMatchingFund(expectedMatchingFundTotal)
