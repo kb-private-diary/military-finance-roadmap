@@ -105,6 +105,10 @@ public class CarServiceImpl implements CarService {
         if (budget != null && budget <= 0) {
             throw BusinessException.badRequest("예산은 0보다 커야 합니다", "CAR_001");
         }
+        // region은 VARCHAR(20) — 그 이상은 저장 시점에 DB 에러가 난다.
+        if (requestDTO.getRegion() != null && requestDTO.getRegion().length() > 20) {
+            throw BusinessException.badRequest("지역명이 너무 깁니다", "CAR_025");
+        }
 
         CarGoalVO carGoalVO = new CarGoalVO();
         carGoalVO.setUserId(userId);
@@ -219,7 +223,10 @@ public class CarServiceImpl implements CarService {
         }
 
         int currentYear = LocalDate.now().getYear();
-        int ageYears = Math.max(0, currentYear - year);
+        if (year > currentYear) {
+            throw BusinessException.badRequest("선택 가능한 연식 범위를 벗어났습니다", "CAR_021");
+        }
+        int ageYears = currentYear - year;
         if (ageYears > FILTER_MAX_AGE_YEARS) {
             throw BusinessException.badRequest("선택 가능한 연식 범위를 벗어났습니다", "CAR_021");
         }
@@ -307,6 +314,9 @@ public class CarServiceImpl implements CarService {
         if (goal == null) {
             throw BusinessException.notFound("목표를 찾을 수 없습니다", "CAR_003");
         }
+        if ("CONFIRMED".equals(goal.getStatus())) {
+            throw BusinessException.conflict("이미 확정된 목표는 차량을 다시 선택할 수 없습니다", "CAR_024");
+        }
         if (requestDTO.getModelId() == null) {
             throw BusinessException.badRequest("선택할 차량 모델을 지정해야 합니다", "CAR_008");
         }
@@ -315,12 +325,21 @@ public class CarServiceImpl implements CarService {
         if (model == null) {
             throw BusinessException.notFound("선택한 차량 모델을 찾을 수 없습니다", "CAR_009");
         }
+        Integer selectedYear = requestDTO.getSelectedYear();
+        if (selectedYear != null
+                && (selectedYear < LocalDate.now().getYear() - FILTER_MAX_AGE_YEARS || selectedYear > LocalDate.now().getYear())) {
+            throw BusinessException.badRequest("선택 가능한 연식 범위를 벗어났습니다", "CAR_021");
+        }
+        Integer selectedMileageKm = requestDTO.getSelectedMileageKm();
+        if (selectedMileageKm != null && (selectedMileageKm < 0 || selectedMileageKm > FILTER_MAX_MILEAGE_KM)) {
+            throw BusinessException.badRequest("선택 가능한 키로수 범위를 벗어났습니다", "CAR_022");
+        }
 
         // 목표 단계에서는 차종을 특정하지 않으므로, 실제 선택한 차량의 차종을 목표에 반영한다.
         goal.setCarTypeCode(model.getCarTypeCode());
         goal.setSelectedModelId(model.getModelId());
-        goal.setSelectedYear(requestDTO.getSelectedYear());
-        goal.setSelectedMileageKm(requestDTO.getSelectedMileageKm());
+        goal.setSelectedYear(selectedYear);
+        goal.setSelectedMileageKm(selectedMileageKm);
         goal.setStatus("SELECTED");
 
         this.carMapper.updateSelectedModel(goal);
@@ -448,6 +467,9 @@ public class CarServiceImpl implements CarService {
         }
         if (goal.getSelectedModelId() == null) {
             throw BusinessException.badRequest("차량 모델을 먼저 선택해야 합니다", "CAR_004");
+        }
+        if (Boolean.TRUE.equals(goal.getIsNew())) {
+            throw BusinessException.badRequest("중고차 시세 추정은 신차 목표에는 적용되지 않습니다", "CAR_023");
         }
 
         CarModelVO model = this.carMapper.selectCarModelById(goal.getSelectedModelId());

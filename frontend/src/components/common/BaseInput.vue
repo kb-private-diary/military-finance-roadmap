@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
-import { formatAmountInput, parseAmountInput } from '@/util/format';
+import { formatAmountInput, parseAmountInput, formatPhoneInput } from '@/util/format';
 
 const props = defineProps({
   type: {
@@ -184,6 +184,23 @@ const handleAmountInput = (event) => {
   const formatted = formatAmountInput(input.value);
   amountDisplay.value = formatted;
   emit('update:modelValue', parseAmountInput(input.value));
+
+  nextTick(() => {
+    const caret = Math.max(0, prevCaret + (formatted.length - prevLength));
+    input.setSelectionRange(caret, caret);
+  });
+};
+
+// ==========================================
+// Phone(전화번호) 전용 로직 — 콤마 대신 하이픈 실시간 포맷 + 커서 유지 (amount와 동일한 방식)
+// ==========================================
+const handlePhoneInput = (event) => {
+  const input = event.target;
+  const prevLength = input.value.length;
+  const prevCaret = input.selectionStart ?? prevLength;
+
+  const formatted = formatPhoneInput(input.value);
+  emit('update:modelValue', formatted);
 
   nextTick(() => {
     const caret = Math.max(0, prevCaret + (formatted.length - prevLength));
@@ -380,6 +397,22 @@ const handleAmountInput = (event) => {
           :value="amountDisplay"
           @input="handleAmountInput"
           :placeholder="placeholder"
+        />
+        <span v-if="suffix" class="base-input__suffix">{{ suffix }}</span>
+      </template>
+
+      <!-- PHONE (전화번호, 실시간 하이픈 포맷) -->
+      <template v-else-if="type === 'phone'">
+        <span v-if="icon" class="base-input__icon">{{ icon }}</span>
+        <input
+          type="tel"
+          inputmode="numeric"
+          class="base-input__field"
+          :class="{ 'is-error': error, 'has-icon': icon, 'has-suffix': suffix }"
+          :value="modelValue"
+          @input="handlePhoneInput"
+          :placeholder="placeholder"
+          maxlength="13"
         />
         <span v-if="suffix" class="base-input__suffix">{{ suffix }}</span>
       </template>

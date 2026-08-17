@@ -6,7 +6,7 @@
     <select id="get" resultType="MemberVO">
         SELECT id, user_id, password, name, phone, type_id, rank_id,
                unit_name, unit_code, enlist_date, discharge_date,
-               login_provider, status, withdrawn_at,
+               login_provider, status, withdrawn_at, password_changed_at,
                created_date, created_nm, modified_date, modified_nm, del_yn
         FROM `user`
         WHERE user_id = #{userId}

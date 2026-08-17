@@ -6,4 +6,6 @@ import org.scoula.member.domain.MilitaryUnitVO;
 
 public interface MilitaryUnitMapper {
     List<MilitaryUnitVO> findMilitaryUnitListByTypeId(Integer typeId);
+
+    MilitaryUnitVO findByUnitCode(String unitCode);
 }
