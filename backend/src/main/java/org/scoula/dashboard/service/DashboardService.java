@@ -38,4 +38,7 @@ public interface DashboardService {
 
     // DASH-API-10: 휴가 사용내역 삭제 (소프트 삭제)
     void deleteVacationUsage(Long userId, Long historyId, String modifiedNm);
+
+    // 전역 D-30/D-1인 유저에게 웹푸시 발송 (DDayNotificationScheduler가 매일 호출)
+    void sendDDayNotifications();
 }

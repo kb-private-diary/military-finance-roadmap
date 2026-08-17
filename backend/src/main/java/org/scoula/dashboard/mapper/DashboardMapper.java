@@ -10,12 +10,16 @@ import org.apache.ibatis.annotations.Param;
 import org.scoula.dashboard.domain.VacationHistoryVO;
 import org.scoula.dashboard.domain.VacationVO;
 import org.scoula.dashboard.dto.DashboardBasicResponseDTO;
+import org.scoula.dashboard.dto.DashboardDDayUserDTO;
 import org.scoula.dashboard.dto.DashboardSavingAccountDTO;
 import org.scoula.dashboard.dto.DashboardSavingHistoryDTO;
 
 public interface DashboardMapper {
     // 복무 기본 정보 조회 (DASH-API-01)
     DashboardBasicResponseDTO findBasicInfoByUserId(Long userId);
+
+    // D-Day 푸시 알림 배치 대상(활성 유저 + 전역일) 조회
+    List<DashboardDDayUserDTO> findActiveUsersWithDischargeDate();
 
     // 현재 누적 납입액 조회 (saving_history 테이블 합산)
     Long findCurrentTotalSavings(Long userId);

@@ -5,6 +5,16 @@
 
 <mapper namespace="org.scoula.dashboard.mapper.DashboardMapper">
 
+    <!-- D-Day 푸시 알림 배치 대상: 활성 유저 중 전역일이 있는 유저 전체 -->
+    <select id="findActiveUsersWithDischargeDate"
+            resultType="org.scoula.dashboard.dto.DashboardDDayUserDTO">
+        SELECT id AS userId, discharge_date AS dischargeDate
+        FROM `user`
+        WHERE del_yn = 'N'
+          AND status = 'ACTIVE'
+          AND discharge_date IS NOT NULL
+    </select>
+
     <select id="findCurrentTotalSavings" resultType="java.lang.Long">
         SELECT COALESCE(SUM(sh.pay_amount), 0)
         FROM saving_history sh
