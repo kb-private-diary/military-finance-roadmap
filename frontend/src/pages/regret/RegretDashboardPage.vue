@@ -29,6 +29,10 @@ const CATEGORY_LABEL = {
   TRANSPORT: '교통',
   CULTURE: '문화/여가',
   CONVENIENCE: '편의점',
+  PX: 'PX·군마트',
+  DELIVERY: '배달',
+  GAME: '게임',
+  VACATION: '휴가/여행',
   ETC: '기타',
 };
 
