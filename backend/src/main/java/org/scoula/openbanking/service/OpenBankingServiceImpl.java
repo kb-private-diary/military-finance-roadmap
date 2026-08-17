@@ -174,6 +174,9 @@ public class OpenBankingServiceImpl implements OpenBankingService {
         account.setMonthlyCount(monthlyCount);
         account.setCurrAmount(acc.getBalance() == null ? 0L : acc.getBalance()); // 누적납입 = 잔액
         account.setAccountStatus("ACTIVE");
+        // 적금 종류 판별: 상품명에 군적금 키워드가 있으면 MILITARY(만기금 계산 대상), 없으면 GENERAL(일반적금)
+        //   → 석윤 만기금 계산은 MILITARY 만 대상으로 하여, 자유적금 등이 섞여도 계산이 꼬이지 않게 함
+        account.setProductType(isMilitarySaving(acc.getProductName()) ? "MILITARY" : "GENERAL");
         // 개설일 저장 (석윤 만기금 계산이 open_date를 개설일로 읽음, created_date 감사컬럼과 별개)
         account.setOpenDate(acc.getOpenDate() != null ? LocalDate.parse(acc.getOpenDate()) : null);
         account.setCreatedNm(actor);
@@ -192,6 +195,20 @@ public class OpenBankingServiceImpl implements OpenBankingService {
             savingWriteMapper.insertSavingHistory(history);
         }
         return account.getAccountId();
+    }
+
+    /**
+     * 적금 상품명으로 군적금 여부 판별 (product_type 세팅용).
+     * 상품명에 "군적금 / 장병 / 나라사랑" 중 하나라도 포함되면 군적금(MILITARY)으로 본다.
+     * (예: "나라사랑 군적금", "장병내일준비적금", "IBK 나라사랑 적금")
+     */
+    private boolean isMilitarySaving(String productName) {
+        if (productName == null) {
+            return false;
+        }
+        return productName.contains("군적금")
+                || productName.contains("장병")
+                || productName.contains("나라사랑");
     }
 
     @Override

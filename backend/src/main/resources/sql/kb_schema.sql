@@ -232,6 +232,7 @@ CREATE TABLE `saving_account` (
   `monthly_count` INT NOT NULL COMMENT '납입개월수',
   `curr_amount` BIGINT NOT NULL COMMENT '누적납입금',
   `account_status` VARCHAR(20) NOT NULL COMMENT '적금 상태',
+  `product_type` VARCHAR(10) NOT NULL DEFAULT 'MILITARY' COMMENT '적금 종류 (MILITARY 군적금 / GENERAL 일반적금) - 만기금 계산은 MILITARY만',
   `open_date` DATE COMMENT '계좌 개설일 (실제 은행 개설일, 감사용 created_date와 별개)',
   `created_date` DATETIME NOT NULL COMMENT '생성날짜',
   `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
