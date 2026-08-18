@@ -33,4 +33,11 @@ public interface OpenBankingService {
      * @return 적재한 지출 건수
      */
     int syncTransactions(Long userId);
+
+    /**
+     * [월급 배치] 오픈뱅킹 연동 회원 전체에 이번 달까지의 급여(income)를 멱등 적재
+     * 스케줄러(매일)와 데모용 수동 트리거가 공용으로 호출
+     * @return 이번 배치에서 새로 적재된 급여 건수
+     */
+    int runMonthlySalaryBatch();
 }

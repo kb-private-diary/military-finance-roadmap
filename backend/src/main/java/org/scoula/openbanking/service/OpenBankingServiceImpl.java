@@ -27,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 오픈뱅킹 연동 서비스 구현
@@ -35,6 +36,7 @@ import lombok.RequiredArgsConstructor;
  * <p>계좌 연동은 여러 계좌를 한 트랜잭션으로 저장하므로, 한 건이라도 실패하면
  * 전부 롤백되도록 {@code @Transactional} 을 검</p>
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OpenBankingServiceImpl implements OpenBankingService {
@@ -274,32 +276,68 @@ public class OpenBankingServiceImpl implements OpenBankingService {
     }
 
     /**
-     * 계급별 월급을 income에 적재 (입대 다음달부터 현재까지 매월 10일, 재동기화 시 기존 급여 정리 후 재적재)
-     * 실제 군인 봉급은 국군재정관리단이 매월 10일 지급, 금액은 회원 계급의 rank_salary
+     * 계급별 월급을 income에 <b>멱등</b> 적재한다 (입대 다음달~오늘까지 매월 10일, 이미 있는 달은 건너뜀).
+     * <p>실제 군 봉급 지급일 = 매월 10일. 금액은 <b>현재 계급</b>의 rank_salary(진급하면 자동 반영).
+     * 전역(예정)일이 지난 달은 넣지 않아 실제처럼 전역 후 급여가 끊긴다.
+     * 그 달 급여가 이미 있으면 건너뛰므로 연동 sync·매일 배치 어디서 여러 번 불려도 중복이 안 쌓인다.</p>
+     * @return 이번 호출에서 새로 적재한 급여 건수
      */
-    private void saveSalaries(Long userId, String actor) {
+    private int saveSalaries(Long userId, String actor) {
         Long monthlySalary = mapper.findMonthlySalaryByUserId(userId);
         LocalDate enlistDate = mapper.findEnlistDateByUserId(userId);
         if (monthlySalary == null || enlistDate == null) {
-            return; // 계급·입대일 없으면 급여 없음
+            return 0; // 계급·입대일 없으면 급여 없음
         }
 
-        // 재동기화 중복 방지 - 기존 급여 내역 정리 후 재적재
-        incomeWriteMapper.deleteSalariesByUserId(userId, actor);
+        // 지급 범위: 입대 다음달 10일(첫 봉급) ~ 오늘. 단 전역일이 지났으면 전역일까지만
+        LocalDate firstPayDay = enlistDate.plusMonths(1).withDayOfMonth(10);
+        LocalDate lastDay = LocalDate.now();
+        LocalDate dischargeDate = mapper.findDischargeDateByUserId(userId);
+        if (dischargeDate != null && dischargeDate.isBefore(lastDay)) {
+            lastDay = dischargeDate; // 전역 후에는 월급 없음
+        }
 
-        // 입대 다음달 10일이 첫 봉급일, 현재까지 매월 적재 (실제 군 봉급 지급일 = 매월 10일)
-        LocalDate payDay = enlistDate.plusMonths(1).withDayOfMonth(10);
-        LocalDate today = LocalDate.now();
-        while (!payDay.isAfter(today)) {
-            IncomeVO income = new IncomeVO();
-            income.setUserId(userId);
-            income.setSource("국군재정관리단");
-            income.setCategory("SALARY");
-            income.setAmount(monthlySalary);
-            income.setReceivedAt(payDay.atTime(9, 0)); // 10일 09:00 입금
-            income.setCreatedNm(actor);
-            incomeWriteMapper.insertIncome(income);
+        int inserted = 0;
+        LocalDate payDay = firstPayDay;
+        while (!payDay.isAfter(lastDay)) {
+            // 멱등: 그 달 급여가 이미 있으면 건너뜀
+            boolean exists = incomeWriteMapper.existsSalaryInYearMonth(
+                    userId, payDay.getYear(), payDay.getMonthValue());
+            if (!exists) {
+                IncomeVO income = new IncomeVO();
+                income.setUserId(userId);
+                income.setSource("국군재정관리단");
+                income.setCategory("SALARY");
+                income.setAmount(monthlySalary);
+                income.setReceivedAt(payDay.atTime(9, 0)); // 10일 09:00 입금
+                income.setCreatedNm(actor);
+                incomeWriteMapper.insertIncome(income);
+                inserted++;
+            }
             payDay = payDay.plusMonths(1);
         }
+        return inserted;
+    }
+
+    /**
+     * [월급 배치] 오픈뱅킹 연동 회원 전체에 이번 달까지의 급여를 멱등 적재한다.
+     * <p>매일 도는 스케줄러(IncomeSalaryScheduler)와 데모용 수동 트리거가 공용으로 호출한다.
+     * 회원별로 독립 처리하며, 한 명이 실패해도 catch 후 다음 회원을 계속 진행한다(배치가 죽지 않음).
+     * 트랜잭션으로 묶지 않아 회원별 적재가 개별 커밋된다(YouthPolicySync 배치와 동일 방식).</p>
+     * @return 이번 배치에서 새로 적재된 급여 총 건수
+     */
+    @Override
+    public int runMonthlySalaryBatch() {
+        List<Long> userIds = mapper.findAllActiveLinkedUserIds();
+        int total = 0;
+        for (Long userId : userIds) {
+            try {
+                total += saveSalaries(userId, "SALARY_BATCH");
+            } catch (Exception e) {
+                log.error("월급 배치 실패 userId={}", userId, e);
+            }
+        }
+        log.info("월급 배치 완료: 대상 {}명, 신규 적재 {}건", userIds.size(), total);
+        return total;
     }
 }

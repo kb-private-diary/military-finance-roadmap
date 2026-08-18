@@ -11,6 +11,10 @@ public interface IncomeWriteMapper {
     // 수입 저장 (INSERT 후 income_id 채워짐)
     void insertIncome(IncomeVO income);
 
-    // 회원의 기존 급여(SALARY) 소프트 삭제 (재동기화 시 중복 방지 위해 정리 후 재적재)
+    // 회원의 기존 급여(SALARY) 소프트 삭제 (급여 전체 리셋이 필요할 때 사용)
     int deleteSalariesByUserId(@Param("userId") Long userId, @Param("actor") String actor);
+
+    // 해당 회원의 특정 연월에 급여(SALARY)가 이미 있는지 (월급 배치 멱등 - 중복 적재 방지)
+    boolean existsSalaryInYearMonth(@Param("userId") Long userId,
+                                    @Param("year") int year, @Param("month") int month);
 }

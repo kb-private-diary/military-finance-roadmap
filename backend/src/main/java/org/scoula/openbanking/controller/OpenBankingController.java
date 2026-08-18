@@ -75,4 +75,13 @@ public class OpenBankingController {
         int count = service.syncTransactions(customUser.getMember().getId());
         return ResponseEntity.ok(ApiResponse.success(count));
     }
+
+    // POST /api/openbanking/salary/run-batch → [데모용] 월급 배치 즉시 실행
+    //   평소엔 매일 스케줄러가 돌지만, 시연 중 "월급 들어오는 것"을 바로 보여주려고 수동 트리거를 둠.
+    //   연동 회원 전체에 이번 달까지의 급여를 멱등 적재하고, 새로 적재된 건수를 반환한다.
+    @PostMapping("/salary/run-batch")
+    public ResponseEntity<ApiResponse<Integer>> runSalaryBatch() {
+        int inserted = service.runMonthlySalaryBatch();
+        return ResponseEntity.ok(ApiResponse.success(inserted));
+    }
 }
