@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.scoula.common.exception.BusinessException;
 import org.scoula.rent.domain.RentGoalVO;
 import org.scoula.rent.domain.RentGoalRegionVO;
+import org.scoula.rent.domain.RegionCodeVO;
 import org.scoula.rent.domain.RentListingVO;
 import org.scoula.rent.domain.RentAffordability;
 import org.scoula.rent.domain.SchoolVO;
@@ -264,7 +265,8 @@ public class RentServiceImpl implements RentService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    // 노출 매물 좌표를 카카오 지오코딩으로 채워 DB에 캐시하므로 readOnly 아님(쓰기 포함)
+    @Transactional
     public List<RentListingResponseDTO> findListings(Long goalId) {
         RentGoalVO goal = this.mapper.findGoalById(goalId);
         if (goal == null) {
@@ -292,6 +294,11 @@ public class RentServiceImpl implements RentService {
         // 2) 실질월부담(월세+관리비+보증금환산) 계산 → 월예산 이하만 남기고 오름차순 상위 30개
         long budget = goal.getMonthlyBudget() != null ? goal.getMonthlyBudget() : 0L;
         List<ListingCost> affordable = filterByEffectiveMonthly(candidates, budget);
+
+        // 2-1) 노출 매물(상위 30개) 중 좌표 없는 것만 카카오 지오코딩으로 채우고 DB에 캐시한다.
+        //   국토부 매물은 좌표가 없어 통학/지하철 뱃지가 거리 계산을 못 한다 → 여기서 주소로 좌표를 구해 채운다.
+        //   화면에 실제 노출되는 매물만 대상이라 카카오 호출은 최대 30건, 한 번 채우면 다음 조회부턴 호출 없음(캐시).
+        enrichListingCoordinates(affordable);
 
         // 3) 시세 상대평가 뱃지용: 최종 노출 매물의 종류별 평균 월세 (같은 조건 매물끼리 비교)
         Map<String, Double> avgRentByType = affordable.stream()
@@ -336,6 +343,56 @@ public class RentServiceImpl implements RentService {
             result.add(dto);
         }
         return result;
+    }
+
+    /**
+     * 노출 매물 중 좌표(위경도)가 없는 것을 카카오 지오코딩(주소→좌표)으로 채우고 DB에 캐시한다.
+     * 이미 좌표가 있으면 건너뛴다. 카카오 실패(키 없음·검색 실패)는 해당 매물만 건너뛰고 진행한다.
+     */
+    private void enrichListingCoordinates(List<ListingCost> affordable) {
+        for (ListingCost c : affordable) {
+            RentListingVO l = c.listing();
+            if (l.getLatitude() != null && l.getLongitude() != null) {
+                continue; // 이미 좌표 있음(과거 조회 때 캐시됨)
+            }
+            String address = buildListingAddress(l);
+            if (address == null) {
+                continue;
+            }
+            BigDecimal[] coord = this.geocodingClient.geocode(address); // [위도, 경도]
+            if (coord == null) {
+                continue; // 카카오 실패(키 없음·검색 실패) → 좌표 없이 진행(같은 구 폴백 뱃지)
+            }
+            l.setLatitude(coord[0]);
+            l.setLongitude(coord[1]);
+            try {
+                this.listingMapper.updateListingCoords(l.getListingId(), coord[0], coord[1]);
+            } catch (Exception e) {
+                log.warn("매물 좌표 캐시 저장 실패 (listingId={}): {}", l.getListingId(), e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * 매물의 지번주소 문자열을 조합한다 (카카오 지오코딩 입력용): "시도 시군구 읍면동 지번".
+     * 시군구코드로 시도·시군구명을 찾고 매물의 읍면동·지번을 붙인다. 필수값(시군구·동)이 없으면 null.
+     */
+    private String buildListingAddress(RentListingVO l) {
+        if (l.getSigunguCode() == null || l.getUmdName() == null || l.getUmdName().isBlank()) {
+            return null;
+        }
+        RegionCodeVO region = this.mapper.findRegionNameBySigungu(l.getSigunguCode());
+        if (region == null || region.getSidoName() == null || region.getSigunguName() == null) {
+            return null;
+        }
+        StringBuilder addr = new StringBuilder()
+                .append(region.getSidoName()).append(' ')
+                .append(region.getSigunguName()).append(' ')
+                .append(l.getUmdName());
+        if (l.getJibun() != null && !l.getJibun().isBlank()) {
+            addr.append(' ').append(l.getJibun());
+        }
+        return addr.toString();
     }
 
     /**

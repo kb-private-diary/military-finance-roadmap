@@ -2,6 +2,7 @@ package org.scoula.rent.mapper;
 
 import org.apache.ibatis.annotations.Param;
 import org.scoula.rent.domain.RentListingVO;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -33,6 +34,11 @@ public interface RentListingMapper {
 
     // 매물 단건 조회 (Step3 상세)
     RentListingVO findById(Long listingId);
+
+    /** 매물 좌표(위경도) 캐시 저장 - 조회 때 지오코딩한 결과를 저장해 다음 조회부터 재사용 */
+    int updateListingCoords(@Param("listingId") Long listingId,
+                            @Param("lat") BigDecimal lat,
+                            @Param("lng") BigDecimal lng);
 
     // 동네 시세 비교 집계 (Step3 "동네 시세 상세보기")
     //   모집단: 같은 법정동(regionCode, 없으면 umdName) + 같은 estateType + 전용면적 ±5㎡ + del_yn='N', 자기 자신 제외

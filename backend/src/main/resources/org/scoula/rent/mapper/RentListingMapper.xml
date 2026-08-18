@@ -156,4 +156,14 @@
            AND l.sigungu_code = #{sigunguCode}
     </select>
 
+    <!-- 매물 좌표(위경도) 캐시 저장 (조회 때 카카오 지오코딩한 결과 저장, 다음 조회부터 재사용) -->
+    <update id="updateListingCoords">
+        UPDATE rent_listing
+           SET latitude = #{lat},
+               longitude = #{lng},
+               modified_date = NOW()
+         WHERE listing_id = #{listingId}
+           AND del_yn = 'N'
+    </update>
+
 </mapper>
