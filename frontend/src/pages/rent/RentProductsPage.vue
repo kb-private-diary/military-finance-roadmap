@@ -1,7 +1,7 @@
 <script setup>
 // SCR-RENT-04 · Step 4) 금융상품 + 저장  담당: 수연
 // 디자인: 목업 재구성 — 감당도 요약 카드 + 조언 박스 + 정책/KB 탭 + 상품 카드
-// 상품 선택(다중 토글)·confirmGoal 저장 로직은 기존 방식 유지
+// Step4는 추천 상품을 "보여주기만" 하는 화면(기획) — 상품 선택 없음, confirmGoal로 로드맵만 저장
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import rentApi from '@/api/rentApi';
@@ -111,15 +111,6 @@ const loanMonthlyInterest = computed(() => {
 });
 const loanMonthlyLabel = computed(() => `${loanMonthlyInterest.value.toLocaleString('ko-KR')}원`);
 
-// ── 상품 선택(다중 토글) — confirmGoal 의 selectedProductIds 로 전송 ──
-const selectedProductIds = ref([]);
-const isSelected = (id) => selectedProductIds.value.includes(id);
-const toggleProduct = (id) => {
-  const i = selectedProductIds.value.indexOf(id);
-  if (i === -1) selectedProductIds.value.push(id);
-  else selectedProductIds.value.splice(i, 1);
-};
-
 // ── 로드 ───────────────────────────────────────────────────
 const loadProducts = async () => {
   try {
@@ -153,7 +144,7 @@ const saveRoadmap = async () => {
   if (saving.value) return;
   saving.value = true;
   try {
-    await rentApi.confirmGoal(goalId, { listingId, months, selectedProductIds: selectedProductIds.value });
+    await rentApi.confirmGoal(goalId, { listingId, months });
   } catch {
     // 저장 실패를 숨기지 않고 정직하게 에러 노출 후 중단(이동 안 함)
     show('로드맵을 저장하지 못했어요', 'error');
@@ -236,7 +227,7 @@ const saveRoadmap = async () => {
       </div>
 
       <!-- 6. 탭 내용 -->
-      <p class="pick-hint">함께 저장할 상품을 선택하세요 (여러 개 가능)</p>
+      <p class="pick-hint">목표에 맞는 추천 상품이에요. 카드를 눌러 상세 정보를 확인하세요</p>
 
       <!-- 정책상품 탭 -->
       <template v-if="activeTab === 'POLICY'">
@@ -248,9 +239,6 @@ const saveRoadmap = async () => {
               :key="p.productId"
               type="button"
               class="prod"
-              :class="{ 'is-selected': isSelected(p.productId) }"
-              :aria-pressed="isSelected(p.productId)"
-              @click="toggleProduct(p.productId)"
             >
               <span class="prod__body">
                 <span class="prod__name">{{ p.productName }}</span>
@@ -279,9 +267,6 @@ const saveRoadmap = async () => {
               :key="p.productId"
               type="button"
               class="prod"
-              :class="{ 'is-selected': isSelected(p.productId) }"
-              :aria-pressed="isSelected(p.productId)"
-              @click="toggleProduct(p.productId)"
             >
               <span class="prod__body">
                 <span class="prod__name">{{ p.productName }}</span>
@@ -311,9 +296,6 @@ const saveRoadmap = async () => {
             :key="p.productId"
             type="button"
             class="prod"
-            :class="{ 'is-selected': isSelected(p.productId) }"
-            :aria-pressed="isSelected(p.productId)"
-            @click="toggleProduct(p.productId)"
           >
             <span class="prod__body">
               <span class="prod__name">{{ p.productName }}</span>
@@ -343,7 +325,7 @@ const saveRoadmap = async () => {
       </div>
 
       <!-- 8. 안내 문구 -->
-      <p class="foot-note">선택한 상품과 함께 로드맵을 저장할 수 있어요</p>
+      <p class="foot-note">추천 상품을 확인하고 로드맵을 저장하세요</p>
     </template>
 
     <BottomButtonBar
@@ -563,15 +545,6 @@ const saveRoadmap = async () => {
   background: #fff;
   font-family: inherit;
   text-align: left;
-  cursor: pointer;
-  transition: border-color 0.12s ease, box-shadow 0.12s ease;
-}
-.prod:active {
-  transform: scale(0.995);
-}
-.prod.is-selected {
-  border-color: var(--kb-yellow);
-  box-shadow: 0 0 0 1.5px var(--kb-yellow);
 }
 .prod__body {
   flex: 1;
