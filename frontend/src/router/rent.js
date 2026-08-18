@@ -8,12 +8,6 @@ export default [
     meta: { requiresAuth: true },
   },
   {
-    path: '/rent/goals/regions',
-    name: 'RentRegionSelect',   // step1) 자취 지역 선택
-    component: () => import('@/pages/rent/RentRegionSelectPage.vue'),
-    meta: { requiresAuth: true },
-  },
-  {
     path: '/rent/goals/:goalId/listings',
     name: 'RentListingList',   // step2) 자취 매물 리스트
     component: () => import('@/pages/rent/RentListingListPage.vue'),
@@ -23,12 +17,6 @@ export default [
     path: '/rent/listings/:listingId',
     name: 'RentListingDetail',   // step2) 자취 매물 상세
     component: () => import('@/pages/rent/RentListingDetailPage.vue'),
-    meta: { requiresAuth: true },
-  },
-  {
-    path: '/rent/goals/:goalId/cost',
-    name: 'RentCost',   // step3) 자취 비용 계산
-    component: () => import('@/pages/rent/RentCostPage.vue'),
     meta: { requiresAuth: true },
   },
   {

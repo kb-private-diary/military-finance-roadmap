@@ -43,15 +43,6 @@ export default {
     return data.data;
   },
 
-  // 거주기간 슬라이더 재계산 (Step3) — { costBreakdown, affordability }
-  async simulate(listingId, goalId, months) {
-    const { data } = await instance.get(
-      `${BASE_URL}/listings/${listingId}/simulate`,
-      { params: { goalId, months } },
-    );
-    return data.data;
-  },
-
   // 감당도 조회 (Step3 재정 체크) — depositMode: INCLUDE(보증금 포함, 기본) | EXCLUDE(보증금은 전세대출로 제외)
   //   GET /listings/{listingId}/affordability?months=&depositMode= → affordability
   async findAffordability(listingId, months, depositMode = 'INCLUDE') {

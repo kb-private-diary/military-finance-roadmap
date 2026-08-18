@@ -9,14 +9,8 @@ export default [
   },
   {
     path: '/regret/link',
-    name: 'RegretLink',   // 오픈뱅킹 재연동 유도
+    name: 'RegretLink',   // 오픈뱅킹 연동 관리 (현황·계좌·해제·재연동)
     component: () => import('@/pages/openbanking/RegretLinkPage.vue'),
-    meta: { requiresAuth: true },
-  },
-  {
-    path: '/regret/link/auth',
-    name: 'RegretLinkAuth',   // 오픈뱅킹 인증
-    component: () => import('@/pages/openbanking/RegretLinkAuthPage.vue'),
     meta: { requiresAuth: true },
   },
 ];
