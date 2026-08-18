@@ -357,7 +357,8 @@ INSERT INTO `income`
 (8, 1, '국군재정관리단', 'SALARY', 1200000, '2026-05-10 09:00:00', NOW(), 'demo', NULL, NULL, 'N'),
 (9, 1, '국군재정관리단', 'SALARY', 1200000, '2026-06-10 09:00:00', NOW(), 'demo', NULL, NULL, 'N'),
 (10, 1, '국군재정관리단', 'SALARY', 1200000, '2026-07-10 09:00:00', NOW(), 'demo', NULL, NULL, 'N'),
-(11, 1, '국군재정관리단', 'SALARY', 1200000, '2026-08-10 09:00:00', NOW(), 'demo', NULL, NULL, 'N'),
+-- ⭐ [데모 시연용] user1의 8월분(2026-08-10, 상병 120만)을 일부러 뺐다 → 월급 배치로 "입금되는 순간"을 시연한다.
+--    POST /api/openbanking/salary/run-batch 실행 시 배치가 "8월 급여 없네" → 8월분 1건을 자동 입금(id 11은 결번, auto_increment로 새 id 부여).
 (12, 2, '국군재정관리단', 'SALARY', 750000, '2024-07-10 09:00:00', NOW(), 'demo', NULL, NULL, 'N'),
 (13, 2, '국군재정관리단', 'SALARY', 900000, '2024-08-10 09:00:00', NOW(), 'demo', NULL, NULL, 'N'),
 (14, 2, '국군재정관리단', 'SALARY', 900000, '2024-09-10 09:00:00', NOW(), 'demo', NULL, NULL, 'N'),
@@ -602,7 +603,7 @@ INSERT INTO `rent_goal_region`
 -- user2 서울 법정동 1개
 (3, 2, '1168010100', NOW(), 'demo', NULL, NULL, 'N');
 
--- [건수 요약] saving_account 4 / saving_history 60 / income 28 / spending 21 / spending_review 19 / openbanking_link 6 / rent_goal 2 / rent_goal_region 3
+-- [건수 요약] saving_account 4 / saving_history 60 / income 27 (user1 8월분은 시연용 제외) / spending 21 / spending_review 19 / openbanking_link 6 / rent_goal 2 / rent_goal_region 3
 
 -- --------------------------------------------------------------------
 --  [태석] 여행 / 여행목표(travel_goal)
