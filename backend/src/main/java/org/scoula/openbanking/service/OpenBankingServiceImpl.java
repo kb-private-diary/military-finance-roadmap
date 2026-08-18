@@ -243,6 +243,11 @@ public class OpenBankingServiceImpl implements OpenBankingService {
                 if (!"OUT".equals(tx.getInoutType())) {
                     continue; // 출금(지출)만 적재, 입금은 제외
                 }
+                // 재동기화 중복 방지: 같은 거래(일시+가맹점+금액)가 이미 적재됐으면 skip (기존 점호 기록 보존)
+                if (spendingMapper.existsSpending(userId, tx.getTxDateTime(),
+                        tx.getMerchantName(), tx.getAmount())) {
+                    continue;
+                }
                 // 가맹점명 → 카테고리 분류 (규칙 없으면 ETC)
                 String category = spendingMapper.findCategoryByMerchant(tx.getMerchantName());
 
@@ -257,7 +262,7 @@ public class OpenBankingServiceImpl implements OpenBankingService {
             }
         }
 
-        // TODO: 재동기화 시 중복 적재 방지 (마지막 적재 시점 이후만 조회) - 배치 단계에서 보강
+        // 중복 거래는 위 루프에서 existsSpending 으로 걸러졌으므로 남은 신규 지출만 적재
         if (!toInsert.isEmpty()) {
             spendingMapper.insertSpendings(toInsert);
         }
