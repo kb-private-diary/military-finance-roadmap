@@ -67,7 +67,7 @@ public class SimulatorController {
         return ResponseEntity.ok(ApiResponse.success(dto));
     }
     
-    // SIM-API-02: 만기수령액 1회성 시뮬레이션 (구간별 금액)
+    // SIM-API-03: 만기수령액 1회성 시뮬레이션 (구간별 금액)
     @PostMapping("/calculate/variable")
     public ResponseEntity<ApiResponse<SimulatorCalculateResponseDTO>> calculateVariable(
             @RequestBody SimulatorVariableCalcRequestDTO request

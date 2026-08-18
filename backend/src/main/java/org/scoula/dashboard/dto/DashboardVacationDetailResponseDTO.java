@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 
 import org.scoula.dashboard.domain.VacationVO;
 
-// DASH-API-05 응답. 카테고리 상관없이 부여(grant) 정보 + 사용내역 목록을 같이 내려준다.
+// DASH-API-04 응답. 카테고리 상관없이 부여(grant) 정보 + 사용내역 목록을 같이 내려준다.
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
