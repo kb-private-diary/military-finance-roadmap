@@ -797,7 +797,7 @@ public class RentServiceImpl implements RentService {
 
     @Override
     @Transactional
-    public void confirmGoal(Long goalId, Long userId, Integer months, Long listingId, List<Long> selectedProductIds) {
+    public void confirmGoal(Long goalId, Long userId, Integer months, Long listingId) {
         // 0) 저장할 확정 매물 필수 (Step4에서 고른 매물 = Step5 정밀 시뮬레이션 기준)
         if (listingId == null) {
             throw BusinessException.badRequest("저장할 매물을 선택해주세요.", "RENT_011");
@@ -823,12 +823,6 @@ public class RentServiceImpl implements RentService {
 
         // 5) 상태 DRAFT → CONFIRMED 확정 (months=거주개월, listingId=Step4에서 고른 확정 매물)
         this.mapper.confirmGoal(goalId, months, listingId, modifier);
-
-        // 6) 선택한 금융상품 저장 (goal_product) - 재저장 대비 기존 것 soft delete 후 신규 삽입
-        this.mapper.deleteGoalProductsByGoalId(goalId, modifier);
-        if (selectedProductIds != null && !selectedProductIds.isEmpty()) {
-            this.mapper.insertGoalProducts(goalId, selectedProductIds, modifier);
-        }
 
         // 참고: Step5 정밀 시뮬레이션은 findGoal 조회 시 확정 매물 기준으로 실시간 계산한다
         //   (공과금 스냅샷 고정 저장(UtilityService.saveSnapshot)은 이력 보존용으로 추후 연결)

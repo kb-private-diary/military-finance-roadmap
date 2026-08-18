@@ -68,16 +68,4 @@ public interface RentMapper {
                      @Param("months") Integer months,
                      @Param("listingId") Long listingId,
                      @Param("modifiedNm") String modifiedNm);
-
-    // step4 저장 시 선택한 금융상품 저장 (goal_product, 여러 건 한 번에)
-    void insertGoalProducts(@Param("goalId") Long goalId,
-                            @Param("productIds") List<Long> productIds,
-                            @Param("createdNm") String createdNm);
-
-    // 재저장 시 기존 선택 금융상품 soft delete (선택 갱신용)
-    void deleteGoalProductsByGoalId(@Param("goalId") Long goalId,
-                                    @Param("modifiedNm") String modifiedNm);
-
-    // 저장된 선택 금융상품 id 목록 조회 (step5)
-    List<Long> findProductIdsByGoalId(@Param("goalId") Long goalId);
 }

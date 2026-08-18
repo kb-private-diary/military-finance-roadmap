@@ -195,29 +195,4 @@
            AND del_yn = 'N'
     </update>
 
-    <!-- step4 저장 시 선택 금융상품 저장 (여러 건 한 번에) -->
-    <insert id="insertGoalProducts">
-        INSERT INTO goal_product (goal_id, product_id, created_date, created_nm, del_yn)
-        VALUES
-        <foreach collection="productIds" item="pid" separator=",">
-            (#{goalId}, #{pid}, NOW(), #{createdNm}, 'N')
-        </foreach>
-    </insert>
-
-    <!-- 재저장 시 기존 선택 금융상품 soft delete -->
-    <update id="deleteGoalProductsByGoalId">
-        UPDATE goal_product
-           SET del_yn = 'Y', modified_date = NOW(), modified_nm = #{modifiedNm}
-         WHERE goal_id = #{goalId}
-           AND del_yn = 'N'
-    </update>
-
-    <!-- 저장된 선택 금융상품 id 목록 (step5) -->
-    <select id="findProductIdsByGoalId" resultType="long">
-        SELECT product_id
-          FROM goal_product
-         WHERE goal_id = #{goalId}
-           AND del_yn = 'N'
-    </select>
-
 </mapper>

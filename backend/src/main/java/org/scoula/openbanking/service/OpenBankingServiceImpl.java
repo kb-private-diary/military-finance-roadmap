@@ -66,9 +66,7 @@ public class OpenBankingServiceImpl implements OpenBankingService {
     @Override
     public AuthUrlResponse getAuthUrl(Long userId) {
         // state: CSRF 방지용, 회원 식별값 + 랜덤값 조합
-        //   [실연동 전환 시] 이 state를 서버(세션/Redis/DB)에 저장해두고, 오픈뱅킹 인증 콜백에서
-        //   돌려받은 state와 일치하는지 검증해야 함 (CSRF 방어). 불일치 시 연동 거부.
-        //   현재는 Mock이라 인증 콜백 자체가 없어(프론트가 code/state를 'mock'으로 바로 link) 발급만 한다.
+        // TODO: state를 세션/DB에 저장해 콜백에서 검증 (지금은 발급만)
         String state = userId + "-" + UUID.randomUUID().toString().replace("-", "");
 
         // 발급받은 client-id·callback-url·scope를 실제 인증 URL 형태로 조합 (여기서 키를 실사용)

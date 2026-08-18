@@ -129,9 +129,8 @@ public class RentController {
             @PathVariable Long goalId,
             @AuthenticationPrincipal CustomUser customUser,
             @RequestParam(required = false) Integer months,
-            @RequestParam(required = false) Long listingId,
-            @RequestParam(required = false) List<Long> selectedProductIds) {
-        service.confirmGoal(goalId, customUser.getMember().getId(), months, listingId, selectedProductIds);
+            @RequestParam(required = false) Long listingId) {
+        service.confirmGoal(goalId, customUser.getMember().getId(), months, listingId);
         return ResponseEntity.ok(ApiResponse.success());
     }
 
