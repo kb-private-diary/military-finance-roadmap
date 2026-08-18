@@ -859,6 +859,18 @@ CREATE TABLE `rent_goal_region` (
   `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
 );
 
+DROP TABLE IF EXISTS `goal_product`;
+CREATE TABLE `goal_product` (
+  `goal_product_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT 'PK',
+  `goal_id` BIGINT NOT NULL COMMENT '자취목표번호(rent_goal)',
+  `product_id` BIGINT NOT NULL COMMENT '주거금융상품번호(housing_product)',
+  `created_date` DATETIME NOT NULL COMMENT '생성일시',
+  `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
+  `modified_date` DATETIME COMMENT '수정일시',
+  `modified_nm` VARCHAR(50) COMMENT '수정자',
+  `del_yn` CHAR(1) NOT NULL COMMENT '삭제여부'
+);
+
 DROP TABLE IF EXISTS `school`;
 CREATE TABLE `school` (
   `school_id` BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '학교고유번호',

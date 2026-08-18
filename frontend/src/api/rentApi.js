@@ -75,11 +75,16 @@ export default {
 
   // 로드맵 저장 (Step4 → 5) — body: { listingId, months, selectedProductIds }
   async confirmGoal(goalId, payload) {
-    // 백엔드는 query 파라미터(?months=&listingId=)로 받는다 (body 아님)
+    // 백엔드는 query 파라미터(?months=&listingId=&selectedProductIds=1,2)로 받는다 (body 아님)
+    const params = { months: payload.months, listingId: payload.listingId };
+    // 선택한 금융상품이 있으면 콤마로 이어 전송 (Spring @RequestParam List<Long>)
+    if (payload.selectedProductIds?.length) {
+      params.selectedProductIds = payload.selectedProductIds.join(',');
+    }
     const { data } = await instance.post(
       `${BASE_URL}/goals/${goalId}/confirm`,
       null,
-      { params: { months: payload.months, listingId: payload.listingId } },
+      { params },
     );
     return data.data; // { goalId, status, months, redirectUrl }
   },
