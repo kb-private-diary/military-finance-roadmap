@@ -146,4 +146,64 @@ public interface JobMapper {
     // 목표 ID로 선택한 직무 카테고리 조회
     // 고용24 훈련과정 추천 시 NCS 코드와 상위 카테고리 확인에 사용
     JobCategoryVO findJobCategoryByGoalId(Long goalId);
+
+    // =========================================================
+    // 인강 크롤링 데이터 동기화
+    // =========================================================
+
+    // 인강 매핑 코드에 해당하는 하위 카테고리 ID 목록 조회
+    List<Long> findChildCategoryIdsByCourseMappingCode(
+            String courseMappingCode
+    );
+
+    // 인강 매핑 코드에 해당하는 카테고리 ID 단건 조회
+    Long findCategoryIdByCourseMappingCode(
+            String courseMappingCode
+    );
+
+    // 편입 인강 매핑 코드별 학과계열 코드 목록 조회
+    List<String> findTransferMajorCodesByCourseMappingCode(
+            String courseMappingCode
+    );
+
+    // 전체 편입 학과계열 코드 목록 조회
+    List<String> findAllTransferMajorCodes();
+
+    // 자격증·어학 유형별 목록 조회
+    List<JobQualificationVO> findQualificationListByQualType(
+            @Param("qualType") String qualType
+    );
+
+    // 업체명 + 강의명으로 기존 인강 ID 조회
+    Long findCourseIdByProviderAndName(
+            @Param("providerName") String providerName,
+            @Param("courseName") String courseName
+    );
+
+    // 인강 신규 저장
+    void insertJobCourse(JobCourseVO jobCourseVO);
+
+    // 기존 인강 정보 갱신
+    int updateJobCourse(JobCourseVO jobCourseVO);
+
+    // 자격증·어학 ↔ 인강 매핑 저장
+    void upsertQualificationCourse(
+            @Param("qualId") Long qualId,
+            @Param("courseId") Long courseId,
+            @Param("createdNm") String createdNm
+    );
+
+    // 공무원 직렬 ↔ 인강 매핑 저장
+    void upsertCategoryCourse(
+            @Param("categoryId") Long categoryId,
+            @Param("courseId") Long courseId,
+            @Param("createdNm") String createdNm
+    );
+
+    // 편입 학과계열 ↔ 인강 매핑 저장
+    void upsertTransferMajorCourse(
+            @Param("majorCode") String majorCode,
+            @Param("courseId") Long courseId,
+            @Param("createdNm") String createdNm
+    );
 }

@@ -824,4 +824,232 @@
 
     </select>
 
+    <!-- =========================================================
+     인강 크롤링 데이터 동기화
+     ========================================================= -->
+    <!-- 인강 매핑 코드에 해당하는 하위 카테고리 ID 목록 조회 -->
+    <select id="findChildCategoryIdsByCourseMappingCode"
+            parameterType="String"
+            resultType="long">
+
+        SELECT child.category_id
+        FROM job_category parent
+                 JOIN job_category child
+                      ON child.parent_id = parent.category_id
+                          AND child.del_yn = 'N'
+        WHERE parent.course_mapping_code = #{courseMappingCode}
+          AND parent.del_yn = 'N'
+        ORDER BY child.category_id
+
+    </select>
+
+    <!-- 인강 매핑 코드에 해당하는 카테고리 ID 단건 조회 -->
+    <select id="findCategoryIdByCourseMappingCode"
+            parameterType="String"
+            resultType="long">
+
+        SELECT category_id
+        FROM job_category
+        WHERE course_mapping_code = #{courseMappingCode}
+          AND del_yn = 'N'
+
+    </select>
+
+    <!-- 편입 인강 매핑 코드별 학과계열 코드 목록 조회 -->
+    <select id="findTransferMajorCodesByCourseMappingCode"
+            parameterType="String"
+            resultType="string">
+
+        SELECT major_code
+        FROM job_transfer_major_category
+        WHERE (
+            course_mapping_code = #{courseMappingCode}
+                OR course_mapping_code = 'BOTH'
+            )
+          AND del_yn = 'N'
+        ORDER BY major_code
+
+    </select>
+
+    <!-- 전체 편입 학과계열 코드 목록 조회 -->
+    <select id="findAllTransferMajorCodes"
+            resultType="string">
+
+        SELECT major_code
+        FROM job_transfer_major_category
+        WHERE del_yn = 'N'
+        ORDER BY major_code
+
+    </select>
+
+    <!-- 자격증·어학 유형별 목록 조회 -->
+    <select id="findQualificationListByQualType"
+            resultType="org.scoula.job.domain.JobQualificationVO">
+
+        SELECT
+            qual_id,
+            qual_type,
+            external_code,
+            data_source,
+            qual_name,
+            qual_summary,
+            organization_name,
+            written_fee,
+            practical_fee,
+            military_fee,
+            detail_url,
+            last_synced_date,
+            created_date,
+            created_nm,
+            modified_date,
+            modified_nm,
+            del_yn
+        FROM job_qualification
+        WHERE qual_type = #{qualType}
+          AND del_yn = 'N'
+        ORDER BY qual_id
+
+    </select>
+
+    <!-- 업체명 + 강의명으로 기존 인강 ID 조회 -->
+    <select id="findCourseIdByProviderAndName"
+            resultType="long">
+
+        SELECT course_id
+        FROM job_course
+        WHERE provider_name = #{providerName}
+          AND course_name = #{courseName}
+          AND del_yn = 'N'
+        ORDER BY course_id DESC
+            LIMIT 1
+
+    </select>
+
+    <!-- 인강 신규 저장 -->
+    <insert id="insertJobCourse"
+            parameterType="org.scoula.job.domain.JobCourseVO"
+            useGeneratedKeys="true"
+            keyProperty="courseId">
+
+        INSERT INTO job_course (
+            course_type,
+            provider_name,
+            course_name,
+            original_price,
+            discount_price,
+            military_price,
+            benefit_detail,
+            detail_url,
+            created_date,
+            created_nm,
+            del_yn
+        )
+        VALUES (
+                   #{courseType},
+                   #{providerName},
+                   #{courseName},
+                   #{originalPrice},
+                   #{discountPrice},
+                   #{militaryPrice},
+                   #{benefitDetail},
+                   #{detailUrl},
+                   NOW(),
+                   #{createdNm},
+                   'N'
+               )
+
+    </insert>
+
+    <!-- 기존 인강 정보 갱신 -->
+    <update id="updateJobCourse"
+            parameterType="org.scoula.job.domain.JobCourseVO">
+
+        UPDATE job_course
+        SET course_type = #{courseType},
+            original_price = #{originalPrice},
+            discount_price = #{discountPrice},
+            military_price = #{militaryPrice},
+            benefit_detail = #{benefitDetail},
+            detail_url = #{detailUrl},
+            modified_date = NOW(),
+            modified_nm = #{modifiedNm},
+            del_yn = 'N'
+        WHERE course_id = #{courseId}
+
+    </update>
+
+    <!-- 자격증·어학 ↔ 인강 매핑 저장/복구 -->
+    <insert id="upsertQualificationCourse">
+
+        INSERT INTO job_qualification_course (
+            qual_id,
+            course_id,
+            created_date,
+            created_nm,
+            del_yn
+        )
+        VALUES (
+                   #{qualId},
+                   #{courseId},
+                   NOW(),
+                   #{createdNm},
+                   'N'
+               )
+
+            ON DUPLICATE KEY UPDATE
+                                 modified_date = NOW(),
+                                 modified_nm = VALUES(created_nm),
+                                 del_yn = 'N'
+
+    </insert>
+
+    <!-- 공무원 직렬 ↔ 인강 매핑 저장/복구 -->
+    <insert id="upsertCategoryCourse">
+
+        INSERT INTO job_category_course (
+            category_id,
+            course_id,
+            created_date,
+            created_nm,
+            del_yn
+        )
+        VALUES (
+                   #{categoryId},
+                   #{courseId},
+                   NOW(),
+                   #{createdNm},
+                   'N'
+               )
+
+            ON DUPLICATE KEY UPDATE
+                                 modified_date = NOW(),
+                                 modified_nm = VALUES(created_nm),
+                                 del_yn = 'N'
+
+    </insert>
+
+    <!-- 편입 학과계열 ↔ 인강 매핑 저장/복구 -->
+    <insert id="upsertTransferMajorCourse">
+
+        INSERT INTO job_transfer_major_course (
+            major_code,
+            course_id,
+            created_date,
+            created_nm,
+            del_yn
+        )
+        VALUES (
+                   #{majorCode},
+                   #{courseId},
+                   NOW(),
+                   #{createdNm},
+                   'N'
+               )
+
+            ON DUPLICATE KEY UPDATE
+                                 modified_date = NOW(),
+                                 modified_nm = VALUES(created_nm),
+                                 del_yn = 'N'
+
+    </insert>
 </mapper>
