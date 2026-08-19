@@ -39,4 +39,8 @@ public interface SocialMapper {
     List<Integer> findEarnedBadgeIdList(Long userId);
 
     int insertBadge(SocialBadgeAwardCriteriaDTO criteria);
+
+    String getBadgeName(Integer badgeId);
+
+    List<Long> findNotificationTargetUserIdList();
 }

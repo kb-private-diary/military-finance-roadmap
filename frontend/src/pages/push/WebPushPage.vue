@@ -9,12 +9,17 @@ import EmptyState from '@/components/common/EmptyState.vue';
 import savingIcon from '@/assets/images/push/saving.png';
 import ddayIcon from '@/assets/images/push/dday.png';
 import defaultIcon from '@/assets/images/push/default.png';
+import travelIcon from '@/assets/images/roadmap/travel.png';
+import badgeIcon from '@/assets/badge/saving_master.png';
 
 // 카테고리 → 아이콘 매핑. push_history.category는 백엔드가 검증 안 하는 자유 문자열이라
 // 여기 없는 카테고리가 오면 그냥 defaultIcon으로 대체된다 (새 도메인 추가돼도 안 깨짐).
 const CATEGORY_ICON_MAP = {
   SAVING: savingIcon,
   DDAY: ddayIcon,
+  TRAVEL_DOMESTIC: travelIcon,
+  TRAVEL_OVERSEAS: travelIcon,
+  BADGE: badgeIcon,
 };
 const getIcon = (category) => CATEGORY_ICON_MAP[category] || defaultIcon;
 
