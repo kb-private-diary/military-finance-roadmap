@@ -10,6 +10,7 @@ import org.scoula.job.domain.JobRecommendServiceVO;
 import org.scoula.job.domain.JobTrainingVO;
 import org.scoula.job.domain.JobTransferMajorVO;
 import org.scoula.job.domain.JobTransferUniversityVO;
+import org.scoula.job.dto.JobExamNotificationDTO;
 import org.scoula.job.dto.JobGoalDetailResponseDTO;
 
 import java.util.List;
@@ -206,4 +207,7 @@ public interface JobMapper {
             @Param("courseId") Long courseId,
             @Param("createdNm") String createdNm
     );
+
+    // 사용자가 선택한 자격증 시험일 알림 대상 조회
+    List<JobExamNotificationDTO> findExamNotificationTargetList();
 }

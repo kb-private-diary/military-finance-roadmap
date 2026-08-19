@@ -1092,4 +1092,29 @@
                                  del_yn = 'N'
 
     </insert>
+
+    <!-- 사용자가 선택한 자격증 시험일 알림 대상 조회 -->
+    <select id="findExamNotificationTargetList"
+            resultType="org.scoula.job.dto.JobExamNotificationDTO">
+
+        SELECT DISTINCT
+            jg.user_id AS userId,
+            jq.qual_name AS qualName,
+            jqs.written_exam_start_date AS writtenExamDate,
+            jqs.practical_exam_start_date AS practicalExamDate
+        FROM job_goal jg
+                 INNER JOIN job_goal_qualification jgq
+                            ON jgq.goal_id = jg.goal_id
+                                AND jgq.del_yn = 'N'
+                 INNER JOIN job_qualification jq
+                            ON jq.qual_id = jgq.qual_id
+                                AND jq.del_yn = 'N'
+                 INNER JOIN job_qualification_schedule jqs
+                            ON jqs.qual_id = jq.qual_id
+                                AND jqs.del_yn = 'N'
+        WHERE jg.status = 'CONFIRMED'
+          AND jg.del_yn = 'N'
+
+    </select>
+
 </mapper>

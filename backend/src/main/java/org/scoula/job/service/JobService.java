@@ -71,4 +71,7 @@ public interface JobService {
             Long goalId,
             String regionCode
     );
+
+    // 사용자가 선택한 자격증 시험일 웹푸시 알림 발송
+    void sendExamNotifications();
 }

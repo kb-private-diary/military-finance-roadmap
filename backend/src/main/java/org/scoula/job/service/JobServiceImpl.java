@@ -8,6 +8,7 @@ import org.scoula.job.client.Work24ApiClient;
 import org.scoula.job.domain.JobCategoryVO;
 import org.scoula.job.domain.JobGoalVO;
 import org.scoula.job.domain.JobTrainingVO;
+import org.scoula.job.dto.JobExamNotificationDTO;
 import org.scoula.job.dto.JobGoalCreateRequestDTO;
 import org.scoula.job.dto.JobGoalCreateResponseDTO;
 import org.scoula.job.dto.JobGoalDetailResponseDTO;
@@ -27,11 +28,13 @@ import org.scoula.job.dto.PrepItemRecommendResponseDTO;
 import org.scoula.job.dto.ServiceRecommendResponseDTO;
 import org.scoula.job.mapper.JobMapper;
 import org.scoula.product.service.ProductService;
+import org.scoula.push.service.PushNotificationService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -53,9 +56,17 @@ public class JobServiceImpl implements JobService {
      * 대분류(1차)까지 넓히면 직무와 무관한 과정이 섞이므로 중분류에서 멈춘다.
      */
     private static final int[] NCS_SEARCH_DEPTHS = { 4, 3, 2 };
+
+    private static final long EXAM_DDAY_7 = 7L;
+    private static final long EXAM_DDAY_1 = 1L;
+    private static final long EXAM_DDAY = 0L;
+
+    private static final String PUSH_CATEGORY_JOB = "JOB";
+
     private final JobMapper jobMapper;
     private final ProductService productService;
     private final Work24ApiClient work24ApiClient;
+    private final PushNotificationService pushNotificationService;
 
     @Override
     @Transactional(readOnly = true)
