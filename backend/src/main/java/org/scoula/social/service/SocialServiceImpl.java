@@ -10,7 +10,6 @@ import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 
 import org.scoula.common.exception.BusinessException;
-import org.scoula.social.dto.SocialBadgeAwardCriteriaDTO;
 import org.scoula.social.dto.SocialBadgeItemDTO;
 import org.scoula.social.dto.SocialDistributionItemDTO;
 import org.scoula.social.dto.SocialRankSummaryDTO;
@@ -34,6 +33,7 @@ public class SocialServiceImpl implements SocialService {
             "전역자 부대 평균 완주율 TOP 3";
 
     private final SocialMapper mapper;
+    private final SocialBadgeAwardService badgeAwardService;
 
     @Override
     @Transactional(readOnly = true)
@@ -150,9 +150,7 @@ public class SocialServiceImpl implements SocialService {
     @Transactional
     public List<SocialBadgeItemDTO> findBadgeList(final Long userId) {
         this.findUserContext(userId);
-        for (Integer badgeId : this.mapper.findEarnedBadgeIdList(userId)) {
-            this.mapper.insertBadge(new SocialBadgeAwardCriteriaDTO(userId, badgeId));
-        }
+        this.badgeAwardService.awardEarnedBadges(userId);
         return this.mapper.findBadgeListByUserId(userId);
     }
 

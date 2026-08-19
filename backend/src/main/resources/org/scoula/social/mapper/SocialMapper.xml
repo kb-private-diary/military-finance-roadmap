@@ -648,4 +648,19 @@
         )
     </insert>
 
+    <select id="getBadgeName" resultType="java.lang.String">
+        SELECT badge_name
+        FROM badge
+        WHERE badge_id = #{badgeId}
+          AND del_yn = 'N'
+    </select>
+
+    <select id="findNotificationTargetUserIdList" resultType="java.lang.Long">
+        SELECT id
+        FROM `user`
+        WHERE status = 'ACTIVE'
+          AND del_yn = 'N'
+        ORDER BY id
+    </select>
+
 </mapper>

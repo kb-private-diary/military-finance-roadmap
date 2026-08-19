@@ -14,7 +14,12 @@ public interface PushNotificationService {
 
     // 다른 도메인이 알림 보낼 때 쓰는 진입점. 트리거 조건은 호출하는 쪽에서 판단.
     // category는 프론트 아이콘 매핑용 자유 문자열 (예: "VACATION", "SAVING") - push 도메인은 값을 검증하지 않음
-    void send(Long userId, String title, String body, String category);
+    default void send(Long userId, String title, String body, String category) {
+        this.send(userId, title, body, category, null);
+    }
+
+    // 알림을 눌렀을 때 이동할 앱 내부 경로를 함께 전달한다.
+    void send(Long userId, String title, String body, String category, String url);
 
     // 내 알림 이력 조회 (최신순)
     List<PushHistoryDTO> findHistoryList(Long userId);
