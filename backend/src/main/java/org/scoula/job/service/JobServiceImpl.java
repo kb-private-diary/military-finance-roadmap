@@ -216,7 +216,10 @@ public class JobServiceImpl implements JobService {
             qualificationVOList = this.jobMapper.findQualificationListByCategoryId(jobGoalVO.getCategoryId());
 
             List<Long> qualIds = qualificationVOList.stream().map(JobQualificationVO::getQualId).toList();
-            courseVOList = this.jobMapper.findCourseListByQualificationIds(qualIds);
+            // 매핑된 자격증이 없으면 IN 절이 비어 SQL 문법 오류가 나므로 조회하지 않는다.
+                 if (!qualIds.isEmpty()) {
+                     courseVOList = this.jobMapper.findCourseListByQualificationIds(qualIds);
+                 }
 
         } else if (GOAL_TYPE_PUBLIC_SERVICE.equals(jobGoalVO.getGoalType())) {
             qualificationVOList = this.jobMapper.findQualificationListByCategoryId(jobGoalVO.getCategoryId());
