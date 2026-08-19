@@ -8,7 +8,7 @@ import javax.validation.constraints.Positive;
 
 import lombok.Data;
 
-// DASH-API-06(등록)·07(수정) 공용 요청. REGULAR는 가입 시 서버가 자동 부여하므로
+// DASH-API-05(등록)·06(수정) 공용 요청. REGULAR는 가입 시 서버가 자동 부여하므로
 // 이 API로는 생성·수정할 수 없다(Service에서 차단).
 @Data
 public class DashboardVacationCreateRequestDTO {
