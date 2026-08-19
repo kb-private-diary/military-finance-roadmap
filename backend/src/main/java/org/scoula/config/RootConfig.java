@@ -55,6 +55,7 @@ import javax.sql.DataSource;
         "org.scoula.member.service",
         "org.scoula.main.service",
         "org.scoula.dashboard.service",
+        "org.scoula.dashboard.scheduler",
         "org.scoula.simulator.service",
         "org.scoula.product.service",
         "org.scoula.product.client",

@@ -48,7 +48,7 @@ public class DashboardController {
         return ResponseEntity.ok(ApiResponse.success(dto));
     }
 
-    // DASH-API-03: 적금 현황 조회(현재 납입액 및 예상 만기 수령액 반환)
+    // DASH-API-02: 적금 현황 조회(현재 납입액 및 예상 만기 수령액 반환)
     @GetMapping("/savings")
     public ResponseEntity<ApiResponse<DashboardSavingsResponseDTO>> findSavingsStatus(
             @AuthenticationPrincipal CustomUser customUser
@@ -60,7 +60,7 @@ public class DashboardController {
         return ResponseEntity.ok(ApiResponse.success(dto));
     }
 
-    // DASH-API-04: 휴가 목록(요약 + 카드 목록) 조회
+    // DASH-API-03: 휴가 목록(요약 + 카드 목록) 조회
     @GetMapping("/vacations")
     public ResponseEntity<ApiResponse<DashboardVacationListResponseDTO>> findVacations(
             @AuthenticationPrincipal CustomUser customUser
@@ -72,7 +72,7 @@ public class DashboardController {
         return ResponseEntity.ok(ApiResponse.success(dto));
     }
 
-    // DASH-API-05: 휴가 상세 조회
+    // DASH-API-04: 휴가 상세 조회
     @GetMapping("/vacations/{vacationId}")
     public ResponseEntity<ApiResponse<DashboardVacationDetailResponseDTO>> findVacationDetail(
             @AuthenticationPrincipal CustomUser customUser,
@@ -86,7 +86,7 @@ public class DashboardController {
         return ResponseEntity.ok(ApiResponse.success(dto));
     }
 
-    // DASH-API-06: 휴가 등록
+    // DASH-API-05: 휴가 등록
     @PostMapping("/vacations")
     public ResponseEntity<ApiResponse<Long>> createVacation(
             @AuthenticationPrincipal CustomUser customUser,
@@ -99,7 +99,7 @@ public class DashboardController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(vacationId));
     }
 
-    // DASH-API-07: 휴가 수정 (REGULAR 제외)
+    // DASH-API-06: 휴가 수정 (REGULAR 제외)
     @PutMapping("/vacations/{vacationId}")
     public ResponseEntity<ApiResponse<Void>> updateVacation(
             @AuthenticationPrincipal CustomUser customUser,
@@ -113,7 +113,7 @@ public class DashboardController {
         return ResponseEntity.ok(ApiResponse.success());
     }
 
-    // DASH-API-08: 휴가 삭제 (REGULAR 제외)
+    // DASH-API-07: 휴가 삭제 (REGULAR 제외)
     @DeleteMapping("/vacations/{vacationId}")
     public ResponseEntity<ApiResponse<Void>> deleteVacation(
             @AuthenticationPrincipal CustomUser customUser,
@@ -126,7 +126,7 @@ public class DashboardController {
         return ResponseEntity.ok(ApiResponse.success());
     }
 
-    // DASH-API-09: 휴가 사용내역 등록
+    // DASH-API-08: 휴가 사용내역 등록
     @PostMapping("/vacations/{vacationId}/usages")
     public ResponseEntity<ApiResponse<Long>> createVacationUsage(
             @AuthenticationPrincipal CustomUser customUser,
@@ -141,7 +141,7 @@ public class DashboardController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(historyId));
     }
 
-    // DASH-API-10: 휴가 사용내역 삭제
+    // DASH-API-09: 휴가 사용내역 삭제
     @DeleteMapping("/vacations/{vacationId}/usages/{historyId}")
     public ResponseEntity<ApiResponse<Void>> deleteVacationUsage(
             @AuthenticationPrincipal CustomUser customUser,

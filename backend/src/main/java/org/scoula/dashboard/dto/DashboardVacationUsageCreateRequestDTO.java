@@ -7,7 +7,7 @@ import javax.validation.constraints.Positive;
 
 import lombok.Data;
 
-// DASH-API-09(사용내역 등록) 요청.
+// DASH-API-08(사용내역 등록) 요청.
 @Data
 public class DashboardVacationUsageCreateRequestDTO {
 
