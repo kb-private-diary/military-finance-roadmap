@@ -1445,6 +1445,7 @@ onMounted(async () => {
 
 .goal-summary-card__tag {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   padding: 5px 10px;
@@ -1455,19 +1456,30 @@ onMounted(async () => {
   color: var(--kb-dark-gray);
   font-size: 11px;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .goal-summary-card__title {
+  min-width: 0;
   color: var(--text-strong);
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
+  line-height: 1.4;
+  word-break: keep-all;
 }
 
 .goal-summary-card__date {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
   margin-top: 16px;
+
+  color: var(--text-strong);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.4;
+  word-break: keep-all;
 }
 
 .goal-summary-card__date span {
@@ -1622,12 +1634,12 @@ onMounted(async () => {
 }
 
 .prep-item-card__title {
-  overflow: hidden;
   color: var(--text-strong);
   font-size: 14px;
   font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.4;
+  white-space: normal;
+  word-break: keep-all;
 }
 
 .prep-item-card__arrow,
