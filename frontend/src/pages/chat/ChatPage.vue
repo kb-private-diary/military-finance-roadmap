@@ -660,8 +660,12 @@ const CATEGORY_LIST_SOURCE = {
 // 보여준 목록이 적은 건 국민은행 상품이 적어서가 아니라 우리가 쓰는 데이터 출처에 그거밖에
 // 없어서일 뿐이고, 실제로 더 보려면 국민은행 홈페이지로 가야 한다(2026-08-11 피드백).
 // 아직 예금만 링크 확보함 - 나머지 카테고리는 링크 받으면 추가.
+// savings(적금)는 deposit과 같은 C016528 페이지를 공유한다 - 이 페이지 자체가 예금/적금/입출금자유/
+// 주택청약을 다 아우르는 예적금 허브 페이지이고, 위 LIVE_PRODUCT_SOURCE의 'KB내맘대로적금'(적금 상품)도
+// 이미 같은 page=C016528을 쓰고 있어 확인된 링크다(2026-08-19).
 const KB_HOMEPAGE_URL = {
   deposit: { label: 'KB국민은행 예금 상품 홈페이지', url: 'https://obank.kbstar.com/quics?page=C016528' },
+  savings: { label: 'KB국민은행 적금 상품 홈페이지', url: 'https://obank.kbstar.com/quics?page=C016528' },
 };
 
 // 실시간(FSS/펀드 API) 상품은 원래 은행별/운용사별 개별 페이지가 없어서 다 같이 비교 페이지로만
@@ -1579,10 +1583,16 @@ const askBackend = async (
     // 싶은 건지 몰라서 "은행연합회 가서 확인하라"는 식으로 떠넘기는 답이 나왔다(2026-08-07 피드백).
     // 이미 그 상품의 되묻기 메뉴(extraMenu)가 붙어있으면(=이미 상품 Q&A 흐름 안) 중복이라 스킵
     if (!extraMenu.length) {
-      const relatedProduct = Object.keys(PRODUCT_QUESTIONS).find(
+      // 답변에 상품명이 여러 개 한꺼번에 언급된 목록 요약(예: "적금 상품은 총 6개입니다, 장병내일준비적금,
+      // 청년미래적금, ...")에서 find()로 첫 번째 매칭만 집어 후속질문을 붙이면, 실제로는 여러 상품을
+      // 요약한 답변인데 그중 아무 상품 하나(대개 PRODUCT_QUESTIONS에 먼저 정의된 것)로 잘못 새버린다
+      // (2026-08-19 발견 - "적금 추천해줘"를 다시 물었을 때 6개 상품 요약 답변에 장병내일준비적금
+      // 후속질문이 붙어버림). 정확히 하나의 상품만 언급됐을 때만 그 상품 후속질문을 붙인다.
+      const mentionedProducts = Object.keys(PRODUCT_QUESTIONS).filter(
         (name) => botMsg.content.includes(name) || (botMsg.sourceDetail || '').includes(name),
       );
-      if (relatedProduct) {
+      if (mentionedProducts.length === 1) {
+        const relatedProduct = mentionedProducts[0];
         menu.push(
           ...PRODUCT_QUESTIONS[relatedProduct].map((q) => ({
             label: q,
