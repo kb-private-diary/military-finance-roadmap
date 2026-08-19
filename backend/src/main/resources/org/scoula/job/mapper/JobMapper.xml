@@ -559,6 +559,20 @@
             gq.selected_cost,
             q.detail_url,
             q.last_synced_date,
+
+            schedule.exam_year,
+            schedule.exam_round,
+            schedule.written_reg_start_date,
+            schedule.written_reg_end_date,
+            schedule.written_exam_start_date,
+            schedule.written_exam_end_date,
+            schedule.written_result_date,
+            schedule.practical_reg_start_date,
+            schedule.practical_reg_end_date,
+            schedule.practical_exam_start_date,
+            schedule.practical_exam_end_date,
+            schedule.practical_result_date,
+
             q.created_date,
             q.created_nm,
             q.modified_date,
@@ -568,6 +582,24 @@
                  JOIN job_qualification q
                       ON q.qual_id = gq.qual_id
                           AND q.del_yn = 'N'
+
+                 LEFT JOIN job_qualification_schedule schedule
+                           ON schedule.schedule_id = (
+                               SELECT s.schedule_id
+                               FROM job_qualification_schedule s
+                               WHERE s.qual_id = q.qual_id
+                                 AND s.del_yn = 'N'
+                                 AND (
+                                   s.written_reg_end_date >= CURDATE()
+                                       OR s.written_exam_end_date >= CURDATE()
+                                       OR s.practical_reg_end_date >= CURDATE()
+                                       OR s.practical_exam_end_date >= CURDATE()
+                                   )
+                               ORDER BY
+                                   s.exam_year,
+                                   s.schedule_id
+            LIMIT 1
+            )
         WHERE gq.goal_id = #{goalId}
           AND gq.del_yn = 'N'
         ORDER BY gq.goal_qual_id
@@ -761,7 +793,7 @@
                    #{schedule.practicalRegEndDate},
                    #{schedule.practicalExamStartDate},
                    #{schedule.practicalExamEndDate},
-                   #{schedule.practicalResultEndDate},
+                   #{schedule.practicalResultStartDate},
 
                    NOW(),
                    NOW(),

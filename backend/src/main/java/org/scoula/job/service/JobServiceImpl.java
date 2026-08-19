@@ -49,7 +49,6 @@ public class JobServiceImpl implements JobService {
 
     private final JobMapper jobMapper;
     private final ProductService productService;
-    private final QnetApiClient qnetApiClient;
     private final Work24ApiClient work24ApiClient;
 
     @Override
@@ -233,9 +232,10 @@ public class JobServiceImpl implements JobService {
             throw BusinessException.badRequest("올바르지 않은 목표유형입니다", "JOB_004");
         }
 
-        // 자격증 기본정보에 Q-Net 응시료·시험일정 정보 추가
+        // 자격증 기본정보 DTO 변환
+        // Q-Net 응시료·시험일정은 스케줄러가 DB에 반영하므로 조회 시 API를 호출하지 않는다.
         List<JobQualificationDTO> qualifications = qualificationVOList.stream()
-                .map(this::enrichQualificationWithQnet)
+                .map(JobQualificationDTO::of)
                 .toList();
 
 
@@ -300,65 +300,15 @@ public class JobServiceImpl implements JobService {
             throw BusinessException.notFound("존재하지 않는 준비항목이 포함되어 있습니다", "JOB_003");
         }
 
-        // ─────────────────────────────────────────────
-        // Q-Net 자격증 최신 응시료 조회
-        // ─────────────────────────────────────────────
+        // 선택 당시 준비비용 계산
+        // Q-Net 응시료는 스케줄러가 DB에 반영하므로 DB 금액을 그대로 스냅샷으로 저장한다.
         if (hasQualification) {
 
             for (JobQualificationVO qualification : qualificationVOList) {
 
-                Long selectedCost;
-
-                // Q-Net 연동 대상
-                // D02 = Q-Net
-                if ("D02".equals(qualification.getDataSource())
-                        && qualification.getExternalCode() != null
-                        && !qualification.getExternalCode().isBlank()) {
-
-                    try {
-                        // externalCode(jmCd)로 Q-Net 최신 응시료 조회
-                        QnetApiClient.ExamFee fee =
-                                this.qnetApiClient.findExamFee(
-                                        qualification.getExternalCode()
-                                );
-
-                        long writtenFee = fee.getWrittenFee() != null
-                                ? fee.getWrittenFee()
-                                : 0L;
-
-                        long practicalFee = fee.getPracticalFee() != null
-                                ? fee.getPracticalFee()
-                                : 0L;
-
-                        // Q-Net 최신 응시료 반영
-                        qualification.setWrittenFee(writtenFee);
-                        qualification.setPracticalFee(practicalFee);
-
-                        // 필기 + 실기 = 선택 당시 총 준비비용
-                        selectedCost = writtenFee + practicalFee;
-
-                    } catch (Exception e) {
-
-                        // Q-Net 호출 실패 시 기존 DB 금액 사용
-                        selectedCost =
-                                this.calculateQualificationCost(qualification);
-
-                        log.warn(
-                                "Q-Net 응시료 조회 실패, DB 금액 사용: qualId={}",
-                                qualification.getQualId(),
-                                e
-                        );
-                    }
-
-                } else {
-
-                    // Q-Net 연동 대상이 아닌 경우 기존 DB 금액 사용
-                    selectedCost =
-                            this.calculateQualificationCost(qualification);
-                }
-
-                // 실제 목표에 저장할 선택 당시 비용
-                qualification.setSelectedCost(selectedCost);
+                qualification.setSelectedCost(
+                        this.calculateQualificationCost(qualification)
+                );
             }
         }
 
@@ -500,7 +450,7 @@ public class JobServiceImpl implements JobService {
         List<JobQualificationDTO> qualifications =
                 this.jobMapper.findSelectedQualificationListByGoalId(goalId)
                         .stream()
-                        .map(this::enrichQualificationWithQnet)
+                        .map(JobQualificationDTO::of)
                         .toList();
 
         // 목표에 저장된 인강 조회
@@ -587,107 +537,6 @@ public class JobServiceImpl implements JobService {
 
         // 기존 목표 상세 조회 로직을 재사용하여 이어쓰기 데이터 반환
         return this.findJobGoalDetail(goalId);
-    }
-
-    // 자격증 기본정보에 Q-Net 응시료·시험일정 정보를 추가
-    private JobQualificationDTO enrichQualificationWithQnet(
-            JobQualificationVO qualificationVO) {
-
-        // DB에 저장된 기본 자격증 정보 DTO 변환
-        JobQualificationDTO dto = JobQualificationDTO.of(qualificationVO);
-
-        // Q-Net 종목코드 조회
-        String jmCd = qualificationVO.getExternalCode();
-        String dataSource = qualificationVO.getDataSource();
-
-        // Q-Net 연동 대상이 아니면 DB 정보 그대로 반환
-        if (!"D02".equals(dataSource)
-                || jmCd == null
-                || jmCd.isBlank()) {
-            return dto;
-        }
-
-        try {
-            // ── 응시료 조회 ─────────────────────────────
-            QnetApiClient.ExamFee fee =
-                    this.qnetApiClient.findExamFee(jmCd);
-
-            dto.setWrittenFee(fee.getWrittenFee());
-            dto.setPracticalFee(fee.getPracticalFee());
-
-            // ── 시험일정 조회 ───────────────────────────
-            List<QnetApiClient.ExamSchedule> schedules =
-                    this.qnetApiClient.findExamSchedules(jmCd);
-
-            LocalDate today = LocalDate.now();
-
-            // 아직 실기시험이 끝나지 않은 가장 가까운 회차 조회
-            QnetApiClient.ExamSchedule nextSchedule = schedules.stream()
-                    .filter(schedule ->
-                            schedule.getPracticalExamEndDate() != null
-                                    && !schedule.getPracticalExamEndDate().isBefore(today))
-                    .min((a, b) ->
-                            a.getPracticalExamEndDate()
-                                    .compareTo(b.getPracticalExamEndDate()))
-                    .orElse(null);
-
-            // 앞으로 남은 회차가 있는 경우 일정 세팅
-            if (nextSchedule != null) {
-                dto.setExamRound(nextSchedule.getExamRound());
-
-                dto.setWrittenRegStartDate(
-                        nextSchedule.getWrittenRegStartDate());
-                dto.setWrittenRegEndDate(
-                        nextSchedule.getWrittenRegEndDate());
-
-                dto.setWrittenExamStartDate(
-                        nextSchedule.getWrittenExamStartDate());
-                dto.setWrittenExamEndDate(
-                        nextSchedule.getWrittenExamEndDate());
-
-                dto.setWrittenResultDate(
-                        nextSchedule.getWrittenResultDate());
-
-                dto.setPracticalRegStartDate(
-                        nextSchedule.getPracticalRegStartDate());
-                dto.setPracticalRegEndDate(
-                        nextSchedule.getPracticalRegEndDate());
-
-                dto.setPracticalExamStartDate(
-                        nextSchedule.getPracticalExamStartDate());
-                dto.setPracticalExamEndDate(
-                        nextSchedule.getPracticalExamEndDate());
-
-                dto.setPracticalResultDate(
-                        nextSchedule.getPracticalResultStartDate());
-
-                // "2026년 정기 기사 3회"에서 연도 추출
-                if (nextSchedule.getExamRound() != null
-                        && nextSchedule.getExamRound().length() >= 4) {
-
-                    try {
-                        dto.setExamYear(Integer.valueOf(
-                                nextSchedule.getExamRound().substring(0, 4)));
-                    } catch (NumberFormatException e) {
-                        log.warn(
-                                "Q-Net 시험연도 변환 실패: examRound={}",
-                                nextSchedule.getExamRound()
-                        );
-                    }
-                }
-            }
-
-        } catch (Exception e) {
-            // Q-Net 장애가 발생해도 DB의 기본 자격증 정보는 반환
-            log.warn(
-                    "Q-Net 자격증 정보 조회 실패: qualId={}, jmCd={}",
-                    qualificationVO.getQualId(),
-                    jmCd,
-                    e
-            );
-        }
-
-        return dto;
     }
 
     @Override
