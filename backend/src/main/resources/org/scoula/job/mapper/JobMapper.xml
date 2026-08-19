@@ -10,6 +10,7 @@
             parent_id,
             goal_type,
             category_name,
+            course_mapping_code,
             ncs_code,
             category_level,
             created_date,
@@ -851,6 +852,7 @@
             jc.parent_id,
             jc.goal_type,
             jc.category_name,
+            jc.course_mapping_code,
             jc.ncs_code,
             jc.category_level
         FROM job_goal jg

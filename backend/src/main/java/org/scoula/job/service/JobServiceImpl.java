@@ -35,6 +35,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.Comparator;
 
 @Service
 @RequiredArgsConstructor
@@ -47,6 +48,11 @@ public class JobServiceImpl implements JobService {
 
     private static final int ROADMAP_CATEGORY_JOB = 2;
 
+    /*
+     * NCS 코드를 세분류(4차) → 소분류(3차) → 중분류(2차) 순으로 넓혀가며 조회한다.
+     * 대분류(1차)까지 넓히면 직무와 무관한 과정이 섞이므로 중분류에서 멈춘다.
+     */
+    private static final int[] NCS_SEARCH_DEPTHS = { 4, 3, 2 };
     private final JobMapper jobMapper;
     private final ProductService productService;
     private final Work24ApiClient work24ApiClient;
@@ -577,24 +583,38 @@ public class JobServiceImpl implements JobService {
                         ? "C0104"
                         : null;
 
-        List<Work24ApiClient.TrainingCourse> courses =
-                this.work24ApiClient.findTrainingCourses(
+        List<Work24ApiClient.TrainingCourse> courses = List.of();
+
+        for (int ncsDepth : NCS_SEARCH_DEPTHS) {
+
+            courses = this.work24ApiClient.findTrainingCourses(
+                    regionCode,
+                    ncsCode,
+                    courseType,
+                    ncsDepth
+            );
+
+            if (!courses.isEmpty()) {
+                break;
+            }
+
+            /*
+             * IT 직무인데 K-디지털 과정이 없는 경우
+             * 같은 NCS 단계에서 훈련유형 조건만 제거하고 재조회
+             */
+            if (courseType != null) {
+
+                courses = this.work24ApiClient.findTrainingCourses(
                         regionCode,
                         ncsCode,
-                        courseType
+                        null,
+                        ncsDepth
                 );
 
-        /*
-         * IT 직무인데 K-디지털 과정이 없는 경우
-         * 훈련유형 조건을 제거하고 일반 과정으로 재조회
-         */
-        if (courses.isEmpty() && courseType != null) {
-            courses =
-                    this.work24ApiClient.findTrainingCourses(
-                            regionCode,
-                            ncsCode,
-                            null
-                    );
+                if (!courses.isEmpty()) {
+                    break;
+                }
+            }
         }
 
         /*
@@ -603,6 +623,22 @@ public class JobServiceImpl implements JobService {
          * 일반훈련생 기준 본인부담액을 추가
          */
         return courses.stream()
+                .sorted(
+                        Comparator.comparingInt(
+                                        (Work24ApiClient.TrainingCourse course) ->
+                                                this.calculateTrainingScore(
+                                                        course,
+                                                        category
+                                                )
+                                )
+                                .reversed()
+                                .thenComparing(
+                                        Work24ApiClient.TrainingCourse::getStartDate,
+                                        Comparator.nullsLast(
+                                                Comparator.naturalOrder()
+                                        )
+                                )
+                )
                 .limit(5)
                 .map(course -> {
 
@@ -629,5 +665,174 @@ public class JobServiceImpl implements JobService {
                             .build();
                 })
                 .collect(Collectors.toList());
+    }
+
+    private int calculateTrainingScore(
+            final Work24ApiClient.TrainingCourse course,
+            final JobCategoryVO category) {
+
+        int score = 0;
+
+        final String targetNcsCode =
+                category.getNcsCode();
+
+        final String courseNcsCode =
+                course.getNcsCode();
+
+        /*
+         * 목표 직무의 NCS 코드와
+         * 훈련과정의 NCS 코드가 가까울수록 높은 점수를 부여한다.
+         */
+        if (targetNcsCode != null
+                && courseNcsCode != null) {
+
+            if (targetNcsCode.equals(courseNcsCode)) {
+                score += 100;
+
+            } else if (targetNcsCode.length() >= 6
+                    && courseNcsCode.startsWith(
+                    targetNcsCode.substring(0, 6)
+            )) {
+
+                score += 60;
+
+            } else if (targetNcsCode.length() >= 4
+                    && courseNcsCode.startsWith(
+                    targetNcsCode.substring(0, 4)
+            )) {
+
+                score += 30;
+            }
+        }
+
+        /*
+         * 직무명의 키워드가 훈련과정명에 포함되면
+         * 추가 점수를 부여한다.
+         */
+        final String categoryName =
+                category.getCategoryName();
+
+        final String trainingName =
+                course.getTrainingName();
+
+        if (categoryName != null
+                && trainingName != null) {
+
+            final String[] keywords =
+                    categoryName.split("·");
+
+            for (final String keyword : keywords) {
+
+                final String normalizedKeyword =
+                        keyword.trim();
+
+                if (!normalizedKeyword.isBlank()
+                        && trainingName.contains(normalizedKeyword)) {
+
+                    score += 10;
+                }
+            }
+        }
+
+        return score;
+    }
+
+    @Transactional
+    @Override
+    public void sendExamNotifications() {
+
+        final LocalDate today =
+                LocalDate.now();
+
+        final List<JobExamNotificationDTO> targets =
+                this.jobMapper.findExamNotificationTargetList();
+
+        int sentCount = 0;
+
+        for (final JobExamNotificationDTO target : targets) {
+
+            sentCount += this.sendExamNotificationIfNeeded(
+                    today,
+                    target.getUserId(),
+                    target.getQualName(),
+                    "필기",
+                    target.getWrittenExamDate()
+            );
+
+            sentCount += this.sendExamNotificationIfNeeded(
+                    today,
+                    target.getUserId(),
+                    target.getQualName(),
+                    "실기",
+                    target.getPracticalExamDate()
+            );
+        }
+
+        log.info(
+                "자격증 시험 알림 배치 완료 - 대상 {}건, 발송 {}건",
+                targets.size(),
+                sentCount
+        );
+    }
+
+    private int sendExamNotificationIfNeeded(
+            final LocalDate today,
+            final Long userId,
+            final String qualName,
+            final String examType,
+            final LocalDate examDate
+    ) {
+
+        if (examDate == null) {
+            return 0;
+        }
+
+        final long daysUntilExam =
+                ChronoUnit.DAYS.between(
+                        today,
+                        examDate
+                );
+
+        if (daysUntilExam == EXAM_DDAY_7) {
+
+            this.pushNotificationService.send(
+                    userId,
+                    qualName + " " + examType + "시험 D-7",
+                    qualName + " " + examType + "시험이 7일 남았어요!",
+                    PUSH_CATEGORY_JOB
+            );
+
+            return 1;
+        }
+
+        if (daysUntilExam == EXAM_DDAY_1) {
+
+            this.pushNotificationService.send(
+                    userId,
+                    qualName + " " + examType + "시험 D-1",
+                    qualName + " " + examType + "시험이 내일이에요!",
+                    PUSH_CATEGORY_JOB
+            );
+
+            return 1;
+        }
+
+        if (daysUntilExam == EXAM_DDAY) {
+
+            this.pushNotificationService.send(
+                    userId,
+                    qualName + " " + examType + "시험일",
+                    "오늘은 "
+                            + qualName
+                            + " "
+                            + examType
+                            + "시험일이에요!",
+                    PUSH_CATEGORY_JOB
+            );
+
+            return 1;
+        }
+
+        return 0;
     }
 }
