@@ -3,7 +3,6 @@ package org.scoula.job.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.scoula.common.exception.BusinessException;
-import org.scoula.job.client.QnetApiClient;
 import org.scoula.job.client.Work24ApiClient;
 import org.scoula.job.domain.JobCategoryVO;
 import org.scoula.job.domain.JobGoalVO;
