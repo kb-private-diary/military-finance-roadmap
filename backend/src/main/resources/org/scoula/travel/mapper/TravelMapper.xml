@@ -31,6 +31,17 @@
         LIMIT 1
     </select>
 
+    <select id="findAirportCodeByCity" resultType="java.lang.String">
+        SELECT ca.iata_code
+        FROM city_airport ca
+        INNER JOIN city_cost cc
+          ON cc.city_cost_id = ca.city_cost_id
+         AND cc.del_yn = 'N'
+        WHERE ca.del_yn = 'N'
+          AND cc.city = #{city}
+        LIMIT 1
+    </select>
+
     <!-- 여행 목표 (travel_goal) -->
 
     <!--
@@ -83,6 +94,46 @@
           AND del_yn = 'N'
         ORDER BY goal_id DESC
         LIMIT 1
+    </select>
+
+    <select id="findUpcomingConfirmedGoalList"
+            resultType="org.scoula.travel.dto.TravelNotificationTargetDTO">
+        SELECT
+            goal.goal_id AS goalId,
+            goal.user_id AS userId,
+            goal.destination,
+            COALESCE(
+                goal.is_domestic,
+                EXISTS (
+                    SELECT 1
+                    FROM city_cost city
+                    WHERE city.city = goal.destination
+                      AND city.country = '대한민국'
+                      AND city.del_yn = 'N'
+                )
+            ) AS domestic,
+            goal.start_date AS startDate
+        FROM travel_goal goal
+        INNER JOIN `user` member
+            ON member.id = goal.user_id
+           AND member.del_yn = 'N'
+           AND member.status = 'ACTIVE'
+        WHERE goal.status = 'CONFIRMED'
+          AND goal.del_yn = 'N'
+          AND goal.start_date BETWEEN #{fromDate} AND #{toDate}
+        ORDER BY goal.start_date, goal.goal_id
+    </select>
+
+    <select id="countSuccessfulTravelNotification" resultType="int">
+        SELECT COUNT(*)
+        FROM push_history
+        WHERE user_id = #{userId}
+          AND title = #{title}
+          AND body = #{body}
+          AND category = #{category}
+          AND status = 'SUCCESS'
+          AND DATE(sent_at) = #{sentDate}
+          AND del_yn = 'N'
     </select>
 
     <update id="updateGoal"

@@ -1,5 +1,6 @@
 package org.scoula.social.service;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
 
@@ -9,7 +10,6 @@ import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 
 import org.scoula.common.exception.BusinessException;
-import org.scoula.social.dto.SocialBadgeAwardCriteriaDTO;
 import org.scoula.social.dto.SocialBadgeItemDTO;
 import org.scoula.social.dto.SocialDistributionItemDTO;
 import org.scoula.social.dto.SocialRankSummaryDTO;
@@ -17,6 +17,7 @@ import org.scoula.social.dto.SocialRankingResponseDTO;
 import org.scoula.social.dto.SocialScopeCriteriaDTO;
 import org.scoula.social.dto.SocialStatsResponseDTO;
 import org.scoula.social.dto.SocialUserContextDTO;
+import org.scoula.social.dto.SocialVeteranStatsDTO;
 import org.scoula.social.mapper.SocialMapper;
 
 @Service
@@ -28,17 +29,25 @@ public class SocialServiceImpl implements SocialService {
 
     // 하단 랭킹은 탭과 무관하게 항상 전체 부대 평균을 보여준다
     private static final String RANKING_TITLE = "전체 평균 저축률 TOP 3";
+    private static final String VETERAN_RANKING_TITLE =
+            "전역자 부대 평균 완주율 TOP 3";
 
     private final SocialMapper mapper;
+    private final SocialBadgeAwardService badgeAwardService;
 
     @Override
     @Transactional(readOnly = true)
     public SocialStatsResponseDTO findStats(final Long userId, final String scope) {
-        SocialUserContextDTO context = this.findUserContext(userId);
-        SocialScopeCriteriaDTO criteria = this.createCriteria(context, scope);
-        SocialRankSummaryDTO rankSummary = this.mapper.findSavingsRank(criteria);
+        final SocialUserContextDTO context = this.findUserContext(userId);
+        final SocialScopeCriteriaDTO criteria = this.createCriteria(context, scope);
+        if (this.isVeteran(context)) {
+            return this.findVeteranStats(context, criteria);
+        }
+        final SocialRankSummaryDTO rankSummary =
+                this.mapper.findSavingsRank(criteria);
 
         return SocialStatsResponseDTO.builder()
+                .veteran(false)
                 .name(context.getName())
                 .rankName(context.getRankName())
                 .typeName(context.getTypeName())
@@ -78,8 +87,15 @@ public class SocialServiceImpl implements SocialService {
     @Transactional(readOnly = true)
     public SocialRankingResponseDTO findRanking(final Long userId, final String scope) {
         // scope 는 결과를 가르지 않지만, 잘못된 값을 걸러낸다.
-        SocialScopeCriteriaDTO criteria = this.createCriteria(
-                this.findUserContext(userId), scope);
+        final SocialUserContextDTO context = this.findUserContext(userId);
+        final SocialScopeCriteriaDTO criteria = this.createCriteria(context, scope);
+        if (this.isVeteran(context)) {
+            return SocialRankingResponseDTO.builder()
+                    .title(VETERAN_RANKING_TITLE)
+                    .rankings(this.mapper.findVeteranUnitRankingList(criteria))
+                    .myUnitRank(this.mapper.findVeteranUnitRank(criteria))
+                    .build();
+        }
         final Integer unitRank = this.mapper.findUnitRank(criteria);
 
         return SocialRankingResponseDTO.builder()
@@ -89,14 +105,52 @@ public class SocialServiceImpl implements SocialService {
                 .build();
     }
 
+    private SocialStatsResponseDTO findVeteranStats(
+            final SocialUserContextDTO context,
+            final SocialScopeCriteriaDTO criteria) {
+        final SocialVeteranStatsDTO mappedStats =
+                this.mapper.findVeteranStats(criteria);
+        final SocialVeteranStatsDTO veteranStats = mappedStats != null
+                ? mappedStats
+                : new SocialVeteranStatsDTO();
+
+        return SocialStatsResponseDTO.builder()
+                .veteran(true)
+                .name(context.getName())
+                .rankName(context.getRankName())
+                .typeName(context.getTypeName())
+                .unitName(context.getUnitName())
+                .currentSavings(this.valueOrZero(veteranStats.getTotalContribution()))
+                .savingsRank(this.valueOrDefault(veteranStats.getRank(), 1))
+                .comparisonMemberCount(
+                        this.valueOrDefault(veteranStats.getTotalCount(), 1))
+                .higherSavingsCount(
+                        this.valueOrDefault(veteranStats.getHigherCount(), 0))
+                .lowerSavingsCount(
+                        this.valueOrDefault(veteranStats.getLowerCount(), 0))
+                .totalContribution(
+                        this.valueOrZero(veteranStats.getTotalContribution()))
+                .averageMonthlyContribution(this.valueOrZero(
+                        veteranStats.getAverageMonthlyContribution()))
+                .savingsCompletionRate(this.valueOrZero(
+                        veteranStats.getSavingsCompletionRate()))
+                .maturedAccountCount(this.valueOrDefault(
+                        veteranStats.getMaturedAccountCount(), 0))
+                .peerAverageTotalContribution(this.valueOrZero(
+                        veteranStats.getPeerAverageTotalContribution()))
+                .peerAverageMonthlyContribution(this.valueOrZero(
+                        veteranStats.getPeerAverageMonthlyContribution()))
+                .peerAverageCompletionRate(this.valueOrZero(
+                        veteranStats.getPeerAverageCompletionRate()))
+                .build();
+    }
+
     // 조회 시점에 획득 조건을 만족한 뱃지를 지급한 뒤 전체 목록을 반환.
     @Override
     @Transactional
     public List<SocialBadgeItemDTO> findBadgeList(final Long userId) {
         this.findUserContext(userId);
-        for (Integer badgeId : this.mapper.findEarnedBadgeIdList(userId)) {
-            this.mapper.insertBadge(new SocialBadgeAwardCriteriaDTO(userId, badgeId));
-        }
+        this.badgeAwardService.awardEarnedBadges(userId);
         return this.mapper.findBadgeListByUserId(userId);
     }
 
@@ -127,6 +181,24 @@ public class SocialServiceImpl implements SocialService {
                 .typeId(context.getTypeId())
                 .unitCode(context.getUnitCode())
                 .rankId(context.getRankId())
+                .veteran(this.isVeteran(context))
                 .build();
+    }
+
+    private boolean isVeteran(final SocialUserContextDTO context) {
+        return context.getDischargeDate() != null
+                && context.getDischargeDate().isBefore(LocalDate.now());
+    }
+
+    private Long valueOrZero(final Long value) {
+        return value != null ? value : 0L;
+    }
+
+    private Double valueOrZero(final Double value) {
+        return value != null ? value : 0.0;
+    }
+
+    private Integer valueOrDefault(final Integer value, final int fallback) {
+        return value != null ? value : fallback;
     }
 }

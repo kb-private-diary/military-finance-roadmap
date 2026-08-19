@@ -14,6 +14,7 @@
                 u.type_id,
                 u.unit_code,
                 u.unit_name,
+                u.discharge_date,
                 COALESCE(account.current_savings, 0) AS current_savings,
                 COALESCE(
                     LEAST(
@@ -45,10 +46,13 @@
         )
     </sql>
 
-    <sql id="scopeCondition">
+    <sql id="scopeFilter">
         <choose>
-            <when test="scope == 'TYPE'">
+            <when test="scope == 'TYPE' and typeId != null">
                 metrics.type_id = #{typeId}
+            </when>
+            <when test="scope == 'TYPE'">
+                metrics.user_id = #{userId}
             </when>
             <when test="scope == 'UNIT' and unitCode != null and unitCode != ''">
                 metrics.unit_code = #{unitCode}
@@ -60,10 +64,132 @@
                 1 = 1
             </otherwise>
         </choose>
-        <!-- 선택한 범위 위에 같은 계급 조건으로 조회 -->
-        <if test="rankId != null">
-            AND metrics.rank_id = #{rankId}
-        </if>
+    </sql>
+
+    <sql id="scopeCondition">
+        <include refid="scopeFilter" />
+        <choose>
+            <when test="veteran != null and veteran">
+                AND metrics.discharge_date &lt; CURRENT_DATE
+            </when>
+            <otherwise>
+                <!-- 현역은 선택한 범위 안에서 같은 계급끼리 비교한다. -->
+                <if test="rankId != null">
+                    AND metrics.rank_id = #{rankId}
+                </if>
+                AND (metrics.discharge_date IS NULL
+                     OR metrics.discharge_date &gt;= CURRENT_DATE)
+            </otherwise>
+        </choose>
+    </sql>
+
+    <sql id="veteranMetricsCte">
+        veteran_account_progress AS (
+            SELECT
+                account.account_id,
+                account.user_id,
+                account.curr_amount,
+                account.monthly_count,
+                account.account_status,
+                CASE
+                    WHEN account.account_status = 'MATURED' THEN 100.0
+                    ELSE LEAST(
+                        100.0,
+                        ROUND(
+                            account.monthly_count * 100.0
+                            / NULLIF(
+                                LEAST(
+                                    24,
+                                    GREATEST(
+                                        1,
+                                        TIMESTAMPDIFF(
+                                            MONTH,
+                                            DATE(COALESCE(
+                                                account.open_date,
+                                                account.created_date)),
+                                            member.discharge_date
+                                        ) + 1
+                                    )
+                                ),
+                                0
+                            ),
+                            1
+                        )
+                    )
+                END AS completion_rate
+            FROM saving_account account
+            JOIN `user` member ON account.user_id = member.id
+            WHERE account.del_yn = 'N'
+              AND account.account_status IN ('ACTIVE', 'MATURED', 'TERMINATED')
+              AND member.del_yn = 'N'
+              AND member.status = 'ACTIVE'
+              AND member.discharge_date &lt; CURRENT_DATE
+        ),
+        veteran_account_totals AS (
+            SELECT
+                user_id,
+                SUM(curr_amount) AS total_contribution,
+                ROUND(
+                    SUM(curr_amount) / NULLIF(MAX(monthly_count), 0),
+                    0
+                ) AS fallback_monthly_contribution,
+                ROUND(AVG(completion_rate), 1) AS completion_rate,
+                SUM(CASE WHEN account_status = 'MATURED' THEN 1 ELSE 0 END)
+                    AS matured_account_count
+            FROM veteran_account_progress
+            GROUP BY user_id
+        ),
+        veteran_history_totals AS (
+            SELECT
+                account.user_id,
+                ROUND(
+                    SUM(history.pay_amount)
+                    / NULLIF(
+                        COUNT(DISTINCT DATE_FORMAT(
+                            COALESCE(history.paid_date, DATE(history.created_date)),
+                            '%Y-%m'
+                        )),
+                        0
+                    ),
+                    0
+                ) AS average_monthly_contribution
+            FROM saving_history history
+            JOIN saving_account account
+              ON history.account_id = account.account_id
+            JOIN `user` member ON account.user_id = member.id
+            WHERE history.del_yn = 'N'
+              AND account.del_yn = 'N'
+              AND account.account_status IN ('ACTIVE', 'MATURED', 'TERMINATED')
+              AND member.del_yn = 'N'
+              AND member.status = 'ACTIVE'
+              AND member.discharge_date &lt; CURRENT_DATE
+            GROUP BY account.user_id
+        ),
+        veteran_metrics AS (
+            SELECT
+                member.id AS user_id,
+                member.type_id,
+                member.unit_code,
+                member.unit_name,
+                member.discharge_date,
+                COALESCE(account.total_contribution, 0) AS total_contribution,
+                COALESCE(
+                    history.average_monthly_contribution,
+                    account.fallback_monthly_contribution,
+                    0
+                ) AS average_monthly_contribution,
+                COALESCE(account.completion_rate, 0.0) AS completion_rate,
+                COALESCE(account.matured_account_count, 0)
+                    AS matured_account_count
+            FROM `user` member
+            LEFT JOIN veteran_account_totals account
+              ON member.id = account.user_id
+            LEFT JOIN veteran_history_totals history
+              ON member.id = history.user_id
+            WHERE member.del_yn = 'N'
+              AND member.status = 'ACTIVE'
+              AND member.discharge_date &lt; CURRENT_DATE
+        )
     </sql>
 
     <!--
@@ -101,6 +227,7 @@
             FROM user_metrics
             WHERE unit_code IS NOT NULL
               AND unit_code != ''
+              AND (discharge_date IS NULL OR discharge_date &gt;= CURRENT_DATE)
             GROUP BY unit_code
             <!-- 평균이 0%인 부대는 순위에 올리지 않는다. -->
             HAVING ROUND(AVG(savings_rate), 1) &gt; 0
@@ -115,6 +242,28 @@
         )
     </sql>
 
+    <sql id="veteranUnitRankingCtes">
+        veteran_unit_stats AS (
+            SELECT
+                unit_code,
+                MAX(unit_name) AS unit_name,
+                ROUND(AVG(completion_rate), 1) AS metric_value
+            FROM veteran_metrics
+            WHERE unit_code IS NOT NULL
+              AND unit_code != ''
+            GROUP BY unit_code
+            HAVING ROUND(AVG(completion_rate), 1) &gt; 0
+        ),
+        ranked_veteran_units AS (
+            SELECT
+                unit_code,
+                unit_name,
+                metric_value,
+                DENSE_RANK() OVER (ORDER BY metric_value DESC) AS unit_rank
+            FROM veteran_unit_stats
+        )
+    </sql>
+
     <select id="findUserContext" resultType="org.scoula.social.dto.SocialUserContextDTO">
         SELECT
             u.id AS userId,
@@ -125,6 +274,7 @@
             mt.type_name AS typeName,
             u.unit_name AS unitName,
             u.unit_code AS unitCode,
+            u.discharge_date AS dischargeDate,
             COALESCE(account.current_savings, 0) AS currentSavings,
             COALESCE(
                 LEAST(
@@ -187,6 +337,64 @@
         CROSS JOIN my_metrics me
     </select>
 
+    <select id="findVeteranStats"
+            resultType="org.scoula.social.dto.SocialVeteranStatsDTO">
+        WITH <include refid="veteranMetricsCte" />,
+        scoped_metrics AS (
+            SELECT metrics.*
+            FROM veteran_metrics metrics
+            WHERE <include refid="scopeFilter" />
+        ),
+        my_metrics AS (
+            SELECT *
+            FROM scoped_metrics
+            WHERE user_id = #{userId}
+        )
+        SELECT
+            me.total_contribution AS totalContribution,
+            me.average_monthly_contribution AS averageMonthlyContribution,
+            me.completion_rate AS savingsCompletionRate,
+            me.matured_account_count AS maturedAccountCount,
+            ROUND(AVG(metrics.total_contribution), 0)
+                AS peerAverageTotalContribution,
+            ROUND(AVG(metrics.average_monthly_contribution), 0)
+                AS peerAverageMonthlyContribution,
+            ROUND(AVG(metrics.completion_rate), 1)
+                AS peerAverageCompletionRate,
+            1 + SUM(
+                CASE
+                    WHEN metrics.completion_rate &gt; me.completion_rate THEN 1
+                    WHEN metrics.completion_rate = me.completion_rate
+                     AND metrics.total_contribution &gt; me.total_contribution THEN 1
+                    ELSE 0
+                END
+            ) AS `rank`,
+            COUNT(*) AS totalCount,
+            SUM(
+                CASE
+                    WHEN metrics.completion_rate &gt; me.completion_rate THEN 1
+                    WHEN metrics.completion_rate = me.completion_rate
+                     AND metrics.total_contribution &gt; me.total_contribution THEN 1
+                    ELSE 0
+                END
+            ) AS higherCount,
+            SUM(
+                CASE
+                    WHEN metrics.completion_rate &lt; me.completion_rate THEN 1
+                    WHEN metrics.completion_rate = me.completion_rate
+                     AND metrics.total_contribution &lt; me.total_contribution THEN 1
+                    ELSE 0
+                END
+            ) AS lowerCount
+        FROM my_metrics me
+        CROSS JOIN scoped_metrics metrics
+        GROUP BY
+            me.total_contribution,
+            me.average_monthly_contribution,
+            me.completion_rate,
+            me.matured_account_count
+    </select>
+
     <!--
         카테고리별로 플랜을 저장한 "회원 수"를 센다.
         한 사람이 같은 카테고리에 플랜을 여러 개 저장했어도 1명으로만 집계된다.
@@ -228,10 +436,34 @@
             unit_rank AS `rank`,
             unit_name AS label,
             savings_rate AS savingsRate,
+            savings_rate AS metricValue,
             CASE WHEN unit_code = #{unitCode} THEN TRUE ELSE FALSE END AS me
         FROM ranked_units
         ORDER BY unit_rank, unit_name
         LIMIT 3
+    </select>
+
+    <select id="findVeteranUnitRankingList"
+            resultType="org.scoula.social.dto.SocialRankingItemDTO">
+        WITH <include refid="veteranMetricsCte" />,
+        <include refid="veteranUnitRankingCtes" />
+        SELECT
+            unit_rank AS `rank`,
+            unit_name AS label,
+            metric_value AS metricValue,
+            CASE WHEN unit_code = #{unitCode} THEN TRUE ELSE FALSE END AS me
+        FROM ranked_veteran_units
+        ORDER BY unit_rank, unit_name
+        LIMIT 3
+    </select>
+
+    <select id="findVeteranUnitRank"
+            resultType="java.lang.Integer">
+        WITH <include refid="veteranMetricsCte" />,
+        <include refid="veteranUnitRankingCtes" />
+        SELECT unit_rank
+        FROM ranked_veteran_units
+        WHERE unit_code = #{unitCode}
     </select>
 
     <select id="findUnitRank"
@@ -267,8 +499,9 @@
             SELECT metrics.*
             FROM user_metrics metrics
             CROSS JOIN (SELECT rank_id FROM `user` WHERE id = #{userId}) me
-            WHERE me.rank_id IS NULL
-               OR metrics.rank_id = me.rank_id
+            WHERE (me.rank_id IS NULL OR metrics.rank_id = me.rank_id)
+              AND (metrics.discharge_date IS NULL
+                   OR metrics.discharge_date &gt;= CURRENT_DATE)
         ),
         ranked_metrics AS (
             SELECT
@@ -341,10 +574,11 @@
                 ranked.peer_position,
                 ranked.total_count,
                 COALESCE(progress.progress, 0.0) AS saving_progress
-            FROM ranked_metrics ranked
+            FROM (SELECT #{userId} AS user_id) me
+            LEFT JOIN ranked_metrics ranked
+                ON ranked.user_id = me.user_id
             LEFT JOIN saving_progress progress
-                ON ranked.user_id = progress.user_id
-            WHERE ranked.user_id = #{userId}
+                ON progress.user_id = me.user_id
         )
         SELECT earned_badges.badge_id
         FROM (
@@ -413,5 +647,20 @@
               AND del_yn = 'N'
         )
     </insert>
+
+    <select id="getBadgeName" resultType="java.lang.String">
+        SELECT badge_name
+        FROM badge
+        WHERE badge_id = #{badgeId}
+          AND del_yn = 'N'
+    </select>
+
+    <select id="findNotificationTargetUserIdList" resultType="java.lang.Long">
+        SELECT id
+        FROM `user`
+        WHERE status = 'ACTIVE'
+          AND del_yn = 'N'
+        ORDER BY id
+    </select>
 
 </mapper>

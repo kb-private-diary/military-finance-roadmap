@@ -1,6 +1,7 @@
 package org.scoula.push.service;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -84,34 +85,42 @@ public class PushNotificationServiceImpl implements PushNotificationService {
     // 붙잡혀서, 외부 API가 느려지면 커넥션 풀 고갈로 이어질 수 있다.
     // 트랜잭션 밖에서 부른 경우(활성 트랜잭션 없음)는 그냥 바로 실행한다.
     @Override
-    public void send(Long userId, String title, String body, String category) {
+    public void send(
+            Long userId, String title, String body, String category, String url) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(
                     new TransactionSynchronization() {
                         @Override
                         public void afterCommit() {
-                            doSend(userId, title, body, category);
+                            doSend(userId, title, body, category, url);
                         }
                     });
             return;
         }
-        this.doSend(userId, title, body, category);
+        this.doSend(userId, title, body, category, url);
     }
 
-    private void doSend(Long userId, String title, String body, String category) {
+    private void doSend(
+            Long userId, String title, String body, String category, String url) {
         List<PushSubscriptionVO> subscriptions = this.subscriptionMapper.findListByUserId(userId);
         for (PushSubscriptionVO subscription : subscriptions) {
-            this.sendToSubscription(userId, subscription, title, body, category);
+            this.sendToSubscription(
+                    userId, subscription, title, body, category, url);
         }
     }
 
     private void sendToSubscription(
             Long userId, PushSubscriptionVO subscription, String title, String body,
-            String category) {
+            String category, String url) {
         String status = STATUS_FAILED;
         try {
+            Map<String, String> payloadValues = new LinkedHashMap<>();
+            payloadValues.put("title", title);
+            payloadValues.put("body", body);
+            payloadValues.put("category", category);
+            payloadValues.put("url", this.normalizeInternalUrl(url));
             String payload = this.objectMapper.writeValueAsString(
-                    Map.of("title", title, "body", body));
+                    payloadValues);
             int statusCode = this.webPushClient.send(
                     subscription.getEndpoint(), subscription.getP256dh(),
                     subscription.getAuth(), payload);
@@ -141,6 +150,13 @@ public class PushNotificationServiceImpl implements PushNotificationService {
                 .build();
         history.setCreatedNm(SYSTEM);
         this.historyMapper.insert(history);
+    }
+
+    private String normalizeInternalUrl(String url) {
+        if (url == null || !url.startsWith("/") || url.startsWith("//")) {
+            return "/";
+        }
+        return url;
     }
 
     @Transactional(readOnly = true)

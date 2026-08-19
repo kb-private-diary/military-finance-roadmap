@@ -13,4 +13,11 @@
         ORDER BY CASE WHEN unit_name = '기타' THEN 1 ELSE 0 END, unit_code
     </select>
 
+    <select id="findByUnitCode" resultType="MilitaryUnitVO">
+        SELECT unit_code, unit_name, type_id
+        FROM military_unit
+        WHERE unit_code = #{unitCode}
+          AND del_yn = 'N'
+    </select>
+
 </mapper>

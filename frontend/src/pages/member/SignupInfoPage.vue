@@ -208,7 +208,7 @@ onMounted(() => {
       </div>
 
       <BaseInput v-model="form.name" label="이름" placeholder="이름을 입력하세요" />
-      <BaseInput v-model="form.phone" label="전화번호" placeholder="010-0000-0000" />
+      <BaseInput v-model="form.phone" type="phone" label="전화번호" placeholder="010-0000-0000" />
 
       <p v-if="errorMessage" class="signup-form__message is-error text-caption">{{ errorMessage }}</p>
     </form>

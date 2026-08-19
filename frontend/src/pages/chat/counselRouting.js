@@ -46,3 +46,15 @@ export const detectDirectListCategory = (text) => {
   if (!RECOMMEND_INTENT_KEYWORDS.some((k) => text.includes(k))) return null;
   return COUNSEL_DIRECT_LIST_KEYWORDS.find((g) => g.keywords.some((k) => text.includes(k)));
 };
+
+// "아 그냥 적금 들까"처럼 추천 의도 단어 없이 애매하게 적금/예금만 언급된 문장은 지금까지
+// 목적 되묻기(적금/예금/투자/목표 정하기 4지선다)로 빠졌는데, 이미 상품 종류를 말한 사람한테
+// 그 종류를 또 고르게 하는 건 불필요하다(2026-08-13 피드백) - "OO 상품을 보여드릴까요?" 확인
+// 한 번만 거쳐 목록으로 보낼 후보를 여기서 찾는다. detectDirectListCategory와 달리 추천 의도
+// 단어가 없어도 매칭되는 대신, 곧바로 목록행이 아니라 확인 절차를 한 단계 거치게 해서 안전판을 둔다.
+// 단, text.includes만 쓰면 "군적금"의 "적금"까지 잡혀서 "군적금으로 뭐하지?"(2026-08-12에 발견된
+// 바로 그 함정)도 걸려버린다 - 이 문장은 상품을 보여달라는 게 아니라 활용법을 묻는 거라 되묻기가
+// 맞으므로, 앞이 공백이거나 문장 시작인 "단어로서의" 적금/예금만 잡히게 단어 경계를 둔다.
+const _isStandaloneWordIn = (text, word) => new RegExp(`(^|\\s)${word}`).test(text);
+export const detectTentativeListCategory = (text) =>
+  COUNSEL_DIRECT_LIST_KEYWORDS.find((g) => g.keywords.some((k) => _isStandaloneWordIn(text, k))) || null;

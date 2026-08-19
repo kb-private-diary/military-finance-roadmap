@@ -46,8 +46,8 @@ public class SimulatorServiceImpl implements SimulatorService {
     // 장병내일준비적금 제도상 월 납입 총한도(여러 은행 계좌 합산 기준, 특정 은행 상품 한도와는 별개)
     private static final long MAX_SAVE_AMOUNT = 550000;
     private static final double MONTHS_IN_YEAR = 12.0;
-    // 전역일이 없을 때(연동 전 등) 쓰는 폴백 복무기간. 육군·해병대 기준 18개월.
-    private static final int DEFAULT_SERVICE_MONTHS = 18;
+    // 전역일이 없을 때(연동 전 등) 쓰는 폴백 복무기간(개월).
+    private static final int DEFAULT_SERVICE_MONTHS = 24;
 
     @Transactional(readOnly = true)
     @Override
@@ -60,8 +60,12 @@ public class SimulatorServiceImpl implements SimulatorService {
 
         long monthlySaveTotal = 0L;
         long currentPaidAmountTotal = 0L;
-        int maxCurrentPaidMonths = 0;
-        int maxJoinableMonths = 0;
+        long currentPaidInterestTotal = 0L;
+        int currentPaidMonths = 0;
+        int joinableMonths = 0;
+
+        LocalDate accountOpenDate = null;
+        LocalDate maturityDate = null;
 
         long expectedPrincipalTotal = 0L;
         double expectedInterestTotal = 0.0;
@@ -85,26 +89,31 @@ public class SimulatorServiceImpl implements SimulatorService {
                     rateResolver
             );
 
-            if (calc.actualTotalMonths > maxJoinableMonths) {
-                maxJoinableMonths = calc.actualTotalMonths;
-            }
-            if (calc.maxCurrentPaidMonths > maxCurrentPaidMonths) {
-                maxCurrentPaidMonths = calc.maxCurrentPaidMonths;
+            // 대표 계좌(가장 먼저 개설된 계좌) 기준으로 개설일·만기일·가입개월수·현재납입개월수를 통일한다.
+            if (accountOpenDate == null || calc.firstPayDate.isBefore(accountOpenDate)) {
+                accountOpenDate = calc.firstPayDate;
+                maturityDate = calc.maturityDate;
+                joinableMonths = calc.actualTotalMonths;
+                currentPaidMonths = calc.maxCurrentPaidMonths;
             }
 
             currentPaidAmountTotal += calc.pastPrincipal;
+            currentPaidInterestTotal += (long) calc.pastInterest;
             expectedPrincipalTotal += calc.getTotalPrincipal();
             expectedInterestTotal += calc.getTotalInterest();
             expectedMatchingFundTotal += calc.matchingFund;
         }
 
         long totalReceiptAmount = expectedPrincipalTotal + (long) expectedInterestTotal + expectedMatchingFundTotal;
-        
+
         return SimulatorSavingDetailsResponseDTO.builder()
+                .accountOpenDate(accountOpenDate)
+                .maturityDate(maturityDate)
                 .monthlySaveTotal(monthlySaveTotal)
-                .joinableMonths(maxJoinableMonths)
+                .joinableMonths(joinableMonths)
                 .currentPaidAmount(currentPaidAmountTotal)
-                .currentPaidMonths(maxCurrentPaidMonths)
+                .currentPaidMonths(currentPaidMonths)
+                .currentPaidInterest(currentPaidInterestTotal)
                 .expectedPrincipal(expectedPrincipalTotal)
                 .expectedInterest((long) expectedInterestTotal)
                 .expectedMatchingFund(expectedMatchingFundTotal)
@@ -269,6 +278,12 @@ public class SimulatorServiceImpl implements SimulatorService {
         return minLimit != null ? minLimit : 0L;
     }
 
+    // 기준 은행(SIMULATION_BANK_CODE)의 최대 가입가능 개월수. 상품 데이터가 없으면 제도상 기본값으로 방어
+    private int resolveMaxJoinMonths() {
+        Integer maxJoinMonth = this.militarySavingProductMapper.findMaxJoinMonth(SIMULATION_BANK_CODE);
+        return maxJoinMonth != null ? maxJoinMonth : MilitarySavingsCalculator.MAX_JOIN_MONTHS;
+    }
+
     private void validateSaveAmount(long amount, long minSaveAmount) {
         if (amount > MAX_SAVE_AMOUNT) {
             throw BusinessException.badRequest("납입 한도 55만 원을 초과했습니다.", "SIMUL_004");
@@ -280,8 +295,11 @@ public class SimulatorServiceImpl implements SimulatorService {
     }
     
     private void validateTotalMonths(long totalMonths) {
-        if (totalMonths > 24) {
-            throw BusinessException.badRequest("최대 가입기간 24개월을 초과했습니다.", "SIMUL_005");
+        int maxJoinMonths = this.resolveMaxJoinMonths();
+        if (totalMonths > maxJoinMonths) {
+            throw BusinessException.badRequest(
+                    "최대 가입기간 " + maxJoinMonths + "개월을 초과했습니다.",
+                    "SIMUL_005");
         }
     }
     

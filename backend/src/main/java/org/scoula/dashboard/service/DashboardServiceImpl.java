@@ -22,6 +22,7 @@ import lombok.extern.log4j.Log4j2;
 import org.scoula.dashboard.domain.VacationHistoryVO;
 import org.scoula.dashboard.domain.VacationVO;
 import org.scoula.dashboard.dto.DashboardBasicResponseDTO;
+import org.scoula.dashboard.dto.DashboardDDayUserDTO;
 // openbanking 패키지에서 VO 객체 import (향후 교체)
 import org.scoula.dashboard.dto.DashboardSavingAccountDTO;
 import org.scoula.dashboard.dto.DashboardSavingHistoryDTO;
@@ -45,6 +46,14 @@ public class DashboardServiceImpl implements DashboardService {
     // 허용되는 휴가 카테고리 전체 목록.
     private static final Set<String> VALID_CATEGORIES =
             Set.of(CATEGORY_REGULAR, "REWARD", "CONSOLATION", "PETITION", "ETC");
+
+    // 전역일이 없을 때(연동 전 등) 쓰는 폴백 복무기간(개월). SimulatorServiceImpl과 동일 값으로 통일.
+    private static final int DEFAULT_SERVICE_MONTHS = 24;
+
+    // D-Day 웹푸시 발송 기준(전역까지 남은 일수)
+    private static final long DDAY_30 = 30L;
+    private static final long DDAY_1 = 1L;
+    private static final String CATEGORY_DDAY = "DDAY";
 
     // DashboardSavingAccountDTO account -> SavingAccountVO account 교체
     // VO getter 가 같은지 확인 필요(getOpenDate(), getMonthlySave() 등)
@@ -114,7 +123,7 @@ public class DashboardServiceImpl implements DashboardService {
         
         LocalDate dischargeDate = this.mapper.findDischargeDateByUserId(userId);
         if (dischargeDate == null) {
-            dischargeDate = LocalDate.now().plusMonths(24); // fallback
+            dischargeDate = LocalDate.now().plusMonths(DEFAULT_SERVICE_MONTHS); // fallback
         }
 
         Long expectedMaturityTotal = 0L;
@@ -199,10 +208,10 @@ public class DashboardServiceImpl implements DashboardService {
             Long userId, String createdNm, DashboardVacationCreateRequestDTO request) {
         String category = request.getCategory();
         if (!VALID_CATEGORIES.contains(category)) {
-            throw BusinessException.badRequest("유효하지 않은 휴가 카테고리입니다.", "DASH_007");
+            throw BusinessException.badRequest("유효하지 않은 휴가 카테고리입니다.", "DASH_005");
         }
         if (CATEGORY_REGULAR.equals(category)) {
-            throw BusinessException.badRequest("정기휴가는 직접 등록할 수 없습니다.", "DASH_010");
+            throw BusinessException.badRequest("정기휴가는 직접 등록할 수 없습니다.", "DASH_008");
         }
 
         VacationVO vacation = VacationVO.builder()
@@ -215,10 +224,6 @@ public class DashboardServiceImpl implements DashboardService {
         vacation.setCreatedNm(createdNm);
 
         this.mapper.insertVacation(vacation);
-
-        // 웹푸시 연동 테스트용 - 다른 도메인이 push를 이렇게 갖다 쓰면 된다는 실사용 예시
-        this.pushNotificationService.send(
-                userId, "휴가 등록 완료", request.getName() + "이(가) 등록됐어요!", "VACATION");
 
         return vacation.getVacationId();
     }
@@ -234,17 +239,17 @@ public class DashboardServiceImpl implements DashboardService {
         }
         // REGULAR는 가입 시 자동 부여되며 이 API로 수정할 수 없다.
         if (CATEGORY_REGULAR.equals(vacation.getVacationCate())) {
-            throw BusinessException.badRequest("정기휴가는 이 API로 수정할 수 없습니다.", "DASH_008");
+            throw BusinessException.badRequest("정기휴가는 이 API로 수정할 수 없습니다.", "DASH_006");
         }
 
         String category = request.getCategory();
         if (!VALID_CATEGORIES.contains(category) || CATEGORY_REGULAR.equals(category)) {
-            throw BusinessException.badRequest("유효하지 않은 휴가 카테고리입니다.", "DASH_007");
+            throw BusinessException.badRequest("유효하지 않은 휴가 카테고리입니다.", "DASH_005");
         }
         int usedDays = this.sumUsedDays(vacationId);
         if (request.getDays() < usedDays) {
             throw BusinessException.badRequest(
-                    "이미 사용한 일수(" + usedDays + "일)보다 적게 설정할 수 없습니다.", "DASH_012");
+                    "이미 사용한 일수(" + usedDays + "일)보다 적게 설정할 수 없습니다.", "DASH_010");
         }
 
         vacation.setVacationCate(category);
@@ -265,7 +270,7 @@ public class DashboardServiceImpl implements DashboardService {
         }
         // REGULAR는 입대 시 고정 부여된 총량이라 삭제 대상이 아니다.
         if (CATEGORY_REGULAR.equals(vacation.getVacationCate())) {
-            throw BusinessException.badRequest("정기휴가는 삭제할 수 없습니다.", "DASH_009");
+            throw BusinessException.badRequest("정기휴가는 삭제할 수 없습니다.", "DASH_007");
         }
 
         this.mapper.deleteVacation(vacationId, modifiedNm);
@@ -282,12 +287,12 @@ public class DashboardServiceImpl implements DashboardService {
         }
 
         if (request.getUsedDate().isBefore(vacation.getVacationGet())) {
-            throw BusinessException.badRequest("사용일은 휴가 획득일보다 이전일 수 없습니다.", "DASH_013");
+            throw BusinessException.badRequest("사용일은 휴가 획득일보다 이전일 수 없습니다.", "DASH_011");
         }
 
         int remainingDays = this.dayCountOf(vacation) - this.sumUsedDays(vacationId);
         if (request.getDays() > remainingDays) {
-            throw BusinessException.badRequest("휴가 잔여일수를 초과했습니다.", "DASH_005");
+            throw BusinessException.badRequest("휴가 잔여일수를 초과했습니다.", "DASH_004");
         }
 
         VacationHistoryVO history = VacationHistoryVO.builder()
@@ -299,10 +304,6 @@ public class DashboardServiceImpl implements DashboardService {
 
         this.mapper.insertVacationHistory(history);
 
-        this.pushNotificationService.send(
-                userId, "휴가 등록 완료",
-                vacation.getVacationName() + " 사용내역이 등록됐어요!", "VACATION");
-
         return history.getHistoryId();
     }
 
@@ -311,10 +312,34 @@ public class DashboardServiceImpl implements DashboardService {
     public void deleteVacationUsage(Long userId, Long historyId, String modifiedNm) {
         VacationHistoryVO history = this.mapper.findVacationHistoryById(historyId, userId);
         if (history == null) {
-            throw BusinessException.notFound("사용내역을 찾을 수 없습니다.", "DASH_011");
+            throw BusinessException.notFound("사용내역을 찾을 수 없습니다.", "DASH_009");
         }
 
         this.mapper.deleteVacationHistory(historyId, modifiedNm);
+    }
+
+    // 조회 자체는 읽기전용이지만, 결과에 따라 send()가 커밋 후 push_history에 쓰기 때문에
+    // readOnly로 두면 커넥션이 읽기전용으로 묶여 그 쓰기가 실패한다.
+    @Transactional
+    @Override
+    public void sendDDayNotifications() {
+        LocalDate today = LocalDate.now();
+        List<DashboardDDayUserDTO> users = this.mapper.findActiveUsersWithDischargeDate();
+
+        int sentCount = 0;
+        for (DashboardDDayUserDTO user : users) {
+            long daysUntilDischarge = ChronoUnit.DAYS.between(today, user.getDischargeDate());
+            if (daysUntilDischarge == DDAY_30) {
+                this.pushNotificationService.send(
+                        user.getUserId(), "전역 D-30", "전역까지 30일 남았어요!", CATEGORY_DDAY);
+                sentCount++;
+            } else if (daysUntilDischarge == DDAY_1) {
+                this.pushNotificationService.send(
+                        user.getUserId(), "전역 D-1", "내일이면 전역입니다!", CATEGORY_DDAY);
+                sentCount++;
+            }
+        }
+        log.info("D-Day 알림 배치 완료 - 대상 {}명, 발송 {}건", users.size(), sentCount);
     }
 
     private int sumUsedDays(Long vacationId) {

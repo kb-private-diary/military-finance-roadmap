@@ -55,6 +55,16 @@ export const parseAmountInput = (value) => {
   return digitsOnly ? Number(digitsOnly) : 0;
 };
 
+// ── 전화번호 입력창 (실시간 하이픈 포맷) ──────────────────────────
+// 타이핑 중 표시용: 숫자만 남기고 010-0000-0000 형태로 자동 하이픈 삽입
+// formatPhoneInput('01012345678') === "010-1234-5678"
+export const formatPhoneInput = (value) => {
+  const digits = String(value ?? '').replace(/[^0-9]/g, '').slice(0, 11);
+  if (digits.length < 4) return digits;
+  if (digits.length < 8) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+};
+
 // ── 날짜 ──────────────────────────────────────────────────────
 // 화면 표시용: 점 구분  →  formatDate('2026-07-23') === "2026.07.23"
 // (데이터/전송은 ISO 'YYYY-MM-DD' 그대로 두고, 보여줄 때만 이걸로 변환)

@@ -132,6 +132,12 @@ const chartItems = computed(() =>
 );
 
 const hasInterestData = computed(() => chartItems.value.length > 0);
+const isVeteran = computed(() => stats.value?.veteran === true);
+const profileName = computed(() => {
+  if (!stats.value) return '';
+  if (isVeteran.value || !stats.value.rankName) return `${stats.value.name}님`;
+  return `${stats.value.name} ${stats.value.rankName}님`;
+});
 
 const savingsPercentileLabel = computed(() => {
   const memberCount = stats.value?.comparisonMemberCount;
@@ -169,6 +175,16 @@ const badgeGuideGroups = computed(() =>
 // 화면의 순위·평균이 어느 집단 기준인지 오해하게 되므로 문구에 함께 드러낸다.
 // 계급 미등록 회원은 서버도 계급 조건을 걸지 않으므로 '장병'으로 되돌린다.
 const scopeDescription = computed(() => {
+  if (isVeteran.value) {
+    if (activeScope.value === 'TYPE') {
+      return `${stats.value?.typeName ?? '같은 군종'} 전역자와 비교`;
+    }
+    if (activeScope.value === 'UNIT') {
+      return `${stats.value?.unitName ?? '같은 부대'} 전역자와 비교`;
+    }
+    return '전체 전역자와 비교';
+  }
+
   const peerLabel = stats.value?.rankName ?? '장병';
   if (activeScope.value === 'TYPE') {
     return `${stats.value?.typeName ?? '같은 군종'} ${peerLabel}과 비교`;
@@ -183,13 +199,18 @@ const scopeDescription = computed(() => {
 // 군종 미등록 회원은 typeName 이 없으므로 군종명만 빼고 기본 문구로 되돌린다.
 const interestOverline = computed(() => {
   if (activeScope.value === 'TYPE' && stats.value?.typeName) {
-    return `${stats.value.typeName} 장병들이 저장한 목표`;
+    return `${stats.value.typeName} ${isVeteran.value ? '전역자' : '장병'}들이 저장한 목표`;
   }
   if (activeScope.value === 'UNIT') {
-    return '부대원들이 저장한 목표';
+    return isVeteran.value
+      ? '같은 부대 전역자들이 저장한 목표'
+      : '부대원들이 저장한 목표';
   }
-  return '장병들이 저장한 목표';
+  return `${isVeteran.value ? '전역자' : '장병'}들이 저장한 목표`;
 });
+
+const rankingMetricValue = (item) =>
+  item.metricValue ?? item.savingsRate ?? 0;
 
 // 뱃지는 이 화면의 보조 정보라, 실패해도 비교 통계는 계속 보여준다.
 const loadBadges = async () => {
@@ -263,8 +284,12 @@ onMounted(retry);
 <template>
   <main class="social-page">
     <header class="page-header">
-      <p class="text-overline">함께 만드는 저축 습관</p>
-      <h1 class="text-title">저축 비교</h1>
+      <p class="text-overline">
+        {{ isVeteran ? '복무 중 쌓은 저축 기록' : '함께 만드는 저축 습관' }}
+      </p>
+      <h1 class="text-title">
+        {{ isVeteran ? '복무 저축 리포트' : '저축 비교' }}
+      </h1>
     </header>
 
     <div v-if="loading && !stats" class="status text-caption" role="status">
@@ -288,11 +313,12 @@ onMounted(retry);
         <div class="profile-card__headline">
           <div>
             <p class="profile-card__name">
-              {{ stats.name }} {{ stats.rankName }}님
+              {{ profileName }}
             </p>
             <p class="profile-card__unit text-caption">
               {{ stats.typeName || '군종 미등록' }} ·
               {{ stats.unitName || '부대 미등록' }}
+              <template v-if="isVeteran"> · 전역</template>
             </p>
           </div>
           <div class="profile-card__aside">
@@ -306,8 +332,16 @@ onMounted(retry);
               ?
             </button>
             <div class="profile-card__saving">
-              <span>현재 납입액</span>
-              <strong>{{ formatWon(stats.currentSavings) }}</strong>
+              <span>{{ isVeteran ? '복무 중 누적 납입액' : '현재 납입액' }}</span>
+              <strong>
+                {{
+                  formatWon(
+                    isVeteran
+                      ? stats.totalContribution
+                      : stats.currentSavings,
+                  )
+                }}
+              </strong>
             </div>
           </div>
         </div>
@@ -352,8 +386,12 @@ onMounted(retry);
       <section class="comparison-section" aria-labelledby="comparison-title">
         <div class="section-heading">
           <div>
-            <p class="text-overline">나와 평균의 차이</p>
-            <h2 id="comparison-title" class="text-title">저축률 비교</h2>
+            <p class="text-overline">
+              {{ isVeteran ? '복무 기간 동안의 결과' : '나와 평균의 차이' }}
+            </p>
+            <h2 id="comparison-title" class="text-title">
+              {{ isVeteran ? '복무 저축 성과' : '저축률 비교' }}
+            </h2>
           </div>
           <p v-if="savingsPercentileLabel" class="rank-summary">
             <strong>{{ savingsPercentileLabel }}</strong>
@@ -361,33 +399,96 @@ onMounted(retry);
         </div>
 
         <BaseCard class="comparison-card" padding="18px">
-          <div class="comparison-row">
-            <div class="comparison-row__label">
-              <span>나</span>
-              <strong>{{ stats.savingsRate.toFixed(1) }}%</strong>
+          <template v-if="isVeteran">
+            <div class="veteran-comparison-row">
+              <p>누적 납입액</p>
+              <div>
+                <span>나</span>
+                <strong>{{ formatWon(stats.totalContribution) }}</strong>
+              </div>
+              <div>
+                <span>그룹 평균</span>
+                <strong>{{ formatWon(stats.peerAverageTotalContribution) }}</strong>
+              </div>
             </div>
-            <ProgressBar
-              :value="stats.savingsRate"
-              :total="100"
-              color="var(--military-green)"
-              :height="12"
-            />
-          </div>
-          <div class="comparison-row">
-            <div class="comparison-row__label">
-              <span>비교 그룹 평균</span>
-              <strong>{{ stats.averageSavingsRate.toFixed(1) }}%</strong>
+
+            <div class="veteran-comparison-row">
+              <p>월평균 납입액</p>
+              <div>
+                <span>나</span>
+                <strong>{{ formatWon(stats.averageMonthlyContribution) }}</strong>
+              </div>
+              <div>
+                <span>그룹 평균</span>
+                <strong>
+                  {{ formatWon(stats.peerAverageMonthlyContribution) }}
+                </strong>
+              </div>
             </div>
-            <ProgressBar
-              :value="stats.averageSavingsRate"
-              :total="100"
-              color="var(--chart-3)"
-              :height="12"
-            />
-          </div>
-          <p class="comparison-card__caption text-caption">
-            현재 월 적금 납입액을 계급 월급으로 나눈 비율입니다.
-          </p>
+
+            <div class="comparison-row">
+              <div class="comparison-row__label">
+                <span>나의 군적금 완주율</span>
+                <strong>{{ stats.savingsCompletionRate.toFixed(1) }}%</strong>
+              </div>
+              <ProgressBar
+                :value="stats.savingsCompletionRate"
+                :total="100"
+                color="var(--military-green)"
+                :height="12"
+              />
+            </div>
+            <div class="comparison-row">
+              <div class="comparison-row__label">
+                <span>비교 그룹 평균 완주율</span>
+                <strong>{{ stats.peerAverageCompletionRate.toFixed(1) }}%</strong>
+              </div>
+              <ProgressBar
+                :value="stats.peerAverageCompletionRate"
+                :total="100"
+                color="var(--chart-3)"
+                :height="12"
+              />
+            </div>
+            <p class="veteran-account-summary">
+              만기 완료 계좌
+              <strong>{{ stats.maturedAccountCount }}개</strong>
+            </p>
+            <p class="comparison-card__caption text-caption">
+              완주율은 복무 중 유지한 군적금의 납입 회차와 만기 여부를
+              기준으로 계산합니다.
+            </p>
+          </template>
+
+          <template v-else>
+            <div class="comparison-row">
+              <div class="comparison-row__label">
+                <span>나</span>
+                <strong>{{ stats.savingsRate.toFixed(1) }}%</strong>
+              </div>
+              <ProgressBar
+                :value="stats.savingsRate"
+                :total="100"
+                color="var(--military-green)"
+                :height="12"
+              />
+            </div>
+            <div class="comparison-row">
+              <div class="comparison-row__label">
+                <span>비교 그룹 평균</span>
+                <strong>{{ stats.averageSavingsRate.toFixed(1) }}%</strong>
+              </div>
+              <ProgressBar
+                :value="stats.averageSavingsRate"
+                :total="100"
+                color="var(--chart-3)"
+                :height="12"
+              />
+            </div>
+            <p class="comparison-card__caption text-caption">
+              현재 월 적금 납입액을 계급 월급으로 나눈 비율입니다.
+            </p>
+          </template>
         </BaseCard>
       </section>
 
@@ -456,7 +557,7 @@ onMounted(retry);
                 <strong>{{ item.label }}</strong>
                 <span v-if="item.me">내가 속한 그룹</span>
               </div>
-              <p>{{ item.savingsRate.toFixed(1) }}%</p>
+              <p>{{ rankingMetricValue(item).toFixed(1) }}%</p>
             </BaseCard>
           </li>
         </ol>
@@ -840,6 +941,62 @@ onMounted(retry);
 
 .comparison-card__caption {
   margin: -2px 0 0;
+}
+
+.veteran-comparison-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: end;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.veteran-comparison-row p,
+.veteran-comparison-row span,
+.veteran-comparison-row strong,
+.veteran-account-summary {
+  margin: 0;
+}
+
+.veteran-comparison-row p {
+  align-self: center;
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.veteran-comparison-row div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: right;
+}
+
+.veteran-comparison-row span {
+  color: var(--text-hint);
+  font-size: 10px;
+}
+
+.veteran-comparison-row strong {
+  color: var(--text-strong);
+  font-size: 13px;
+}
+
+.veteran-account-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 13px;
+  border-radius: 10px;
+  background: var(--surface-subtle);
+  color: var(--text-body);
+  font-size: 12px;
+}
+
+.veteran-account-summary strong {
+  color: var(--military-green);
+  font-size: 15px;
 }
 
 .interest-card {

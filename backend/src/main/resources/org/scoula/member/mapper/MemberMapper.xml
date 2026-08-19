@@ -7,18 +7,18 @@
     <select id="get" resultType="MemberVO">
         SELECT id, user_id, password, name, phone, type_id, rank_id,
                unit_name, unit_code, enlist_date, discharge_date,
-               login_provider, status, withdrawn_at,
+               login_provider, status, withdrawn_at, password_changed_at,
                created_date, created_nm, modified_date, modified_nm, del_yn
         FROM `user`
         WHERE user_id = #{userId}
           AND del_yn = 'N'
     </select>
 
+    <!-- user_id는 탈퇴 계정도 DB UNIQUE 제약을 받으므로 del_yn 무관하게 조회한다 -->
     <select id="findByUserId" resultType="MemberVO">
         SELECT id, user_id
         FROM `user`
         WHERE user_id = #{userId}
-          AND del_yn = 'N'
     </select>
 
     <select id="countByPhone" resultType="int">
@@ -39,6 +39,7 @@
     <update id="updatePassword">
         UPDATE `user`
         SET password = #{password},
+            password_changed_at = NOW(),
             modified_date = NOW(),
             modified_nm = #{modifiedNm}
         WHERE id = #{id}

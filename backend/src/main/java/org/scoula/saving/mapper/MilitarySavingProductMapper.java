@@ -23,4 +23,7 @@ public interface MilitarySavingProductMapper {
 
     // bankCode의 월 최소납입한도. 상품 데이터가 없거나 하한이 없으면 null(호출부에서 0으로 처리)
     Long findMinLimit(@Param("bankCode") String bankCode);
+
+    // bankCode의 최대 가입가능 개월수(military_saving_product.max_join_month). 상품 데이터가 없으면 null
+    Integer findMaxJoinMonth(@Param("bankCode") String bankCode);
 }
