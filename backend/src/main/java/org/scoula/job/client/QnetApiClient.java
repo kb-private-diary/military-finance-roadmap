@@ -38,6 +38,7 @@ public class QnetApiClient {
 
     private static final String SCHEDULE_PATH = "/getJMList";
     private static final String FEE_PATH = "/getFeeList";
+    private static final String QUALIFICATION_LIST_PATH = "/getList";
 
     private static final int CONNECT_TIMEOUT_MILLIS = 10_000;
     private static final int READ_TIMEOUT_MILLIS = 20_000;
@@ -50,11 +51,24 @@ public class QnetApiClient {
             "1차\\s*:\\s*([\\d,]+).*?2차\\s*:\\s*([\\d,]+)"
     );
 
-    @Value("${qnet.api-url}")
-    private String apiUrl;
+    private final String apiUrl;
+    private final String qualificationApiUrl;
+    private final String serviceKey;
 
-    @Value("${qnet.service-key}")
-    private String serviceKey;
+    public QnetApiClient(
+            @Value("${qnet.api-url}")
+            final String apiUrl,
+
+            @Value("${qnet.qualification-api-url}")
+            final String qualificationApiUrl,
+
+            @Value("${qnet.service-key}")
+            final String serviceKey
+    ) {
+        this.apiUrl = apiUrl;
+        this.qualificationApiUrl = qualificationApiUrl;
+        this.serviceKey = serviceKey;
+    }
 
     /**
      * Q-Net 자격증 응시료 조회
@@ -69,7 +83,7 @@ public class QnetApiClient {
                 + "?serviceKey=" + this.encode(serviceKey)
                 + "&jmCd=" + this.encode(jmCd);
 
-        String body = this.get(path);
+        String body = this.get(apiUrl, path);
 
         try {
             Document document = this.parseXml(body);
@@ -128,7 +142,7 @@ public class QnetApiClient {
                 + "?serviceKey=" + this.encode(serviceKey)
                 + "&jmCd=" + this.encode(jmCd);
 
-        String body = this.get(path);
+        String body = this.get(apiUrl, path);
 
         try {
             Document document = this.parseXml(body);
@@ -183,10 +197,99 @@ public class QnetApiClient {
     }
 
     /**
+     * Q-Net 국가자격 종목 목록 조회
+     *
+     * 종목명과 Q-Net 종목코드(jmCd)를 조회한다.
+     *
+     * @return Q-Net 국가자격 종목 목록
+     */
+    public List<QualificationItem> findQualificationList() {
+
+        String path =
+                QUALIFICATION_LIST_PATH
+                        + "?serviceKey="
+                        + this.encode(serviceKey);
+
+        String body =
+                this.get(
+                        qualificationApiUrl,
+                        path
+                );
+
+        try {
+            Document document =
+                    this.parseXml(body);
+
+            this.validateResponse(document);
+
+            NodeList itemNodes =
+                    document.getElementsByTagName("item");
+
+            List<QualificationItem> qualifications =
+                    new ArrayList<>();
+
+            for (int i = 0;
+                 i < itemNodes.getLength();
+                 i++) {
+
+                Node node =
+                        itemNodes.item(i);
+
+                if (node.getNodeType()
+                        != Node.ELEMENT_NODE) {
+                    continue;
+                }
+
+                Element item =
+                        (Element) node;
+
+                String jmCd =
+                        this.getText(
+                                item,
+                                "jmcd"
+                        );
+
+                String qualificationName =
+                        this.getText(
+                                item,
+                                "jmfldnm"
+                        );
+
+                if (jmCd == null
+                        || jmCd.isBlank()
+                        || qualificationName == null
+                        || qualificationName.isBlank()) {
+                    continue;
+                }
+
+                qualifications.add(
+                        new QualificationItem(
+                                jmCd,
+                                qualificationName
+                        )
+                );
+            }
+
+            return qualifications;
+
+        } catch (BusinessException e) {
+            throw e;
+
+        } catch (Exception e) {
+            log.warn(
+                    "Q-Net 국가자격 종목 목록 응답 파싱 오류",
+                    e
+            );
+
+            throw this.qnetApiUnavailable();
+        }
+    }
+
+    /**
      * Q-Net GET 요청
      * 일시적인 통신 오류를 대비해 최대 3회까지 재시도
      */
-    private String get(String path) {
+    private String get( String baseUrl, String path) {
         final int maxRetry = 3;
         final long retryDelayMillis = 1_000L;
 
@@ -195,7 +298,7 @@ public class QnetApiClient {
             HttpURLConnection connection = null;
 
             try {
-                URL url = new URL(this.apiUrl + path);
+                URL url = new URL(baseUrl + path);
 
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
@@ -216,21 +319,27 @@ public class QnetApiClient {
                 }
 
                 log.warn(
-                        "Q-Net API 호출 실패: attempt={}/{}, status={}, path={}, body={}",
+                        "Q-Net API 호출 실패: "
+                                + "attempt={}/{}, "
+                                + "status={}, "
+                                + "baseUrl={}, "
+                                + "body={}",
                         attempt,
                         maxRetry,
                         status,
-                        path,
+                        baseUrl,
                         body
                 );
 
             } catch (IOException e) {
 
                 log.warn(
-                        "Q-Net API 통신 오류: attempt={}/{}, path={}",
+                        "Q-Net API 통신 오류: "
+                                + "attempt={}/{}, "
+                                + "baseUrl={} ",
                         attempt,
                         maxRetry,
-                        path,
+                        baseUrl,
                         e
                 );
 
@@ -435,6 +544,20 @@ public class QnetApiClient {
                 HttpStatus.SERVICE_UNAVAILABLE,
                 "JOB_010"
         );
+    }
+
+    /**
+     * Q-Net 국가자격 종목
+     */
+    @Getter
+    @AllArgsConstructor
+    public static class QualificationItem {
+
+        // Q-Net 종목코드
+        private final String jmCd;
+
+        // 자격증명
+        private final String qualificationName;
     }
 
     /**

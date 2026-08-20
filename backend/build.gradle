@@ -92,6 +92,10 @@ dependencies {
     // web-push가 내부적으로 EC 키 파싱에 씀 (pom엔 optional로 빠져있어 명시 필요, 직접 실행해서 확인함)
     implementation 'org.bouncycastle:bcprov-jdk15on:1.70'
 
+    // HTML 파싱 - 크롤링
+    implementation 'org.jsoup:jsoup:1.17.2'
+    implementation 'org.seleniumhq.selenium:selenium-java:4.46.0'
+
 
 // 테스트
     testImplementation "org.springframework:spring-test:${springVersion}"

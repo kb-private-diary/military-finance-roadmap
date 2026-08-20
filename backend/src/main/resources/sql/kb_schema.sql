@@ -487,6 +487,7 @@ CREATE TABLE `job_category` (
     `parent_id` BIGINT COMMENT '상위분류ID',
     `goal_type` CHAR(3) NOT NULL COMMENT '목표유형(J01:취업, J02:공무원)',
     `category_name` VARCHAR(100) NOT NULL COMMENT '분류명',
+    `course_mapping_code` VARCHAR(20) COMMENT '인강 매핑 식별코드',
     `ncs_code` VARCHAR(8) COMMENT '고용24 NCS 직종코드',
     `category_level` TINYINT NOT NULL COMMENT '분류레벨(1:대분류, 2:중분류)',
     `created_date` DATETIME NOT NULL COMMENT '생성일시',
@@ -511,6 +512,7 @@ DROP TABLE IF EXISTS `job_transfer_major_category`;
 CREATE TABLE `job_transfer_major_category` (
     `major_code` CHAR(3) PRIMARY KEY NOT NULL COMMENT '학과계열코드',
     `major_name` VARCHAR(100) NOT NULL COMMENT '학과계열명',
+    `course_mapping_code` VARCHAR(20) COMMENT '편입 인강 매핑 코드(HUMAN, NATURAL, BOTH)',
     `created_date` DATETIME NOT NULL COMMENT '생성일시',
     `created_nm` VARCHAR(50) NOT NULL COMMENT '생성자',
     `modified_date` DATETIME COMMENT '수정일시',
