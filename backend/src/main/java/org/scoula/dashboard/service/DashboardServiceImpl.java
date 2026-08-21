@@ -126,7 +126,9 @@ public class DashboardServiceImpl implements DashboardService {
             dischargeDate = LocalDate.now().plusMonths(DEFAULT_SERVICE_MONTHS); // fallback
         }
 
-        Long expectedMaturityTotal = 0L;
+        long expectedPrincipalTotal = 0L;
+        double expectedInterestTotal = 0.0;
+        long expectedMatchingFundTotal = 0L;
 
         if (accounts != null) {
             for(DashboardSavingAccountDTO account : accounts) {
@@ -147,11 +149,17 @@ public class DashboardServiceImpl implements DashboardService {
                 );
 
                 // 4. 총 원금·이자·매칭지원금 합산 (비과세 처리라 세금은 반영하지 않음)
-                expectedMaturityTotal += calc.getTotalPrincipal()
-                        + (long) calc.getTotalInterest() + calc.matchingFund;
+                // 이자는 계좌별로 버리지 않고 double로 다 더한 뒤 마지막에 한 번만 버려야
+                // 시뮬레이터(findSavingDetails)의 만기수령액과 1원 단위까지 일치한다.
+                expectedPrincipalTotal += calc.getTotalPrincipal();
+                expectedInterestTotal += calc.getTotalInterest();
+                expectedMatchingFundTotal += calc.matchingFund;
             }
         }
-        
+
+        long expectedMaturityTotal =
+                expectedPrincipalTotal + (long) expectedInterestTotal + expectedMatchingFundTotal;
+
         return new DashboardSavingsResponseDTO(currentTotalSavings, expectedMaturityTotal);
     }
 
