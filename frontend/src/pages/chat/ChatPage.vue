@@ -1604,6 +1604,24 @@ const askBackend = async (
       }
     }
 
+    // "적금이랑 예금 중에 뭐가 좋아?"처럼 저축 방식 2개를 직접 비교하는 질문엔, 특정 상품의
+    // 되묻기 목록이 아니라 각 방식의 실제 상품 목록으로 바로 가는 버튼을 붙인다(2026-08-21 피드백).
+    const isStandaloneWord = (t, word) => new RegExp(`(^|\\s)${word}`).test(t);
+    const mentionedSavingsTypes = [
+      { keyword: '적금', category: 'savings', label: '적금' },
+      { keyword: '예금', category: 'deposit', label: '예금' },
+    ].filter((t) => isStandaloneWord(text, t.keyword));
+    if (!extraMenu.length && mentionedSavingsTypes.length >= 2) {
+      mentionedSavingsTypes.forEach((t) => {
+        menu.push({
+          label: `${t.label} 상품 보러가기`,
+          onClick: () => showProductCategoryList(t.category, t.label),
+          action: 'showProductCategoryList',
+          args: [t.category, t.label],
+        });
+      });
+    }
+
     // 상품명 자체가 다른 서비스 기능 키워드와 겹치는 경우(예: "자동차보험" -> 자차 준비 기능),
     // 위에서 실제 답변은 이미 정상적으로 보여줬으니 그 답변을 대체하지 않고 안내만 추가로 붙인다
     // (내 집 마련 흐름과 같은 패턴 - 청약 상품 먼저 보여주고 자취 준비 기능을 덧붙임, 2026-08-08 피드백)
@@ -1683,6 +1701,7 @@ const ACTIONS = {
   askBackend,
   openTerm,
   calculateSavingsEstimate,
+  showProductCategoryList,
 };
 
 const runAction = (opt) => {

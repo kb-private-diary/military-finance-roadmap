@@ -273,10 +273,10 @@ def log_message(
     db: Session = Depends(get_db),
 ):
     if payload.role not in ("user", "bot"):
-        raise BusinessException("role은 user 또는 bot이어야 합니다", 400, "CHAT_006")
+        raise BusinessException("role은 user 또는 bot이어야 합니다", 400, "CHAT_011")
     content = payload.content.strip()
     if not content:
-        raise BusinessException("내용이 비어 있습니다", 400, "CHAT_007")
+        raise BusinessException("내용이 비어 있습니다", 400, "CHAT_012")
 
     session = (
         db.query(ChatSession)

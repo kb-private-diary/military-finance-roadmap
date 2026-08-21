@@ -71,4 +71,8 @@ describe('detectTentativeListCategory', () => {
   it('문장 맨 앞에 붙어도 잡힌다("적금 할까")', () => {
     expect(detectTentativeListCategory('적금 할까')?.category).toBe('savings');
   });
+
+  it('"적금이랑 예금 중에 뭐가 좋아?"는 두 종류가 같이 언급된 비교 질문이라 확정하지 않는다(2026-08-21 발견)', () => {
+    expect(detectTentativeListCategory('적금이랑 예금 중에 뭐가 좋아?')).toBeFalsy();
+  });
 });
