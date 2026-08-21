@@ -157,9 +157,13 @@ public class JobController {
     // GET /api/job/goals/{goalId} → 목표 상세 조회
     @GetMapping("/goals/{goalId}")
     public ResponseEntity<ApiResponse<JobGoalDetailResponseDTO>> findJobGoalDetail(
+            @AuthenticationPrincipal CustomUser customUser,
             @PathVariable Long goalId) {
         return ResponseEntity.ok(
-                ApiResponse.success(this.jobService.findJobGoalDetail(goalId))
+                ApiResponse.success(this.jobService.findJobGoalDetail(
+                        goalId,
+                        customUser.getMember().getId()
+                ))
         );
     }
 

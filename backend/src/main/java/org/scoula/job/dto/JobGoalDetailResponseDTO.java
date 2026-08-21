@@ -35,4 +35,7 @@ public class JobGoalDetailResponseDTO {
 
     private List<JobProductDTO> policies;
     private List<JobProductDTO> financialProducts;
+
+    // 최근 3개월 월평균 후회소비(원) - 준비비용 활용 분석 카드에서 사용
+    private Long avgRegretSpending;
 }

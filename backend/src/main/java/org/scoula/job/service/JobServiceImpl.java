@@ -28,6 +28,8 @@ import org.scoula.job.dto.ServiceRecommendResponseDTO;
 import org.scoula.job.mapper.JobMapper;
 import org.scoula.product.service.ProductService;
 import org.scoula.push.service.PushNotificationService;
+import org.scoula.regret.dto.RegretSpendingSummaryDTO;
+import org.scoula.regret.service.RegretService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -62,10 +64,14 @@ public class JobServiceImpl implements JobService {
 
     private static final String PUSH_CATEGORY_JOB = "JOB";
 
+    // 후회소비 인사이트 절감 기준 개월수
+    private static final int REGRET_INSIGHT_MONTHS = 3;
+
     private final JobMapper jobMapper;
     private final ProductService productService;
     private final Work24ApiClient work24ApiClient;
     private final PushNotificationService pushNotificationService;
+    private final RegretService regretService;
 
     @Override
     @Transactional(readOnly = true)
@@ -452,7 +458,7 @@ public class JobServiceImpl implements JobService {
     // 진로 목표 상세 조회
     @Override
     @Transactional(readOnly = true)
-    public JobGoalDetailResponseDTO findJobGoalDetail(Long goalId) {
+    public JobGoalDetailResponseDTO findJobGoalDetail(Long goalId, Long userId) {
 
         // 목표 기본정보 + 직무·직렬명 + 대학명 + 학과계열명 조회
         JobGoalDetailResponseDTO detail =
@@ -495,6 +501,11 @@ public class JobServiceImpl implements JobService {
         detail.setTrainings(trainings);
         detail.setPolicies(services.getPolicies());
         detail.setFinancialProducts(services.getFinancialProducts());
+
+        // 최근 3개월 월평균 후회소비 - 준비비용 활용 분석 카드에서 사용
+        RegretSpendingSummaryDTO regretSummary =
+                this.regretService.getSpendingSummary(userId, REGRET_INSIGHT_MONTHS);
+        detail.setAvgRegretSpending(regretSummary.getAvgRegretSpending());
 
         return detail;
     }
@@ -555,7 +566,7 @@ public class JobServiceImpl implements JobService {
         }
 
         // 기존 목표 상세 조회 로직을 재사용하여 이어쓰기 데이터 반환
-        return this.findJobGoalDetail(goalId);
+        return this.findJobGoalDetail(goalId, userId);
     }
 
     @Override
