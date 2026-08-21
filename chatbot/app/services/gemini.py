@@ -4,7 +4,7 @@ from langgraph.graph import END, START, StateGraph
 
 from app.services import cheongyakhome, fss, gemini_client, langfuse_client, vectorstore
 from app.services import fund as fund_service
-from app.services.intent import classify_intent, classify_product_category
+from app.services.intent import classify_intent, classify_product_category, named_categories_mentioned
 
 _TOP_K = 3
 _LIVE_DATA_LIMIT = 5
@@ -191,11 +191,15 @@ _SPECIFIC_DOC_NAMES = (
 # 상품명을 정확히 안 쓰고 "적금이 나아요, 청약이 나아요?"처럼 일반 단어로만 물어봤을 때 쓸 대표 상품.
 # 카테고리(적금)에 해당 상품이 여러 개(장병내일준비적금·청년미래적금)라도 대표로 1개만 써서,
 # 검색·프롬프트 크기가 상품 수만큼 불어나 응답이 느려지는(실측 3개 비교 시 50초+) 걸 막는다.
+# 예금은 RAG 정책 문서가 아니라 실시간 API로만 다뤄서(_LIVE_SOURCE_LABELS 참고) 대표 문서가 없다 -
+# 그래도 "몇 개 카테고리가 같이 언급됐는지" 셀 땐 예금도 포함해야 한다(바로 아래 주석 참고), 그래서
+# 매핑용 딕셔너리와는 별도로 감지용 키워드 목록을 둔다.
 _GENERIC_CATEGORY_DOC = {
     "적금": "장병내일준비적금",
     "청약": "청년주택드림청약통장",
     "보험": "KB손해보험 자동차보험(개인)",
 }
+_GENERIC_CATEGORY_KEYWORDS = ("적금", "예금", "청약", "보험")
 
 
 def _mentioned_doc_names(question: str) -> List[str]:
@@ -205,11 +209,20 @@ def _mentioned_doc_names(question: str) -> List[str]:
     exact = [name for name in _SPECIFIC_DOC_NAMES if name in question]
     if exact:
         return exact
-    mentioned = []
-    for keyword, doc_name in _GENERIC_CATEGORY_DOC.items():
-        if keyword in question and doc_name not in mentioned:
-            mentioned.append(doc_name)
-    return mentioned
+    generic_hits = [keyword for keyword in _GENERIC_CATEGORY_KEYWORDS if keyword in question]
+    # "적금이랑 예금 중에 뭐가 좋아?"처럼 일반 카테고리 키워드가 2개 이상 같이 나오면, 그건 한
+    # 카테고리의 대표 상품으로 검색을 좁혀도 되는 질문이 아니라 카테고리끼리 개념을 비교해달라는
+    # 질문이다. 여기서 대표 상품(예: 장병내일준비적금) 하나로 확정해버리면 검색도 그 상품 쪽으로만
+    # 쏠리고, 출처도 실제로 언급조차 안 한 그 상품으로 잘못 붙어버린다(2026-08-21 발견 - "예금"이
+    # _GENERIC_CATEGORY_DOC에 아예 없어서 "적금"만 매칭되는 바람에 이 분기 자체가 한 번 더 새는
+    # 버그도 같이 있었음) - 이 경우엔 아무 것도 확정하지 않고 빈 리스트를 반환해 일반 검색(비교
+    # 개념이 담긴 용어사전 등)으로 넘긴다.
+    if len(generic_hits) >= 2:
+        return []
+    if len(generic_hits) == 1:
+        doc = _GENERIC_CATEGORY_DOC.get(generic_hits[0])
+        return [doc] if doc else []
+    return []
 
 
 def _pick_doc_name(answer: str, doc_names: List[str]) -> Optional[str]:
@@ -313,6 +326,15 @@ def _generate_node(state: ChatState) -> ChatState:
         prompt = f"{history_block}[선택한 상품 정보]\n{state['context']}\n\n[질문]\n{state['question']}"
     else:
         comparison_note = _COMPARISON_INSTRUCTION if state.get("is_comparison") else ""
+        # 상품 유형 2개 이상을 직접 비교하는 질문(예: "적금이랑 예금 중에 뭐가 좋아?")은 프론트가
+        # 곧이어 "적금 상품 보러가기"/"예금 상품 보러가기" 버튼을 바로 붙여준다. Gemini가 평소 습관대로
+        # "더 자세한 상품 안내를 해드릴까요?"처럼 답변 끝에 되묻는 문장을 또 붙이면 버튼과 내용이
+        # 중복돼 어색하다(2026-08-21 피드백) - 이 경우엔 되묻지 말고 비교·추천으로 문장을 마무리하게 한다.
+        if len(named_categories_mentioned(state["question"])) >= 2:
+            comparison_note += (
+                "\n\n[안내] 답변 마지막에 '더 안내해 드릴까요?', '더 자세히 알려드릴까요?' 같은 "
+                "추가 안내를 제안하는 문장은 붙이지 말고, 비교와 추천 내용으로 답변을 마무리하십시오."
+            )
         prompt = f"{history_block}[참고 정책 문서]\n{state['context']}{comparison_note}\n\n[질문]\n{state['question']}"
     answer = gemini_client.generate_content(prompt, system_instruction=SYSTEM_INSTRUCTION)
 

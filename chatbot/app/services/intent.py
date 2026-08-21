@@ -18,7 +18,7 @@ def _standalone_word_in(text: str, word: str) -> bool:
     return re.search(rf"(^|\s){re.escape(word)}", text) is not None
 
 
-def _named_categories_mentioned(question: str) -> set:
+def named_categories_mentioned(question: str) -> set:
     return {kw for kw in _NAMED_CATEGORY_KEYWORDS if _standalone_word_in(question, kw)}
 
 _PROMPT_TEMPLATE = (
@@ -39,7 +39,7 @@ _PROMPT_TEMPLATE = (
 
 
 def classify_intent(question: str, history_block: str = "") -> str:
-    if len(_named_categories_mentioned(question)) >= 2:
+    if len(named_categories_mentioned(question)) >= 2:
         return "info"
     prompt = _PROMPT_TEMPLATE.format(history_block=history_block, question=question)
     response = gemini_client.generate_content(prompt)
