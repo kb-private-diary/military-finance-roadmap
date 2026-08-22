@@ -590,20 +590,17 @@ INSERT INTO `rent_goal`
 (`goal_id`, `user_id`, `title`, `selection_mode`, `school_id`, `commute_radius_km`,
  `monthly_budget`, `residence_preset`, `residence_months`, `status`, `confirmed_listing_id`,
  `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`) VALUES
--- user1: 부산 REGION, 월예산 70만, 거주 12개월, CONFIRMED
-(1, 1, '부산 자취방 찾기', 'REGION', NULL, NULL, 700000,  'YEAR', 12, 'CONFIRMED', NULL, NOW(), 'demo', NULL, NULL, 'N'),
--- user2: 서울 REGION, 월예산 100만, DRAFT
+-- user1: 자취는 미등록 상태로 시작 → 시연 때 직접 step1~5로 등록해 정상 로드맵(확정매물 포함) 생성.
+--   (기존 데모는 confirmed_listing_id=NULL인 CONFIRMED라 상세가 비어 제거함. 매물은 동적 적재라 고정 연결 불가)
+-- user2: 서울 REGION, 월예산 100만, DRAFT(이어보기 데모)
 (2, 2, '서울 자취방 찾기', 'REGION', NULL, NULL, 1000000, 'YEAR', 12, 'DRAFT',     NULL, NOW(), 'demo', NULL, NULL, 'N');
 
 INSERT INTO `rent_goal_region`
 (`region_id`, `goal_id`, `region_code`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`) VALUES
--- user1 부산 법정동 2개
-(1, 1, '2620010100', NOW(), 'demo', NULL, NULL, 'N'),
-(2, 1, '2644010300', NOW(), 'demo', NULL, NULL, 'N'),
--- user2 서울 법정동 1개
+-- user2 서울 법정동 1개 (user1은 자취 미등록이라 지역 없음)
 (3, 2, '1168010100', NOW(), 'demo', NULL, NULL, 'N');
 
--- [건수 요약] saving_account 4 / saving_history 60 / income 27 (user1 8월분은 시연용 제외) / spending 21 / spending_review 19 / openbanking_link 6 / rent_goal 2 / rent_goal_region 3
+-- [건수 요약] saving_account 4 / saving_history 60 / income 27 (user1 8월분은 시연용 제외) / spending 21 / spending_review 19 / openbanking_link 6 / rent_goal 1 (user2 DRAFT만, user1은 시연 때 직접 등록) / rent_goal_region 1
 
 -- --------------------------------------------------------------------
 --  [태석] 여행 / 여행목표(travel_goal)
