@@ -874,11 +874,9 @@ public class RentServiceImpl implements RentService {
         }
         String modifier = "user:" + userId; // TODO: JWT 연동 후 로그인 사용자명으로 교체
 
-        // 4) 회원당 저장된 로드맵(CONFIRMED) 1건만 유지 - 이미 있으면 기존 것 soft delete 후 새로 저장
-        //    (사용자가 새 로드맵을 저장하면 기존 확정 로드맵을 대체한다)
-        this.mapper.deleteConfirmedGoalByUserId(userId, modifier);
-
-        // 5) 상태 DRAFT → CONFIRMED 확정 (months=거주개월, listingId=Step4에서 고른 확정 매물)
+        // 4) 상태 DRAFT → CONFIRMED 확정 (months=거주개월, listingId=Step4에서 고른 확정 매물)
+        //    회원당 여러 로드맵(CONFIRMED) 공존 허용 - 자동차/여행과 동일하게 기존 확정 로드맵을 지우지 않는다.
+        //    (예전엔 deleteConfirmedGoalByUserId로 1건만 유지했으나, 로드맵 다건 보관 기획에 맞춰 제거)
         this.mapper.confirmGoal(goalId, months, listingId, modifier);
 
         // 참고: Step5 정밀 시뮬레이션은 findGoal 조회 시 확정 매물 기준으로 실시간 계산한다
