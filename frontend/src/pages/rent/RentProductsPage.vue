@@ -152,6 +152,7 @@ const saveRoadmap = async () => {
     return;
   }
   show('로드맵을 저장했어요', 'success');
+  rentStore.reset(); // 저장 완료 → 위저드 입력값 초기화(다음엔 처음부터 새로 등록). goalId 등은 지역 상수라 영향 없음
   await router.push({ name: 'RentGoalDetail', params: { goalId } });
   saving.value = false;
 };
