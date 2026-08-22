@@ -650,7 +650,7 @@ const handleSubmit = async () => {
 
   color: var(--text-body);
   font: inherit;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 500;
   text-align: center;
   cursor: pointer;
@@ -674,12 +674,13 @@ const handleSubmit = async () => {
 
 .job-cascader__trigger-text {
   flex: 1;
-  overflow: hidden;
-  font-size: 16px;
+  overflow: visible;
+  font-size: 15px;
   font-weight: 500;
+  line-height: 1.4;
   text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: keep-all;
 }
 
 .job-cascader__trigger-text--placeholder {

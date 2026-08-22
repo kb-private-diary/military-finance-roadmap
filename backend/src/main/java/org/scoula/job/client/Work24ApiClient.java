@@ -64,11 +64,13 @@ public class Work24ApiClient {
      * @param regionCode 시도 코드 ex) 서울 11
      * @param ncsCode NCS 4차 코드 ex) 20010202
      * @param courseType 훈련유형 ex) C0104(K-디지털), null이면 전체
+     * @param ncsDepth 조회에 사용할 NCS 단계 (4=세분류, 3=소분류, 2=중분류)
      */
     public List<TrainingCourse> findTrainingCourses(
             String regionCode,
             String ncsCode,
-            String courseType) {
+            String courseType,
+            int ncsDepth) {
 
         this.validateRegionCode(regionCode);
         this.validateNcsCode(ncsCode);
@@ -82,6 +84,12 @@ public class Work24ApiClient {
         String endDate =
                 oneYearLater.format(REQUEST_DATE_FORMAT);
 
+        /*
+         * NCS 코드는 단계마다 2자리씩 늘어나며 직종이 좁아진다.
+         * 4차(8자리)로 결과가 없는 직종이 있어 요청받은 단계의 코드만 조건으로 붙인다.
+         */
+        String ncsSearchCode = ncsCode.substring(0, ncsDepth * 2);
+
         String path = TRAINING_LIST_PATH
                 + "?authKey=" + this.encode(authKey)
                 + "&returnType=XML"
@@ -91,10 +99,7 @@ public class Work24ApiClient {
                 + "&srchTraStDt=" + startDate
                 + "&srchTraEndDt=" + endDate
                 + "&srchTraArea1=" + this.encode(regionCode)
-                + "&srchNcs1=" + this.encode(ncsCode.substring(0, 2))
-                + "&srchNcs2=" + this.encode(ncsCode.substring(0, 4))
-                + "&srchNcs3=" + this.encode(ncsCode.substring(0, 6))
-                + "&srchNcs4=" + this.encode(ncsCode)
+                + "&srchNcs" + ncsDepth + "=" + this.encode(ncsSearchCode)
                 + "&sort=ASC"
                 + "&sortCol=2";
 
@@ -161,9 +166,10 @@ public class Work24ApiClient {
             }
 
             log.info(
-                    "고용24 훈련과정 조회 완료: regionCode={}, ncsCode={}, courseType={}, count={}",
+                    "고용24 훈련과정 조회 완료: regionCode={}, ncsCode={}, ncsDepth={}, courseType={}, count={}",
                     regionCode,
                     ncsCode,
+                    ncsDepth,
                     courseType,
                     courses.size()
             );
@@ -321,21 +327,19 @@ public class Work24ApiClient {
                 }
 
                 log.warn(
-                        "고용24 API 호출 실패: attempt={}/{}, status={}, path={}, body={}",
+                        "고용24 API 호출 실패: attempt={}/{}, status={}, body={}",
                         attempt,
                         maxRetry,
                         status,
-                        path,
                         body
                 );
 
             } catch (IOException e) {
 
                 log.warn(
-                        "고용24 API 통신 오류: attempt={}/{}, path={}",
+                        "고용24 API 통신 오류: attempt={}/{}",
                         attempt,
                         maxRetry,
-                        path,
                         e
                 );
 

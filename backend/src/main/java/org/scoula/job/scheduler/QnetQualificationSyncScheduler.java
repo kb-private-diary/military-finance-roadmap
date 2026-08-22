@@ -15,7 +15,7 @@ public class QnetQualificationSyncScheduler {
 
     private final QnetQualificationSyncService qnetQualificationSyncService;
 
-    @Scheduled(cron = "0 20 4 * * *")
+    @Scheduled(cron = "0 20 4 * * *", zone = "Asia/Seoul")
     public void syncQualifications() {
         try {
             qnetQualificationSyncService.syncQualifications();

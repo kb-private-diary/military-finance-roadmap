@@ -139,7 +139,9 @@ public class SimulatorServiceImpl implements SimulatorService {
                 new MilitarySavingWithdrawalCalculator(this.militarySavingProductMapper);
 
         long totalWithdrawalAmount = 0L;
-        long totalMaturityAmount = 0L;
+        long maturityPrincipalTotal = 0L;
+        double maturityInterestTotal = 0.0;
+        long maturityMatchingFundTotal = 0L;
 
         // 계좌마다 은행(bankCode)이 다를 수 있어 계좌별로 따로 계산한 뒤 아래 total 변수들에 합산한다.
         for (SimulatorSavingAccountDTO account : accounts) {
@@ -158,8 +160,11 @@ public class SimulatorServiceImpl implements SimulatorService {
                     rateResolver
             );
 
-            totalMaturityAmount +=
-                    calc.getTotalPrincipal() + (long) calc.getTotalInterest() + calc.matchingFund;
+            // 이자는 계좌별로 버리지 않고 double로 다 더한 뒤 마지막에 한 번만 버려야
+            // findSavingDetails의 만기수령액과 1원 단위까지 일치한다.
+            maturityPrincipalTotal += calc.getTotalPrincipal();
+            maturityInterestTotal += calc.getTotalInterest();
+            maturityMatchingFundTotal += calc.matchingFund;
 
             // 중도해지는 정부매칭지원금 없음. 이미 낸 회차(과거 이력)만 대상.
             BigDecimal basicRate = rateResolver.getBasicRate();
@@ -174,6 +179,8 @@ public class SimulatorServiceImpl implements SimulatorService {
             );
         }
 
+        long totalMaturityAmount =
+                maturityPrincipalTotal + (long) maturityInterestTotal + maturityMatchingFundTotal;
         long lossAmount = totalMaturityAmount - totalWithdrawalAmount;
 
         return new SimulatorSavingLossResponseDTO(totalWithdrawalAmount, lossAmount);

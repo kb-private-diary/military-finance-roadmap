@@ -135,6 +135,10 @@ onMounted(() => {
         정보 수정
       </button>
 
+      <button type="button" class="mypage__password-btn" @click="router.push({ name: 'MyPagePassword' })">
+        비밀번호 변경
+      </button>
+
       <button type="button" class="mypage__withdraw-link" @click="router.push({ name: 'MyPageWithdraw' })">
         KB 텅장일병일기 서비스 탈퇴
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -254,6 +258,20 @@ onMounted(() => {
   border: none;
   border-radius: 999px;
   background-color: var(--kb-yellow-deep);
+  color: var(--text-strong);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mypage__password-btn {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 14px;
+  border: 1.5px solid var(--kb-yellow-deep);
+  border-radius: 999px;
+  background-color: #ffffff;
   color: var(--text-strong);
   font-size: 15px;
   font-weight: 700;

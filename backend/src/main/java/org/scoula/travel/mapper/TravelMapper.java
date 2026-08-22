@@ -1,6 +1,7 @@
 package org.scoula.travel.mapper;
 
 import java.util.List;
+import java.time.LocalDate;
 
 import org.apache.ibatis.annotations.Param;
 
@@ -13,6 +14,7 @@ import org.scoula.travel.domain.TravelPackageVO;
 import org.scoula.travel.dto.TravelQuarterCostSearchDTO;
 import org.scoula.travel.dto.TravelPackageSearchDTO;
 import org.scoula.travel.dto.TravelUserFinanceDTO;
+import org.scoula.travel.dto.TravelNotificationTargetDTO;
 
 public interface TravelMapper {
 
@@ -85,5 +87,16 @@ public interface TravelMapper {
             @Param("codePrefix") final String codePrefix);
 
     int confirmGoal(final TravelGoalVO goal);
+
+    List<TravelNotificationTargetDTO> findUpcomingConfirmedGoalList(
+            @Param("fromDate") final LocalDate fromDate,
+            @Param("toDate") final LocalDate toDate);
+
+    int countSuccessfulTravelNotification(
+            @Param("userId") final Long userId,
+            @Param("title") final String title,
+            @Param("body") final String body,
+            @Param("category") final String category,
+            @Param("sentDate") final LocalDate sentDate);
 
 }

@@ -47,6 +47,21 @@ GEMINI_FAILURE_MESSAGE = "서버에 문제가 발생했습니다. 잠시 후에 
 FEEDBACK_VALUES = ("like", "neutral", "dislike")
 HISTORY_LIMIT = 6  # 최근 메시지 몇 개까지 멀티턴 문맥으로 넘길지 (3턴치)
 
+# 프론트(ChatPage.vue)가 메뉴/캐러셀이 있는 답변을 저장할 때, 새로고침 후 그대로 복원하려고
+# 사람이 읽는 문구 뒤에 이 마커 + JSON을 몰래 붙여서 DB에 같이 저장해둔다(화면엔 마커 앞부분만
+# 잘라서 보여줌). 이 DB content를 그대로 Gemini의 [이전 대화] 컨텍스트로 넘기면, Gemini가
+# "#MENU# {...}" 패턴을 그대로 흉내 내서 새 답변에도 끼워 넣는 문제가 있었다(2026-08-19 발견) -
+# 히스토리로 쓸 땐 항상 마커 이후를 잘라내고 사람이 읽는 문구만 넘긴다.
+_DISPLAY_MARKERS = (" #MENU# ", " #ERROR# ")
+
+
+def _strip_display_markers(content: str) -> str:
+    for marker in _DISPLAY_MARKERS:
+        index = content.find(marker)
+        if index != -1:
+            content = content[:index]
+    return content
+
 TOPICS = [
     TopicItem(topic_id="fund_consult", label="목돈상담"),
     TopicItem(topic_id="savings_subscription", label="적금청약질문"),
@@ -193,7 +208,7 @@ def send_message(
         .limit(HISTORY_LIMIT)
         .all()
     )
-    history = [(m.role, m.content) for m in reversed(recent_messages)]
+    history = [(m.role, _strip_display_markers(m.content)) for m in reversed(recent_messages)]
 
     user_message = ChatMessage(
         session_id=payload.session_id,
@@ -258,10 +273,10 @@ def log_message(
     db: Session = Depends(get_db),
 ):
     if payload.role not in ("user", "bot"):
-        raise BusinessException("role은 user 또는 bot이어야 합니다", 400, "CHAT_006")
+        raise BusinessException("role은 user 또는 bot이어야 합니다", 400, "CHAT_011")
     content = payload.content.strip()
     if not content:
-        raise BusinessException("내용이 비어 있습니다", 400, "CHAT_007")
+        raise BusinessException("내용이 비어 있습니다", 400, "CHAT_012")
 
     session = (
         db.query(ChatSession)

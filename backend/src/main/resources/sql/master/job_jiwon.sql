@@ -3,158 +3,161 @@
 --  테이블: job_category
 -- --------------------------------------------------------------------
 INSERT INTO job_category
-(`category_id`, `parent_id`, `goal_type`, `category_name`, `ncs_code`, `category_level`, `created_date`, `created_nm`, `del_yn`)
+(`category_id`, `parent_id`, `goal_type`, `category_name`, `course_mapping_code`, `ncs_code`, `category_level`, `created_date`, `created_nm`, `del_yn`)
 VALUES
 -- 대분류
-(1, NULL, 'J01', '경영·사무', NULL, 1, NOW(), 'jiwon', 'N'),
-(2, NULL, 'J01', '마케팅·광고·홍보', NULL, 1, NOW(), 'jiwon', 'N'),
-(3, NULL, 'J01', '무역·유통', NULL, 1, NOW(), 'jiwon', 'N'),
-(4, NULL, 'J01', 'IT·개발', NULL, 1, NOW(), 'jiwon', 'N'),
-(5, NULL, 'J01', '생산·제조', NULL, 1, NOW(), 'jiwon', 'N'),
-(6, NULL, 'J01', '영업·고객상담', NULL, 1, NOW(), 'jiwon', 'N'),
-(7, NULL, 'J01', '건설', NULL, 1, NOW(), 'jiwon', 'N'),
-(8, NULL, 'J01', '금융', NULL, 1, NOW(), 'jiwon', 'N'),
-(9, NULL, 'J01', '연구개발·설계', NULL, 1, NOW(), 'jiwon', 'N'),
-(10, NULL, 'J01', '디자인', NULL, 1, NOW(), 'jiwon', 'N'),
-(11, NULL, 'J01', '미디어', NULL, 1, NOW(), 'jiwon', 'N'),
-(12, NULL, 'J01', '전문·특수직', NULL, 1, NOW(), 'jiwon', 'N'),
+(1, NULL, 'J01', '경영·사무', NULL, NULL, 1, NOW(), 'jiwon', 'N'),
+(2, NULL, 'J01', '마케팅·광고·홍보', NULL, NULL, 1, NOW(), 'jiwon', 'N'),
+(3, NULL, 'J01', '무역·유통', NULL, NULL, 1, NOW(), 'jiwon', 'N'),
+(4, NULL, 'J01', 'IT·개발', NULL, NULL, 1, NOW(), 'jiwon', 'N'),
+(5, NULL, 'J01', '생산·제조', NULL, NULL, 1, NOW(), 'jiwon', 'N'),
+(6, NULL, 'J01', '영업·고객상담', NULL, NULL, 1, NOW(), 'jiwon', 'N'),
+(7, NULL, 'J01', '건설', NULL, NULL, 1, NOW(), 'jiwon', 'N'),
+(8, NULL, 'J01', '금융', NULL, NULL, 1, NOW(), 'jiwon', 'N'),
+(9, NULL, 'J01', '연구개발·설계', NULL, NULL, 1, NOW(), 'jiwon', 'N'),
+(10, NULL, 'J01', '디자인', NULL, NULL, 1, NOW(), 'jiwon', 'N'),
+(11, NULL, 'J01', '미디어', NULL, NULL, 1, NOW(), 'jiwon', 'N'),
+(12, NULL, 'J01', '전문·특수직', NULL, NULL, 1, NOW(), 'jiwon', 'N'),
 
-(13, NULL, 'J02', '일반직 9급', NULL, 1, NOW(), 'jiwon', 'N'),
-(14, NULL, 'J02', '군무원 9급', NULL, 1, NOW(), 'jiwon', 'N'),
-(15, NULL, 'J02', '경찰', NULL, 1, NOW(), 'jiwon', 'N'),
-(16, NULL, 'J02', '소방', NULL, 1, NOW(), 'jiwon', 'N'),
+-- 공무원 대분류
+(13, NULL, 'J02', '일반직 9급', 'GENERAL', NULL, 1, NOW(), 'jiwon', 'N'),
+(14, NULL, 'J02', '군무원 9급', 'MILITARY', NULL, 1, NOW(), 'jiwon', 'N'),
+(15, NULL, 'J02', '경찰', 'POLICE', NULL, 1, NOW(), 'jiwon', 'N'),
+(16, NULL, 'J02', '소방', 'FIRE', NULL, 1, NOW(), 'jiwon', 'N'),
 
 -- 1. 경영·사무
-(17, 1, 'J01', '기획·전략·경영', '02010101', 2, NOW(), 'jiwon', 'N'),
-(18, 1, 'J01', '인사·노무·교육', '02020201', 2, NOW(), 'jiwon', 'N'),
-(19, 1, 'J01', '재무·세무·IR', '02030101', 2, NOW(), 'jiwon', 'N'),
-(20, 1, 'J01', '경리·회계·결산', '02030201', 2, NOW(), 'jiwon', 'N'),
-(21, 1, 'J01', '일반사무·총무·비서', '02020302', 2, NOW(), 'jiwon', 'N'),
-(22, 1, 'J01', '법무', '05010101', 2, NOW(), 'jiwon', 'N'),
+(17, 1, 'J01', '기획·전략·경영', NULL, '02010101', 2, NOW(), 'jiwon', 'N'),
+(18, 1, 'J01', '인사·노무·교육', NULL, '02020201', 2, NOW(), 'jiwon', 'N'),
+(19, 1, 'J01', '재무·세무·IR', NULL, '02030101', 2, NOW(), 'jiwon', 'N'),
+(20, 1, 'J01', '경리·회계·결산', NULL, '02030201', 2, NOW(), 'jiwon', 'N'),
+(21, 1, 'J01', '일반사무·총무·비서', NULL, '02020302', 2, NOW(), 'jiwon', 'N'),
+(22, 1, 'J01', '법무', NULL, '05010101', 2, NOW(), 'jiwon', 'N'),
 
 -- 2. 마케팅·광고·홍보
-(23, 2, 'J01', '마케팅', '02040101', 2, NOW(), 'jiwon', 'N'),
-(24, 2, 'J01', '광고·홍보', '02040103', 2, NOW(), 'jiwon', 'N'),
+(23, 2, 'J01', '마케팅', NULL, '02010301', 2, NOW(), 'jiwon', 'N'),
+(24, 2, 'J01', '광고·홍보', NULL, '02010202', 2, NOW(), 'jiwon', 'N'),
 
 -- 3. 무역·유통
-(25, 3, 'J01', '유통·물류·재고', '02040201', 2, NOW(), 'jiwon', 'N'),
-(26, 3, 'J01', '무역·해외영업', '02040301', 2, NOW(), 'jiwon', 'N'),
-(27, 3, 'J01', '구매·자재', '02040401', 2, NOW(), 'jiwon', 'N'),
-(28, 3, 'J01', '운전·운송', '09020401', 2, NOW(), 'jiwon', 'N'),
-(29, 3, 'J01', '상품기획·MD', '02040202', 2, NOW(), 'jiwon', 'N'),
+(25, 3, 'J01', '유통·물류·재고', NULL, '02040301', 2, NOW(), 'jiwon', 'N'),
+(26, 3, 'J01', '무역·해외영업', NULL, '02040302', 2, NOW(), 'jiwon', 'N'),
+(27, 3, 'J01', '구매·자재', NULL, '02040101', 2, NOW(), 'jiwon', 'N'),
+(28, 3, 'J01', '운전·운송', NULL, '09020202', 2, NOW(), 'jiwon', 'N'),
+(29, 3, 'J01', '상품기획·MD', NULL, '02040304', 2, NOW(), 'jiwon', 'N'),
 
 -- 4. IT·개발
-(30, 4, 'J01', 'QA', '20010204', 2, NOW(), 'jiwon', 'N'),
-(31, 4, 'J01', '앱개발', '20010202', 2, NOW(), 'jiwon', 'N'),
-(32, 4, 'J01', '웹개발', '20010202', 2, NOW(), 'jiwon', 'N'),
-(33, 4, 'J01', '데이터엔지니어·데이터분석·DBA', '20010203', 2, NOW(), 'jiwon', 'N'),
-(34, 4, 'J01', '시스템프로그래머', '20010205', 2, NOW(), 'jiwon', 'N'),
-(35, 4, 'J01', '응용프로그래머', '20010202', 2, NOW(), 'jiwon', 'N'),
-(36, 4, 'J01', '네트워크·보안·운영', '20010301', 2, NOW(), 'jiwon', 'N'),
-(37, 4, 'J01', 'AI·빅데이터', '20010206', 2, NOW(), 'jiwon', 'N'),
-(38, 4, 'J01', '게임개발', '20010207', 2, NOW(), 'jiwon', 'N'),
-(39, 4, 'J01', 'HW·임베디드', '19020105', 2, NOW(), 'jiwon', 'N'),
-(40, 4, 'J01', 'SW·솔루션·ERP', '20010202', 2, NOW(), 'jiwon', 'N'),
-(41, 4, 'J01', '서비스기획·PM', '20010101', 2, NOW(), 'jiwon', 'N'),
+(30, 4, 'J01', 'QA', NULL, '20010202', 2, NOW(), 'jiwon', 'N'),
+(31, 4, 'J01', '앱개발', NULL, '20010202', 2, NOW(), 'jiwon', 'N'),
+(32, 4, 'J01', '웹개발', NULL, '20010202', 2, NOW(), 'jiwon', 'N'),
+(33, 4, 'J01', '데이터엔지니어·데이터분석·DBA', NULL, '20010204', 2, NOW(), 'jiwon', 'N'),
+(34, 4, 'J01', '시스템프로그래머', NULL, '20010208', 2, NOW(), 'jiwon', 'N'),
+(35, 4, 'J01', '응용프로그래머', NULL, '20010202', 2, NOW(), 'jiwon', 'N'),
+(36, 4, 'J01', '네트워크·보안·운영', NULL, '20010206', 2, NOW(), 'jiwon', 'N'),
+(37, 4, 'J01', 'AI·빅데이터', NULL, '20010701', 2, NOW(), 'jiwon', 'N'),
+(38, 4, 'J01', '게임개발', NULL, '08030205', 2, NOW(), 'jiwon', 'N'),
+(39, 4, 'J01', 'HW·임베디드', NULL, '20010203', 2, NOW(), 'jiwon', 'N'),
+(40, 4, 'J01', 'SW·솔루션·ERP', NULL, '20010202', 2, NOW(), 'jiwon', 'N'),
+(41, 4, 'J01', '서비스기획·PM', NULL, '20010101', 2, NOW(), 'jiwon', 'N'),
 
 -- 5. 생산·제조
-(42, 5, 'J01', '생산관리·공정관리·품질관리', '02050101', 2, NOW(), 'jiwon', 'N'),
-(43, 5, 'J01', '안전·환경관리', '23010101', 2, NOW(), 'jiwon', 'N'),
-(44, 5, 'J01', '생산·제조·설비·조립', '14010101', 2, NOW(), 'jiwon', 'N'),
-(45, 5, 'J01', '설치·정비·AS·시공·공무', '14010201', 2, NOW(), 'jiwon', 'N'),
+(42, 5, 'J01', '생산관리·공정관리·품질관리', NULL, '02040201', 2, NOW(), 'jiwon', 'N'),
+(43, 5, 'J01', '안전·환경관리', NULL, '23060101', 2, NOW(), 'jiwon', 'N'),
+(44, 5, 'J01', '생산·제조·설비·조립', NULL, '15030101', 2, NOW(), 'jiwon', 'N'),
+(45, 5, 'J01', '설치·정비·AS·시공·공무', NULL, '15050104', 2, NOW(), 'jiwon', 'N'),
 
 -- 6. 영업·고객상담
-(46, 6, 'J01', '제품·서비스영업', '02040105', 2, NOW(), 'jiwon', 'N'),
-(47, 6, 'J01', 'IT·솔루션·기술영업', '20010501', 2, NOW(), 'jiwon', 'N'),
-(48, 6, 'J01', 'B2B·법인영업', '02040105', 2, NOW(), 'jiwon', 'N'),
-(49, 6, 'J01', '영업관리·지원·기획', '02040106', 2, NOW(), 'jiwon', 'N'),
-(50, 6, 'J01', '아웃바운드', '02040502', 2, NOW(), 'jiwon', 'N'),
-(51, 6, 'J01', '인바운드', '02040502', 2, NOW(), 'jiwon', 'N'),
-(52, 6, 'J01', '고객응대·CS', '02040501', 2, NOW(), 'jiwon', 'N'),
-(53, 6, 'J01', '금융·보험영업', '03020102', 2, NOW(), 'jiwon', 'N'),
+(46, 6, 'J01', '제품·서비스영업', NULL, '02040401', 2, NOW(), 'jiwon', 'N'),
+(47, 6, 'J01', 'IT·솔루션·기술영업', NULL, '20010501', 2, NOW(), 'jiwon', 'N'),
+(48, 6, 'J01', 'B2B·법인영업', NULL, '02040401', 2, NOW(), 'jiwon', 'N'),
+(49, 6, 'J01', '영업관리·지원·기획', NULL, '02040401', 2, NOW(), 'jiwon', 'N'),
+(50, 6, 'J01', '아웃바운드', NULL, '02040502', 2, NOW(), 'jiwon', 'N'),
+(51, 6, 'J01', '인바운드', NULL, '02040502', 2, NOW(), 'jiwon', 'N'),
+(52, 6, 'J01', '고객응대·CS', NULL, '02040501', 2, NOW(), 'jiwon', 'N'),
+(53, 6, 'J01', '금융·보험영업', NULL, '03020105', 2, NOW(), 'jiwon', 'N'),
 
 -- 7. 건설
-(54, 7, 'J01', '현장·시공·감리·공무', '14030101', 2, NOW(), 'jiwon', 'N'),
-(55, 7, 'J01', '안전·품질관리', '14020107', 2, NOW(), 'jiwon', 'N'),
-(56, 7, 'J01', '전기·통신', '19010101', 2, NOW(), 'jiwon', 'N'),
-(57, 7, 'J01', '기계·설비·화학', '14040101', 2, NOW(), 'jiwon', 'N'),
-(58, 7, 'J01', '토목·조경·도시', '14020201', 2, NOW(), 'jiwon', 'N'),
-(59, 7, 'J01', '건축·설계·인테리어', '14030203', 2, NOW(), 'jiwon', 'N'),
-(60, 7, 'J01', '환경·플랜트', '14020301', 2, NOW(), 'jiwon', 'N'),
-(61, 7, 'J01', '부동산·영업·견적', '14010201', 2, NOW(), 'jiwon', 'N'),
+(54, 7, 'J01', '현장·시공·감리·공무', NULL, '14030101', 2, NOW(), 'jiwon', 'N'),
+(55, 7, 'J01', '안전·품질관리', NULL, '14030109', 2, NOW(), 'jiwon', 'N'),
+(56, 7, 'J01', '전기·통신', NULL, '19010111', 2, NOW(), 'jiwon', 'N'),
+(57, 7, 'J01', '기계·설비·화학', NULL, '14040101', 2, NOW(), 'jiwon', 'N'),
+(58, 7, 'J01', '토목·조경·도시', NULL, '14020204', 2, NOW(), 'jiwon', 'N'),
+(59, 7, 'J01', '건축·설계·인테리어', NULL, '14030203', 2, NOW(), 'jiwon', 'N'),
+(60, 7, 'J01', '환경·플랜트', NULL, '14020301', 2, NOW(), 'jiwon', 'N'),
+(61, 7, 'J01', '부동산·영업·견적', NULL, '02040401', 2, NOW(), 'jiwon', 'N'),
 
 -- 8. 금융
-(62, 8, 'J01', '증권·투자', '03010106', 2, NOW(), 'jiwon', 'N'),
-(63, 8, 'J01', '외환·펀드·자산운용', '03010102', 2, NOW(), 'jiwon', 'N'),
-(64, 8, 'J01', '보험계리·손해사정', '03020103', 2, NOW(), 'jiwon', 'N'),
-(65, 8, 'J01', '채권·심사', '03010105', 2, NOW(), 'jiwon', 'N'),
-(66, 8, 'J01', '은행원', '03010101', 2, NOW(), 'jiwon', 'N'),
-(67, 8, 'J01', '애널리스트', '03010103', 2, NOW(), 'jiwon', 'N'),
+(62, 8, 'J01', '증권·투자', NULL, '03010101', 2, NOW(), 'jiwon', 'N'),
+(63, 8, 'J01', '외환·펀드·자산운용', NULL, '03010101', 2, NOW(), 'jiwon', 'N'),
+(64, 8, 'J01', '보험계리·손해사정', NULL, '03020103', 2, NOW(), 'jiwon', 'N'),
+(65, 8, 'J01', '채권·심사', NULL, '03010101', 2, NOW(), 'jiwon', 'N'),
+(66, 8, 'J01', '은행원', NULL, '03010101', 2, NOW(), 'jiwon', 'N'),
+(67, 8, 'J01', '애널리스트', NULL, '03010101', 2, NOW(), 'jiwon', 'N'),
 
 -- 9. 연구개발·설계
-(68, 9, 'J01', '자동차·기계', '14010102', 2, NOW(), 'jiwon', 'N'),
-(69, 9, 'J01', '화학·에너지·환경', '17010101', 2, NOW(), 'jiwon', 'N'),
-(70, 9, 'J01', '바이오·제약·식품', '17030101', 2, NOW(), 'jiwon', 'N'),
-(71, 9, 'J01', '기계설계·CAD·CAM', '14010102', 2, NOW(), 'jiwon', 'N'),
-(72, 9, 'J01', '전기·전자·제어', '19010102', 2, NOW(), 'jiwon', 'N'),
-(73, 9, 'J01', '반도체·디스플레이', '19020301', 2, NOW(), 'jiwon', 'N'),
-(74, 9, 'J01', '통신기술·네트워크', '20020201', 2, NOW(), 'jiwon', 'N'),
-(75, 9, 'J01', '금속·철강', '15010101', 2, NOW(), 'jiwon', 'N'),
-(76, 9, 'J01', '조선·항공·우주', '14010401', 2, NOW(), 'jiwon', 'N'),
-(77, 9, 'J01', '인문·사회과학', '04020201', 2, NOW(), 'jiwon', 'N'),
+(68, 9, 'J01', '자동차·기계', NULL, '15020101', 2, NOW(), 'jiwon', 'N'),
+(69, 9, 'J01', '화학·에너지·환경', NULL, '17010101', 2, NOW(), 'jiwon', 'N'),
+(70, 9, 'J01', '바이오·제약·식품', NULL, '17030101', 2, NOW(), 'jiwon', 'N'),
+(71, 9, 'J01', '기계설계·CAD·CAM', NULL, '15010101', 2, NOW(), 'jiwon', 'N'),
+(72, 9, 'J01', '전기·전자·제어', NULL, '19010102', 2, NOW(), 'jiwon', 'N'),
+(73, 9, 'J01', '반도체·디스플레이', NULL, '19030101', 2, NOW(), 'jiwon', 'N'),
+(74, 9, 'J01', '통신기술·네트워크', NULL, '20020201', 2, NOW(), 'jiwon', 'N'),
+(75, 9, 'J01', '금속·철강', NULL, '16010101', 2, NOW(), 'jiwon', 'N'),
+(76, 9, 'J01', '조선·항공·우주', NULL, '15020301', 2, NOW(), 'jiwon', 'N'),
+(77, 9, 'J01', '인문·사회과학', NULL, '02010101', 2, NOW(), 'jiwon', 'N'),
 
 -- 10. 디자인
-(78, 10, 'J01', '광고·시각디자인', '08020101', 2, NOW(), 'jiwon', 'N'),
-(79, 10, 'J01', '제품·산업디자인', '08020102', 2, NOW(), 'jiwon', 'N'),
-(80, 10, 'J01', '건축·인테리어디자인', '14030203', 2, NOW(), 'jiwon', 'N'),
-(81, 10, 'J01', '의류·패션·잡화디자인', '18010101', 2, NOW(), 'jiwon', 'N'),
-(82, 10, 'J01', 'UI·UX디자인', '20010207', 2, NOW(), 'jiwon', 'N'),
+(78, 10, 'J01', '광고·시각디자인', NULL, '08020101', 2, NOW(), 'jiwon', 'N'),
+(79, 10, 'J01', '제품·산업디자인', NULL, '08020102', 2, NOW(), 'jiwon', 'N'),
+(80, 10, 'J01', '건축·인테리어디자인', NULL, '14030203', 2, NOW(), 'jiwon', 'N'),
+(81, 10, 'J01', '의류·패션·잡화디자인', NULL, '18010101', 2, NOW(), 'jiwon', 'N'),
+(82, 10, 'J01', 'UI·UX디자인', NULL, '20010207', 2, NOW(), 'jiwon', 'N'),
 
 -- 11. 미디어
-(83, 11, 'J01', '연출·제작·PD·작가', '08030101', 2, NOW(), 'jiwon', 'N'),
-(84, 11, 'J01', '음악·영상·사진', '08030202', 2, NOW(), 'jiwon', 'N'),
-(85, 11, 'J01', '아나운서·리포터·성우·기자', '08030106', 2, NOW(), 'jiwon', 'N'),
-(86, 11, 'J01', '무대·스태프·오퍼레이터', '08030204', 2, NOW(), 'jiwon', 'N'),
-(87, 11, 'J01', '연예·엔터테인먼트', '08030102', 2, NOW(), 'jiwon', 'N'),
-(88, 11, 'J01', '인쇄·출판·편집', '08030501', 2, NOW(), 'jiwon', 'N'),
+(83, 11, 'J01', '연출·제작·PD·작가', NULL, '08030101', 2, NOW(), 'jiwon', 'N'),
+(84, 11, 'J01', '음악·영상·사진', NULL, '08030202', 2, NOW(), 'jiwon', 'N'),
+(85, 11, 'J01', '아나운서·리포터·성우·기자', NULL, '08030101', 2, NOW(), 'jiwon', 'N'),
+(86, 11, 'J01', '무대·스태프·오퍼레이터', NULL, '08030204', 2, NOW(), 'jiwon', 'N'),
+(87, 11, 'J01', '연예·엔터테인먼트', NULL, '08030202', 2, NOW(), 'jiwon', 'N'),
+(88, 11, 'J01', '인쇄·출판·편집', NULL, '08030504', 2, NOW(), 'jiwon', 'N'),
 
 -- 12. 전문·특수직
-(89, 12, 'J01', '리서치·시장조사', '02040102', 2, NOW(), 'jiwon', 'N'),
-(90, 12, 'J01', '외국어·번역·통역', '02040304', 2, NOW(), 'jiwon', 'N'),
-(91, 12, 'J01', '법률·특허·상표', '05010102', 2, NOW(), 'jiwon', 'N'),
-(92, 12, 'J01', '회계·세무·CPA·CFA', '02030201', 2, NOW(), 'jiwon', 'N'),
-(93, 12, 'J01', '보안·경비·경호', '05020101', 2, NOW(), 'jiwon', 'N'),
-(94, 12, 'J01', '보건·의료', '06010101', 2, NOW(), 'jiwon', 'N'),
-(95, 12, 'J01', '초·중·고 교사', '04010101', 2, NOW(), 'jiwon', 'N'),
-(96, 12, 'J01', '교육개발·기획', '04010201', 2, NOW(), 'jiwon', 'N'),
-(97, 12, 'J01', '외국어·자격증·기술강사', '04010301', 2, NOW(), 'jiwon', 'N'),
-(98, 12, 'J01', '사회복지·요양보호', '07010101', 2, NOW(), 'jiwon', 'N'),
-(99, 12, 'J01', '승무원·숙박·여행서비스', '09020101', 2, NOW(), 'jiwon', 'N'),
-(100, 12, 'J01', '음식서비스', '13020101', 2, NOW(), 'jiwon', 'N'),
+(89, 12, 'J01', '리서치·시장조사', NULL, '02010301', 2, NOW(), 'jiwon', 'N'),
+(90, 12, 'J01', '외국어·번역·통역', NULL, '02020302', 2, NOW(), 'jiwon', 'N'),
+(91, 12, 'J01', '법률·특허·상표', NULL, '05010101', 2, NOW(), 'jiwon', 'N'),
+(92, 12, 'J01', '회계·세무·CPA·CFA', NULL, '02030201', 2, NOW(), 'jiwon', 'N'),
+(93, 12, 'J01', '보안·경비·경호', NULL, '05020101', 2, NOW(), 'jiwon', 'N'),
+(94, 12, 'J01', '보건·의료', NULL, '06010102', 2, NOW(), 'jiwon', 'N'),
+(95, 12, 'J01', '초·중·고 교사', NULL, '04010101', 2, NOW(), 'jiwon', 'N'),
+(96, 12, 'J01', '교육개발·기획', NULL, '04010201', 2, NOW(), 'jiwon', 'N'),
+(97, 12, 'J01', '외국어·자격증·기술강사', NULL, '04010301', 2, NOW(), 'jiwon', 'N'),
+(98, 12, 'J01', '사회복지·요양보호', NULL, '07010102', 2, NOW(), 'jiwon', 'N'),
+(99, 12, 'J01', '승무원·숙박·여행서비스', NULL, '12010101', 2, NOW(), 'jiwon', 'N'),
+(100, 12, 'J01', '음식서비스', NULL, '13010101', 2, NOW(), 'jiwon', 'N'),
 
--- 공무원 중분류
-(101, 13, 'J02', '일반행정', NULL, 2, NOW(), 'jiwon', 'N'),
-(102, 13, 'J02', '교육행정', NULL, 2, NOW(), 'jiwon', 'N'),
-(103, 13, 'J02', '세무', NULL, 2, NOW(), 'jiwon', 'N'),
-(104, 13, 'J02', '사회복지', NULL, 2, NOW(), 'jiwon', 'N'),
-(105, 13, 'J02', '교정', NULL, 2, NOW(), 'jiwon', 'N'),
-(106, 13, 'J02', '전산', NULL, 2, NOW(), 'jiwon', 'N'),
-(107, 13, 'J02', '관세', NULL, 2, NOW(), 'jiwon', 'N'),
-(108, 13, 'J02', '출입국관리', NULL, 2, NOW(), 'jiwon', 'N'),
+-- 공무원 중분류 - 일반직 9급
+(101, 13, 'J02', '일반행정', NULL, NULL, 2, NOW(), 'jiwon', 'N'),
+(102, 13, 'J02', '교육행정', NULL, NULL, 2, NOW(), 'jiwon', 'N'),
+(103, 13, 'J02', '세무', NULL, NULL, 2, NOW(), 'jiwon', 'N'),
+(104, 13, 'J02', '사회복지', NULL, NULL, 2, NOW(), 'jiwon', 'N'),
+(105, 13, 'J02', '교정', NULL, NULL, 2, NOW(), 'jiwon', 'N'),
+(106, 13, 'J02', '전산', 'GENERAL_IT', NULL, 2, NOW(), 'jiwon', 'N'),
+(107, 13, 'J02', '관세', NULL, NULL, 2, NOW(), 'jiwon', 'N'),
+(108, 13, 'J02', '출입국관리', NULL, NULL, 2, NOW(), 'jiwon', 'N'),
 
-(109, 14, 'J02', '행정직', NULL, 2, NOW(), 'jiwon', 'N'),
-(110, 14, 'J02', '군수직', NULL, 2, NOW(), 'jiwon', 'N'),
-(111, 14, 'J02', '전산직', NULL, 2, NOW(), 'jiwon', 'N'),
-(112, 14, 'J02', '시설직', NULL, 2, NOW(), 'jiwon', 'N'),
-(113, 14, 'J02', '전기직', NULL, 2, NOW(), 'jiwon', 'N'),
+-- 공무원 중분류 - 군무원 9급
+(109, 14, 'J02', '행정직', NULL, NULL, 2, NOW(), 'jiwon', 'N'),
+(110, 14, 'J02', '군수직', NULL, NULL, 2, NOW(), 'jiwon', 'N'),
+(111, 14, 'J02', '전산직', 'MILITARY_IT', NULL, 2, NOW(), 'jiwon', 'N'),
+(112, 14, 'J02', '시설직', NULL, NULL, 2, NOW(), 'jiwon', 'N'),
+(113, 14, 'J02', '전기직', NULL, NULL, 2, NOW(), 'jiwon', 'N'),
 
-(114, 15, 'J02', '순경 공채', NULL, 2, NOW(), 'jiwon', 'N'),
-(115, 15, 'J02', '경찰행정 경채', NULL, 2, NOW(), 'jiwon', 'N'),
-(116, 15, 'J02', '해양경찰 순경', NULL, 2, NOW(), 'jiwon', 'N'),
+-- 공무원 중분류 - 경찰
+(114, 15, 'J02', '순경 공채', NULL, NULL, 2, NOW(), 'jiwon', 'N'),
+(115, 15, 'J02', '경찰행정 경채', NULL, NULL, 2, NOW(), 'jiwon', 'N'),
 
-(117, 16, 'J02', '소방 공채', NULL, 2, NOW(), 'jiwon', 'N'),
-(118, 16, 'J02', '구급 경채', NULL, 2, NOW(), 'jiwon', 'N'),
-(119, 16, 'J02', '구조 경채', NULL, 2, NOW(), 'jiwon', 'N');
+-- 공무원 중분류 - 소방
+(116, 16, 'J02', '소방 공채', NULL, NULL, 2, NOW(), 'jiwon', 'N'),
+(117, 16, 'J02', '구급 경채', NULL, NULL, 2, NOW(), 'jiwon', 'N'),
+(118, 16, 'J02', '구조 경채', NULL, NULL, 2, NOW(), 'jiwon', 'N');
 
 
                                                                                                                       -- --------------------------------------------------------------------
@@ -199,26 +202,31 @@ INSERT INTO job_transfer_university (univ_id, univ_name, created_date, created_n
 --  테이블: job_transfer_major_category
 -- --------------------------------------------------------------------
 INSERT INTO job_transfer_major_category
-(major_code, major_name, created_date, created_nm, del_yn)
+(major_code, major_name, course_mapping_code, created_date, created_nm, del_yn)
 VALUES
-    ('M01', '경영·회계·금융', NOW(), 'jiwon', 'N'),
-    ('M02', '경제·무역·통계', NOW(), 'jiwon', 'N'),
-    ('M03', '컴퓨터·SW·AI·데이터', NOW(), 'jiwon', 'N'),
-    ('M04', '전기·전자·반도체·통신', NOW(), 'jiwon', 'N'),
-    ('M05', '기계·자동차·로봇·항공', NOW(), 'jiwon', 'N'),
-    ('M06', '산업·안전·시스템공학', NOW(), 'jiwon', 'N'),
-    ('M07', '건축·토목·도시·환경', NOW(), 'jiwon', 'N'),
-    ('M08', '화학·신소재·에너지공학', NOW(), 'jiwon', 'N'),
-    ('M09', '생명·바이오·식품·농림', NOW(), 'jiwon', 'N'),
-    ('M10', '간호·의약·보건', NOW(), 'jiwon', 'N'),
-    ('M11', '법·행정·정치·사회', NOW(), 'jiwon', 'N'),
-    ('M12', '교육·심리·아동·상담', NOW(), 'jiwon', 'N'),
-    ('M13', '어문·인문', NOW(), 'jiwon', 'N'),
-    ('M14', '미디어·광고·콘텐츠', NOW(), 'jiwon', 'N'),
-    ('M15', '디자인·예술·체육·의류', NOW(), 'jiwon', 'N'),
-    ('M16', '수학·물리·화학·지구과학', NOW(), 'jiwon', 'N'),
-    ('M17', '관광·호텔·서비스', NOW(), 'jiwon', 'N'),
-    ('M18', '자율·융합', NOW(), 'jiwon', 'N');
+    ('M01', '경영·회계·금융', 'HUMAN', NOW(), 'jiwon', 'N'),
+    ('M02', '경제·무역·통계', 'HUMAN', NOW(), 'jiwon', 'N'),
+
+    ('M03', '컴퓨터·SW·AI·데이터', 'NATURAL', NOW(), 'jiwon', 'N'),
+    ('M04', '전기·전자·반도체·통신', 'NATURAL', NOW(), 'jiwon', 'N'),
+    ('M05', '기계·자동차·로봇·항공', 'NATURAL', NOW(), 'jiwon', 'N'),
+    ('M06', '산업·안전·시스템공학', 'NATURAL', NOW(), 'jiwon', 'N'),
+    ('M07', '건축·토목·도시·환경', 'NATURAL', NOW(), 'jiwon', 'N'),
+    ('M08', '화학·신소재·에너지공학', 'NATURAL', NOW(), 'jiwon', 'N'),
+    ('M09', '생명·바이오·식품·농림', 'NATURAL', NOW(), 'jiwon', 'N'),
+    ('M10', '간호·의약·보건', 'NATURAL', NOW(), 'jiwon', 'N'),
+
+    ('M11', '법·행정·정치·사회', 'HUMAN', NOW(), 'jiwon', 'N'),
+    ('M12', '교육·심리·아동·상담', 'HUMAN', NOW(), 'jiwon', 'N'),
+    ('M13', '어문·인문', 'HUMAN', NOW(), 'jiwon', 'N'),
+    ('M14', '미디어·광고·콘텐츠', 'HUMAN', NOW(), 'jiwon', 'N'),
+    ('M15', '디자인·예술·체육·의류', 'HUMAN', NOW(), 'jiwon', 'N'),
+
+    ('M16', '수학·물리·화학·지구과학', 'NATURAL', NOW(), 'jiwon', 'N'),
+
+    ('M17', '관광·호텔·서비스', 'HUMAN', NOW(), 'jiwon', 'N'),
+
+    ('M18', '자율·융합', 'BOTH', NOW(), 'jiwon', 'N');
 
 
 -- --------------------------------------------------------------------
@@ -620,262 +628,1701 @@ VALUES
 
 
 -- --------------------------------------------------------------------
---  [지원] 진로/자격증·어학 기준
---  테이블: job_qualification
+-- [지원] 진로/자격증·어학
+-- 테이블: job_qualification
+-- Q01: 자격증
+-- Q02: 어학
+-- D01: 수기
+-- D02: Q-Net
 -- --------------------------------------------------------------------
-INSERT INTO job_qualification(
-    qual_id, qual_type, external_code, data_source, qual_name, qual_summary, organization_name, written_fee,
-    practical_fee, military_fee, detail_url, last_synced_date, created_date, created_nm, del_yn) VALUES
--- 웹개발
-(1, 'Q01', '1320', 'D02', '정보처리기사',
- '정보처리기사 자격으로 소프트웨어 개발과 정보시스템 구축·운영 능력을 평가하는 국가기술자격입니다.',
- '한국산업인력공단',
- 19400, 22600, NULL,
+
+INSERT INTO job_qualification
+(qual_id, qual_type, external_code, data_source, qual_name, qual_summary, organization_name, written_fee, practical_fee,
+  military_fee, detail_url, last_synced_date, created_date, created_nm, del_yn)
+VALUES
+-- =========================================================
+-- Q01 · 자격증 / Q-Net
+-- =========================================================
+(1, 'Q01', '9521', 'D02', '사회조사분석사 2급',
+ '사회조사 및 통계분석 역량을 평가하는 국가기술자격',
+ NULL, NULL, NULL, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=9521',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(2, 'Q01', '9500', 'D02', '공인노무사',
+ '노동관계법령 및 인사·노무 분야 전문성을 평가하는 국가전문자격',
+ NULL, NULL, NULL, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=9500',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(3, 'Q01', '9744', 'D02', '주택관리사',
+ '공동주택 관리 분야 전문성을 평가하는 국가전문자격',
+ NULL, NULL, NULL, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=9744',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(4, 'Q01', '9503', 'D02', '가맹거래사',
+ '가맹사업 거래 및 관련 법률·경영 전문성을 평가하는 국가전문자격',
+ NULL, 50000, 50000, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=9503',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(5, 'Q01', '9746', 'D02', '물류관리사',
+ '물류관리 및 유통물류 분야 전문성을 평가하는 국가전문자격',
+ NULL, NULL, NULL, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=9746',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(6, 'Q01', '9640', 'D02', '관세사',
+ '관세 및 무역 통관 분야 전문성을 평가하는 국가전문자격',
+ NULL, NULL, NULL, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=9640',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(7, 'Q01', '7875', 'D02', '지게차운전기능사',
+ '지게차 운전 및 물류현장 장비 운용 능력을 평가하는 국가기술자격',
+ NULL, NULL, NULL, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=7875',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(8, 'Q01', '1320', 'D02', '정보처리기사',
+ '소프트웨어 개발 및 정보시스템 구축 역량을 평가하는 국가기술자격',
+ NULL, 19400, 22600, NULL,
  'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1320',
+ '2026-08-19 06:00:08', NOW(), 'jiwon', 'N'),
+
+(9, 'Q01', '1500', 'D02', '품질경영기사',
+ '생산 및 품질관리 분야 전문성을 평가하는 국가기술자격',
+ NULL, NULL, NULL, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1500',
  NULL, NOW(), 'jiwon', 'N'),
 
-(2, 'Q01', '2290', 'D02', '정보처리산업기사',
- '정보처리산업기사 자격으로 정보시스템 개발 및 운영에 필요한 실무 능력을 평가합니다.',
- '한국산업인력공단',
- 19400, 20800, NULL,
- 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=2290',
+(10, 'Q01', '1431', 'D02', '산업안전기사',
+ '산업현장의 안전관리 역량을 평가하는 국가기술자격',
+ NULL,  19400, 34600, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1431',
  NULL, NOW(), 'jiwon', 'N'),
 
-(3, 'Q01', '6921', 'D02', '프로그래밍기능사',
- '프로그래밍기능사 자격으로 프로그래밍 기초와 프로그램 개발 능력을 평가합니다.',
- '한국산업인력공단',
- 14500, 17200, NULL,
- 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=6921',
+(11, 'Q01', '1661', 'D02', '대기환경기사',
+ '대기환경 관리 및 오염방지 전문성을 평가하는 국가기술자격',
+ NULL, NULL, NULL, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1661',
  NULL, NOW(), 'jiwon', 'N'),
 
-(4, 'Q01', NULL, 'D01', 'SQLD',
- 'SQL 개발자(SQLD) 자격으로 데이터 모델링과 SQL 활용 능력을 평가하는 국가공인 민간자격입니다.',
- '한국데이터산업진흥원',
- 50000, NULL, NULL,
- 'https://www.dataq.or.kr/www/sub/a_04.do',
+(12, 'Q01', '1662', 'D02', '수질환경기사',
+ '수질환경 관리 및 오염방지 전문성을 평가하는 국가기술자격',
+ NULL, NULL, NULL, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1662',
  NULL, NOW(), 'jiwon', 'N'),
 
--- 데이터엔지니어·DBA
-(5, 'Q01', NULL, 'D01', 'ADsP',
- '데이터분석 준전문가(ADsP) 자격으로 데이터 분석 기초 역량을 평가하는 국가공인 민간자격입니다.',
+(13, 'Q01', '1837', 'D02', '설비보전기사',
+ '산업설비의 유지·보전 및 관리 역량을 평가하는 국가기술자격',
+ NULL, NULL, NULL, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1837',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(14, 'Q01', '1150', 'D02', '전기기사',
+ '전기설비 설계·운영 및 안전관리 역량을 평가하는 국가기술자격',
+ NULL, 19400, 22600, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1150',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(15, 'Q01', '9541', 'D02', '텔레마케팅관리사',
+ '전화 및 비대면 고객상담·마케팅 역량을 평가하는 국가기술자격',
+ NULL, NULL, NULL, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=9541',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(16, 'Q01', '1440', 'D02', '건설안전기사',
+ '건설현장의 안전관리 전문성을 평가하는 국가기술자격',
+ NULL, NULL, NULL, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1440',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(17, 'Q01', '1630', 'D02', '건축기사',
+ '건축계획·시공 분야 전문성을 평가하는 국가기술자격',
+ NULL, NULL, NULL, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1630',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(18, 'Q01', '1250', 'D02', '토목기사',
+ '토목 설계·시공 및 관리 역량을 평가하는 국가기술자격',
+ NULL, NULL, NULL, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1250',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(19, 'Q01', '1160', 'D02', '전기공사기사',
+ '전기공사의 설계·시공 및 관리 역량을 평가하는 국가기술자격',
+ NULL, 19400, 22600, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1160',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(20, 'Q01', '1910', 'D02', '소방설비기사(전기분야)',
+ '소방전기설비 설계·시공 및 유지관리 역량을 평가하는 국가기술자격',
+ NULL, NULL, NULL, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1910',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(21, 'Q01', '1021', 'D02', '일반기계기사',
+ '기계 설계·제작 및 관리 역량을 평가하는 국가기술자격',
+ NULL, NULL, NULL, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1021',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(22, 'Q01', '1040', 'D02', '건설기계설비기사',
+ '건설기계설비의 설계·관리 역량을 평가하는 국가기술자격',
+ NULL, 19400, 22600, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1040',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(23, 'Q01', '1730', 'D02', '공조냉동기계기사',
+ '공조 및 냉동설비 설계·운영 역량을 평가하는 국가기술자격',
+ NULL, NULL, NULL, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1730',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(24, 'Q01', '1370', 'D02', '조경기사',
+ '조경계획·설계·시공 분야 전문성을 평가하는 국가기술자격',
+ NULL, 19400, 46700, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1370',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(25, 'Q01', '1350', 'D02', '도시계획기사',
+ '도시계획 및 개발 분야 전문성을 평가하는 국가기술자격',
+ NULL, 19400, 25700, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1350',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(26, 'Q01', '1282', 'D02', '실내건축기사',
+ '실내건축 설계·시공 역량을 평가하는 국가기술자격',
+ NULL, 19400, 28700, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1282',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(27, 'Q01', '7061', 'D02', '전산응용건축제도기능사',
+ '건축도면 작성 및 CAD 활용능력을 평가하는 국가기술자격',
+ NULL, 14500, 21000, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=7061',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(28, 'Q01', '9630', 'D02', '공인중개사',
+ '부동산 중개 및 관련 법률 전문성을 평가하는 국가전문자격',
+ NULL, NULL, NULL, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=9630',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(29, 'Q01', '6151', 'D02', '전산응용기계제도기능사',
+ '기계제도 및 CAD 활용능력을 평가하는 국가기술자격',
+ NULL, NULL, NULL, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=6151',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(30, 'Q01', '1070', 'D02', '자동차정비기사',
+ '자동차 정비 및 관리 전문성을 평가하는 국가기술자격',
+ NULL, NULL, NULL, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1070',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(31, 'Q01', '2121', 'D02', '위험물산업기사',
+ '위험물의 취급·저장 및 안전관리 역량을 평가하는 국가기술자격',
+ NULL, NULL, NULL, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=2121',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(32, 'Q01', '1110', 'D02', '화공기사',
+ '화학공정 설계·운영 및 관리 전문성을 평가하는 국가기술자격',
+ NULL, NULL, NULL, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1110',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(33, 'Q01', '1340', 'D02', '에너지관리기사',
+ '에너지설비 운영 및 효율관리 역량을 평가하는 국가기술자격',
+ NULL, 19400, 22600, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1340',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(34, 'Q01', '1800', 'D02', '바이오화학제품제조기사',
+ '바이오화학제품 생산공정 및 품질관리 역량을 평가하는 국가기술자격',
+ NULL, NULL, NULL, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1800',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(35, 'Q01', '1563', 'D02', '화학분석기사',
+ '화학물질 분석 및 품질평가 역량을 평가하는 국가기술자격',
+ NULL, 19400, 62900, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1563',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(36, 'Q01', '1530', 'D02', '식품안전기사',
+ '식품의 제조·품질·안전관리 전문성을 평가하는 국가기술자격',
+ NULL, 19400, 22600, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1530',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(37, 'Q01', '2025', 'D02', '컴퓨터응용가공산업기사',
+ 'CAD/CAM 및 기계가공 실무능력을 평가하는 국가기술자격',
+ NULL, 19400, 53200, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=2025',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(38, 'Q01', '1170', 'D02', '전자기사',
+ '전자회로·전자기기 설계 및 관리 역량을 평가하는 국가기술자격',
+ NULL, 19400, 44800, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1170',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(39, 'Q01', '6033', 'D02', '반도체설비보전기능사',
+ '반도체 제조설비 유지·보전 실무능력을 평가하는 국가기술자격',
+ NULL, 14500, 103700, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=6033',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(40, 'Q01', '1104', 'D02', '금속재료기사',
+ '금속재료의 시험·분석 및 관리 역량을 평가하는 국가기술자격',
+ NULL, 19400, 70500, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1104',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(41, 'Q01', '1240', 'D02', '항공기사',
+ '항공기 설계·정비 및 항공기술 전문성을 평가하는 국가기술자격',
+ NULL, 19400, 22600, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1240',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(42, 'Q01', '6288', 'D02', '항공기정비기능사',
+ '항공기 정비 실무능력을 평가하는 국가기술자격',
+ NULL, NULL, NULL, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=6288',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(43, 'Q01', '1221', 'D02', '조선선체기사',
+ '선박 선체 설계 및 제작 분야 전문성을 평가하는 국가기술자격',
+ NULL, 19400, 36000, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1221',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(44, 'Q01', '1790', 'D02', '시각디자인기사',
+ '시각디자인 기획·제작 전문성을 평가하는 국가기술자격',
+ NULL, NULL, NULL, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1790',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(45, 'Q01', '7796', 'D02', '컴퓨터그래픽기능사',
+ '그래픽 디자인 및 컴퓨터그래픽 제작능력을 평가하는 국가기술자격',
+ NULL, 14500, 23700, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=7796',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(46, 'Q01', '7798', 'D02', '웹디자인개발기능사',
+ '웹디자인 및 웹콘텐츠 제작 역량을 평가하는 국가기술자격',
+ NULL, 14500, 20100, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=7798',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(47, 'Q01', '1512', 'D02', '제품디자인기사',
+ '제품디자인 기획·설계 역량을 평가하는 국가기술자격',
+ NULL, 19400, 30000, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1512',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(48, 'Q01', '7785', 'D02', '3D프린터운용기능사',
+ '3D 모델링 및 3D프린터 운용능력을 평가하는 국가기술자격',
+ NULL, NULL, NULL, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=7785',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(49, 'Q01', '2301', 'D02', '패션디자인산업기사',
+ '패션디자인 기획·제작 역량을 평가하는 국가기술자격',
+ NULL, 19400, 48900, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=2301',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(50, 'Q01', '9545', 'D02', '멀티미디어콘텐츠제작전문가',
+ '멀티미디어 콘텐츠 기획·제작 역량을 평가하는 국가기술자격',
+ NULL, 19400, 26300, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=9545',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(51, 'Q01', '6791', 'D02', '전자출판기능사',
+ '전자출판 및 편집 실무능력을 평가하는 국가기술자격',
+ NULL, 14500, 22700,  NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=6791',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(52, 'Q01', '9501', 'D02', '일반경비지도사',
+ '경비업무 지도·감독 전문성을 평가하는 국가전문자격',
+ NULL, 28000, 28000, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=9501',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(53, 'Q01', '9738', 'D02', '사회복지사 1급',
+ '사회복지 분야 전문지식과 실무능력을 평가하는 국가전문자격',
+ NULL, NULL, NULL, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=9738',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(54, 'Q01', '9664', 'D02', '국내여행안내사',
+ '국내여행 안내 및 관광서비스 전문성을 평가하는 국가전문자격',
+ NULL, NULL, NULL, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=9664',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(55, 'Q01', '9661', 'D02', '관광통역안내사(영어)',
+ '영어 관광통역 및 관광안내 전문성을 평가하는 국가전문자격',
+ NULL, 20000, 20000, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=9661',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(56, 'Q01', '7910', 'D02', '한식조리기능사',
+ '한식 조리 실무능력을 평가하는 국가기술자격',
+ NULL, 14500, 26900, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=7910',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(57, 'Q01', '7911', 'D02', '양식조리기능사',
+ '양식 조리 실무능력을 평가하는 국가기술자격',
+ NULL, 14500, 29600, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=7911',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(58, 'Q01', '7912', 'D02', '일식조리기능사',
+ '일식 조리 실무능력을 평가하는 국가기술자격',
+ NULL, 14500, 30800, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=7912',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(59, 'Q01', '7913', 'D02', '중식조리기능사',
+ '중식 조리 실무능력을 평가하는 국가기술자격',
+ NULL, 14500, 28500, NULL,
+ 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=7913',
+ NULL, NOW(), 'jiwon', 'N'),
+
+-- =========================================================
+-- Q01 · 자격증 / 수기
+-- =========================================================
+(60, 'Q01', NULL, 'D01', '데이터분석준전문가(ADsP)',
+ '데이터 이해·분석기획·데이터분석 역량을 평가하는 국가공인 민간자격',
  '한국데이터산업진흥원',
  50000, NULL, NULL,
  'https://www.dataq.or.kr/www/sub/a_06.do',
  NULL, NOW(), 'jiwon', 'N'),
 
--- 전기·전자·제어 (API 테스트용)
-(6, 'Q01', '1150', 'D02', '전기기사',
- '전기기사 자격으로 전기설비의 설계·시공·유지관리 능력을 평가하는 국가기술자격입니다.',
- '한국산업인력공단',
- NULL, NULL, NULL,
- 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=1150',
+(61, 'Q01', NULL, 'D01', 'SQL개발자(SQLD)',
+ '데이터 모델링과 SQL 활용 역량을 평가하는 국가공인 민간자격',
+ '한국데이터산업진흥원',
+ 50000, NULL, NULL,
+ 'https://www.dataq.or.kr/www/sub/a_04.do',
  NULL, NOW(), 'jiwon', 'N'),
 
--- 기획·전략·경영 (API 테스트용)
-(7, 'Q01', '9521', 'D02', '사회조사분석사 2급',
- '사회조사분석사 2급 자격으로 사회조사 설계 및 자료 분석 능력을 평가합니다.',
- '한국산업인력공단',
- NULL, NULL, NULL,
- 'https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=9521',
+(62, 'Q01', NULL, 'D01', 'HRM전문가',
+ '인사·노무 실무 및 근로관계법 역량을 평가하는 자격',
+ '한국공인노무사회',
+ 31000, NULL, NULL,
+ 'https://edu.kcplaa.or.kr/guide/hrm',
  NULL, NOW(), 'jiwon', 'N'),
 
--- 마케팅
-(8, 'Q01', NULL, 'D01', 'GTQ 1급',
- '그래픽기술자격(GTQ) 1급으로 Adobe Photoshop 활용 능력을 평가하는 국가공인 민간자격입니다.',
+(63, 'Q01', NULL, 'D01', 'ERP정보관리사 인사 1급',
+ 'ERP 인사관리 실무능력을 평가하는 국가공인 민간자격',
+ '한국생산성본부',
+ 40000, NULL, NULL,
+ 'https://license.kpc.or.kr/nasec/qlfint/qlfint/selectErpinfomg.do',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(64, 'Q01', NULL, 'D01', 'ERP정보관리사 회계 1급',
+ 'ERP 회계관리 실무능력을 평가하는 국가공인 민간자격',
+ '한국생산성본부',
+ 40000, NULL, NULL,
+ 'https://license.kpc.or.kr/nasec/qlfint/qlfint/selectErpinfomg.do',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(65, 'Q01', NULL, 'D01', 'ERP정보관리사 물류 1급',
+ 'ERP 물류관리 실무능력을 평가하는 국가공인 민간자격',
+ '한국생산성본부',
+ 40000, NULL, NULL,
+ 'https://license.kpc.or.kr/nasec/qlfint/qlfint/selectErpinfomg.do',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(66, 'Q01', NULL, 'D01', 'ERP정보관리사 생산 1급',
+ 'ERP 생산관리 실무능력을 평가하는 국가공인 민간자격',
+ '한국생산성본부',
+ 40000, NULL, NULL,
+ 'https://license.kpc.or.kr/nasec/qlfint/qlfint/selectErpinfomg.do',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(67, 'Q01', NULL, 'D01', '전산회계 1급',
+ '회계이론과 전산회계 실무능력을 평가하는 국가공인 민간자격',
+ '한국세무사회',
+ 30000, NULL, NULL,
+ 'https://license.kacta.or.kr/',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(68, 'Q01', NULL, 'D01', '전산세무 2급',
+ '세무회계 이론과 전산세무 실무능력을 평가하는 국가공인 민간자격',
+ '한국세무사회',
+ 30000, NULL, NULL,
+ 'https://license.kacta.or.kr/',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(69, 'Q01', NULL, 'D01', 'FAT 1급',
+ '회계정보 처리와 활용 능력을 평가하는 국가공인 민간자격',
+ '한국공인회계사회',
+ 39000, NULL, NULL,
+ 'https://at.kicpa.or.kr/home/at/at02001l.jsp',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(70, 'Q01', NULL, 'D01', 'TAT 2급',
+ '세무정보 처리와 활용 능력을 평가하는 국가공인 민간자격',
+ '한국공인회계사회',
+ 39000, NULL, NULL,
+ 'https://at.kicpa.or.kr/home/at/at02001l.jsp',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(71, 'Q01', NULL, 'D01', '재경관리사',
+ '재무회계·세무회계·원가관리회계 전문성을 평가하는 국가공인 민간자격',
+ '삼일회계법인',
+ 70000, NULL, NULL,
+ 'https://www.samilexam.com/usr/greeting.do',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(72, 'Q01', NULL, 'D01', '컴퓨터활용능력 1급',
+ '스프레드시트와 데이터베이스 활용능력을 평가하는 국가기술자격',
+ '대한상공회의소',
+ 20500, 25000, NULL,
+ 'https://license.korcham.net/co/examguide.do?cd=0103&mm=202',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(73, 'Q01', NULL, 'D01', '컴퓨터활용능력 2급',
+ '스프레드시트 활용능력을 평가하는 국가기술자격',
+ '대한상공회의소',
+ 20500, 25000, NULL,
+ 'https://license.korcham.net/co/examguide.do?cd=0103&mm=202',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(74, 'Q01', NULL, 'D01', '비서 1급',
+ '비서업무에 필요한 전문지식과 사무능력을 평가하는 자격',
+ '대한상공회의소',
+ 17500, NULL, NULL,
+ 'https://license.korcham.net/',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(75, 'Q01', NULL, 'D01', '비서 2급',
+ '비서업무에 필요한 전문지식과 사무능력을 평가하는 자격',
+ '대한상공회의소',
+ 17500, NULL, NULL,
+ 'https://license.korcham.net/',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(76, 'Q01', NULL, 'D01', 'GTQ 1급',
+ '그래픽 디자인 실무능력을 평가하는 국가공인 민간자격',
  '한국생산성본부',
  42000, NULL, 34000,
  'https://license.kpc.or.kr/nasec/qlfint/qlfint/selectGtqinfomg.do',
  NULL, NOW(), 'jiwon', 'N'),
 
--- 공통 어학
-(9, 'Q02', NULL, 'D01', 'TOEIC',
- 'TOEIC은 영어 듣기와 읽기 능력을 평가하는 공인 영어시험입니다.',
- 'YBM 한국TOEIC위원회',
- 52500, NULL, 26200,
- NULL,
+(77, 'Q01', NULL, 'D01', '검색광고마케터 1급',
+ '검색광고 및 디지털마케팅 실무역량을 평가하는 자격',
+ '한국정보통신진흥협회',
+ 50000, NULL, NULL,
+ 'https://manager.ihd.or.kr/introducesubject5.do',
  NULL, NOW(), 'jiwon', 'N'),
 
-(10, 'Q02', NULL, 'D01', 'TOEIC Speaking',
- 'TOEIC Speaking은 영어 말하기 능력을 평가하는 공인 영어시험입니다.',
- 'YBM 한국TOEIC위원회',
- 84000, NULL, 67200,
- NULL,
+(78, 'Q01', NULL, 'D01', '유통관리사 2급',
+ '유통경영 및 유통관리 실무능력을 평가하는 국가공인자격',
+ '대한상공회의소',
+ 29700, NULL, NULL,
+ 'https://license.korcham.net/co/examguide.do?cd=0201&mm=31',
  NULL, NOW(), 'jiwon', 'N'),
 
-(11, 'Q02', NULL, 'D01', 'OPIc',
- 'OPIc은 실제 상황 중심의 영어 말하기 능력을 평가하는 공인 영어시험입니다.',
- '멀티캠퍼스',
- 84000, NULL, 55000,
- NULL,
+(79, 'Q01', NULL, 'D01', '국제무역사 1급',
+ '무역계약·결제·통관 등 무역실무 역량을 평가하는 자격',
+ '한국무역협회',
+ 55000, NULL, NULL,
+ 'https://newtradecampus.kita.net/outlink/user_certificate_exam1',
  NULL, NOW(), 'jiwon', 'N'),
 
--- 공무원 대표 자격증
-(12, 'Q01', NULL, 'D01', '한국사능력검정시험',
- '한국사능력검정시험으로 한국사에 대한 이해와 역사적 사고력을 평가하는 인증시험입니다.',
+(80, 'Q01', NULL, 'D01', '무역영어 1급',
+ '무역영어 및 무역실무 능력을 평가하는 국가공인자격',
+ '대한상공회의소',
+ 33000, NULL, NULL,
+ 'https://license.korcham.net/co/examguide.do?cd=0301&mm=51',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(81, 'Q01', NULL, 'D01', '원산지관리사',
+ 'FTA 원산지 판정·관리 및 수출입 업무 역량을 평가하는 자격',
+ '한국원산지정보원',
+ 50000, NULL, NULL,
+ 'https://www.ftaedu.or.kr/intro/?type=supervisor',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(82, 'Q01', NULL, 'D01', '화물운송종사자격',
+ '사업용 화물자동차 운송업무에 필요한 전문지식을 평가하는 자격',
+ '한국교통안전공단',
+ 11500, NULL, NULL,
+ 'https://main.kotsa.or.kr/portal/contents.do?menuCode=01050300',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(83, 'Q01', NULL, 'D01', 'ISTQB CTFL',
+ '소프트웨어 테스트 기본지식과 테스트 프로세스 이해도를 평가하는 국제자격',
+ 'KSTQB',
+ 198000, NULL, NULL,
+ 'https://www.sten.or.kr/',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(84, 'Q01', NULL, 'D01', 'AWS Certified Cloud Practitioner',
+ 'AWS 클라우드 기본 개념과 서비스 이해도를 평가하는 인증',
+ 'Amazon Web Services',
+ 131525, NULL, NULL,
+ 'https://aws.amazon.com/ko/certification/certified-cloud-practitioner/',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(85, 'Q01', NULL, 'D01', '정보보안기사',
+ '정보보안 시스템 구축·운영 및 보안관리 역량을 평가하는 국가기술자격',
+ '한국방송통신전파진흥원',
+ 19400, 22600, NULL,
+ 'https://www.cq.or.kr/qh_quagm01_020.do',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(86, 'Q01', NULL, 'D01', '정보통신기사',
+ '정보통신 설비 구축·운영 전문성을 평가하는 국가기술자격',
+ '한국방송통신전파진흥원',
+ 19400, 22600, NULL,
+ 'https://www.cq.or.kr/qh_quagm01_003.do',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(87, 'Q01', NULL, 'D01', '무선설비기사',
+ '무선통신 설비 설계·시공·운영 역량을 평가하는 국가기술자격',
+ '한국방송통신전파진흥원',
+ 19400, 62000, NULL,
+ 'https://www.cq.or.kr/qh_quagm01_005.do',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(88, 'Q01', NULL, 'D01', 'CS Leaders(관리사)',
+ '고객응대와 서비스경영 실무역량을 평가하는 국가공인 민간자격',
+ '한국정보평가협회',
+ 70000, NULL, NULL,
+ 'https://www.kie.or.kr/kiehomepage/fc/licenceCSLeadersG1',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(89, 'Q01', NULL, 'D01', '투자자산운용사',
+ '집합투자재산·신탁재산 등의 투자운용 역량을 평가하는 금융자격',
+ '한국금융투자협회',
+ 50000, NULL, NULL,
+ 'https://license.kofia.or.kr/examInfo/examInfo.do',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(90, 'Q01', NULL, 'D01', '금융투자분석사',
+ '금융투자상품 분석·평가 역량을 검정하는 금융자격',
+ '한국금융투자협회',
+ 50000, NULL, NULL,
+ 'https://license.kofia.or.kr/examInfo/examInfo.do',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(91, 'Q01', NULL, 'D01', 'AFPK',
+ '개인 재무설계에 필요한 종합적인 금융지식을 평가하는 자격',
+ '한국재무설계협회',
+ 66000, NULL, NULL,
+ 'https://www.fpsbkorea.org/?mnu_usn=30',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(92, 'Q01', NULL, 'D01', '외환전문역 II종',
+ '기업 외환 및 국제금융 업무 전문성을 평가하는 금융자격',
+ '한국금융연수원',
+ 55000, NULL, NULL,
+ 'https://www.kbi.or.kr/platformWeb/Qual.do?cmd=openPage&p_iQlfn=10&pageName=qualInfo',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(93, 'Q01', NULL, 'D01', '신용분석사',
+ '기업신용 분석 및 신용등급 평가 역량을 평가하는 금융자격',
+ '한국금융연수원',
+ 66000, NULL, NULL,
+ 'https://www.kbi.or.kr/platformWeb/Qual.do?cmd=openPage&p_iQlfn=01&pageName=qualInfo',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(94, 'Q01', NULL, 'D01', '신용관리사',
+ '신용평가·대출심사·채권관리 관련 실무지식을 평가하는 국가공인 민간자격',
+ '신용정보협회',
+ 50000, NULL, NULL,
+ 'https://www.cica.or.kr/exam/credit/guide',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(95, 'Q01', NULL, 'D01', '보험계리사',
+ '보험상품의 위험률·보험료·책임준비금 등을 분석하는 국가전문자격',
+ '보험개발원',
+ 30000, 50000, NULL,
+ 'https://certi.kidi.or.kr:10443/exam/receipt/rcept-guide',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(96, 'Q01', NULL, 'D01', '신체손해사정사',
+ '신체 관련 보험사고의 손해액 및 보험금을 산정하는 국가전문자격',
+ '보험개발원',
+ 30000, 50000, NULL,
+ 'https://certi.kidi.or.kr:10443/exam/receipt/rcept-guide',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(97, 'Q01', NULL, 'D01', 'IPAT 지식재산능력시험',
+ '지식재산 제도 및 실무 활용능력을 평가하는 시험',
+ '한국발명진흥회',
+ 35000, NULL, NULL,
+ 'https://www.ipat.or.kr/',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(98, 'Q01', NULL, 'D01', 'ITT 전문 통번역',
+ '전문 통역·번역 역량을 평가하는 등록민간자격',
+ '국제통역번역협회',
+ 110000, NULL, NULL,
+ 'https://www.itt.or.kr/web/professional/summary.php',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(99, 'Q01', NULL, 'D01', 'TCT 번역능력인정시험 2급',
+ '전문 번역능력을 평가하는 번역능력인정시험',
+ '한국번역가협회',
+ 77000, NULL, NULL,
+ 'https://kst-tct.org/testGiude_01.php',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(100, 'Q01', NULL, 'D01', '신변보호사',
+ '신변보호 업무에 필요한 이론 및 실무능력을 평가하는 국가공인 민간자격',
+ '(사)한국경비협회',
+ 70000, NULL, NULL,
+ 'https://www.ksan.or.kr/test/info.do',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(101, 'Q01', NULL, 'D01', '보건의료정보관리사',
+ '보건의료정보의 분류·관리 및 분석 역량을 평가하는 국가시험',
+ '한국보건의료인국가시험원',
+ 110000, NULL, NULL,
+ 'https://www.kuksiwon.or.kr/subcnt/c_2018/1/view.do?seq=7',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(102, 'Q01', NULL, 'D01', '위생사',
+ '환경·식품·공중위생 분야 전문지식을 평가하는 국가시험',
+ '한국보건의료인국가시험원',
+ 88000, NULL, NULL,
+ 'https://www.kuksiwon.or.kr/subcnt/c_2021/1/view.do?seq=7&itm_seq=21',
+ NULL, NOW(), 'jiwon', 'N'),
+
+-- ★ 공무원 공통 추천용
+(103, 'Q01', NULL, 'D01', '한국사능력검정시험(심화)',
+ '한국사 이해 및 역사적 사고력을 평가하며 점수에 따라 1·2·3급을 부여하는 인증시험',
  '국사편찬위원회',
  27000, NULL, NULL,
- 'https://www.historyexam.go.kr',
+ 'https://www.historyexam.go.kr/pageLink.do?link=apyexmInfo',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(104, 'Q01', NULL, 'D01', 'KBS한국어능력시험',
+ '한국어 사용능력 및 국어문화 이해도를 평가하는 국가공인 시험',
+ 'KBS',
+ 33000, NULL, NULL,
+ 'https://www.kbskorean.org/klt/helper/exam-process',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(105, 'Q01', NULL, 'D01', '무대예술전문인 3급',
+ '무대기계·무대조명·무대음향 분야 전문성을 평가하는 국가자격',
+ '국립중앙극장 무대예술전문인 자격검정위원회',
+ 13000, 15000, NULL,
+ 'https://www.ntok.go.kr/staff/examguide/qualificationexam',
+ NULL, NOW(), 'jiwon', 'N'),
+
+-- =========================================================
+-- Q02 · 어학
+-- =========================================================
+(106, 'Q02', NULL, 'D01', 'TOEIC',
+ '영어 듣기와 읽기 능력을 평가하는 공인 영어시험',
+ 'YBM 한국TOEIC위원회',
+ 52500, NULL, 26250,
+ 'https://exam.toeic.co.kr/',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(107, 'Q02', NULL, 'D01', 'TOEIC Speaking',
+ '영어 말하기 의사소통 능력을 평가하는 공인 영어시험',
+ 'YBM 한국TOEIC위원회',
+ 84000, NULL, 67200,
+ 'https://www.toeicswt.co.kr/',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(108, 'Q02', NULL, 'D01', 'OPIc',
+ '실제 상황 중심의 영어 말하기 능력을 평가하는 공인 영어시험',
+ '멀티캠퍼스',
+ 84000, NULL, 55000,
+ 'https://www.opic.or.kr/',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(109, 'Q02', NULL, 'D01', 'HSK 5급',
+ '중국어 고급 활용능력을 평가하는 중국어능력시험',
+ 'HSK한국사무국',
+ 100000, NULL, NULL,
+ 'https://www.hsk.or.kr/?c1=600&c2=006&c3=009&testcode=hsk',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(110, 'Q02', NULL, 'D01', 'HSK 6급',
+ '중국어 최고급 수준의 활용능력을 평가하는 중국어능력시험',
+ 'HSK한국사무국',
+ 120000, NULL, NULL,
+ 'https://www.hsk.or.kr/?c1=600&c2=006&c3=009&testcode=hsk',
+ NULL, NOW(), 'jiwon', 'N'),
+
+(111, 'Q02', NULL, 'D01', 'JLPT N1',
+ '일본어 고급 읽기·듣기 능력을 평가하는 일본어능력시험',
+ 'JLPT',
+ 75000, NULL, NULL,
+ 'https://www.jlpt.or.kr/html/information_01.html',
  NULL, NOW(), 'jiwon', 'N');
 
+
 -- --------------------------------------------------------------------
---  [지원] 진로/자격증·어학 시험일정(job_qualification_schedule)
---  테이블: job_qualification_schedule
+-- [지원] 진로/자격증 시험일정
+-- 테이블: job_qualification_schedule
+-- Q-Net API 동기화 결과 (2026년)
 -- --------------------------------------------------------------------
+
 INSERT INTO job_qualification_schedule
-( schedule_id, qual_id, exam_year, exam_round, written_reg_start_date, written_reg_end_date, written_exam_start_date, written_exam_end_date,
-  written_result_date, practical_reg_start_date, practical_reg_end_date, practical_exam_start_date, practical_exam_end_date, practical_result_date,
-  last_synced_date, created_date, created_nm, del_yn)
+( schedule_id, qual_id, exam_year, exam_round, written_reg_start_date, written_reg_end_date, written_exam_start_date,
+    written_exam_end_date, written_result_date, practical_reg_start_date, practical_reg_end_date,
+    practical_exam_start_date, practical_exam_end_date, practical_result_date, last_synced_date, created_date,
+    created_nm, del_yn)
 VALUES
--- 정보처리기사 2026년 정기 기사 1회
-(1, 1, 2026, '1회',
- '2026-01-12', '2026-01-15',
- '2026-01-30', '2026-03-03',
- '2026-03-11',
- '2026-03-23', '2026-03-26',
- '2026-04-18', '2026-05-06',
- '2026-06-12',
- NOW(), NOW(), 'jiwon', 'N'),
+    ('1','3','2026','29회','2026-05-11','2026-05-15','2026-06-27','2026-06-27','2026-07-29','2026-08-10','2026-08-14','2026-09-19','2026-09-19','2026-12-02','2026-08-19 05:59:02','2026-08-19 05:59:02','QNET_BATCH','N'),
+    ('2','4','2026','24회','2026-01-26','2026-01-30','2026-03-07','2026-03-07','2026-04-15','2026-05-18','2026-05-22','2026-06-20','2026-06-20','2026-08-12','2026-08-19 05:59:03','2026-08-19 05:59:03','QNET_BATCH','N'),
+    ('3','5','2026','30회','2026-06-22','2026-06-26','2026-07-25','2026-07-25','2026-08-26',NULL,NULL,NULL,NULL,NULL,'2026-08-19 05:59:04','2026-08-19 05:59:04','QNET_BATCH','N'),
+    ('4','6','2026','43회','2026-02-02','2026-02-06','2026-03-14','2026-03-14','2026-04-15','2026-05-11','2026-05-15','2026-06-13','2026-06-13','2026-10-14','2026-08-19 05:59:06','2026-08-19 05:59:06','QNET_BATCH','N'),
 
--- 정보처리기사 2026년 정기 기사 2회
-(2, 1, 2026, '2회',
- '2026-04-20', '2026-04-23',
- '2026-05-09', '2026-05-29',
- '2026-06-10',
- '2026-06-22', '2026-06-25',
- '2026-07-18', '2026-08-05',
- '2026-09-11',
- NOW(), NOW(), 'jiwon', 'N'),
+    ('5','8','2026','1회','2026-01-12','2026-01-15','2026-01-30','2026-03-03','2026-03-11','2026-03-23','2026-03-26','2026-04-18','2026-05-06','2026-06-12','2026-08-19 06:00:11','2026-08-19 06:00:11','QNET_BATCH','N'),
+    ('6','8','2026','2회','2026-04-20','2026-04-23','2026-05-09','2026-05-29','2026-06-10','2026-06-22','2026-06-25','2026-07-18','2026-08-05','2026-09-11','2026-08-19 06:00:11','2026-08-19 06:00:11','QNET_BATCH','N'),
+    ('7','8','2026','3회','2026-07-20','2026-07-23','2026-08-07','2026-09-01','2026-09-09','2026-09-21','2026-09-28','2026-10-24','2026-11-13','2026-12-18','2026-08-19 06:00:11','2026-08-19 06:00:11','QNET_BATCH','N'),
 
--- 정보처리기사 2026년 정기 기사 3회
-(3, 1, 2026, '3회',
- '2026-08-10', '2026-08-13',
- '2026-09-07', '2026-10-01',
- '2026-10-09',
- '2026-10-20', '2026-10-23',
- '2026-11-21', '2026-12-10',
- '2027-01-15',
- NOW(), NOW(), 'jiwon', 'N');
+    ('8','9','2026','1회','2026-01-12','2026-01-15','2026-01-30','2026-03-03','2026-03-11','2026-03-23','2026-03-26','2026-04-18','2026-05-06','2026-06-12','2026-08-19 06:00:14','2026-08-19 06:00:14','QNET_BATCH','N'),
+    ('9','9','2026','2회','2026-04-20','2026-04-23','2026-05-09','2026-05-29','2026-06-10','2026-06-22','2026-06-25','2026-07-18','2026-08-05','2026-09-11','2026-08-19 06:00:14','2026-08-19 06:00:14','QNET_BATCH','N'),
+    ('10','9','2026','3회','2026-07-20','2026-07-23','2026-08-07','2026-09-01','2026-09-09','2026-09-21','2026-09-28','2026-10-24','2026-11-13','2026-12-18','2026-08-19 06:00:14','2026-08-19 06:00:14','QNET_BATCH','N'),
 
+    ('11','11','2026','1회','2026-01-12','2026-01-15','2026-01-30','2026-03-03','2026-03-11','2026-03-23','2026-03-26','2026-04-18','2026-05-06','2026-06-12','2026-08-19 06:00:59','2026-08-19 06:00:59','QNET_BATCH','N'),
+    ('12','11','2026','2회','2026-04-20','2026-04-23','2026-05-09','2026-05-29','2026-06-10','2026-06-22','2026-06-25','2026-07-18','2026-08-05','2026-09-11','2026-08-19 06:00:59','2026-08-19 06:00:59','QNET_BATCH','N'),
+    ('13','11','2026','3회','2026-07-20','2026-07-23','2026-08-07','2026-09-01','2026-09-09','2026-09-21','2026-09-28','2026-10-24','2026-11-13','2026-12-18','2026-08-19 06:00:59','2026-08-19 06:00:59','QNET_BATCH','N'),
 
+    ('14','12','2026','1회','2026-01-12','2026-01-15','2026-01-30','2026-03-03','2026-03-11','2026-03-23','2026-03-26','2026-04-18','2026-05-06','2026-06-12','2026-08-19 06:01:03','2026-08-19 06:01:03','QNET_BATCH','N'),
+    ('15','12','2026','2회','2026-04-20','2026-04-23','2026-05-09','2026-05-29','2026-06-10','2026-06-22','2026-06-25','2026-07-18','2026-08-05','2026-09-11','2026-08-19 06:01:03','2026-08-19 06:01:03','QNET_BATCH','N'),
+    ('16','12','2026','3회','2026-07-20','2026-07-23','2026-08-07','2026-09-01','2026-09-09','2026-09-21','2026-09-28','2026-10-24','2026-11-13','2026-12-18','2026-08-19 06:01:03','2026-08-19 06:01:03','QNET_BATCH','N'),
+
+    ('17','14','2026','1회','2026-01-12','2026-01-15','2026-01-30','2026-03-03','2026-03-11','2026-03-23','2026-03-26','2026-04-18','2026-05-06','2026-06-12','2026-08-19 06:01:49','2026-08-19 06:01:49','QNET_BATCH','N'),
+    ('18','14','2026','2회','2026-04-20','2026-04-23','2026-05-09','2026-05-29','2026-06-10','2026-06-22','2026-06-25','2026-07-18','2026-08-05','2026-09-11','2026-08-19 06:01:49','2026-08-19 06:01:49','QNET_BATCH','N'),
+    ('19','14','2026','3회','2026-07-20','2026-07-23','2026-08-07','2026-09-01','2026-09-09','2026-09-21','2026-09-28','2026-10-24','2026-11-13','2026-12-18','2026-08-19 06:01:49','2026-08-19 06:01:49','QNET_BATCH','N'),
+
+    ('20','15','2026','1회','2026-01-12','2026-01-15','2026-01-30','2026-03-03','2026-03-11','2026-03-23','2026-03-26','2026-04-18','2026-05-06','2026-06-12','2026-08-19 06:01:52','2026-08-19 06:01:52','QNET_BATCH','N'),
+    ('21','15','2026','2회','2026-04-20','2026-04-23','2026-05-09','2026-05-29','2026-06-10','2026-06-22','2026-06-25','2026-07-18','2026-08-05','2026-09-11','2026-08-19 06:01:52','2026-08-19 06:01:52','QNET_BATCH','N'),
+    ('22','15','2026','3회','2026-07-20','2026-07-23','2026-08-07','2026-09-01','2026-09-09','2026-09-21','2026-09-28','2026-10-24','2026-11-13','2026-12-18','2026-08-19 06:01:52','2026-08-19 06:01:52','QNET_BATCH','N'),
+
+    ('23','17','2026','1회','2026-01-12','2026-01-15','2026-01-30','2026-03-03','2026-03-11','2026-03-23','2026-03-26','2026-04-18','2026-05-06','2026-06-12','2026-08-19 06:02:59','2026-08-19 06:02:59','QNET_BATCH','N'),
+    ('24','17','2026','2회','2026-04-20','2026-04-23','2026-05-09','2026-05-29','2026-06-10','2026-06-22','2026-06-25','2026-07-18','2026-08-05','2026-09-11','2026-08-19 06:02:59','2026-08-19 06:02:59','QNET_BATCH','N'),
+    ('25','17','2026','3회','2026-07-20','2026-07-23','2026-08-07','2026-09-01','2026-09-09','2026-09-21','2026-09-28','2026-10-24','2026-11-13','2026-12-18','2026-08-19 06:02:59','2026-08-19 06:02:59','QNET_BATCH','N'),
+
+    ('26','18','2026','1회','2026-01-12','2026-01-15','2026-01-30','2026-03-03','2026-03-11','2026-03-23','2026-03-26','2026-04-18','2026-05-06','2026-06-12','2026-08-19 06:03:01','2026-08-19 06:03:01','QNET_BATCH','N'),
+    ('27','18','2026','2회','2026-04-20','2026-04-23','2026-05-09','2026-05-29','2026-06-10','2026-06-22','2026-06-25','2026-07-18','2026-08-05','2026-09-11','2026-08-19 06:03:01','2026-08-19 06:03:01','QNET_BATCH','N'),
+    ('28','18','2026','3회','2026-07-20','2026-07-23','2026-08-07','2026-09-01','2026-09-09','2026-09-21','2026-09-28','2026-10-24','2026-11-13','2026-12-18','2026-08-19 06:03:01','2026-08-19 06:03:01','QNET_BATCH','N'),
+
+    ('29','19','2026','1회','2026-01-12','2026-01-15','2026-01-30','2026-03-03','2026-03-11','2026-03-23','2026-03-26','2026-04-18','2026-05-06','2026-06-12','2026-08-19 06:03:05','2026-08-19 06:03:05','QNET_BATCH','N'),
+    ('30','19','2026','2회','2026-04-20','2026-04-23','2026-05-09','2026-05-29','2026-06-10','2026-06-22','2026-06-25','2026-07-18','2026-08-05','2026-09-11','2026-08-19 06:03:05','2026-08-19 06:03:05','QNET_BATCH','N'),
+    ('31','19','2026','3회','2026-07-20','2026-07-23','2026-08-07','2026-09-01','2026-09-09','2026-09-21','2026-09-28','2026-10-24','2026-11-13','2026-12-18','2026-08-19 06:03:05','2026-08-19 06:03:05','QNET_BATCH','N'),
+
+    ('32','20','2026','1회','2026-01-12','2026-01-15','2026-01-30','2026-03-03','2026-03-11','2026-03-23','2026-03-26','2026-04-18','2026-05-06','2026-06-12','2026-08-19 06:03:07','2026-08-19 06:03:07','QNET_BATCH','N'),
+    ('33','20','2026','2회','2026-04-20','2026-04-23','2026-05-09','2026-05-29','2026-06-10','2026-06-22','2026-06-25','2026-07-18','2026-08-05','2026-09-11','2026-08-19 06:03:07','2026-08-19 06:03:07','QNET_BATCH','N'),
+    ('34','20','2026','3회','2026-07-20','2026-07-23','2026-08-07','2026-09-01','2026-09-09','2026-09-21','2026-09-28','2026-10-24','2026-11-13','2026-12-18','2026-08-19 06:03:07','2026-08-19 06:03:07','QNET_BATCH','N'),
+
+    ('35','22','2026','1회','2026-01-12','2026-01-15','2026-01-30','2026-03-03','2026-03-11','2026-03-23','2026-03-26','2026-04-18','2026-05-06','2026-06-12','2026-08-19 06:03:54','2026-08-19 06:03:54','QNET_BATCH','N'),
+    ('36','22','2026','2회','2026-04-20','2026-04-23','2026-05-09','2026-05-29','2026-06-10','2026-06-22','2026-06-25','2026-07-18','2026-08-05','2026-09-11','2026-08-19 06:03:54','2026-08-19 06:03:54','QNET_BATCH','N'),
+    ('37','22','2026','3회','2026-07-20','2026-07-23','2026-08-07','2026-09-01','2026-09-09','2026-09-21','2026-09-28','2026-10-24','2026-11-13','2026-12-18','2026-08-19 06:03:54','2026-08-19 06:03:54','QNET_BATCH','N'),
+
+    ('38','23','2026','1회','2026-01-12','2026-01-15','2026-01-30','2026-03-03','2026-03-11','2026-03-23','2026-03-26','2026-04-18','2026-05-06','2026-06-12','2026-08-19 06:03:57','2026-08-19 06:03:57','QNET_BATCH','N'),
+    ('39','23','2026','2회','2026-04-20','2026-04-23','2026-05-09','2026-05-29','2026-06-10','2026-06-22','2026-06-25','2026-07-18','2026-08-05','2026-09-11','2026-08-19 06:03:57','2026-08-19 06:03:57','QNET_BATCH','N'),
+    ('40','23','2026','3회','2026-07-20','2026-07-23','2026-08-07','2026-09-01','2026-09-09','2026-09-21','2026-09-28','2026-10-24','2026-11-13','2026-12-18','2026-08-19 06:03:57','2026-08-19 06:03:57','QNET_BATCH','N'),
+
+    ('41','28','2026','37회','2026-08-03','2026-08-07','2026-10-31','2026-10-31','2026-12-02','2026-08-03','2026-08-07','2026-10-31','2026-10-31','2026-12-02','2026-08-19 06:07:27','2026-08-19 06:07:27','QNET_BATCH','N'),
+
+    ('42','31','2026','1회','2026-01-12','2026-01-15','2026-01-30','2026-03-03','2026-03-11','2026-03-23','2026-03-26','2026-04-18','2026-05-06','2026-06-12','2026-08-19 06:08:34','2026-08-19 06:08:34','QNET_BATCH','N'),
+    ('43','31','2026','2회','2026-04-20','2026-04-23','2026-05-09','2026-05-29','2026-06-10','2026-06-22','2026-06-25','2026-07-18','2026-08-05','2026-09-11','2026-08-19 06:08:34','2026-08-19 06:08:34','QNET_BATCH','N'),
+    ('44','31','2026','3회','2026-07-20','2026-07-23','2026-08-07','2026-09-01','2026-09-09','2026-09-21','2026-09-28','2026-10-24','2026-11-13','2026-12-18','2026-08-19 06:08:34','2026-08-19 06:08:34','QNET_BATCH','N'),
+
+    ('45','33','2026','1회','2026-01-12','2026-01-15','2026-01-30','2026-03-03','2026-03-11','2026-03-23','2026-03-26','2026-04-18','2026-05-06','2026-06-12','2026-08-19 06:09:20','2026-08-19 06:09:20','QNET_BATCH','N'),
+    ('46','33','2026','2회','2026-04-20','2026-04-23','2026-05-09','2026-05-29','2026-06-10','2026-06-22','2026-06-25','2026-07-18','2026-08-05','2026-09-11','2026-08-19 06:09:20','2026-08-19 06:09:20','QNET_BATCH','N'),
+    ('47','33','2026','3회','2026-07-20','2026-07-23','2026-08-07','2026-09-01','2026-09-09','2026-09-21','2026-09-28','2026-10-24','2026-11-13','2026-12-18','2026-08-19 06:09:20','2026-08-19 06:09:20','QNET_BATCH','N'),
+
+    ('48','36','2026','1회','2026-01-12','2026-01-15','2026-01-30','2026-03-03','2026-03-11','2026-03-23','2026-03-26','2026-04-18','2026-05-06','2026-06-12','2026-08-19 06:10:07','2026-08-19 06:10:07','QNET_BATCH','N'),
+    ('49','36','2026','2회','2026-04-20','2026-04-23','2026-05-09','2026-05-29','2026-06-10','2026-06-22','2026-06-25','2026-07-18','2026-08-05','2026-09-11','2026-08-19 06:10:07','2026-08-19 06:10:07','QNET_BATCH','N'),
+    ('50','36','2026','3회','2026-07-20','2026-07-23','2026-08-07','2026-09-01','2026-09-09','2026-09-21','2026-09-28','2026-10-24','2026-11-13','2026-12-18','2026-08-19 06:10:07','2026-08-19 06:10:07','QNET_BATCH','N'),
+
+    ('51','41','2026','3회','2026-07-20','2026-07-23','2026-08-07','2026-09-01','2026-09-09','2026-09-21','2026-09-28','2026-10-24','2026-11-13','2026-12-18','2026-08-19 06:12:14','2026-08-19 06:12:14','QNET_BATCH','N'),
+
+    ('52','47','2026','2회','2026-04-20','2026-04-23','2026-05-09','2026-05-29','2026-06-10','2026-06-22','2026-06-25','2026-07-18','2026-08-05','2026-09-11','2026-08-19 06:25:25','2026-08-19 06:25:25','QNET_BATCH','N'),
+
+    ('53','52','2026','28회','2026-09-14','2026-09-18','2026-11-21','2026-11-21','2026-12-31','2026-09-14','2026-09-18','2026-11-21','2026-11-21','2026-12-31','2026-08-19 06:26:53','2026-08-19 06:26:53','QNET_BATCH','N'),
+
+    ('54','53','2026','24회','2025-12-08','2025-12-12','2026-01-17','2026-01-17','2026-03-25',NULL,NULL,NULL,NULL,NULL,'2026-08-19 06:26:55','2026-08-19 06:26:55','QNET_BATCH','N'),
+
+    ('55','55','2026','26회','2026-07-06','2026-07-10','2026-09-05','2026-09-05','2026-10-21','2026-07-06','2026-07-10','2026-11-14','2026-11-15','2026-12-16','2026-08-19 06:26:57','2026-08-19 06:26:57','QNET_BATCH','N');
 -- --------------------------------------------------------------------
--- [지원] 진로/추천 인강
--- 테이블: job_course
--- --------------------------------------------------------------------
-INSERT INTO job_course
-(course_id, course_type, provider_name, course_name, original_price, discount_price, military_price, benefit_detail, detail_url, created_date, created_nm, del_yn)
-VALUES
-    (1, 'C01', '인프런', '정보처리기사 실기', 88000, 88000, 88000, '정보처리기사 실기 대비', NULL, NOW(), 'jiwon', 'N'),
-    (2, 'C01', '인프런', '정보처리기사 필기', 44000, 33000, 33000, '정보처리기사 필기 대비', NULL, NOW(), 'jiwon', 'N'),
-    (3, 'C01', '에듀온', '정보처리산업기사 패키지', 220000, 131000, 131000, '정보처리산업기사 필기·실기', NULL, NOW(), 'jiwon', 'N'),
-    (4, 'C01', 'YouTube', '이기적 프로그래밍기능사 필기', 0, 0, 0, '무료 필기 강의', NULL, NOW(), 'jiwon', 'N'),
-    (5, 'C01', 'YouTube', '이기적 프로그래밍기능사 실기', 0, 0, 0, '무료 실기 강의', NULL, NOW(), 'jiwon', 'N'),
-    (6, 'C01', 'YBM', 'ETS TOEIC 단기 공략 750+', 146000, 116800, 116800, 'TOEIC 750+ 대비', NULL, NOW(), 'jiwon', 'N'),
-    (7, 'C01', 'YouTube', '제이크 TOEIC Speaking', 0, 0, 0, '무료 TOEIC Speaking 강의', NULL, NOW(), 'jiwon', 'N'),
-    (8, 'C01', 'YouTube', '오픽노잼 OPIc IH·AL', 0, 0, 0, '무료 OPIc 강의', NULL, NOW(), 'jiwon', 'N'),
-    (9, 'C02', '공단기', '27대비 9급 환급 프리패스', 1080000, 780000, 780000, '9급 행정직 환급 패스', NULL, NOW(), 'jiwon', 'N'),
-    (10, 'C02', '넥스트공무원', '전 직렬 환급형 더블패스 2027', 730000, 580000, 580000, '9급 행정직 환급 패스', NULL, NOW(), 'jiwon', 'N'),
-    (11, 'C02', '해커스공무원', '9급 행정직 전직렬 합불 0원 패스', 1099000, 299000, 299000, '9급 행정직 환급 패스', NULL, NOW(), 'jiwon', 'N'),
-    (12, 'C02', '공단기', '27대비 9급 군무원 환급 직렬패스', 980000, 680000, 680000, '군무원 9급 환급 패스', NULL, NOW(), 'jiwon', 'N'),
-    (13, 'C02', '해커스공무원', '27년 대비 9급 군무원 기적의 패스', 749000, 339000, 339000, '군무원 9급 종합 패스', NULL, NOW(), 'jiwon', 'N'),
-    (14, 'C03', '김영편입', '2027+2028 김영패스 원더 [자연]', 1570000, 1470000, 1370000, '자연계 편입 종합 패스', NULL, NOW(), 'jiwon', 'N'),
-    (15, 'C03', '해커스편입', '자연계 최대 400% 환급반', 1390000, 890000, 790000, '자연계 편입 환급반', NULL, NOW(), 'jiwon', 'N'),
-    (16, 'C03', '에듀윌 편입', '에듀윌 편입 ALL PASS', 1090000, 790000, 690000, '편입 통합 패스', NULL, NOW(), 'jiwon', 'N'),
-    (17, 'C03', '김영편입', '2027+2028 김영패스 원더 [인문]', 1370000, 1270000, 1170000, '인문계 편입 종합 패스', NULL, NOW(), 'jiwon', 'N'),
-    (18, 'C03', '해커스편입', '인문계 최대 400% 환급반', 1290000, 790000, 690000, '인문계 편입 환급반', NULL, NOW(), 'jiwon', 'N');
-
--- --------------------------------------------------------------------
--- [지원] 진로/직무·직렬별 자격증·어학 매핑
+-- [지원] 진로/취업 직무별 자격증·어학 매핑
 -- 테이블: job_category_qualification
 -- --------------------------------------------------------------------
-INSERT INTO job_category_qualification (category_qual_id, category_id, qual_id, created_date, created_nm, del_yn)
+
+INSERT INTO job_category_qualification
+(category_id, qual_id, created_date, created_nm, del_yn)
 VALUES
-    (1, 32, 1, NOW(), 'jiwon', 'N'),
-    (2, 32, 2, NOW(), 'jiwon', 'N'),
-    (3, 32, 3, NOW(), 'jiwon', 'N'),
-    (4, 32, 4, NOW(), 'jiwon', 'N'),
-    (5, 32, 9, NOW(), 'jiwon', 'N'),
-    (6, 32, 10, NOW(), 'jiwon', 'N'),
-    (7, 32, 11, NOW(), 'jiwon', 'N'),
-    (8, 33, 4, NOW(), 'jiwon', 'N'),
-    (9, 33, 5, NOW(), 'jiwon', 'N'),
-    (10, 33, 9, NOW(), 'jiwon', 'N'),
-    (11, 33, 10, NOW(), 'jiwon', 'N'),
-    (12, 33, 11, NOW(), 'jiwon', 'N'),
-    (13, 72, 6, NOW(), 'jiwon', 'N'),
-    (14, 72, 9, NOW(), 'jiwon', 'N'),
-    (15, 72, 10, NOW(), 'jiwon', 'N'),
-    (16, 72, 11, NOW(), 'jiwon', 'N'),
-    (17, 17, 7, NOW(), 'jiwon', 'N'),
-    (18, 17, 9, NOW(), 'jiwon', 'N'),
-    (19, 17, 10, NOW(), 'jiwon', 'N'),
-    (20, 17, 11, NOW(), 'jiwon', 'N'),
-    (21, 23, 8, NOW(), 'jiwon', 'N'),
-    (22, 23, 9, NOW(), 'jiwon', 'N'),
-    (23, 23, 10, NOW(), 'jiwon', 'N'),
-    (24, 23, 11, NOW(), 'jiwon', 'N'),
-    (25, 101, 12, NOW(), 'jiwon', 'N'),
-    (26, 109, 12, NOW(), 'jiwon', 'N');
 
+-- =========================================================
+-- 1. 경영·사무
+-- =========================================================
+-- 17 기획·전략·경영
+(17, 1, NOW(), 'jiwon', 'N'),   -- 사회조사분석사 2급
+(17, 60, NOW(), 'jiwon', 'N'),  -- ADsP
+(17, 72, NOW(), 'jiwon', 'N'),  -- 컴퓨터활용능력 1급
+
+-- 18 인사·노무·교육
+(18, 2, NOW(), 'jiwon', 'N'),   -- 공인노무사
+(18, 62, NOW(), 'jiwon', 'N'),  -- HRM전문가
+(18, 63, NOW(), 'jiwon', 'N'),  -- ERP정보관리사 인사 1급
+
+-- 19 재무·세무·IR
+(19, 68, NOW(), 'jiwon', 'N'),  -- 전산세무 2급
+(19, 71, NOW(), 'jiwon', 'N'),  -- 재경관리사
+(19, 93, NOW(), 'jiwon', 'N'),  -- 신용분석사
+
+-- 20 경리·회계·결산
+(20, 67, NOW(), 'jiwon', 'N'),  -- 전산회계 1급
+(20, 69, NOW(), 'jiwon', 'N'),  -- FAT 1급
+(20, 70, NOW(), 'jiwon', 'N'),  -- TAT 2급
+(20, 71, NOW(), 'jiwon', 'N'),  -- 재경관리사
+
+-- 21 일반사무·총무·비서
+(21, 72, NOW(), 'jiwon', 'N'),  -- 컴퓨터활용능력 1급
+(21, 74, NOW(), 'jiwon', 'N'),  -- 비서 1급
+
+-- 22 법무
+(22, 4, NOW(), 'jiwon', 'N'),   -- 가맹거래사
+(22, 97, NOW(), 'jiwon', 'N'),  -- IPAT 지식재산능력시험
+
+
+-- =========================================================
+-- 2. 마케팅·광고·홍보
+-- =========================================================
+-- 23 마케팅
+(23, 1, NOW(), 'jiwon', 'N'),   -- 사회조사분석사 2급
+(23, 60, NOW(), 'jiwon', 'N'),  -- ADsP
+(23, 77, NOW(), 'jiwon', 'N'),  -- 검색광고마케터 1급
+
+-- 24 광고·홍보
+(24, 76, NOW(), 'jiwon', 'N'),  -- GTQ 1급
+(24, 77, NOW(), 'jiwon', 'N'),  -- 검색광고마케터 1급
+
+
+-- =========================================================
+-- 3. 무역·유통
+-- =========================================================
+-- 25 유통·물류·재고
+(25, 5, NOW(), 'jiwon', 'N'),   -- 물류관리사
+(25, 65, NOW(), 'jiwon', 'N'),  -- ERP정보관리사 물류 1급
+(25, 78, NOW(), 'jiwon', 'N'),  -- 유통관리사 2급
+
+-- 26 무역·해외영업
+(26, 6, NOW(), 'jiwon', 'N'),   -- 관세사
+(26, 79, NOW(), 'jiwon', 'N'),  -- 국제무역사 1급
+(26, 80, NOW(), 'jiwon', 'N'),  -- 무역영어 1급
+(26, 81, NOW(), 'jiwon', 'N'),  -- 원산지관리사
+(26, 106, NOW(), 'jiwon', 'N'), -- TOEIC
+
+-- 27 구매·자재
+(27, 5, NOW(), 'jiwon', 'N'),   -- 물류관리사
+(27, 65, NOW(), 'jiwon', 'N'),  -- ERP정보관리사 물류 1급
+(27, 78, NOW(), 'jiwon', 'N'),  -- 유통관리사 2급
+
+-- 28 운전·운송
+(28, 7, NOW(), 'jiwon', 'N'),   -- 지게차운전기능사
+(28, 82, NOW(), 'jiwon', 'N'),  -- 화물운송종사자격
+
+-- 29 상품기획·MD
+(29, 60, NOW(), 'jiwon', 'N'),  -- ADsP
+(29, 78, NOW(), 'jiwon', 'N'),  -- 유통관리사 2급
+
+
+-- =========================================================
+-- 4. IT·개발
+-- =========================================================
+-- 30 QA
+(30, 8, NOW(), 'jiwon', 'N'),   -- 정보처리기사
+(30, 83, NOW(), 'jiwon', 'N'),  -- ISTQB CTFL
+
+-- 31 앱개발
+(31, 8, NOW(), 'jiwon', 'N'),   -- 정보처리기사
+(31, 61, NOW(), 'jiwon', 'N'),  -- SQLD
+
+-- 32 웹개발
+(32, 8, NOW(), 'jiwon', 'N'),   -- 정보처리기사
+(32, 61, NOW(), 'jiwon', 'N'),  -- SQLD
+
+-- 33 데이터엔지니어·데이터분석·DBA
+(33, 8, NOW(), 'jiwon', 'N'),   -- 정보처리기사
+(33, 60, NOW(), 'jiwon', 'N'),  -- ADsP
+(33, 61, NOW(), 'jiwon', 'N'),  -- SQLD
+
+-- 34 시스템프로그래머
+(34, 8, NOW(), 'jiwon', 'N'),   -- 정보처리기사
+(34, 86, NOW(), 'jiwon', 'N'),  -- 정보통신기사
+
+-- 35 응용프로그래머
+(35, 8, NOW(), 'jiwon', 'N'),   -- 정보처리기사
+(35, 61, NOW(), 'jiwon', 'N'),  -- SQLD
+
+-- 36 네트워크·보안·운영
+(36, 84, NOW(), 'jiwon', 'N'),  -- AWS Certified Cloud Practitioner
+(36, 85, NOW(), 'jiwon', 'N'),  -- 정보보안기사
+(36, 86, NOW(), 'jiwon', 'N'),  -- 정보통신기사
+
+-- 37 AI·빅데이터
+(37, 8, NOW(), 'jiwon', 'N'),   -- 정보처리기사
+(37, 60, NOW(), 'jiwon', 'N'),  -- ADsP
+(37, 61, NOW(), 'jiwon', 'N'),  -- SQLD
+
+-- 38 게임개발
+(38, 8, NOW(), 'jiwon', 'N'),   -- 정보처리기사
+
+-- 39 HW·임베디드
+(39, 38, NOW(), 'jiwon', 'N'),  -- 전자기사
+(39, 86, NOW(), 'jiwon', 'N'),  -- 정보통신기사
+
+-- 40 SW·솔루션·ERP
+(40, 8, NOW(), 'jiwon', 'N'),   -- 정보처리기사
+(40, 61, NOW(), 'jiwon', 'N'),  -- SQLD
+
+-- 41 서비스기획·PM
+(41, 60, NOW(), 'jiwon', 'N'),  -- ADsP
+(41, 72, NOW(), 'jiwon', 'N'),  -- 컴퓨터활용능력 1급
+
+
+-- =========================================================
+-- 5. 생산·제조
+-- =========================================================
+-- 42 생산관리·공정관리·품질관리
+(42, 9, NOW(), 'jiwon', 'N'),   -- 품질경영기사
+(42, 66, NOW(), 'jiwon', 'N'),  -- ERP정보관리사 생산 1급
+
+-- 43 안전·환경관리
+(43, 10, NOW(), 'jiwon', 'N'),  -- 산업안전기사
+(43, 11, NOW(), 'jiwon', 'N'),  -- 대기환경기사
+(43, 12, NOW(), 'jiwon', 'N'),  -- 수질환경기사
+
+-- 44 생산·제조·설비·조립
+(44, 13, NOW(), 'jiwon', 'N'),  -- 설비보전기사
+(44, 66, NOW(), 'jiwon', 'N'),  -- ERP정보관리사 생산 1급
+
+-- 45 설치·정비·AS·시공·공무
+(45, 13, NOW(), 'jiwon', 'N'),  -- 설비보전기사
+(45, 14, NOW(), 'jiwon', 'N'),  -- 전기기사
+
+
+-- =========================================================
+-- 6. 영업·고객상담
+-- =========================================================
+-- 46 제품·서비스영업
+(46, 88, NOW(), 'jiwon', 'N'),  -- CS Leaders(관리사)
+
+-- 47 IT·솔루션·기술영업
+(47, 8, NOW(), 'jiwon', 'N'),   -- 정보처리기사
+(47, 84, NOW(), 'jiwon', 'N'),  -- AWS Certified Cloud Practitioner
+
+-- 48 B2B·법인영업
+(48, 72, NOW(), 'jiwon', 'N'),  -- 컴퓨터활용능력 1급
+(48, 106, NOW(), 'jiwon', 'N'), -- TOEIC
+
+-- 49 영업관리·지원·기획
+(49, 72, NOW(), 'jiwon', 'N'),  -- 컴퓨터활용능력 1급
+
+-- 50 아웃바운드
+(50, 15, NOW(), 'jiwon', 'N'),  -- 텔레마케팅관리사
+(50, 88, NOW(), 'jiwon', 'N'),  -- CS Leaders(관리사)
+
+-- 51 인바운드
+(51, 15, NOW(), 'jiwon', 'N'),  -- 텔레마케팅관리사
+(51, 88, NOW(), 'jiwon', 'N'),  -- CS Leaders(관리사)
+
+-- 52 고객응대·CS
+(52, 88, NOW(), 'jiwon', 'N'),  -- CS Leaders(관리사)
+
+-- 53 금융·보험영업
+(53, 89, NOW(), 'jiwon', 'N'),  -- 투자자산운용사
+(53, 91, NOW(), 'jiwon', 'N'),  -- AFPK
+
+
+-- =========================================================
+-- 7. 건설
+-- =========================================================
+-- 54 현장·시공·감리·공무
+(54, 16, NOW(), 'jiwon', 'N'),  -- 건설안전기사
+(54, 17, NOW(), 'jiwon', 'N'),  -- 건축기사
+(54, 18, NOW(), 'jiwon', 'N'),  -- 토목기사
+
+-- 55 안전·품질관리
+(55, 9, NOW(), 'jiwon', 'N'),   -- 품질경영기사
+(55, 16, NOW(), 'jiwon', 'N'),  -- 건설안전기사
+
+-- 56 전기·통신
+(56, 14, NOW(), 'jiwon', 'N'),  -- 전기기사
+(56, 19, NOW(), 'jiwon', 'N'),  -- 전기공사기사
+(56, 20, NOW(), 'jiwon', 'N'),  -- 소방설비기사(전기분야)
+(56, 86, NOW(), 'jiwon', 'N'),  -- 정보통신기사
+
+-- 57 기계·설비·화학
+(57, 21, NOW(), 'jiwon', 'N'),  -- 일반기계기사
+(57, 23, NOW(), 'jiwon', 'N'),  -- 공조냉동기계기사
+
+-- 58 토목·조경·도시
+(58, 18, NOW(), 'jiwon', 'N'),  -- 토목기사
+(58, 24, NOW(), 'jiwon', 'N'),  -- 조경기사
+(58, 25, NOW(), 'jiwon', 'N'),  -- 도시계획기사
+
+-- 59 건축·설계·인테리어
+(59, 17, NOW(), 'jiwon', 'N'),  -- 건축기사
+(59, 26, NOW(), 'jiwon', 'N'),  -- 실내건축기사
+(59, 27, NOW(), 'jiwon', 'N'),  -- 전산응용건축제도기능사
+
+-- 60 환경·플랜트
+(60, 11, NOW(), 'jiwon', 'N'),  -- 대기환경기사
+(60, 12, NOW(), 'jiwon', 'N'),  -- 수질환경기사
+(60, 33, NOW(), 'jiwon', 'N'),  -- 에너지관리기사
+
+-- 61 부동산·영업·견적
+(61, 3, NOW(), 'jiwon', 'N'),   -- 주택관리사보
+(61, 28, NOW(), 'jiwon', 'N'),  -- 공인중개사
+
+
+-- =========================================================
+-- 8. 금융
+-- =========================================================
+-- 62 증권·투자
+(62, 89, NOW(), 'jiwon', 'N'),  -- 투자자산운용사
+(62, 90, NOW(), 'jiwon', 'N'),  -- 금융투자분석사
+
+-- 63 외환·펀드·자산운용
+(63, 89, NOW(), 'jiwon', 'N'),  -- 투자자산운용사
+(63, 92, NOW(), 'jiwon', 'N'),  -- 외환전문역 II종
+
+-- 64 보험계리·손해사정
+(64, 95, NOW(), 'jiwon', 'N'),  -- 보험계리사
+(64, 96, NOW(), 'jiwon', 'N'),  -- 신체손해사정사
+
+-- 65 채권·심사
+(65, 93, NOW(), 'jiwon', 'N'),  -- 신용분석사
+(65, 94, NOW(), 'jiwon', 'N'),  -- 신용관리사
+
+-- 66 은행원
+(66, 91, NOW(), 'jiwon', 'N'),  -- AFPK
+(66, 92, NOW(), 'jiwon', 'N'),  -- 외환전문역 II종
+(66, 93, NOW(), 'jiwon', 'N'),  -- 신용분석사
+
+-- 67 애널리스트
+(67, 60, NOW(), 'jiwon', 'N'),  -- ADsP
+(67, 90, NOW(), 'jiwon', 'N'),  -- 금융투자분석사
+
+
+-- =========================================================
+-- 9. 연구개발·설계
+-- =========================================================
+-- 68 자동차·기계
+(68, 21, NOW(), 'jiwon', 'N'),  -- 일반기계기사
+(68, 29, NOW(), 'jiwon', 'N'),  -- 전산응용기계제도기능사
+(68, 30, NOW(), 'jiwon', 'N'),  -- 자동차정비기사
+
+-- 69 화학·에너지·환경
+(69, 11, NOW(), 'jiwon', 'N'),  -- 대기환경기사
+(69, 12, NOW(), 'jiwon', 'N'),  -- 수질환경기사
+(69, 32, NOW(), 'jiwon', 'N'),  -- 화공기사
+(69, 33, NOW(), 'jiwon', 'N'),  -- 에너지관리기사
+
+-- 70 바이오·제약·식품
+(70, 34, NOW(), 'jiwon', 'N'),  -- 바이오화학제품제조기사
+(70, 35, NOW(), 'jiwon', 'N'),  -- 화학분석기사
+(70, 36, NOW(), 'jiwon', 'N'),  -- 식품안전기사
+
+-- 71 기계설계·CAD·CAM
+(71, 21, NOW(), 'jiwon', 'N'),  -- 일반기계기사
+(71, 29, NOW(), 'jiwon', 'N'),  -- 전산응용기계제도기능사
+(71, 37, NOW(), 'jiwon', 'N'),  -- 컴퓨터응용가공산업기사
+
+-- 72 전기·전자·제어
+(72, 14, NOW(), 'jiwon', 'N'),  -- 전기기사
+(72, 38, NOW(), 'jiwon', 'N'),  -- 전자기사
+
+-- 73 반도체·디스플레이
+(73, 38, NOW(), 'jiwon', 'N'),  -- 전자기사
+(73, 39, NOW(), 'jiwon', 'N'),  -- 반도체설비보전기능사
+
+-- 74 통신기술·네트워크
+(74, 86, NOW(), 'jiwon', 'N'),  -- 정보통신기사
+(74, 87, NOW(), 'jiwon', 'N'),  -- 무선설비기사
+
+-- 75 금속·철강
+(75, 9, NOW(), 'jiwon', 'N'),   -- 품질경영기사
+(75, 40, NOW(), 'jiwon', 'N'),  -- 금속재료기사
+
+-- 76 조선·항공·우주
+(76, 41, NOW(), 'jiwon', 'N'),  -- 항공기사
+(76, 42, NOW(), 'jiwon', 'N'),  -- 항공기정비기능사
+(76, 43, NOW(), 'jiwon', 'N'),  -- 조선선체기사
+
+-- 77 인문·사회과학
+(77, 1, NOW(), 'jiwon', 'N'),   -- 사회조사분석사 2급
+(77, 60, NOW(), 'jiwon', 'N'),  -- ADsP
+
+
+-- =========================================================
+-- 10. 디자인
+-- =========================================================
+-- 78 광고·시각디자인
+(78, 44, NOW(), 'jiwon', 'N'),  -- 시각디자인기사
+(78, 45, NOW(), 'jiwon', 'N'),  -- 컴퓨터그래픽기능사
+(78, 76, NOW(), 'jiwon', 'N'),  -- GTQ 1급
+
+-- 79 제품·산업디자인
+(79, 47, NOW(), 'jiwon', 'N'),  -- 제품디자인기사
+(79, 48, NOW(), 'jiwon', 'N'),  -- 3D프린터운용기능사
+
+-- 80 건축·인테리어디자인
+(80, 26, NOW(), 'jiwon', 'N'),  -- 실내건축기사
+(80, 27, NOW(), 'jiwon', 'N'),  -- 전산응용건축제도기능사
+
+-- 81 의류·패션·잡화디자인
+(81, 49, NOW(), 'jiwon', 'N'),  -- 패션디자인산업기사
+(81, 76, NOW(), 'jiwon', 'N'),  -- GTQ 1급
+
+-- 82 UI·UX디자인
+(82, 45, NOW(), 'jiwon', 'N'),  -- 컴퓨터그래픽기능사
+(82, 46, NOW(), 'jiwon', 'N'),  -- 웹디자인개발기능사
+(82, 76, NOW(), 'jiwon', 'N'),  -- GTQ 1급
+
+
+-- =========================================================
+-- 11. 미디어
+-- =========================================================
+-- 83 연출·제작·PD·작가
+(83, 50, NOW(), 'jiwon', 'N'),  -- 멀티미디어콘텐츠제작전문가
+(83, 104, NOW(), 'jiwon', 'N'), -- KBS한국어능력시험
+
+-- 84 음악·영상·사진
+(84, 50, NOW(), 'jiwon', 'N'),  -- 멀티미디어콘텐츠제작전문가
+
+-- 85 아나운서·리포터·성우·기자
+(85, 104, NOW(), 'jiwon', 'N'), -- KBS한국어능력시험
+(85, 107, NOW(), 'jiwon', 'N'), -- TOEIC Speaking
+
+-- 86 무대·스태프·오퍼레이터
+(86, 105, NOW(), 'jiwon', 'N'), -- 무대예술전문인 3급
+
+-- 87 연예·엔터테인먼트
+(87, 88, NOW(), 'jiwon', 'N'),  -- CS Leaders(관리사)
+
+-- 88 인쇄·출판·편집
+(88, 45, NOW(), 'jiwon', 'N'),  -- 컴퓨터그래픽기능사
+(88, 51, NOW(), 'jiwon', 'N'),  -- 전자출판기능사
+(88, 104, NOW(), 'jiwon', 'N'), -- KBS한국어능력시험
+
+
+-- =========================================================
+-- 12. 전문·특수직
+-- =========================================================
+-- 89 리서치·시장조사
+(89, 1, NOW(), 'jiwon', 'N'),   -- 사회조사분석사 2급
+(89, 60, NOW(), 'jiwon', 'N'),  -- ADsP
+
+-- 90 외국어·번역·통역
+(90, 98, NOW(), 'jiwon', 'N'),  -- ITT 전문 통번역
+(90, 99, NOW(), 'jiwon', 'N'),  -- TCT 번역능력인정시험 2급
+(90, 106, NOW(), 'jiwon', 'N'), -- TOEIC
+(90, 107, NOW(), 'jiwon', 'N'), -- TOEIC Speaking
+(90, 109, NOW(), 'jiwon', 'N'), -- HSK 5급
+(90, 110, NOW(), 'jiwon', 'N'), -- HSK 6급
+(90, 111, NOW(), 'jiwon', 'N'), -- JLPT N1
+
+-- 91 법률·특허·상표
+(91, 97, NOW(), 'jiwon', 'N'),  -- IPAT 지식재산능력시험
+
+-- 92 회계·세무·CPA·CFA
+(92, 67, NOW(), 'jiwon', 'N'),  -- 전산회계 1급
+(92, 68, NOW(), 'jiwon', 'N'),  -- 전산세무 2급
+(92, 71, NOW(), 'jiwon', 'N'),  -- 재경관리사
+
+-- 93 보안·경비·경호
+(93, 52, NOW(), 'jiwon', 'N'),  -- 일반경비지도사
+(93, 100, NOW(), 'jiwon', 'N'), -- 신변보호사
+
+-- 94 보건·의료
+(94, 101, NOW(), 'jiwon', 'N'), -- 보건의료정보관리사
+(94, 102, NOW(), 'jiwon', 'N'), -- 위생사
+
+-- 95 초·중·고 교사
+-- 현재 확정한 자격증 목록 중 범용 추천 자격증 없음
+-- 교원자격증은 일반적인 시험 취득형 자격증과 성격이 달라 이번 데이터에서 제외
+
+-- 96 교육개발·기획
+(96, 1, NOW(), 'jiwon', 'N'),   -- 사회조사분석사 2급
+(96, 72, NOW(), 'jiwon', 'N'),  -- 컴퓨터활용능력 1급
+
+-- 97 외국어·자격증·기술강사
+(97, 106, NOW(), 'jiwon', 'N'), -- TOEIC
+(97, 107, NOW(), 'jiwon', 'N'), -- TOEIC Speaking
+(97, 108, NOW(), 'jiwon', 'N'), -- OPIc
+(97, 109, NOW(), 'jiwon', 'N'), -- HSK 5급
+(97, 110, NOW(), 'jiwon', 'N'), -- HSK 6급
+(97, 111, NOW(), 'jiwon', 'N'), -- JLPT N1
+
+-- 98 사회복지·요양보호
+(98, 53, NOW(), 'jiwon', 'N'),  -- 사회복지사 1급
+
+-- 99 승무원·숙박·여행서비스
+(99, 54, NOW(), 'jiwon', 'N'),  -- 국내여행안내사
+(99, 55, NOW(), 'jiwon', 'N'),  -- 관광통역안내사(영어)
+(99, 106, NOW(), 'jiwon', 'N'), -- TOEIC
+(99, 107, NOW(), 'jiwon', 'N'), -- TOEIC Speaking
+(99, 108, NOW(), 'jiwon', 'N'), -- OPIc
+
+-- 100 음식서비스
+(100, 56, NOW(), 'jiwon', 'N'), -- 한식조리기능사
+(100, 57, NOW(), 'jiwon', 'N'), -- 양식조리기능사
+(100, 58, NOW(), 'jiwon', 'N'), -- 일식조리기능사
+(100, 59, NOW(), 'jiwon', 'N'); -- 중식조리기능사
 
 
 -- --------------------------------------------------------------------
--- [지원] 진로/직무·직렬별 추천 인강 매핑
--- 테이블: job_category_course
+-- [지원] 진로/공무원 공통 자격증 매핑
+-- 모든 공무원 세부 직렬 → 한국사능력검정시험(심화)
 -- --------------------------------------------------------------------
-INSERT INTO job_category_course (category_course_id, category_id, course_id, created_date, created_nm, del_yn)
-VALUES
-    (1, 101, 9, NOW(), 'jiwon', 'N'),
-    (2, 101, 10, NOW(), 'jiwon', 'N'),
-    (3, 101, 11, NOW(), 'jiwon', 'N'),
-    (4, 109, 12, NOW(), 'jiwon', 'N'),
-    (5, 109, 13, NOW(), 'jiwon', 'N');
 
--- --------------------------------------------------------------------
--- [지원] 진로/자격증·어학별 추천 인강 매핑
--- 테이블: job_qualification_course
--- --------------------------------------------------------------------
-INSERT INTO job_qualification_course (qual_course_id, qual_id, course_id, created_date, created_nm, del_yn)
-VALUES
-    (1, 1, 1, NOW(), 'jiwon', 'N'),
-    (2, 1, 2, NOW(), 'jiwon', 'N'),
-    (3, 2, 3, NOW(), 'jiwon', 'N'),
-    (4, 3, 4, NOW(), 'jiwon', 'N'),
-    (5, 3, 5, NOW(), 'jiwon', 'N'),
-    (6, 9, 6, NOW(), 'jiwon', 'N'),
-    (7, 10, 7, NOW(), 'jiwon', 'N'),
-    (8, 11, 8, NOW(), 'jiwon', 'N');
-
+INSERT INTO job_category_qualification
+(category_id, qual_id, created_date, created_nm, del_yn)
+SELECT
+    category_id,
+    103,
+    NOW(),
+    'jiwon',
+    'N'
+FROM job_category
+WHERE goal_type = 'J02'
+  AND category_level = 2
+  AND del_yn = 'N';
 
 -- --------------------------------------------------------------------
 -- [지원] 진로/편입 학과계열별 자격증·어학 매핑
 -- 테이블: job_transfer_major_qualification
 -- --------------------------------------------------------------------
+-- 편입 공통 어학 추천
+-- 모든 학과계열 → TOEIC
 INSERT INTO job_transfer_major_qualification
-(major_qual_id, major_code, qual_id, created_date, created_nm, del_yn)
-VALUES
-    (1, 'M14', 8, NOW(), 'jiwon', 'N'),
-    (2, 'M14', 9, NOW(), 'jiwon', 'N'),
-    (3, 'M04', 6, NOW(), 'jiwon', 'N'),
-    (4, 'M04', 9, NOW(), 'jiwon', 'N');
-
+(major_code, qual_id, created_date, created_nm, del_yn)
+SELECT
+    major_code,
+    106,
+    NOW(),
+    'jiwon',
+    'N'
+FROM job_transfer_major_category
+WHERE del_yn = 'N';
 
 -- --------------------------------------------------------------------
--- [지원] 진로/편입 학과계열별 인강 매핑
--- 테이블: job_transfer_major_course
+-- [지원] 자격증 추천 인강
+-- 테이블: job_course
+-- C01 : 자격증/어학 개별 강의
 -- --------------------------------------------------------------------
-INSERT INTO job_transfer_major_course
-(major_course_id, major_code, course_id, created_date, created_nm, del_yn)
+
+INSERT INTO job_course
+(course_id, course_type, provider_name, course_name, original_price, discount_price,
+ military_price, detail_url,created_date,created_nm,del_yn)
 VALUES
--- M04 : 전기·전자·반도체·통신 (자연)
-(1, 'M04', 14, NOW(), 'jiwon', 'N'),
-(2, 'M04', 15, NOW(), 'jiwon', 'N'),
-(3, 'M04', 16, NOW(), 'jiwon', 'N'),
+    (1, 'C01', '인프런', '사회조사분석사 2급 실기 완성 - SPSS 핵심 분석 마스터', 5500, 4120, NULL, 'https://www.inflearn.com/course/spss-intensive-cours', '2026-08-19 08:29:46', 'COURSE_SYNC', 'N'),
 
--- M14 : 미디어·광고·콘텐츠 (인문)
-(4, 'M14', 17, NOW(), 'jiwon', 'N'),
-(5, 'M14', 18, NOW(), 'jiwon', 'N'),
-(6, 'M14', 16, NOW(), 'jiwon', 'N');
+    (2, 'C01', '해커스', '★2027 얼리버드★ 정보처리기사 300% 환급반', 399000, 190000, NULL, 'https://pass.hackers.com/?c=event&evt_code=43284526', '2026-08-19 08:31:15', 'COURSE_SYNC', 'N'),
+    (3, 'C01', '해커스', '★2027 얼리버드★ 정보처리기사 실기 100% 환급반', 299000, 150000, NULL, 'https://pass.hackers.com/?c=event&evt_code=43284526', '2026-08-19 08:31:15', 'COURSE_SYNC', 'N'),
+    (4, 'C01', '해커스', '★2027 얼리버드★ 정보처리기사 3개월 합격반', 299000, 130000, NULL, 'https://pass.hackers.com/?c=event&evt_code=43284526', '2026-08-19 08:31:15', 'COURSE_SYNC', 'N'),
+    (5, 'C01', '인프런', '(2026 최신!) 일주일만에 합격하는 정보처리기사 실기', 88000, NULL, NULL, 'https://www.inflearn.com/course/%EC%9D%BC%EC%A3%BC%EC%9D%BC%EB%A7%8C%EC%97%90-%ED%95%A9%EA%B2%A9%ED%95%98%EB%8A%94-%EC%A0%95%EB%B3%B4%EC%B2%98%EB%A6%AC%EA%B8%B0%EC%82%AC-%EC%8B%A4%EA%B8%B0', '2026-08-19 08:31:15', 'COURSE_SYNC', 'N'),
+    (6, 'C01', '인프런', '2025 정보처리기사 필기', 44000, 33000, NULL, 'https://www.inflearn.com/course/%EC%A0%95%EB%B3%B4%EC%B2%98%EB%A6%AC%EA%B8%B0%EC%82%AC-%ED%95%84%EA%B8%B0-2023', '2026-08-19 08:31:15', 'COURSE_SYNC', 'N'),
+    (7, 'C01', '인프런', '2025 정보처리기사필기 기출문제풀이', 38500, 28870, NULL, 'https://www.inflearn.com/course/%EC%A0%95%EB%B3%B4%EC%B2%98%EB%A6%AC%EA%B8%B0%EC%82%AC-%ED%95%84%EA%B8%B0-2023-%EA%B8%B0%EC%B6%9C%EB%AC%B8%EC%A0%9C%ED%92%80%EC%9D%B4', '2026-08-19 08:31:15', 'COURSE_SYNC', 'N'),
 
+    (8, 'C01', '해커스', '2027 얼리버드 산업안전기사 100% 환급반', 599000, 319000, NULL, 'https://pass.hackers.com/?c=event&evt_code=43253222', '2026-08-19 08:31:43', 'COURSE_SYNC', 'N'),
+    (9, 'C01', '해커스', '2027 얼리버드 산업안전기사 필기+실기 연장반', 520000, 259000, NULL, 'https://pass.hackers.com/?c=event&evt_code=43253222', '2026-08-19 08:31:43', 'COURSE_SYNC', 'N'),
+    (10, 'C01', '해커스', '2027 얼리버드 산업안전기사 필기반', 364000, 189000, NULL, 'https://pass.hackers.com/?c=event&evt_code=43253222', '2026-08-19 08:31:43', 'COURSE_SYNC', 'N'),
+
+    (11, 'C01', '해커스', '[필기] 올인원 전기기사·산업기사 이론+적중문제+기출문제 (2027)', 199000, NULL, NULL, 'https://pass.hackers.com/?r=pass&c=lecture#;', '2026-08-19 08:32:34', 'COURSE_SYNC', 'N'),
+    (12, 'C01', '해커스', '[필기] 한권완성 전기기사·산업기사 이론+문제풀이-전기자기학(2026)', 99000, NULL, NULL, 'https://pass.hackers.com/?r=pass&c=lecture#;', '2026-08-19 08:32:34', 'COURSE_SYNC', 'N'),
+    (13, 'C01', '해커스', '[필기] 한권완성 전기기사·산업기사 이론+문제풀이-회로이론 (2026)', 99000, NULL, NULL, 'https://pass.hackers.com/?r=pass&c=lecture#;', '2026-08-19 08:32:34', 'COURSE_SYNC', 'N'),
+
+    (14, 'C01', '해커스', '★2027 얼리버드★ 일반기계기사 100% 환급반', 699000, 319000, NULL, 'https://pass.hackers.com/?c=event&evt_code=45272122', '2026-08-19 08:34:03', 'COURSE_SYNC', 'N'),
+    (15, 'C01', '해커스', '★2027 얼리버드★ 일반기계기사 필기+실기 연장반', 599000, 249000, NULL, 'https://pass.hackers.com/?c=event&evt_code=45272122', '2026-08-19 08:34:03', 'COURSE_SYNC', 'N'),
+    (16, 'C01', '해커스', '★2027 얼리버드★ 일반기계기사 실기반(필답형+작업형)', 399000, 199000, NULL, 'https://pass.hackers.com/?c=event&evt_code=45272122', '2026-08-19 08:34:03', 'COURSE_SYNC', 'N'),
+    (17, 'C01', '인프런', '일반기계기사 실기 (2026) - 인벤터', 119900, 89920, NULL, 'https://www.inflearn.com/course/%EC%9D%BC%EB%B0%98%EA%B8%B0%EA%B3%84%EA%B8%B0%EC%82%AC-%EC%9E%91%EC%97%85%ED%98%95-3%EC%A3%BC-%EB%81%9D%EB%82%B4%EA%B8%B0', '2026-08-19 08:34:03', 'COURSE_SYNC', 'N'),
+
+    (18, 'C01', '인프런', '전산응용건축제도기능사 실기 (2024년 개정) Part.3 기출문제 풀이', 215600, 161700, NULL, 'https://www.inflearn.com/course/%EC%A0%84%EC%82%B0%EC%9D%91%EC%9A%A9%EA%B1%B4%EC%B6%95%EC%A0%9C%EB%8F%84%EA%B8%B0%EB%8A%A5%EC%82%AC-%EC%8B%A4%EA%B8%B0-2024%EB%85%84', '2026-08-19 08:35:20', 'COURSE_SYNC', 'N'),
+    (19, 'C01', '인프런', '전산응용건축제도기능사 필기 실기 기출문제풀이 강좌', 49500, 37130, NULL, 'https://www.inflearn.com/course/%EC%A0%84%EC%82%B0%EC%9D%91%EC%9A%A9%EA%B1%B4%EC%B6%95%EC%A0%9C%EB%8F%84%EA%B8%B0%EB%8A%A5%EC%82%AC-%EA%B8%B0%EC%B6%9C%EB%AC%B8%EC%A0%9C%ED%92%80%EC%9D%B4-%ED%95%84%EA%B8%B0-%EC%8B%A4%EA%B8%B0', '2026-08-19 08:35:20', 'COURSE_SYNC', 'N'),
+
+    (20, 'C01', '인프런', '하루만에 공인중개사 시험 파악하기', 55000, 41250, NULL, 'https://www.inflearn.com/course/%EA%B3%B5%EC%9D%B8%EC%A4%91%EA%B0%9C%EC%82%AC-%ED%8C%8C%EC%95%85-%EC%9E%90%EA%B2%A9%EC%8B%9C%ED%97%98', '2026-08-19 08:35:32', 'COURSE_SYNC', 'N'),
+
+    (21, 'C01', '해커스', '2026 전산응용기계제도기능사 100% 환급반', 327000, 192200, NULL, 'https://pass.hackers.com/?c=event&evt_code=47252122', '2026-08-19 08:35:45', 'COURSE_SYNC', 'N'),
+    (22, 'C01', '해커스', '2026 전산응용기계제도기능사 실기반', 297000, 172900, NULL, 'https://pass.hackers.com/?c=event&evt_code=47252122', '2026-08-19 08:35:45', 'COURSE_SYNC', 'N'),
+    (23, 'C01', '해커스', '[필기] 전산응용기계제도기능사 필수이론+문제풀이-기계제도 (2026)', 49000, NULL, NULL, 'https://pass.hackers.com/?r=pass&c=lecture#;', '2026-08-19 08:35:45', 'COURSE_SYNC', 'N'),
+    (24, 'C01', '인프런', '전산응용기계제도기능사 필기 (2024년 개정)', 88000, 66000, NULL, 'https://www.inflearn.com/course/%EC%A0%84%EC%82%B0%EC%9D%91%EC%9A%A9%EA%B8%B0%EA%B3%84%EC%A0%9C%EB%8F%84%EA%B8%B0%EB%8A%A5%EC%82%AC-%ED%95%84%EA%B8%B0-2024%EB%85%84', '2026-08-19 08:35:45', 'COURSE_SYNC', 'N'),
+
+    (25, 'C01', '해커스', '★2027 얼리버드★ 위험물산업기사 100% 환급반', 260000, 230000, NULL, 'https://pass.hackers.com/?c=event&evt_code=47254324', '2026-08-19 08:36:12', 'COURSE_SYNC', 'N'),
+    (26, 'C01', '해커스', '★2027 얼리버드★ 위험물산업기사 단기합격반', 180000, NULL, NULL, 'https://pass.hackers.com/?c=event&evt_code=47254324', '2026-08-19 08:36:12', 'COURSE_SYNC', 'N'),
+    (27, 'C01', '해커스', '[필기] 위험물산업기사 한권완성 필수이론+문제풀이-화재예방과 소화방법', 69000, NULL, NULL, 'https://pass.hackers.com/?r=pass&c=lecture#;', '2026-08-19 08:36:12', 'COURSE_SYNC', 'N'),
+
+    (28, 'C01', '해커스', '★2027 얼리버드★ 식품안전기사 100% 환급반', 539000, 329000, NULL, 'https://pass.hackers.com/?c=event&evt_code=44274824', '2026-08-19 08:37:17', 'COURSE_SYNC', 'N'),
+    (29, 'C01', '해커스', '★2027 얼리버드★ 식품안전기사 더블 연장반', 369000, 259000, NULL, 'https://pass.hackers.com/?c=event&evt_code=44274824', '2026-08-19 08:37:17', 'COURSE_SYNC', 'N'),
+    (30, 'C01', '해커스', '[필기] 식품안전기사 필수이론-식품안전 (2026)', 30000, NULL, NULL, 'https://pass.hackers.com/?r=pass&c=lecture#;', '2026-08-19 08:37:17', 'COURSE_SYNC', 'N'),
+
+    (31, 'C01', '인프런', '[2026년 출제기준] 웹디자인개발기능사 실기시험 완벽 가이드', 166100, 124570, NULL, 'https://www.inflearn.com/course/%EC%9B%B9%EB%94%94%EC%9E%90%EC%9D%B8-%EA%B8%B0%EB%8A%A5%EC%82%AC-2020', '2026-08-19 08:39:26', 'COURSE_SYNC', 'N'),
+    (32, 'C01', '인프런', '웹디자인개발기능사 [2025년] 실기전체 (카톡질문가능)', 39600, 29700, NULL, 'https://www.inflearn.com/course/2024-%EC%9B%B9%EB%94%94%EC%9E%90%EC%9D%B8%EA%B8%B0%EB%8A%A5%EC%82%AC-%EC%8B%A4%EA%B8%B0', '2026-08-19 08:39:26', 'COURSE_SYNC', 'N'),
+    (33, 'C01', '인프런', '웹디자인개발기능사 실기 (2025 개정)', 145200, 108900, NULL, 'https://www.inflearn.com/course/%EC%9B%B9%EB%94%94%EC%9E%90%EC%9D%B8%EA%B0%9C%EB%B0%9C%EA%B8%B0%EB%8A%A5%EC%82%AC-%EC%8B%A4%EA%B8%B0-2025-%EA%B0%9C%EC%A0%95', '2026-08-19 08:39:26', 'COURSE_SYNC', 'N'),
+
+    (34, 'C01', '인프런', '[디펙업_PASS] 국가공인 데이터분석준전문가(ADsP)', 66000, 49500, NULL, 'https://www.inflearn.com/course/%EA%B5%AD%EA%B0%80%EA%B3%B5%EC%9D%B8-adsp-%EC%9E%90%EA%B2%A9%EC%A6%9D-%EB%8C%80%EB%B9%84', '2026-08-19 08:42:25', 'COURSE_SYNC', 'N'),
+
+    (35, 'C01', '인프런', '전산회계 1급 자격증 따기 2025 (이론-원가회계)', 57200, 42900, NULL, 'https://www.inflearn.com/course/%EC%A0%84%EC%82%B0%ED%9A%8C%EA%B3%84-1%EA%B8%89-%EC%9E%90%EA%B2%A9%EC%A6%9D-%EB%94%B0%EA%B8%B0-2025', '2026-08-19 08:43:55', 'COURSE_SYNC', 'N'),
+    (36, 'C01', '인프런', '전산회계 1급 자격증 따기 2025 (이론-재무회계)', 96800, 72600, NULL, 'https://www.inflearn.com/course/%EC%A0%84%EC%82%B0%ED%9A%8C%EA%B3%84-1%EA%B8%89-%EC%9E%90%EA%B2%A9%EC%A6%9D-%EB%94%B0%EA%B8%B0-2025-1', '2026-08-19 08:43:55', 'COURSE_SYNC', 'N'),
+    (37, 'C01', '인프런', '전산회계 1급 자격증 따기 2025 (실기)', 92400, 69300, NULL, 'https://www.inflearn.com/course/%EC%A0%84%EC%82%B0%ED%9A%8C%EA%B3%84-1%EA%B8%89-%EC%9E%90%EA%B2%A9%EC%A6%9D-%EB%94%B0%EA%B8%B0-2025-4', '2026-08-19 08:43:55', 'COURSE_SYNC', 'N'),
+
+    (38, 'C01', '인프런', '전산세무 2급 실기 (2025)', 118800, 89100, NULL, 'https://www.inflearn.com/course/%EC%A0%84%EC%82%B0%EC%84%B8%EB%AC%B4-2%EA%B8%89-%EC%8B%A4%EA%B8%B0-2025', '2026-08-19 08:44:08', 'COURSE_SYNC', 'N'),
+    (39, 'C01', '인프런', '전산세무 2급 이론 (원가회계) (2025)', 66000, 49500, NULL, 'https://www.inflearn.com/course/%EC%A0%84%EC%82%B0%EC%84%B8%EB%AC%B4-2%EA%B8%89-%EC%9D%B4%EB%A1%A0-%EC%9B%90%EA%B0%80%ED%9A%8C%EA%B3%84-2025', '2026-08-19 08:44:08', 'COURSE_SYNC', 'N'),
+    (40, 'C01', '인프런', '전산세무 2급 이론 (부가가치세) (2025)', 61600, 46200, NULL, 'https://www.inflearn.com/course/%EC%A0%84%EC%82%B0%EC%84%B8%EB%AC%B4-2%EA%B8%89-%EC%9D%B4%EB%A1%A0-%EB%B6%80%EA%B0%80%EA%B0%80%EC%B9%98%EC%84%B8-202', '2026-08-19 08:44:08', 'COURSE_SYNC', 'N'),
+
+    (41, 'C01', '인프런', 'FAT 1급 자격증 따기 (한국공인회계사회시행) 2025 이론', 145200, 108900, NULL, 'https://www.inflearn.com/course/fat-1%EA%B8%89-%EC%9E%90%EA%B2%A9%EC%A6%9D-%EB%94%B0%EA%B8%B0-%ED%95%9C%EA%B5%AD%EA%B3%B5%EC%9D%B8%ED%9A%8C%EA%B3%84-1', '2026-08-19 08:44:21', 'COURSE_SYNC', 'N'),
+    (42, 'C01', '인프런', 'FAT 1급 자격증 따기 (한국공인회계사회시행) 2025', 101200, 75900, NULL, 'https://www.inflearn.com/course/fat-1%EA%B8%89-%EC%9E%90%EA%B2%A9%EC%A6%9D-%EB%94%B0%EA%B8%B0-%ED%95%9C%EA%B5%AD%EA%B3%B5%EC%9D%B8%ED%9A%8C%EA%B3%84', '2026-08-19 08:44:21', 'COURSE_SYNC', 'N'),
+    (43, 'C01', '인프런', 'TAT 2급 자격증 따기 (한국공인회계사회시행) 2025 이론', 211200, 158400, NULL, 'https://www.inflearn.com/course/tat-2%EA%B8%89-%EC%9E%90%EA%B2%A9%EC%A6%9D-%EB%94%B0%EA%B8%B0-%ED%95%9C%EA%B5%AD%EA%B3%B5%EC%9D%B8%ED%9A%8C%EA%B3%84', '2026-08-19 08:44:34', 'COURSE_SYNC', 'N'),
+
+    (44, 'C01', '인프런', '컴퓨터활용능력 1급 필기 - 데이터베이스 일반', 33000, 24750, NULL, 'https://www.inflearn.com/course/%EC%BB%B4%ED%99%9C-%ED%95%84%EA%B8%B0-%EB%94%94%EB%B9%84%EC%9D%BC%EB%B0%98', '2026-08-19 08:44:59', 'COURSE_SYNC', 'N'),
+    (45, 'C01', '인프런', '컴퓨터활용능력 1급 실기 - 데이터베이스 실무', 33000, 24750, NULL, 'https://www.inflearn.com/course/%EC%BB%B4%ED%99%9C-%EC%8B%A4%EA%B8%B0-%EB%94%94%EB%B9%84%EC%8B%A4%EB%AC%B4', '2026-08-19 08:44:59', 'COURSE_SYNC', 'N'),
+    (46, 'C01', '인프런', '[에듀윌] 2022년 컴퓨터활용능력 1급 필기 단기패스', 60500, 45370, NULL, 'https://www.inflearn.com/course/%EC%97%90%EB%93%80%EC%9C%8C-%EC%BB%B4%ED%93%A8%ED%84%B0%ED%99%9C%EC%9A%A9%EB%8A%A5%EB%A0%A5-1%EA%B8%89-%ED%95%84%EA%B8%B0-%EB%8B%A8%EA%B8%B0%ED%8C%A8%EC%8A%A4', '2026-08-19 08:44:59', 'COURSE_SYNC', 'N'),
+
+    (47, 'C01', '인프런', '빠르게 취득하는 [5일만에 합격하는 컴퓨터활용능력 2급 실기]', 33000, 24750, NULL, 'https://www.inflearn.com/course/5%EC%9D%BC%EB%A7%8C%EC%97%90-%ED%95%A9%EA%B2%A9%ED%95%98%EB%8A%94-%EC%BB%B4%ED%99%9C-2%EA%B8%89-%EC%8B%A4%EA%B8%B0', '2026-08-19 08:45:12', 'COURSE_SYNC', 'N'),
+    (48, 'C01', '인프런', '한번에 끝내는 컴퓨터활용능력 2급 필기 실기 종합 개정판', 75900, 56920, NULL, 'https://www.inflearn.com/course/%ED%95%9C%EB%B2%88%EC%97%90-%EB%81%9D%EB%82%B4%EB%8A%94-%EC%BB%B4%ED%99%9C-2%EA%B8%89', '2026-08-19 08:45:12', 'COURSE_SYNC', 'N'),
+
+    (49, 'C01', '인프런', 'AWS Certified Cloud Practitioner 자격증 준비하기', 88000, 66000, NULL, 'https://www.inflearn.com/course/aws-%EC%9E%90%EA%B2%A9%EC%A6%9D-%ED%81%B4%EB%9D%BC%EC%9A%B0%EB%93%9C-%EA%B8%B0%EC%B4%88', '2026-08-19 08:47:34', 'COURSE_SYNC', 'N'),
+
+    (50, 'C01', '인프런', '정보보안기사 필기 - 문제풀이 중심 (2023 개정) Part.1 시스템 보안', 56100, 42070, NULL, 'https://www.inflearn.com/course/%EC%A0%95%EB%B3%B4%EB%B3%B4%EC%95%88%EA%B8%B0%EC%82%AC-%ED%95%84%EA%B8%B0-%EB%AC%B8%EC%A0%9C%ED%92%80%EC%9D%B4-2023%EA%B0%9C%EC%A0%95-1', '2026-08-19 08:47:47', 'COURSE_SYNC', 'N'),
+    (51, 'C01', '인프런', '정보보안기사 실기 - 문제풀이 중심 Part.1 정보보호 일반, 보안과 암호, 접근통제', 19800, 14850, NULL, 'https://www.inflearn.com/course/%EC%A0%95%EB%B3%B4%EB%B3%B4%EC%95%88%EA%B8%B0%EC%82%AC-%EC%8B%A4%EA%B8%B0-part-1', '2026-08-19 08:47:47', 'COURSE_SYNC', 'N'),
+    (52, 'C01', '인프런', '정보보안기사 실기 - 문제풀이 중심 Part.2 네트워크 보안', 34100, 25570, NULL, 'https://www.inflearn.com/course/%EC%A0%95%EB%B3%B4%EB%B3%B4%EC%95%88%EA%B8%B0%EC%82%AC-%EC%8B%A4%EA%B8%B0-part-2', '2026-08-19 08:47:47', 'COURSE_SYNC', 'N'),
+    -- 어학 : TOEIC
+    (53, 'C01', '해커스', '한 달 안에 끝내는 해커스 토익 기출 보카 [최신개정판]', 89000, 39000, NULL, 'https://champ.hackers.com/?r=champstudy&c=lecture/lec_toeic&sub=detail&lec_id=13686',NOW(), 'COURSE_SYNC', 'N'),
+
+    (54, 'C01', '해커스','[교재포함] 한 달 안에 끝내는 해커스 토익 기출 보카 [최신개정판]',101900, 49000, NULL,'https://champ.hackers.com/?r=champstudy&c=lecture/lec_toeic&sub=detail&lec_id=28757',NOW(), 'COURSE_SYNC', 'N'),
+
+-- 어학 : TOEIC Speaking
+    (55, 'C01', '해커스','[2주 완성] 세이임의 토스 발음 클리닉',49000, NULL, NULL,'https://champ.hackers.com/?r=champstudy&c=lecture/lec_speak&sub=detail&lec_id=10080',NOW(), 'COURSE_SYNC', 'N'),
+    (56, 'C01', '해커스','[세이임 토스] 10일 만에 끝내는 해커스 토익스피킹 스타트 (최신개정판)',99000, 49000, NULL,'https://champ.hackers.com/?r=champstudy&c=lecture/lec_speak&sub=detail&lec_id=19645',NOW(), 'COURSE_SYNC', 'N'),
+    (57, 'C01', '해커스','[세이임 토스] 10일 만에 끝내는 해커스 토익스피킹 (최신개정판)',99000, 49000, NULL,'https://champ.hackers.com/?r=champstudy&c=lecture/lec_speak&sub=detail&lec_id=19646',NOW(), 'COURSE_SYNC', 'N'),
+
+-- 어학 : OPIc
+    (58, 'C01', '해커스','10시간 만에 끝내는 오픽 돌발주제 & 롤플레이 정복 [클라라 OPIc]',69000, 49000, NULL,'https://champ.hackers.com/?r=champstudy&c=lecture/lec_speak&sub=detail&lec_id=11708',NOW(), 'COURSE_SYNC', 'N'),
+    (59, 'C01', '해커스','10시간 만에 끝내는 오픽 실전문제풀이 [클라라 OPIc]',69000, 49000, NULL,'https://champ.hackers.com/?r=champstudy&c=lecture/lec_speak&sub=detail&lec_id=13533',NOW(), 'COURSE_SYNC', 'N'),
+    (60, 'C01', '해커스','서베이부터 실전까지 해커스 오픽 매뉴얼',99000, 59000, NULL,'https://champ.hackers.com/?r=champstudy&c=lecture/lec_speak&sub=detail&lec_id=21114',NOW(), 'COURSE_SYNC', 'N'),
+
+-- 어학 : HSK 5급
+    (61, 'C01', '해커스','30일 만에 끝내는 해커스 HSK 5급 단어',79000, NULL, NULL,'https://china.hackers.com/?r=china&c=leclist&sub=detail&lec_id=13701',NOW(), 'COURSE_SYNC', 'N'),
+    (62, 'C01', '해커스','해커스 HSK 5급 한 권으로 정복 [듣기] (전면개정판)',79000, NULL, NULL,'https://china.hackers.com/?r=china&c=leclist&sub=detail&lec_id=18214',NOW(), 'COURSE_SYNC', 'N'),
+    (63, 'C01', '해커스','해커스 HSK 5급 한 권으로 정복 [독해] (전면개정판)',79000, NULL, NULL,'https://china.hackers.com/?r=china&c=leclist&sub=detail&lec_id=18215',NOW(), 'COURSE_SYNC', 'N'),
+
+-- 어학 : HSK 6급
+    (64, 'C01', '해커스','해커스 HSK 6급 한 권으로 고득점 달성 [듣기] (전면개정판)',99000, NULL, NULL,'https://china.hackers.com/?r=china&c=leclist&sub=detail&lec_id=19191',NOW(), 'COURSE_SYNC', 'N'),
+    (65, 'C01', '해커스','해커스 HSK 6급 한 권으로 고득점 달성 [독해] (전면개정판)',99000, NULL, NULL,'https://china.hackers.com/?r=china&c=leclist&sub=detail&lec_id=19192',NOW(), 'COURSE_SYNC', 'N'),
+    (66, 'C01', '해커스','해커스 HSK 6급 한 권으로 고득점 달성 [쓰기] (전면개정판)',79000, NULL, NULL,'https://china.hackers.com/?r=china&c=leclist&sub=detail&lec_id=19193',NOW(), 'COURSE_SYNC', 'N'),
+
+-- 어학 : JLPT N1
+    (67, 'C01', '해커스','해커스 JLPT N1 한권합격 - 문자어휘 [2026 최신개정판]',89000, 69000, NULL,'https://japan.hackers.com/?r=japan&c=lecture/detail&productIdx=46053',NOW(), 'COURSE_SYNC', 'N'),
+    (68, 'C01', '해커스','해커스 JLPT N1 한 권으로 합격 - 청해 [최신개정판]',89000, 69000, NULL,'https://japan.hackers.com/?r=japan&c=lecture/detail&productIdx=8012',NOW(), 'COURSE_SYNC', 'N'),
+    (69, 'C01', '해커스','해커스 JLPT N1 한 권으로 합격 - 실전모의고사 [최신개정판]',89000, 69000, NULL,'https://japan.hackers.com/?r=japan&c=lecture/detail&productIdx=8013',NOW(), 'COURSE_SYNC', 'N'),
+
+-- 공무원 : 해커스
+    (70, 'C02', '해커스','27년 대비 9급 0원 패스',1049000, 389000, NULL,'https://egosi.hackers.com/site/?c=event&evt_cd=EG4244284222',NOW(), 'COURSE_SYNC', 'N'),
+    (71, 'C02', '해커스','28년 대비 9급 0원 패스',1299000, 550000, NULL,'https://egosi.hackers.com/site/?c=event&evt_cd=EG4244284222',NOW(), 'COURSE_SYNC', 'N'),
+    (72, 'C02', '해커스','28년 대비 전산직 패스',1049000, 499000, NULL,'https://egosi.hackers.com/site/?c=event&evt_cd=EG4244284222',NOW(), 'COURSE_SYNC', 'N'),
+    (73, 'C02', '해커스','27년 대비 전산직 패스',849000, 399000, NULL,'https://egosi.hackers.com/site/?c=event&evt_cd=EG4244284222',NOW(), 'COURSE_SYNC', 'N'),
+
+    (74, 'C02', '해커스','28년 대비 9급 군무원 기적의 패스 [직렬 선택형]',849000, 499000, NULL,'https://earmy.hackers.com/event/4245232122',NOW(), 'COURSE_SYNC', 'N'),
+
+    (75, 'C02', '해커스','27년 2차 기적의 합격패스',950000, 649000, NULL,'https://epolice.hackers.com/site/?c=event&evt_cd=EP4247263722',NOW(), 'COURSE_SYNC', 'N'),
+
+    (76, 'C02', '해커스','27년 1차 기적의 합격패스',930000, 599000, NULL,'https://epolice.hackers.com/site/?c=event&evt_cd=EP4247263722',NOW(), 'COURSE_SYNC', 'N'),
+
+-- 공무원 : 공단기
+    (77, 'C02', '공단기','27대비 9급 프리미엄 환급 프리패스',1100000, 800000, NULL,'https://gong.conects.com/freepass/renewal/9th',NOW(), 'COURSE_SYNC', 'N'),
+
+    (78, 'C02', '공단기','27대비 9급 군무원 환급 직렬패스',1000000, 700000, NULL,'https://gong.conects.com/freepass/renewal/9th',NOW(), 'COURSE_SYNC', 'N'),
+
+    (79, 'C02', '공단기','28대비 9급 프리미엄 환급 프리패스',1500000, 1200000, NULL,'https://gong.conects.com/freepass/renewal/9th',NOW(), 'COURSE_SYNC', 'N'),
+
+    (80, 'C02', '공단기','28대비 9급 군무원 환급 직렬패스',1400000, 1100000, NULL,'https://gong.conects.com/freepass/renewal/9th',NOW(), 'COURSE_SYNC', 'N'),
+
+    (81, 'C02', '공단기','27대비 기술직 프리미엄 환급 프리패스',1000000, 700000, NULL,'https://tech.conects.com/freepass/renewal/technical',NOW(), 'COURSE_SYNC', 'N'),
+    (82, 'C02', '공단기','28대비 기술직 프리미엄 환급 프리패스',1400000, 1100000, NULL,'https://tech.conects.com/freepass/renewal/technical',NOW(), 'COURSE_SYNC', 'N'),
+
+    (83, 'C02', '공단기','27 2차 대비 경폴카 단기 합격 PASS - 환급/갱신형',1400000, 840000, NULL,'https://police.criminallaw100.com/event/short_pass.asp',NOW(), 'COURSE_SYNC', 'N'),
+    (84, 'C02', '공단기','27 1차 대비 경폴카 단기 합격 PASS - 환급/갱신형',1120000, 672000, NULL,'https://police.criminallaw100.com/event/short_pass.asp',NOW(), 'COURSE_SYNC', 'N'),
+
+    (85, 'C02', '공단기','27대비 공경채 환급 프리패스',970000, 670000, NULL,'https://sobang.conects.com/freepass/renewal',NOW(), 'COURSE_SYNC', 'N'),
+    (86, 'C02', '공단기','28대비 공경채 환급 프리패스',1220000, 920000, NULL,'https://sobang.conects.com/freepass/renewal',NOW(), 'COURSE_SYNC', 'N'),
+
+    (87, 'C03', '해커스편입', '인문계 최대 400% 환급반', 1290000, 790000, NULL, 'https://ingang.hackersut.com/event/47324122?_C_=725210', NOW(), 'COURSE_SYNC', 'N'),
+    (88, 'C03', '해커스편입', '자연계 최대 400% 환급반', 1390000, 890000, NULL, 'https://ingang.hackersut.com/event/47324122?_C_=725210', NOW(), 'COURSE_SYNC', 'N'),
+    (89, 'C03', '해커스편입', '인문계 편입반', 1090000, 740000, NULL, 'https://ingang.hackersut.com/event/47324122?_C_=725210', NOW(), 'COURSE_SYNC', 'N'),
+    (90, 'C03', '해커스편입', '자연계 편입반', 1190000, 840000, NULL, 'https://ingang.hackersut.com/event/47324122?_C_=725210', NOW(), 'COURSE_SYNC', 'N'),
+    (91, 'C03', '김영편입', '2027+2028 김영패스 원더 인문', 1370000, 1270000, NULL, 'https://www.kimyoung.co.kr/freepass/2026/wonder_pass.asp', NOW(), 'COURSE_SYNC', 'N'),
+    (92, 'C03', '김영편입', '2027+2028 김영패스 원더 자연', 1570000, 1470000, NULL, 'https://www.kimyoung.co.kr/freepass/2026/wonder_pass.asp', NOW(), 'COURSE_SYNC', 'N');
+
+-- --------------------------------------------------------------------
+-- [지원] 공무원 직렬 ↔ 추천 인강 매핑
+-- 테이블: job_category_course
+-- --------------------------------------------------------------------
+INSERT INTO job_category_course (category_course_id, category_id, course_id, created_date, created_nm, del_yn)
+VALUES
+    -- 27년 대비 9급 0원 패스
+    (1, 101, 70, NOW(), 'COURSE_SYNC', 'N'),
+    (2, 102, 70, NOW(), 'COURSE_SYNC', 'N'),
+    (3, 103, 70, NOW(), 'COURSE_SYNC', 'N'),
+    (4, 104, 70, NOW(), 'COURSE_SYNC', 'N'),
+    (5, 105, 70, NOW(), 'COURSE_SYNC', 'N'),
+    (6, 107, 70, NOW(), 'COURSE_SYNC', 'N'),
+    (7, 108, 70, NOW(), 'COURSE_SYNC', 'N'),
+
+-- 28년 대비 9급 0원 패스
+    (8, 101, 71, NOW(), 'COURSE_SYNC', 'N'),
+    (9, 102, 71, NOW(), 'COURSE_SYNC', 'N'),
+    (10, 103, 71, NOW(), 'COURSE_SYNC', 'N'),
+    (11, 104, 71, NOW(), 'COURSE_SYNC', 'N'),
+    (12, 105, 71, NOW(), 'COURSE_SYNC', 'N'),
+    (13, 107, 71, NOW(), 'COURSE_SYNC', 'N'),
+    (14, 108, 71, NOW(), 'COURSE_SYNC', 'N'),
+
+-- 전산직
+    (15, 106, 72, NOW(), 'COURSE_SYNC', 'N'),
+    (16, 106, 73, NOW(), 'COURSE_SYNC', 'N'),
+
+-- 군무원 : 해커스
+    (17, 109, 74, NOW(), 'COURSE_SYNC', 'N'),
+    (18, 110, 74, NOW(), 'COURSE_SYNC', 'N'),
+    (19, 112, 74, NOW(), 'COURSE_SYNC', 'N'),
+    (20, 113, 74, NOW(), 'COURSE_SYNC', 'N'),
+
+-- 공단기 27대비 9급 프리미엄 환급 프리패스
+    (21, 101, 77, NOW(), 'COURSE_SYNC', 'N'),
+    (22, 102, 77, NOW(), 'COURSE_SYNC', 'N'),
+    (23, 103, 77, NOW(), 'COURSE_SYNC', 'N'),
+    (24, 104, 77, NOW(), 'COURSE_SYNC', 'N'),
+    (25, 105, 77, NOW(), 'COURSE_SYNC', 'N'),
+    (26, 107, 77, NOW(), 'COURSE_SYNC', 'N'),
+    (27, 108, 77, NOW(), 'COURSE_SYNC', 'N'),
+
+-- 공단기 27대비 군무원
+    (28, 109, 78, NOW(), 'COURSE_SYNC', 'N'),
+    (29, 110, 78, NOW(), 'COURSE_SYNC', 'N'),
+    (30, 112, 78, NOW(), 'COURSE_SYNC', 'N'),
+    (31, 113, 78, NOW(), 'COURSE_SYNC', 'N'),
+
+-- 공단기 28대비 9급 프리미엄 환급 프리패스
+    (32, 101, 79, NOW(), 'COURSE_SYNC', 'N'),
+    (33, 102, 79, NOW(), 'COURSE_SYNC', 'N'),
+    (34, 103, 79, NOW(), 'COURSE_SYNC', 'N'),
+    (35, 104, 79, NOW(), 'COURSE_SYNC', 'N'),
+    (36, 105, 79, NOW(), 'COURSE_SYNC', 'N'),
+    (37, 107, 79, NOW(), 'COURSE_SYNC', 'N'),
+    (38, 108, 79, NOW(), 'COURSE_SYNC', 'N'),
+
+-- 공단기 28대비 군무원
+    (39, 109, 80, NOW(), 'COURSE_SYNC', 'N'),
+    (40, 110, 80, NOW(), 'COURSE_SYNC', 'N'),
+    (41, 112, 80, NOW(), 'COURSE_SYNC', 'N'),
+    (42, 113, 80, NOW(), 'COURSE_SYNC', 'N'),
+
+-- 소방 : 27대비 공경채
+    (43, 116, 85, NOW(), 'COURSE_SYNC', 'N'),
+    (44, 117, 85, NOW(), 'COURSE_SYNC', 'N'),
+    (45, 118, 85, NOW(), 'COURSE_SYNC', 'N'),
+
+-- 소방 : 28대비 공경채
+    (46, 116, 86, NOW(), 'COURSE_SYNC', 'N'),
+    (47, 117, 86, NOW(), 'COURSE_SYNC', 'N'),
+    (48, 118, 86, NOW(), 'COURSE_SYNC', 'N');
+
+-- --------------------------------------------------------------------
+-- [지원] 자격증 ↔ 추천 인강 매핑
+-- 테이블: job_qualification_course
+-- --------------------------------------------------------------------
+INSERT INTO job_qualification_course
+(qual_course_id, qual_id, course_id, created_date, created_nm, del_yn)
+VALUES
+    (1, 1, 1, NOW(), 'COURSE_SYNC', 'N'),
+
+    (2, 8, 2, NOW(), 'COURSE_SYNC', 'N'),
+    (3, 8, 3, NOW(), 'COURSE_SYNC', 'N'),
+    (4, 8, 4, NOW(), 'COURSE_SYNC', 'N'),
+    (5, 8, 5, NOW(), 'COURSE_SYNC', 'N'),
+    (6, 8, 6, NOW(), 'COURSE_SYNC', 'N'),
+    (7, 8, 7, NOW(), 'COURSE_SYNC', 'N'),
+
+    (8, 10, 8, NOW(), 'COURSE_SYNC', 'N'),
+    (9, 10, 9, NOW(), 'COURSE_SYNC', 'N'),
+    (10, 10, 10, NOW(), 'COURSE_SYNC', 'N'),
+
+    (11, 14, 11, NOW(), 'COURSE_SYNC', 'N'),
+    (12, 14, 12, NOW(), 'COURSE_SYNC', 'N'),
+    (13, 14, 13, NOW(), 'COURSE_SYNC', 'N'),
+
+    (14, 21, 14, NOW(), 'COURSE_SYNC', 'N'),
+    (15, 21, 15, NOW(), 'COURSE_SYNC', 'N'),
+    (16, 21, 16, NOW(), 'COURSE_SYNC', 'N'),
+    (17, 21, 17, NOW(), 'COURSE_SYNC', 'N'),
+
+    (18, 27, 18, NOW(), 'COURSE_SYNC', 'N'),
+    (19, 27, 19, NOW(), 'COURSE_SYNC', 'N'),
+
+    (20, 28, 20, NOW(), 'COURSE_SYNC', 'N'),
+
+    (21, 29, 21, NOW(), 'COURSE_SYNC', 'N'),
+    (22, 29, 22, NOW(), 'COURSE_SYNC', 'N'),
+    (23, 29, 23, NOW(), 'COURSE_SYNC', 'N'),
+    (24, 29, 24, NOW(), 'COURSE_SYNC', 'N'),
+
+    (25, 31, 25, NOW(), 'COURSE_SYNC', 'N'),
+    (26, 31, 26, NOW(), 'COURSE_SYNC', 'N'),
+    (27, 31, 27, NOW(), 'COURSE_SYNC', 'N'),
+
+    (28, 36, 28, NOW(), 'COURSE_SYNC', 'N'),
+    (29, 36, 29, NOW(), 'COURSE_SYNC', 'N'),
+    (30, 36, 30, NOW(), 'COURSE_SYNC', 'N'),
+
+    (31, 46, 31, NOW(), 'COURSE_SYNC', 'N'),
+    (32, 46, 32, NOW(), 'COURSE_SYNC', 'N'),
+    (33, 46, 33, NOW(), 'COURSE_SYNC', 'N'),
+
+    (34, 60, 34, NOW(), 'COURSE_SYNC', 'N'),
+
+    (35, 67, 35, NOW(), 'COURSE_SYNC', 'N'),
+    (36, 67, 36, NOW(), 'COURSE_SYNC', 'N'),
+    (37, 67, 37, NOW(), 'COURSE_SYNC', 'N'),
+
+    (38, 68, 38, NOW(), 'COURSE_SYNC', 'N'),
+    (39, 68, 39, NOW(), 'COURSE_SYNC', 'N'),
+    (40, 68, 40, NOW(), 'COURSE_SYNC', 'N'),
+
+    (41, 69, 41, NOW(), 'COURSE_SYNC', 'N'),
+    (42, 69, 42, NOW(), 'COURSE_SYNC', 'N'),
+
+    (43, 70, 43, NOW(), 'COURSE_SYNC', 'N'),
+
+    (44, 72, 44, NOW(), 'COURSE_SYNC', 'N'),
+    (45, 72, 45, NOW(), 'COURSE_SYNC', 'N'),
+    (46, 72, 46, NOW(), 'COURSE_SYNC', 'N'),
+
+    (47, 73, 47, NOW(), 'COURSE_SYNC', 'N'),
+    (48, 73, 48, NOW(), 'COURSE_SYNC', 'N'),
+
+    (49, 84, 49, NOW(), 'COURSE_SYNC', 'N'),
+
+    (50, 85, 50, NOW(), 'COURSE_SYNC', 'N'),
+    (51, 85, 51, NOW(), 'COURSE_SYNC', 'N'),
+    (52, 85, 52, NOW(), 'COURSE_SYNC', 'N'),
+    -- 어학 : TOEIC
+    (53, 106, 53, NOW(), 'COURSE_SYNC', 'N'),
+    (54, 106, 54, NOW(), 'COURSE_SYNC', 'N'),
+
+    -- 어학 : TOEIC Speaking
+    (55, 107, 55, NOW(), 'COURSE_SYNC', 'N'),
+    (56, 107, 56, NOW(), 'COURSE_SYNC', 'N'),
+    (57, 107, 57, NOW(), 'COURSE_SYNC', 'N'),
+
+    -- 어학 : OPIc
+    (58, 108, 58, NOW(), 'COURSE_SYNC', 'N'),
+    (59, 108, 59, NOW(), 'COURSE_SYNC', 'N'),
+    (60, 108, 60, NOW(), 'COURSE_SYNC', 'N'),
+
+    -- 어학 : HSK 5급
+    (61, 109, 61, NOW(), 'COURSE_SYNC', 'N'),
+    (62, 109, 62, NOW(), 'COURSE_SYNC', 'N'),
+    (63, 109, 63, NOW(), 'COURSE_SYNC', 'N'),
+
+    -- 어학 : HSK 6급
+    (64, 110, 64, NOW(), 'COURSE_SYNC', 'N'),
+    (65, 110, 65, NOW(), 'COURSE_SYNC', 'N'),
+    (66, 110, 66, NOW(), 'COURSE_SYNC', 'N'),
+
+    -- 어학 : JLPT N1
+    (67, 111, 67, NOW(), 'COURSE_SYNC', 'N'),
+    (68, 111, 68, NOW(), 'COURSE_SYNC', 'N'),
+    (69, 111, 69, NOW(), 'COURSE_SYNC', 'N');
+
+-- --------------------------------------------------------------------
+-- [지원] 편입 전공계열 ↔ 추천 인강 매핑
+-- --------------------------------------------------------------------
+INSERT INTO job_transfer_major_course (major_course_id, major_code, course_id, created_date, created_nm, del_yn)
+VALUES
+    -- 해커스편입 : 인문계 최대 400% 환급반
+    (1, 'M01', 87, NOW(), 'COURSE_SYNC', 'N'),
+    (2, 'M02', 87, NOW(), 'COURSE_SYNC', 'N'),
+    (3, 'M11', 87, NOW(), 'COURSE_SYNC', 'N'),
+    (4, 'M12', 87, NOW(), 'COURSE_SYNC', 'N'),
+    (5, 'M13', 87, NOW(), 'COURSE_SYNC', 'N'),
+    (6, 'M14', 87, NOW(), 'COURSE_SYNC', 'N'),
+    (7, 'M15', 87, NOW(), 'COURSE_SYNC', 'N'),
+    (8, 'M17', 87, NOW(), 'COURSE_SYNC', 'N'),
+    (9, 'M18', 87, NOW(), 'COURSE_SYNC', 'N'),
+
+    -- 해커스편입 : 자연계 최대 400% 환급반
+    (10, 'M03', 88, NOW(), 'COURSE_SYNC', 'N'),
+    (11, 'M04', 88, NOW(), 'COURSE_SYNC', 'N'),
+    (12, 'M05', 88, NOW(), 'COURSE_SYNC', 'N'),
+    (13, 'M06', 88, NOW(), 'COURSE_SYNC', 'N'),
+    (14, 'M07', 88, NOW(), 'COURSE_SYNC', 'N'),
+    (15, 'M08', 88, NOW(), 'COURSE_SYNC', 'N'),
+    (16, 'M09', 88, NOW(), 'COURSE_SYNC', 'N'),
+    (17, 'M10', 88, NOW(), 'COURSE_SYNC', 'N'),
+    (18, 'M16', 88, NOW(), 'COURSE_SYNC', 'N'),
+    (19, 'M18', 88, NOW(), 'COURSE_SYNC', 'N'),
+
+    -- 해커스편입 : 인문계 편입반
+    (20, 'M01', 89, NOW(), 'COURSE_SYNC', 'N'),
+    (21, 'M02', 89, NOW(), 'COURSE_SYNC', 'N'),
+    (22, 'M11', 89, NOW(), 'COURSE_SYNC', 'N'),
+    (23, 'M12', 89, NOW(), 'COURSE_SYNC', 'N'),
+    (24, 'M13', 89, NOW(), 'COURSE_SYNC', 'N'),
+    (25, 'M14', 89, NOW(), 'COURSE_SYNC', 'N'),
+    (26, 'M15', 89, NOW(), 'COURSE_SYNC', 'N'),
+    (27, 'M17', 89, NOW(), 'COURSE_SYNC', 'N'),
+    (28, 'M18', 89, NOW(), 'COURSE_SYNC', 'N'),
+
+    -- 해커스편입 : 자연계 편입반
+    (29, 'M03', 90, NOW(), 'COURSE_SYNC', 'N'),
+    (30, 'M04', 90, NOW(), 'COURSE_SYNC', 'N'),
+    (31, 'M05', 90, NOW(), 'COURSE_SYNC', 'N'),
+    (32, 'M06', 90, NOW(), 'COURSE_SYNC', 'N'),
+    (33, 'M07', 90, NOW(), 'COURSE_SYNC', 'N'),
+    (34, 'M08', 90, NOW(), 'COURSE_SYNC', 'N'),
+    (35, 'M09', 90, NOW(), 'COURSE_SYNC', 'N'),
+    (36, 'M10', 90, NOW(), 'COURSE_SYNC', 'N'),
+    (37, 'M16', 90, NOW(), 'COURSE_SYNC', 'N'),
+    (38, 'M18', 90, NOW(), 'COURSE_SYNC', 'N'),
+
+    -- 김영편입 : 원더 인문
+    (39, 'M01', 91, NOW(), 'COURSE_SYNC', 'N'),
+    (40, 'M02', 91, NOW(), 'COURSE_SYNC', 'N'),
+    (41, 'M11', 91, NOW(), 'COURSE_SYNC', 'N'),
+    (42, 'M12', 91, NOW(), 'COURSE_SYNC', 'N'),
+    (43, 'M13', 91, NOW(), 'COURSE_SYNC', 'N'),
+    (44, 'M14', 91, NOW(), 'COURSE_SYNC', 'N'),
+    (45, 'M15', 91, NOW(), 'COURSE_SYNC', 'N'),
+    (46, 'M17', 91, NOW(), 'COURSE_SYNC', 'N'),
+    (47, 'M18', 91, NOW(), 'COURSE_SYNC', 'N'),
+
+    -- 김영편입 : 원더 자연
+    (48, 'M03', 92, NOW(), 'COURSE_SYNC', 'N'),
+    (49, 'M04', 92, NOW(), 'COURSE_SYNC', 'N'),
+    (50, 'M05', 92, NOW(), 'COURSE_SYNC', 'N'),
+    (51, 'M06', 92, NOW(), 'COURSE_SYNC', 'N'),
+    (52, 'M07', 92, NOW(), 'COURSE_SYNC', 'N'),
+    (53, 'M08', 92, NOW(), 'COURSE_SYNC', 'N'),
+    (54, 'M09', 92, NOW(), 'COURSE_SYNC', 'N'),
+    (55, 'M10', 92, NOW(), 'COURSE_SYNC', 'N'),
+    (56, 'M16', 92, NOW(), 'COURSE_SYNC', 'N'),
+    (57, 'M18', 92, NOW(), 'COURSE_SYNC', 'N');
 
 -- --------------------------------------------------------------------
 -- [지원] 진로/추천 정책·KB서비스
@@ -888,22 +2335,22 @@ INSERT INTO job_recommend_service
 VALUES
     (1, 'P01', 'J01', '국민취업지원제도', '전역 후 신청 가능',
      '취업을 희망하는 사람에게 취업지원서비스와 구직촉진수당 등을 지원하는 제도입니다.',
-     NULL, NULL, NULL, 1,
+     'https://www.work24.go.kr/cm/c/f/1100/selecSystInfo.do?currentPageNo=1&recordCountPerPage=10&systId=SI00000316&systClId=SC00000206', NULL, NULL, 1,
      NOW(), 'jiwon', 'N'),
 
     (2, 'P01', 'J01', '국민내일배움카드', '전역 후 신청 가능',
      '직업훈련 비용을 지원하여 취업 역량을 높일 수 있도록 지원하는 제도입니다.',
-     NULL, NULL, NULL, 2,
+     'https://www.work24.go.kr/cm/c/f/1100/selecSystInfo.do?currentPageNo=1&recordCountPerPage=10&systId=SI00000351&systClId=SC00000004', NULL, NULL, 2,
      NOW(), 'jiwon', 'N'),
 
     (3, 'P01', 'J03', '국가장학금', '편입 후 신청 가능',
      '편입 후 대학 재학생이 등록금 부담을 줄일 수 있도록 지원하는 국가장학금 제도입니다.',
-     NULL, NULL, NULL, 1,
+     'https://www.kosaf.go.kr/ko/scholar.do?pg=scholarship05_12_01_01', NULL, NULL, 1,
      NOW(), 'jiwon', 'N'),
 
     (4, 'P02', NULL, 'KB Pay', '복무 중 이용 가능',
-     '결제, 송금, 자산관리 등 다양한 금융 서비스를 이용할 수 있는 KB금융 통합 플랫폼입니다.',
-     NULL, NULL, NULL, 1,
+     '결제, 송금, 자산관리 등 다양한 금융 서비스를 이용할 수 있는 KB금융 생활 플랫폼입니다.',
+     'https://card.kbcard.com/SVC/DVIEW/HSCMCXPRISVC0127', NULL, NULL, 1,
      NOW(), 'jiwon', 'N');
 
 

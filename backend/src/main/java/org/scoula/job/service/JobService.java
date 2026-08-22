@@ -53,8 +53,8 @@ public interface JobService {
     // 목표 기준 정책·KB 서비스 추천 조회
     ServiceRecommendResponseDTO findServiceRecommend(Long goalId);
 
-    // 진로 목표 상세 조회
-    JobGoalDetailResponseDTO findJobGoalDetail(Long goalId);
+    // 진로 목표 상세 조회 (최근 3개월 월평균 후회소비 포함)
+    JobGoalDetailResponseDTO findJobGoalDetail(Long goalId, Long userId);
 
     // 진로 로드맵 저장 확정
     void confirmJobGoal(
@@ -71,4 +71,7 @@ public interface JobService {
             Long goalId,
             String regionCode
     );
+
+    // 사용자가 선택한 자격증 시험일 웹푸시 알림 발송
+    void sendExamNotifications();
 }

@@ -22,6 +22,7 @@ import lombok.extern.log4j.Log4j2;
 import org.scoula.dashboard.domain.VacationHistoryVO;
 import org.scoula.dashboard.domain.VacationVO;
 import org.scoula.dashboard.dto.DashboardBasicResponseDTO;
+import org.scoula.dashboard.dto.DashboardDDayUserDTO;
 // openbanking 패키지에서 VO 객체 import (향후 교체)
 import org.scoula.dashboard.dto.DashboardSavingAccountDTO;
 import org.scoula.dashboard.dto.DashboardSavingHistoryDTO;
@@ -48,6 +49,11 @@ public class DashboardServiceImpl implements DashboardService {
 
     // 전역일이 없을 때(연동 전 등) 쓰는 폴백 복무기간(개월). SimulatorServiceImpl과 동일 값으로 통일.
     private static final int DEFAULT_SERVICE_MONTHS = 24;
+
+    // D-Day 웹푸시 발송 기준(전역까지 남은 일수)
+    private static final long DDAY_30 = 30L;
+    private static final long DDAY_1 = 1L;
+    private static final String CATEGORY_DDAY = "DDAY";
 
     // DashboardSavingAccountDTO account -> SavingAccountVO account 교체
     // VO getter 가 같은지 확인 필요(getOpenDate(), getMonthlySave() 등)
@@ -120,7 +126,9 @@ public class DashboardServiceImpl implements DashboardService {
             dischargeDate = LocalDate.now().plusMonths(DEFAULT_SERVICE_MONTHS); // fallback
         }
 
-        Long expectedMaturityTotal = 0L;
+        long expectedPrincipalTotal = 0L;
+        double expectedInterestTotal = 0.0;
+        long expectedMatchingFundTotal = 0L;
 
         if (accounts != null) {
             for(DashboardSavingAccountDTO account : accounts) {
@@ -141,11 +149,17 @@ public class DashboardServiceImpl implements DashboardService {
                 );
 
                 // 4. 총 원금·이자·매칭지원금 합산 (비과세 처리라 세금은 반영하지 않음)
-                expectedMaturityTotal += calc.getTotalPrincipal()
-                        + (long) calc.getTotalInterest() + calc.matchingFund;
+                // 이자는 계좌별로 버리지 않고 double로 다 더한 뒤 마지막에 한 번만 버려야
+                // 시뮬레이터(findSavingDetails)의 만기수령액과 1원 단위까지 일치한다.
+                expectedPrincipalTotal += calc.getTotalPrincipal();
+                expectedInterestTotal += calc.getTotalInterest();
+                expectedMatchingFundTotal += calc.matchingFund;
             }
         }
-        
+
+        long expectedMaturityTotal =
+                expectedPrincipalTotal + (long) expectedInterestTotal + expectedMatchingFundTotal;
+
         return new DashboardSavingsResponseDTO(currentTotalSavings, expectedMaturityTotal);
     }
 
@@ -218,10 +232,6 @@ public class DashboardServiceImpl implements DashboardService {
         vacation.setCreatedNm(createdNm);
 
         this.mapper.insertVacation(vacation);
-
-        // 웹푸시 연동 테스트용 - 다른 도메인이 push를 이렇게 갖다 쓰면 된다는 실사용 예시
-        this.pushNotificationService.send(
-                userId, "휴가 등록 완료", request.getName() + "이(가) 등록됐어요!", "VACATION");
 
         return vacation.getVacationId();
     }
@@ -302,10 +312,6 @@ public class DashboardServiceImpl implements DashboardService {
 
         this.mapper.insertVacationHistory(history);
 
-        this.pushNotificationService.send(
-                userId, "휴가 등록 완료",
-                vacation.getVacationName() + " 사용내역이 등록됐어요!", "VACATION");
-
         return history.getHistoryId();
     }
 
@@ -318,6 +324,30 @@ public class DashboardServiceImpl implements DashboardService {
         }
 
         this.mapper.deleteVacationHistory(historyId, modifiedNm);
+    }
+
+    // 조회 자체는 읽기전용이지만, 결과에 따라 send()가 커밋 후 push_history에 쓰기 때문에
+    // readOnly로 두면 커넥션이 읽기전용으로 묶여 그 쓰기가 실패한다.
+    @Transactional
+    @Override
+    public void sendDDayNotifications() {
+        LocalDate today = LocalDate.now();
+        List<DashboardDDayUserDTO> users = this.mapper.findActiveUsersWithDischargeDate();
+
+        int sentCount = 0;
+        for (DashboardDDayUserDTO user : users) {
+            long daysUntilDischarge = ChronoUnit.DAYS.between(today, user.getDischargeDate());
+            if (daysUntilDischarge == DDAY_30) {
+                this.pushNotificationService.send(
+                        user.getUserId(), "전역 D-30", "전역까지 30일 남았어요!", CATEGORY_DDAY);
+                sentCount++;
+            } else if (daysUntilDischarge == DDAY_1) {
+                this.pushNotificationService.send(
+                        user.getUserId(), "전역 D-1", "내일이면 전역입니다!", CATEGORY_DDAY);
+                sentCount++;
+            }
+        }
+        log.info("D-Day 알림 배치 완료 - 대상 {}명, 발송 {}건", users.size(), sentCount);
     }
 
     private int sumUsedDays(Long vacationId) {
