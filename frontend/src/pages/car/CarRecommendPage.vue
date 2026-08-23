@@ -5,10 +5,19 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import carApi from '@/api/carApi';
 import BaseCard from '@/components/common/BaseCard.vue';
-import CategoryButton from '@/components/common/CategoryButton.vue';
+import TabBar from '@/components/common/TabBar.vue';
+import RangeSlider from '@/components/common/RangeSlider.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
+import Chip from '@/components/common/Chip.vue';
+import Badge from '@/components/common/Badge.vue';
+import filterIcon from '@/assets/images/filter.png';
+import leafIcon from '@/assets/images/leaf.png';
+import checkGreenIcon from '@/assets/images/check-green.png';
+import budgetTightIcon from '@/assets/images/budget-tight.png';
+import budgetOverIcon from '@/assets/images/budget-over.png';
 import { formatManwonUnit } from '@/util/format';
 
 const route = useRoute();
@@ -41,6 +50,9 @@ const filterLoading = ref(false);
 
 const selectedYear = ref(CURRENT_YEAR - DEFAULT_AGE_YEARS);
 const selectedMileageKm = ref(DEFAULT_AGE_YEARS * ANNUAL_MILEAGE_KM);
+
+// 조건 요약 바 접이식 (기본 접힘 → 요약만 표시)
+const filterOpen = ref(false);
 
 const unwrap = (response) => response.data?.data;
 
@@ -119,10 +131,6 @@ const itemsByTab = computed(() =>
   recommendations.value.filter((item) => item.carTypeCode === activeTab.value),
 );
 
-const selectTab = (value) => {
-  activeTab.value = value;
-};
-
 const selectModel = (modelId) => {
   selectedModelId.value = modelId;
 };
@@ -130,6 +138,20 @@ const selectModel = (modelId) => {
 const isFormValid = computed(() => selectedModelId.value !== null);
 
 const formatKm = (km) => `${km.toLocaleString()}km`;
+
+// 예산 대비 상태 뱃지 (딱 맞아요 / 빠듯해요 / 예산 초과)
+const CAR_BUDGET_BADGE = {
+  fit: { tone: 'green', icon: checkGreenIcon, text: '딱 맞아요', iconSize: 12 },
+  tight: { tone: 'yellow', icon: budgetTightIcon, text: '빠듯해요', iconSize: 13 },
+  over: { tone: 'red', icon: budgetOverIcon, text: '예산 초과', iconSize: 13 },
+};
+const budgetBadge = (item) => {
+  if (!item.withinBudget) return CAR_BUDGET_BADGE.over;
+  const budget = goal.value?.budget;
+  // 예산이 있고 실제 총액이 90% 이상이면 '빠듯'
+  if (budget && item.totalPrice >= budget * 0.9) return CAR_BUDGET_BADGE.tight;
+  return CAR_BUDGET_BADGE.fit;
+};
 
 const handleConfirm = async () => {
   if (!isFormValid.value || submitting.value) return;
@@ -164,7 +186,10 @@ const handlePrev = () => {
   <div class="car-recommend">
     <RoadmapCharacterSlider :step="2" label="자동차 로드맵" />
 
-    <h2 class="car-recommend__title text-title">차량을 추천해드려요</h2>
+    <PageHeader
+      title="어떤 자동차를 원하십니까?"
+      description="전기차 선택 시, 보조금 지원까지 볼 수 있습니다."
+    />
     <p v-if="goal" class="car-recommend__subtitle text-caption">
       {{ goal.budget != null ? `예산 ${formatManwonUnit(goal.budget)}` : '군적금 만기예상액 기준' }}
       · {{ goal.isNew ? '신차' : '중고' }} 기준
@@ -182,48 +207,53 @@ const handlePrev = () => {
       <span aria-hidden="true">&#8250;</span>
     </a>
 
-    <div v-if="isUsedCarGoal" class="filter-panel">
-      <div class="filter-row">
-        <label class="filter-row__label" for="year-slider">
-          연식 <strong>{{ selectedYear }}년식</strong>
-        </label>
-        <input
-          id="year-slider"
-          type="range"
-          class="filter-slider"
+    <div v-if="isUsedCarGoal" class="filter-box" :class="{ 'is-open': filterOpen }">
+      <button
+        type="button"
+        class="filter-summary"
+        :aria-expanded="filterOpen"
+        @click="filterOpen = !filterOpen"
+      >
+        <img class="filter-summary__icon" :src="filterIcon" alt="" />
+        <span class="filter-summary__text">
+          {{ selectedYear }}년식 이후 · {{ formatKm(selectedMileageKm) }} 이하
+        </span>
+        <svg
+          class="filter-summary__caret"
+          viewBox="0 0 24 24"
+          width="16"
+          height="16"
+          aria-hidden="true"
+        >
+          <path d="M7 10l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+        </svg>
+      </button>
+
+      <div v-if="filterOpen" class="filter-panel">
+        <RangeSlider
+          v-model="selectedYear"
           :min="MIN_YEAR"
           :max="MAX_YEAR"
-          step="1"
-          v-model.number="selectedYear"
+          :step="1"
+          label="연식"
+          unit="년식"
+          :ticks="[`${MIN_YEAR}년`, `${MAX_YEAR}년`]"
         />
-      </div>
-      <div class="filter-row">
-        <label class="filter-row__label" for="mileage-slider">
-          주행거리 <strong>{{ formatKm(selectedMileageKm) }}</strong>
-        </label>
-        <input
-          id="mileage-slider"
-          type="range"
-          class="filter-slider"
-          min="0"
+        <RangeSlider
+          v-model="selectedMileageKm"
+          :min="0"
           :max="MAX_MILEAGE_KM"
-          step="2000"
-          v-model.number="selectedMileageKm"
+          :step="2000"
+          label="주행거리"
+          :display-value="formatKm(selectedMileageKm)"
+          :ticks="['0km', formatKm(MAX_MILEAGE_KM)]"
         />
+        <p v-if="filterLoading" class="filter-panel__status text-caption">가격 재계산 중...</p>
       </div>
-      <p v-if="filterLoading" class="filter-panel__status text-caption">가격 재계산 중...</p>
     </div>
 
-    <div class="tab-row">
-      <CategoryButton
-        v-for="tab in CAR_TYPE_TABS"
-        :key="tab.value"
-        variant="square-yellow"
-        :label="tab.label"
-        :active="activeTab === tab.value"
-        @click="selectTab(tab.value)"
-      />
-    </div>
+    <TabBar v-model="activeTab" :tabs="CAR_TYPE_TABS" />
+
 
     <p v-if="loading" class="car-recommend__status text-caption">불러오는 중...</p>
     <p v-else-if="loadError" class="form-error text-caption" role="alert">
@@ -250,16 +280,16 @@ const handlePrev = () => {
         :class="{ 'recommend-card--active': selectedModelId === item.modelId }"
         @click="selectModel(item.modelId)"
       >
-        <div class="recommend-card__check">
-          <span v-if="selectedModelId === item.modelId">&#10003;</span>
-        </div>
-
         <div class="recommend-card__body">
+          <div class="recommend-card__info">
           <div class="recommend-card__name-row">
+            <Chip
+              :tone="item.fuelType === '전기' ? 'green' : 'gray'"
+              :icon="item.fuelType === '전기' ? leafIcon : ''"
+              :text="item.fuelType === '전기' ? 'EV' : item.fuelType"
+            />
             <span class="recommend-card__name">{{ item.modelName }}</span>
-            <span v-if="item.fuelType === '전기'" class="recommend-card__ev-badge">EV</span>
-            <span class="recommend-card__fuel">{{ item.fuelType }}</span>
-            <span v-if="item.assumedYear" class="recommend-card__year">
+            <span v-if="item.assumedYear" class="recommend-card__meta">
               {{ item.assumedYear }}년식<template v-if="isUsedCarGoal"> · {{ formatKm(selectedMileageKm) }}</template>
             </span>
           </div>
@@ -269,12 +299,14 @@ const handlePrev = () => {
             </span>
             <span class="recommend-card__total">{{ formatManwonUnit(item.totalPrice) }}</span>
           </div>
-          <span
-            class="recommend-card__budget-tag"
-            :class="item.withinBudget ? 'is-fit' : 'is-over'"
-          >
-            {{ item.withinBudget ? '예산 내' : '예산 초과' }}
-          </span>
+          </div>
+          <Badge
+            class="recommend-card__budget"
+            :tone="budgetBadge(item).tone"
+            :icon="budgetBadge(item).icon"
+            :icon-size="budgetBadge(item).iconSize"
+            :text="budgetBadge(item).text"
+          />
         </div>
       </BaseCard>
     </div>
@@ -284,7 +316,7 @@ const handlePrev = () => {
     </p>
 
     <BottomButtonBar
-      primary-label="선택 완료"
+      primary-label="선택완료"
       secondary-label="이전"
       :primary-disabled="!isFormValid || submitting"
       @primary-click="handleConfirm"
@@ -302,17 +334,17 @@ const handlePrev = () => {
   flex-direction: column;
   gap: 16px;
 }
+/* 제목 아래 컨텐츠 간격 통일(20px): flex gap 16 + ph mb 2 + subtitle mt 2 */
+.car-recommend :deep(.page-header) {
+  margin-bottom: 2px;
+}
 
 .car-recommend :deep(.character-slider) {
   margin-bottom: 12px;
 }
 
-.car-recommend__title {
-  margin: 0;
-}
-
 .car-recommend__subtitle {
-  margin: -8px 0 0;
+  margin: 2px 0 0;
   color: var(--text-muted);
 }
 
@@ -329,43 +361,60 @@ const handlePrev = () => {
   text-decoration: none;
 }
 
+/* 조건 요약/조정 — 요약 + 연식·주행거리 슬라이더를 한 박스에 */
+.filter-box {
+  border: 1px solid var(--divider-thin);
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+}
+.filter-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
+}
+.filter-summary__icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+.filter-summary__text {
+  flex: 1;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+.filter-summary__caret {
+  flex: none;
+  color: var(--text-hint);
+  transition: transform 0.2s ease;
+}
+.filter-box.is-open .filter-summary__caret {
+  transform: rotate(180deg);
+}
+
 .filter-panel {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 14px 16px;
-  border-radius: 14px;
-  background: var(--surface-subtle);
+  padding: 2px 14px 16px;
 }
-
-.filter-row {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.filter-row__label {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.filter-row__label strong {
-  color: var(--text-strong);
-}
-
-.filter-slider {
-  width: 100%;
-  accent-color: var(--kb-yellow-deep);
+/* 필터 박스 안 슬라이더 값(2021년식·36,000km)만 살짝 작게 */
+.filter-panel :deep(.range-slider__value) {
+  font-size: 18px;
 }
 
 .filter-panel__status {
   margin: 0;
   color: var(--text-hint);
-}
-
-.tab-row {
-  display: flex;
-  gap: 8px;
 }
 
 .car-recommend__status {
@@ -391,9 +440,6 @@ const handlePrev = () => {
 
 .recommend-card {
   cursor: pointer;
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
   transition: all 0.2s ease;
 }
 
@@ -402,68 +448,42 @@ const handlePrev = () => {
   box-shadow: 0 0 0 1px var(--kb-yellow-deep);
 }
 
-.recommend-card__check {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 1.5px solid var(--line-strong);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  color: var(--surface-default);
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.recommend-card--active .recommend-card__check {
-  background-color: var(--kb-yellow-deep);
-  border-color: var(--kb-yellow-deep);
-  font-weight: 700;
-}
-
 .recommend-card__body {
-  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 6px;
   min-width: 0;
 }
 
+/* 이름줄 + 추정시세·가격 = 한 묶음 (좁게), 예산 태그와는 body gap 유지 */
+.recommend-card__info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
 .recommend-card__name-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
 .recommend-card__name {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--text-strong);
 }
 
-.recommend-card__ev-badge {
-  padding: 2px 6px;
-  border-radius: 6px;
-  background: var(--military-green);
-  color: var(--surface-default);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.recommend-card__fuel {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.recommend-card__year {
+/* 자취 카드와 동일한 회색 chip 배지 (연료), 전기는 초록 */
+.recommend-card__meta {
   font-size: 12px;
   color: var(--text-hint);
 }
 
 .recommend-card__price-row {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
 }
@@ -479,22 +499,9 @@ const handlePrev = () => {
   color: var(--text-strong);
 }
 
-.recommend-card__budget-tag {
+/* 예산 뱃지(공통 Badge) 위치만 지정 */
+.recommend-card__budget {
   align-self: flex-start;
-  padding: 3px 8px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.recommend-card__budget-tag.is-fit {
-  background: var(--kb-yellow-pale);
-  color: var(--kb-gold);
-}
-
-.recommend-card__budget-tag.is-over {
-  background: var(--surface-muted);
-  color: var(--text-hint);
 }
 
 .form-error {
