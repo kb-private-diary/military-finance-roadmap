@@ -12,7 +12,6 @@ import BaseCard from '@/components/common/BaseCard.vue';
 import BaseTag from '@/components/common/BaseTag.vue';
 import DonutChart from '@/components/common/DonutChart.vue';
 import LikeButton from '@/components/common/LikeButton.vue';
-import EmptyState from '@/components/common/EmptyState.vue';
 import { formatManwon, formatWon } from '@/util/format';
 
 import bearSalute from '@/assets/images/bear-salute.png';
@@ -42,96 +41,33 @@ const CATEGORY_MAP = {
   1: {
     code: 'TRAVEL',
     label: '여행',
-    icon: '✈️',
     cardClass: 'roadmap-card--travel',
     tagVariant: 'pastel-blue',
   },
   2: {
     code: 'JOB',
     label: '진로',
-    icon: '💼',
     cardClass: 'roadmap-card--job',
     tagVariant: 'pastel-yellow',
   },
   3: {
     code: 'CAR',
     label: '자동차',
-    icon: '🚗',
     cardClass: 'roadmap-card--car',
     tagVariant: 'pastel-green',
   },
   4: {
     code: 'RENT',
     label: '자취',
-    icon: '🏠',
     cardClass: 'roadmap-card--rent',
     tagVariant: 'pastel-pink',
   },
 };
 
-// 관심 등록한 로드맵(등록 개수 제한 없음)
-const favoriteRoadmaps = computed(() => summary.value?.favoriteRoadmaps ?? []);
-
-// 캐러셀에서 현재 노출 중인 관심 로드맵 위치
-const currentFavoriteIndex = ref(0);
-
-// 이동 버튼·인디케이터는 관심 로드맵이 2개 이상일 때만 노출
-const hasMultipleFavorites = computed(() => favoriteRoadmaps.value.length > 1);
-
-// 현재 카드에 노출할 관심 로드맵
-const currentFavorite = computed(
-  () => favoriteRoadmaps.value[currentFavoriteIndex.value] ?? null,
+// 관심 등록한 로드맵 최대 4개
+const favoriteRoadmaps = computed(() =>
+  (summary.value?.favoriteRoadmaps ?? []).slice(0, 4),
 );
-
-// 이전 카드 (첫 카드에서는 더 이동하지 않는다)
-const goPrevFavorite = () => {
-  if (currentFavoriteIndex.value <= 0) {
-    return;
-  }
-
-  currentFavoriteIndex.value -= 1;
-};
-
-// 다음 카드 (마지막 카드에서는 더 이동하지 않는다)
-const goNextFavorite = () => {
-  if (currentFavoriteIndex.value >= favoriteRoadmaps.value.length - 1) {
-    return;
-  }
-
-  currentFavoriteIndex.value += 1;
-};
-
-// 인디케이터를 눌러 특정 카드로 이동
-const selectFavorite = (index) => {
-  currentFavoriteIndex.value = index;
-};
-
-// 스와이프로 인정할 최소 이동 거리(px)
-const FAVORITE_SWIPE_THRESHOLD = 40;
-
-let favoriteTouchStartX = 0;
-
-// 스와이프 시작 지점 기록
-const handleFavoriteTouchStart = (event) => {
-  favoriteTouchStartX = event.changedTouches[0].clientX;
-};
-
-// 이동 거리와 방향으로 이전·다음 카드 판정
-const handleFavoriteTouchEnd = (event) => {
-  const movedDistance = event.changedTouches[0].clientX - favoriteTouchStartX;
-
-  if (Math.abs(movedDistance) < FAVORITE_SWIPE_THRESHOLD) {
-    return;
-  }
-
-  if (movedDistance < 0) {
-    goNextFavorite();
-
-    return;
-  }
-
-  goPrevFavorite();
-};
 
 // 여행·진로 중 가장 가까운 일정 최대 2개
 const upcomingSchedules = computed(() =>
@@ -158,7 +94,10 @@ const usageRate = computed(() => {
     return 0;
   }
 
-  return Math.round((plannedAmount.value / maturityAmount.value) * 100);
+  return Math.min(
+    Math.round((plannedAmount.value / maturityAmount.value) * 100),
+    100,
+  );
 });
 
 // 관심 로드맵 예상 비용이 만기 예상금을 초과했는지 여부
@@ -183,20 +122,9 @@ const roadmapFundChartItems = computed(() => {
     ];
   }
 
-  // 예산을 초과하면 링 전체를 사용 예정 금액으로 채운다.
-  if (isOverBudget.value) {
-    return [
-      {
-        label: '사용 예정 금액',
-        value: 1,
-        color: 'var(--kb-yellow)',
-      },
-    ];
-  }
+  const usedAmount = Math.min(plannedAmount.value, maturityAmount.value);
 
-  const usedAmount = plannedAmount.value;
-
-  const remainingAmount = maturityAmount.value - usedAmount;
+  const remainingAmount = Math.max(maturityAmount.value - usedAmount, 0);
 
   return [
     {
@@ -291,7 +219,7 @@ const currentProduct = computed(() => {
   return products[currentProductIndex.value];
 });
 
-// 현재 추천 적금 상품이 선택된 상태로 예적금 상품 계산기 화면 이동
+// 현재 추천 적금 상품이 선택된 상태로 예적금 상품 계산기(화면2)로 이동
 const goProductDetail = () => {
   if (!currentProduct.value?.productId) {
     return;
@@ -403,7 +331,6 @@ const fetchSummary = async () => {
   try {
     summary.value = await mainApi.findSummary();
     currentProductIndex.value = 0;
-    currentFavoriteIndex.value = 0;
 
     startProductSlider();
   } catch (error) {
@@ -443,7 +370,7 @@ onBeforeUnmount(() => {
           </template>
 
           <template v-else>
-            <span>축하합니다</span>
+            <span>복무 완료</span>
 
             <strong class="discharge-card__complete"> 전역 완료 </strong>
           </template>
@@ -498,17 +425,19 @@ onBeforeUnmount(() => {
             />
 
             <div class="chart-center">
-              <div
-                class="chart-center__rate"
-                :class="{ 'chart-center__rate--over': isOverBudget }"
-              >
-                <strong>{{ usageRate }}</strong>
-                <span>%</span>
-              </div>
+              <template v-if="!isOverBudget">
+                <div class="chart-center__rate">
+                  <strong>{{ usageRate }}</strong>
+                  <span>%</span>
+                </div>
 
-              <small :class="{ 'chart-center__badge--over': isOverBudget }">
-                예정 사용률
-              </small>
+                <small>예정 사용률</small>
+              </template>
+
+              <template v-else>
+                <span class="chart-center__warning">!</span>
+                <strong class="chart-center__over-text">예산 초과</strong>
+              </template>
             </div>
           </div>
 
@@ -545,6 +474,10 @@ onBeforeUnmount(() => {
                 <p>로드맵 예상 비용</p>
 
                 <strong>{{ formatWon(plannedAmount) }}</strong>
+
+                <span v-if="isOverBudget" class="amount-summary__shortage">
+                  {{ formatWon(budgetDifference) }} 부족
+                </span>
               </div>
             </div>
           </div>
@@ -563,119 +496,63 @@ onBeforeUnmount(() => {
 
         <!-- 관심 등록 현황 -->
         <div class="favorite-section">
+          <div class="favorite-heading">
+            <span class="favorite-count">
+              {{ favoriteRoadmaps.length }}/4
+            </span>
+
+            <p>
+              카테고리별 1개까지 등록 가능
+              <span class="info-icon">i</span>
+            </p>
+          </div>
+
           <!-- 관심 등록한 로드맵이 있을 때 -->
-          <div
-            v-if="currentFavorite"
-            class="favorite-carousel"
-            @touchstart.passive="handleFavoriteTouchStart"
-            @touchend.passive="handleFavoriteTouchEnd"
-          >
-            <button
-              v-if="hasMultipleFavorites"
-              type="button"
-              class="favorite-nav favorite-nav--prev"
-              aria-label="이전 관심 로드맵 보기"
-              :disabled="currentFavoriteIndex === 0"
-              @click="goPrevFavorite"
-            >
-              ‹
-            </button>
-
-            <!-- 뒤에 쌓인 카드 (장식용, 2장 이상일 때만 노출) -->
-            <span
-              v-if="favoriteRoadmaps.length > 2"
-              class="favorite-deck-layer favorite-deck-layer--back"
-              aria-hidden="true"
-            ></span>
-
-            <span
-              v-if="hasMultipleFavorites"
-              class="favorite-deck-layer favorite-deck-layer--mid"
-              aria-hidden="true"
-            ></span>
-
+          <div v-if="favoriteRoadmaps.length > 0" class="roadmap-grid">
             <article
+              v-for="roadmap in favoriteRoadmaps"
+              :key="`${roadmap.categoryId}-${roadmap.goalId}`"
               class="roadmap-card"
-              :class="getCategoryInfo(currentFavorite.categoryId).cardClass"
-              @click="goRoadmapDetail(currentFavorite)"
+              :class="getCategoryInfo(roadmap.categoryId).cardClass"
+              @click="goRoadmapDetail(roadmap)"
             >
-              <BaseTag
-                :label="getCategoryInfo(currentFavorite.categoryId).label"
-                :variant="
-                  getCategoryInfo(currentFavorite.categoryId).tagVariant
-                "
-              />
-
               <!-- 관심 등록 상태 표시 전용 (해제는 로드맵 화면에서) -->
               <span class="roadmap-card__like" aria-hidden="true">
                 <LikeButton :model-value="true" />
               </span>
 
-              <strong class="roadmap-card__title">
-                {{ currentFavorite.title }}
-              </strong>
+              <div class="roadmap-card__content">
+                <BaseTag
+                  :label="getCategoryInfo(roadmap.categoryId).label"
+                  :variant="getCategoryInfo(roadmap.categoryId).tagVariant"
+                />
 
-              <p class="roadmap-card__amount-label">예상 비용</p>
+                <strong class="roadmap-card__title">
+                  {{ roadmap.title }}
+                </strong>
 
-              <p
-                v-if="currentFavorite.amount != null"
-                class="roadmap-card__amount"
-              >
-                {{ formatWon(currentFavorite.amount) }}
-              </p>
+                <p v-if="roadmap.amount != null" class="roadmap-card__amount">
+                  {{ formatManwon(roadmap.amount) }}
+                </p>
 
-              <p
-                v-else
-                class="roadmap-card__amount roadmap-card__amount--pending"
-              >
-                금액 계산 전
-              </p>
-
-              <span class="roadmap-card__icon" aria-hidden="true">
-                {{ getCategoryInfo(currentFavorite.categoryId).icon }}
-              </span>
-
-              <div
-                v-if="hasMultipleFavorites"
-                class="favorite-dots"
-                @click.stop
-              >
-                <button
-                  v-for="(_, index) in favoriteRoadmaps"
-                  :key="index"
-                  type="button"
-                  :class="{
-                    'favorite-dot--active': currentFavoriteIndex === index,
-                  }"
-                  :aria-label="`${index + 1}번째 관심 로드맵 보기`"
-                  @click="selectFavorite(index)"
-                ></button>
+                <p
+                  v-else
+                  class="roadmap-card__amount roadmap-card__amount--pending"
+                >
+                  금액 계산 전
+                </p>
               </div>
             </article>
-
-            <button
-              v-if="hasMultipleFavorites"
-              type="button"
-              class="favorite-nav favorite-nav--next"
-              aria-label="다음 관심 로드맵 보기"
-              :disabled="currentFavoriteIndex === favoriteRoadmaps.length - 1"
-              @click="goNextFavorite"
-            >
-              ›
-            </button>
           </div>
 
           <!-- 관심 등록한 로드맵이 없을 때 -->
-          <EmptyState
-            v-else
-            class="favorite-empty"
-            title="관심 등록한 로드맵이 없어요"
-            description="로드맵에서 하트를 눌러 등록해보세요"
-          >
-            <template #icon>
+          <div v-else class="favorite-empty">
+            <span class="favorite-empty__icon" aria-hidden="true">
               <LikeButton :model-value="false" />
-            </template>
-          </EmptyState>
+            </span>
+
+            <p class="text-caption">관심 등록한 로드맵이 아직 없습니다.</p>
+          </div>
         </div>
       </BaseCard>
 
@@ -1060,13 +937,40 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.chart-center__badge--over {
+.chart-center__warning {
+  display: flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 6px;
+
   color: var(--surface-default);
-  background: var(--kb-yellow);
+  font-size: 14px;
+  font-weight: 700;
+
+  background: var(--warning-strong);
+  border-radius: 50%;
 }
 
-/* ── 만기 예상금 초과 안내 ── */
+.chart-center__over-text {
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
 
+.amount-summary__shortage {
+  display: block;
+  margin-top: 4px;
+
+  color: var(--danger);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* 만기 예상금 초과 안내 */
 .fund-over-message {
   padding: 2px 0 12px;
   text-align: center;
@@ -1169,99 +1073,75 @@ onBeforeUnmount(() => {
 /* ── 관심 로드맵 ── */
 
 .favorite-section {
-  padding-top: 14px;
+  padding-top: 12px;
   border-top: 1px dashed var(--line-strong);
 }
 
-.favorite-carousel {
-  position: relative;
-  width: 100%;
-  padding-bottom: 6px;
-}
-/*
-  * 뒤에 카드가 더 있다는 걸 좌우로 삐져나온 색 레이어로 보여준다.
-  * 실제 카드 내용은 렌더링하지 않는다.
- */
-.favorite-deck-layer {
-  position: absolute;
-  z-index: 0;
-  top: 14px;
-  bottom: -6px;
-  display: block;
-  border-radius: 14px;
-}
-
-.favorite-deck-layer--mid {
-  right: -5px;
-  left: -5px;
-  background: var(--line);
-}
-
-.favorite-deck-layer--back {
-  top: 20px;
-  right: -10px;
-  left: -10px;
-  background: var(--line-strong);
-}
-
-.favorite-nav {
-  position: absolute;
-  z-index: 2;
-  top: 50%;
+.favorite-heading {
   display: flex;
-  width: 22px;
-  height: 22px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 13px;
+}
+
+.favorite-count {
+  flex-shrink: 0;
+  padding: 2px 6px;
+  color: var(--military-green);
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--military-green-light);
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.favorite-heading > p {
+  display: flex;
+  max-width: 116px;
   align-items: center;
-  justify-content: center;
-  padding: 0;
-
-  color: var(--text-muted);
-  font-family: inherit;
-  font-size: 15px;
-  line-height: 1;
-
-  background: var(--surface-default);
-  border: 1px solid var(--line);
-  border-radius: 50%;
-  box-shadow: 0 2px 6px var(--shadow-dropdown);
-  box-sizing: border-box;
-  cursor: pointer;
-  transform: translateY(-50%);
+  justify-content: flex-end;
+  gap: 4px;
+  margin: 0;
+  color: var(--text-hint);
+  font-size: 9px;
+  line-height: 1.4;
+  text-align: right;
 }
 
-.favorite-nav--prev {
-  left: -7px;
-}
-
-.favorite-nav--next {
-  right: -7px;
-}
-
-/* 더 이동할 카드가 없을 때는 눌러도 반응이 없으므로 흐리게 표시한다. */
-.favorite-nav:disabled {
-  color: var(--text-disabled);
-  cursor: default;
-  opacity: 0.4;
+.roadmap-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
 }
 
 .roadmap-card {
   position: relative;
   display: flex;
-  width: 100%;
   min-width: 0;
-  min-height: 100px;
-  flex-direction: column;
-  align-items: flex-start;
+  min-height: 86px;
+  align-items: stretch;
   overflow: hidden;
-  padding: 13px 92px 24px 16px;
+  padding: 10px 12px;
 
   color: inherit;
   text-decoration: none;
   cursor: pointer;
 
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 12px;
   box-sizing: border-box;
+}
+
+/* 관심 로드맵 카드 우상단 '찜됨' 하트 배지 (표시 전용) */
+.roadmap-card__like {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+  pointer-events: none;
 }
 
 .roadmap-card--travel {
@@ -1284,33 +1164,29 @@ onBeforeUnmount(() => {
   border-color: var(--pastel-pink);
 }
 
-.roadmap-card :deep(.base-tag) {
-  padding: 2px 8px;
-  font-size: 10px;
+.roadmap-card__content {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
-.roadmap-card__like {
-  position: absolute;
-  top: 9px;
-  right: 16px;
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  color: var(--danger);
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1;
+.roadmap-card__content :deep(.base-tag) {
+  margin-bottom: 3px;
+  padding: 2px 6px;
+  font-size: 9px;
 }
 
 .roadmap-card__title {
   display: -webkit-box;
   overflow: hidden;
   max-width: 100%;
-  margin-top: 8px;
+  margin-top: 1px;
 
   color: var(--text-strong);
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 600;
   line-height: 1.4;
 
   word-break: keep-all;
@@ -1320,112 +1196,40 @@ onBeforeUnmount(() => {
   -webkit-line-clamp: 2;
 }
 
-.roadmap-card__amount-label {
-  margin: 7px 0 0;
-  color: var(--text-muted);
-  font-size: 9px;
-  line-height: 1.2;
-}
-
 .roadmap-card__amount {
   overflow: hidden;
   max-width: 100%;
   margin: 2px 0 0;
-
   color: var(--brand-gold);
-  font-size: 13px;
+  font-size: 10px;
   font-weight: 700;
-  line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .roadmap-card__amount--pending {
   color: var(--text-hint);
-  font-size: 11px;
   font-weight: 400;
 }
 
-.roadmap-card__icon {
-  position: absolute;
-  right: 18px;
-  bottom: 24px;
-  display: flex;
-  width: 54px;
-  height: 54px;
-  align-items: center;
-  justify-content: center;
-
-  font-size: 26px;
-
-  background: var(--surface-default);
-  border-radius: 14px;
-  box-shadow: 0 2px 8px var(--shadow-dropdown);
-}
-
-.favorite-dots {
-  position: absolute;
-  bottom: 11px;
-  left: 16px;
-  display: flex;
-  gap: 5px;
-}
-
-.favorite-dots button {
-  width: 6px;
-  height: 6px;
-  padding: 0;
-  background: var(--kb-gray);
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  opacity: 0.3;
-}
-
-.favorite-dots .favorite-dot--active {
-  width: 16px;
-  border-radius: 8px;
-  opacity: 1;
-}
-
-/* 카드 안쪽에 들어가므로 기본 EmptyState보다 여백과 글자를 줄인다. */
 .favorite-empty {
   display: flex;
-  min-height: 100px;
+  min-height: 68px;
   flex-direction: column;
+  align-items: center;
   justify-content: center;
-  padding: 12px 16px;
-  box-sizing: border-box;
+  gap: 8px;
+  color: var(--text-hint);
+  background: var(--surface-subtle);
+  border-radius: 12px;
 }
 
-.favorite-empty :deep(.empty-state__icon) {
-  width: 30px;
-  height: 30px;
-  margin-bottom: 7px;
+.favorite-empty__icon {
+  font-size: 18px;
 }
 
-.favorite-empty :deep(.empty-state__icon .like-button) {
-  width: 18px;
-  height: 18px;
-  pointer-events: none;
-}
-
-.favorite-empty :deep(.empty-state__icon .like-button svg) {
-  width: 16px;
-  height: 16px;
-}
-
-.favorite-empty :deep(.empty-state__icon .like-button svg path) {
-  stroke: var(--text-hint);
-}
-
-.favorite-empty :deep(.empty-state__title) {
-  margin-bottom: 4px;
-  font-size: 13px;
-}
-
-.favorite-empty :deep(.empty-state__description) {
-  font-size: 12px;
+.favorite-empty p {
+  margin: 0;
 }
 
 /* ── 다가오는 일정 ── */
