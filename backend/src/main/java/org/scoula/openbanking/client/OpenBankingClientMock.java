@@ -1,5 +1,7 @@
 package org.scoula.openbanking.client;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -62,18 +64,18 @@ public class OpenBankingClientMock implements OpenBankingClient {
         List<AccountInfo> result = new ArrayList<>();
         if ("1".equals(userSeqNo)) {
             // 회원1 - 입대 2026-01-05, 개설 2026-03-09 → 만기 2027-09-09
-            result.add(createAccount("199167428338341000001", "004", "KB국민은행", "SAVING", "나라사랑 군적금", "004-01-****111", 1500000L, "2026-03-09", "2027-09-09"));
-            result.add(createAccount("199167428338341000002", "003", "IBK기업은행", "SAVING", "IBK 나라사랑 적금", "003-01-****112", 1250000L, "2026-03-09", "2027-09-09"));
+            result.add(withRate(createAccount("199167428338341000001", "004", "KB국민은행", "SAVING", "나라사랑 군적금", "004-01-****111", 1500000L, "2026-03-09", "2027-09-09"), "5.0", "100"));
+            result.add(withRate(createAccount("199167428338341000002", "003", "IBK기업은행", "SAVING", "IBK 나라사랑 적금", "003-01-****112", 1250000L, "2026-03-09", "2027-09-09"), "5.0", "100"));
             result.add(createAccount(M1_CHECKING, "004", "KB국민은행", "CHECKING", "KB국민 입출금통장", "004-01-****113", 1000000L, null, null));
         } else if ("2".equals(userSeqNo)) {
             // 회원2 - 입대 2025-11-10, 개설 2025-11-15 → 만기 2027-05-15
-            result.add(createAccount("199167428338341000004", "004", "KB국민은행", "SAVING", "나라사랑 군적금", "004-01-****114", 2400000L, "2025-11-15", "2027-05-15"));
-            result.add(createAccount("199167428338341000005", "088", "신한은행", "SAVING", "장병내일준비적금", "088-01-****115", 950000L, "2025-11-15", "2027-05-15"));
+            result.add(withRate(createAccount("199167428338341000004", "004", "KB국민은행", "SAVING", "나라사랑 군적금", "004-01-****114", 2400000L, "2025-11-15", "2027-05-15"), "5.0", "100"));
+            result.add(withRate(createAccount("199167428338341000005", "088", "신한은행", "SAVING", "장병내일준비적금", "088-01-****115", 950000L, "2025-11-15", "2027-05-15"), "5.0", "100"));
             result.add(createAccount(M2_CHECKING, "004", "KB국민은행", "CHECKING", "KB국민 입출금통장", "004-01-****116", 800000L, null, null));
         } else {
             // 신규 회원 - userId 기반 유니크 계좌, 개설일·만기일은 임시값(Service가 입대일 기반 보정)
-            result.add(createAccount(dynamicFintech(userSeqNo, "1"), "004", "KB국민은행", "SAVING", "나라사랑 군적금",
-                    "004-01-****" + pad3(userSeqNo) + "1", 3000000L, "2026-01-01", "2027-07-01"));
+            result.add(withRate(createAccount(dynamicFintech(userSeqNo, "1"), "004", "KB국민은행", "SAVING", "나라사랑 군적금",
+                    "004-01-****" + pad3(userSeqNo) + "1", 3000000L, "2026-01-01", "2027-07-01"), "5.0", "100"));
             result.add(createAccount(dynamicFintech(userSeqNo, "2"), "004", "KB국민은행", "CHECKING", "KB국민 입출금통장",
                     "004-01-****" + pad3(userSeqNo) + "2", 500000L, null, null));
         }
@@ -94,7 +96,7 @@ public class OpenBankingClientMock implements OpenBankingClient {
         // 입출금계좌 = 지출(출금) 리스트 / 적금계좌 = 입금(납입) 리스트
         return isCheckingAccount(fintechUseNum)
                 ? checkingTransactions(fintechUseNum)
-                : savingTransactions(fintechUseNum);
+                : savingTransactions(fintechUseNum, fromDate); // 적금 = 개설일(fromDate)부터 매월 납입 동적 생성
     }
 
     @Override
@@ -160,6 +162,15 @@ public class OpenBankingClientMock implements OpenBankingClient {
         return a;
     }
 
+    /** 적금계좌에 금리·정부매칭 세팅 (군적금 목데이터 - 사용자 화면 노출용). 입출금엔 미적용 */
+    private AccountInfo withRate(AccountInfo a, String interestRate, String govMatchRate) {
+        a.setInterestRate(new BigDecimal(interestRate));
+        if (govMatchRate != null) {
+            a.setGovMatchRate(new BigDecimal(govMatchRate));
+        }
+        return a;
+    }
+
     /** 계좌별 잔액 (적금=누적납입금(시드 curr_amount와 일치) / 입출금=현재잔액) */
     private Long balanceOf(String fintechUseNum) {
         switch (fintechUseNum) {
@@ -217,12 +228,43 @@ public class OpenBankingClientMock implements OpenBankingClient {
         return list;
     }
 
-    /** 적금계좌 거래내역 - 입금(납입 IN) 리스트, 석윤 saving_history가 사용 (매달 자동납입) */
-    private List<TransactionInfo> savingTransactions(String fintechUseNum) {
+    /**
+     * 적금계좌 납입내역 - 입금(IN) 리스트, 석윤 saving_history가 사용.
+     * 개설일(fromDate)부터 현재까지 매월 25일 자동납입으로 동적 생성 → 회원마다 개설일이 달라도 정합성 유지.
+     * 납입액 합 = 누적납입금(balance)에 정확히 맞춤(방식B): 천원 단위 균등 + 마지막 회차로 잔액 보정.
+     * (멘토 조언: 고정값 대신 개설일 기준 매월 납입 / balance 유지로 시드·만기금 계산에 영향 없음)
+     */
+    private List<TransactionInfo> savingTransactions(String fintechUseNum, String fromDate) {
         List<TransactionInfo> list = new ArrayList<>();
-        list.add(createTx(2026, 5, 25, 9, 0, "군적금 자동납입", 300000L, "IN"));
-        list.add(createTx(2026, 6, 25, 9, 0, "군적금 자동납입", 300000L, "IN"));
-        list.add(createTx(2026, 7, 25, 9, 0, "군적금 자동납입", 300000L, "IN"));
+        long balance = balanceOf(fintechUseNum);           // 누적납입금 (이 합에 맞춰 분배)
+        if (balance <= 0 || fromDate == null) {
+            return list;
+        }
+        // 개설일 이후 첫 25일부터 오늘 이전까지 매월 납입일 수집
+        LocalDate open = LocalDate.parse(fromDate);
+        LocalDate today = LocalDate.now();
+        LocalDate payDay = open.withDayOfMonth(25);
+        if (payDay.isBefore(open)) {
+            payDay = payDay.plusMonths(1);                 // 개설일이 25일 이후면 다음 달부터
+        }
+        List<LocalDate> payDates = new ArrayList<>();
+        while (!payDay.isAfter(today)) {
+            payDates.add(payDay);
+            payDay = payDay.plusMonths(1);
+        }
+        int n = payDates.size();
+        if (n == 0) {
+            return list;
+        }
+        long perPay = (balance / n / 1000) * 1000;         // 천원 단위 균등 월납입액
+        long accumulated = 0;
+        for (int i = 0; i < n; i++) {
+            // 마지막 회차에 잔액을 몰아 합계를 balance와 정확히 일치시킴
+            long amount = (i == n - 1) ? (balance - accumulated) : perPay;
+            accumulated += amount;
+            LocalDate d = payDates.get(i);
+            list.add(createTx(d.getYear(), d.getMonthValue(), d.getDayOfMonth(), 9, 0, "군적금 자동납입", amount, "IN"));
+        }
         return list;
     }
 

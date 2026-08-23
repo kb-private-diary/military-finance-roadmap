@@ -20,5 +20,6 @@ public class SavingAccountVO extends BaseVO {
     private Integer monthlyCount;  // monthly_count  납입개월수
     private Long currAmount;       // curr_amount    누적납입금
     private String accountStatus;  // account_status 적금 상태 (ACTIVE 등)
+    private String productType;    // product_type   적금 종류 (MILITARY 군적금 / GENERAL 일반적금) - 만기금 계산은 MILITARY만
     private LocalDate openDate;    // open_date       계좌 개설일 (실제 은행 개설일, created_date 감사컬럼과 별개)
 }

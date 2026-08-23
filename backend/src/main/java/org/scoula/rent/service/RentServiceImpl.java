@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.scoula.common.exception.BusinessException;
 import org.scoula.rent.domain.RentGoalVO;
 import org.scoula.rent.domain.RentGoalRegionVO;
+import org.scoula.rent.domain.RegionCodeVO;
 import org.scoula.rent.domain.RentListingVO;
 import org.scoula.rent.domain.RentAffordability;
 import org.scoula.rent.domain.SchoolVO;
@@ -23,6 +24,7 @@ import org.scoula.rent.dto.NearbyFacilityDTO;
 import org.scoula.rent.dto.PrecisionSimulationDTO;
 import org.scoula.rent.dto.UtilityEstimateResponseDTO;
 import org.scoula.rent.client.KakaoLocalClient;
+import org.scoula.rent.client.KakaoGeocodingClient;
 import org.scoula.rent.dto.NearestStationDTO;
 import org.scoula.rent.mapper.RentMapper;
 import org.scoula.rent.mapper.RentListingMapper;
@@ -83,6 +85,7 @@ public class RentServiceImpl implements RentService {
     private final DashboardService dashboardService;
     private final RegretService regretService;   // Step5 소비 패턴 (후회소비 최근 3개월) - rent → regret 단방향
     private final KakaoLocalClient kakaoLocalClient; // Step5 주변 편의시설 (카카오 로컬)
+    private final KakaoGeocodingClient geocodingClient; // SCHOOL 모드 학교 좌표→시군구 역지오코딩 (좌표 없는 매물 대응)
 
     @Override
     @Transactional(readOnly = true)
@@ -183,8 +186,17 @@ public class RentServiceImpl implements RentService {
                 listing.getLatitude(), listing.getLongitude());
         PrecisionSimulationDTO simulation = buildPrecisionSimulation(goal, listing);
 
+        // step5 비용계산 관리비 표시용 - 면적앵커+시도계수로 월 관리비 계산 (regionCode/면적 없으면 0)
+        long mgmtFee = 0L;
+        if (listing.getRegionCode() != null && listing.getAreaSqm() != null) {
+            mgmtFee = this.utilityService.calcManagementFee(
+                    listing.getRegionCode(), listing.getAreaSqm().doubleValue());
+        }
+        ListingSummaryDTO listingSummary = ListingSummaryDTO.of(listing);
+        listingSummary.setMaintenanceFee(mgmtFee);
+
         return RentGoalDetailResponseDTO.of(goal).toBuilder()
-                .listing(ListingSummaryDTO.of(listing))
+                .listing(listingSummary)
                 .nearbyFacilities(facilities)
                 .precisionSimulation(simulation)
                 .build();
@@ -253,7 +265,8 @@ public class RentServiceImpl implements RentService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    // 노출 매물 좌표를 카카오 지오코딩으로 채워 DB에 캐시하므로 readOnly 아님(쓰기 포함)
+    @Transactional
     public List<RentListingResponseDTO> findListings(Long goalId) {
         RentGoalVO goal = this.mapper.findGoalById(goalId);
         if (goal == null) {
@@ -263,9 +276,13 @@ public class RentServiceImpl implements RentService {
         // 1) 후보 매물 조회 (SQL 은 지역/학교반경 + 월세 느슨한 상한까지만, LIMIT 없음)
         List<RentListingVO> candidates;
         if (MODE_SCHOOL.equals(goal.getSelectionMode())) {
-            // 학교 좌표 기준 반경 내 매물
+            // 학교 좌표 기준 반경 내 매물 (좌표 있는 매물)
             candidates = this.listingMapper.findListingsBySchool(
                     goal.getSchoolId(), goal.getCommuteRadiusKm(), goal.getMonthlyBudget());
+            // 국토부 매물은 대부분 좌표 미적재라 반경검색이 자주 빈다 → 학교가 속한 시군구 매물로 폴백
+            if (candidates.isEmpty()) {
+                candidates = findListingsBySchoolRegionFallback(goal);
+            }
         } else {
             // 희망 지역(법정동코드)에 속한 매물
             List<String> regionCodes = this.mapper.findRegionCodesByGoalId(goalId);
@@ -277,6 +294,11 @@ public class RentServiceImpl implements RentService {
         // 2) 실질월부담(월세+관리비+보증금환산) 계산 → 월예산 이하만 남기고 오름차순 상위 30개
         long budget = goal.getMonthlyBudget() != null ? goal.getMonthlyBudget() : 0L;
         List<ListingCost> affordable = filterByEffectiveMonthly(candidates, budget);
+
+        // 2-1) 노출 매물(상위 30개) 중 좌표 없는 것만 카카오 지오코딩으로 채우고 DB에 캐시한다.
+        //   국토부 매물은 좌표가 없어 통학/지하철 뱃지가 거리 계산을 못 한다 → 여기서 주소로 좌표를 구해 채운다.
+        //   화면에 실제 노출되는 매물만 대상이라 카카오 호출은 최대 30건, 한 번 채우면 다음 조회부턴 호출 없음(캐시).
+        enrichListingCoordinates(affordable);
 
         // 3) 시세 상대평가 뱃지용: 최종 노출 매물의 종류별 평균 월세 (같은 조건 매물끼리 비교)
         Map<String, Double> avgRentByType = affordable.stream()
@@ -324,6 +346,85 @@ public class RentServiceImpl implements RentService {
     }
 
     /**
+     * 노출 매물 중 좌표(위경도)가 없는 것을 카카오 지오코딩(주소→좌표)으로 채우고 DB에 캐시한다.
+     * 이미 좌표가 있으면 건너뛴다. 카카오 실패(키 없음·검색 실패)는 해당 매물만 건너뛰고 진행한다.
+     */
+    private void enrichListingCoordinates(List<ListingCost> affordable) {
+        for (ListingCost c : affordable) {
+            RentListingVO l = c.listing();
+            if (l.getLatitude() != null && l.getLongitude() != null) {
+                continue; // 이미 좌표 있음(과거 조회 때 캐시됨)
+            }
+            String address = buildListingAddress(l);
+            if (address == null) {
+                continue;
+            }
+            BigDecimal[] coord = this.geocodingClient.geocode(address); // [위도, 경도]
+            if (coord == null) {
+                continue; // 카카오 실패(키 없음·검색 실패) → 좌표 없이 진행(같은 구 폴백 뱃지)
+            }
+            l.setLatitude(coord[0]);
+            l.setLongitude(coord[1]);
+            try {
+                this.listingMapper.updateListingCoords(l.getListingId(), coord[0], coord[1]);
+            } catch (Exception e) {
+                log.warn("매물 좌표 캐시 저장 실패 (listingId={}): {}", l.getListingId(), e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * 매물의 지번주소 문자열을 조합한다 (카카오 지오코딩 입력용): "시도 시군구 읍면동 지번".
+     * 시군구코드로 시도·시군구명을 찾고 매물의 읍면동·지번을 붙인다. 필수값(시군구·동)이 없으면 null.
+     */
+    private String buildListingAddress(RentListingVO l) {
+        if (l.getSigunguCode() == null || l.getUmdName() == null || l.getUmdName().isBlank()) {
+            return null;
+        }
+        RegionCodeVO region = this.mapper.findRegionNameBySigungu(l.getSigunguCode());
+        if (region == null || region.getSidoName() == null || region.getSigunguName() == null) {
+            return null;
+        }
+        StringBuilder addr = new StringBuilder()
+                .append(region.getSidoName()).append(' ')
+                .append(region.getSigunguName()).append(' ')
+                .append(l.getUmdName());
+        if (l.getJibun() != null && !l.getJibun().isBlank()) {
+            addr.append(' ').append(l.getJibun());
+        }
+        return addr.toString();
+    }
+
+    /**
+     * SCHOOL 모드 폴백: 매물 좌표가 없어 반경검색이 비었을 때, 학교가 속한 시군구의 매물을 반환.
+     * 학교 시군구코드가 없으면 학교 좌표를 카카오 역지오코딩해 구하고 school 에 캐시(다음부턴 카카오 호출 없음).
+     * 이렇게 하면 전국 어느 학교든 매물 좌표 유무와 무관하게 매물이 노출된다.
+     */
+    private List<RentListingVO> findListingsBySchoolRegionFallback(RentGoalVO goal) {
+        SchoolVO school = this.mapper.findSchoolById(goal.getSchoolId());
+        if (school == null) {
+            return List.of();
+        }
+        String sigunguCode = school.getSigunguCode();
+        if (sigunguCode == null || sigunguCode.isBlank()) {
+            // 학교 좌표 → 시군구코드 (카카오 역지오코딩) 후 school 에 캐시
+            sigunguCode = this.geocodingClient.coord2sigungu(school.getLatitude(), school.getLongitude());
+            if (sigunguCode != null) {
+                // readOnly 트랜잭션이라 캐시 저장 실패해도 조회는 진행 (다음 조회에서 재시도)
+                try {
+                    this.mapper.updateSchoolSigungu(school.getSchoolId(), sigunguCode);
+                } catch (Exception e) {
+                    log.warn("학교 시군구 캐시 저장 실패 (schoolId={}): {}", school.getSchoolId(), e.getMessage());
+                }
+            }
+        }
+        if (sigunguCode == null || sigunguCode.isBlank()) {
+            return List.of(); // 시군구 판정 불가 (좌표·카카오 모두 실패)
+        }
+        return this.listingMapper.findListingsBySchoolRegion(sigunguCode, goal.getMonthlyBudget());
+    }
+
+    /**
      * 6개월 거주 총필요자금 = 보증금 + (월세 + 관리비) × 6 (재정진단 뱃지 기준).
      * findAffordability(총 필요자금 = 보증금 + 월주거비)와 동일한 개념을 6개월 고정으로 적용한다.
      */
@@ -349,28 +450,30 @@ public class RentServiceImpl implements RentService {
      * 학교/매물 좌표가 없으면 계산 불가 → null (프론트에서 뱃지 미표시)
      */
     private String buildCommuteText(SchoolVO school, RentListingVO listing) {
-        if (school == null || school.getLatitude() == null || school.getLongitude() == null
-                || listing.getLatitude() == null || listing.getLongitude() == null) {
-            // 좌표/학교가 하나라도 비면 통학시간 계산 불가 → null(프론트 뱃지 미표시).
-            //   findSchoolById 는 latitude/longitude 를 SELECT 하고 SchoolVO 에 게터도 있으므로
-            //   코드 경로는 정상이다. 그래도 null 이 나오면 원인은 데이터(학교/매물 좌표 미적재)이므로
-            //   어느 값이 비었는지 아래 로그로 바로 진단한다.
-            log.debug("통학시간 계산 불가 - schoolId={}, schoolLat={}, schoolLng={}, listingId={}, listingLat={}, listingLng={}",
-                    school == null ? null : school.getSchoolId(),
-                    school == null ? null : school.getLatitude(),
-                    school == null ? null : school.getLongitude(),
-                    listing.getListingId(), listing.getLatitude(), listing.getLongitude());
+        if (school == null) {
             return null;
         }
-        double distanceM = haversineMeters(
-                school.getLatitude().doubleValue(), school.getLongitude().doubleValue(),
-                listing.getLatitude().doubleValue(), listing.getLongitude().doubleValue());
-        if (distanceM <= WALK_RADIUS_M) {
-            int walkMin = Math.max(1, (int) Math.round(distanceM / WALK_M_PER_MIN));
-            return "도보 " + walkMin + "분";
+        // (1) 학교·매물 좌표가 둘 다 있으면 하버사인 직선거리로 정확한 통학시간 (도보/버스)
+        if (school.getLatitude() != null && school.getLongitude() != null
+                && listing.getLatitude() != null && listing.getLongitude() != null) {
+            double distanceM = haversineMeters(
+                    school.getLatitude().doubleValue(), school.getLongitude().doubleValue(),
+                    listing.getLatitude().doubleValue(), listing.getLongitude().doubleValue());
+            if (distanceM <= WALK_RADIUS_M) {
+                int walkMin = Math.max(1, (int) Math.round(distanceM / WALK_M_PER_MIN));
+                return "도보 " + walkMin + "분";
+            }
+            int busMin = Math.max(1, (int) Math.round(distanceM / BUS_M_PER_MIN));
+            return "버스 " + busMin + "분";
         }
-        int busMin = Math.max(1, (int) Math.round(distanceM / BUS_M_PER_MIN));
-        return "버스 " + busMin + "분";
+        // (2) 좌표 없는 폴백 매물(국토부 매물 대부분 좌표 미적재): 학교와 같은 시군구면 통학권으로 표시
+        //     거리는 계산 불가하지만 "학교와 같은 구"임을 알려 통학 뱃지가 비지 않게 함
+        if (school.getSigunguCode() != null
+                && school.getSigunguCode().equals(listing.getSigunguCode())) {
+            return "학교와 같은 구";
+        }
+        // (3) 좌표도 없고 시군구도 다르면 통학 뱃지 미표시
+        return null;
     }
 
     /**
@@ -487,6 +590,11 @@ public class RentServiceImpl implements RentService {
         //   면적 필터 없이 넓게 동네 평균으로 비교 → 상세 시세뱃지가 항상 뜨도록 백엔드에서 직접 계산해 내려준다.
         Double avgRent = this.listingMapper.selectAvgRentForPriceLevel(
                 listingId, vo.getEstateType(), vo.getRegionCode(), vo.getUmdName());
+        // 법정동에 비교 표본이 없으면 시군구(구 단위)로 넓혀 재판정 → 시세뱃지가 '있다 없다' 하지 않게 안정화
+        if (avgRent == null && vo.getSigunguCode() != null) {
+            avgRent = this.listingMapper.selectAvgRentBySigungu(
+                    listingId, vo.getEstateType(), vo.getSigunguCode());
+        }
         String priceLevel = judgePriceLevel(vo.getMonthlyRent(), avgRent);
 
         return RentListingDetailResponseDTO.of(vo, maintenanceFee, priceLevel);
@@ -764,14 +872,11 @@ public class RentServiceImpl implements RentService {
         if (!STATUS_DRAFT.equals(goal.getStatus())) {
             throw BusinessException.conflict("이미 저장된 목표입니다.", "RENT_009");
         }
-        // 4) 회원당 저장된 로드맵(CONFIRMED) 1건만 - 이미 있으면 기존 것 삭제 후 저장
-        if (this.mapper.countGoalByUserIdAndStatus(userId, "CONFIRMED") > 0) {
-            throw BusinessException.conflict("이미 저장된 로드맵이 있습니다. 기존 로드맵을 삭제 후 저장해주세요.", "RENT_010");
-        }
-
         String modifier = "user:" + userId; // TODO: JWT 연동 후 로그인 사용자명으로 교체
 
-        // 5) 상태 DRAFT → CONFIRMED 확정 (months=거주개월, listingId=Step4에서 고른 확정 매물)
+        // 4) 상태 DRAFT → CONFIRMED 확정 (months=거주개월, listingId=Step4에서 고른 확정 매물)
+        //    회원당 여러 로드맵(CONFIRMED) 공존 허용 - 자동차/여행과 동일하게 기존 확정 로드맵을 지우지 않는다.
+        //    (예전엔 deleteConfirmedGoalByUserId로 1건만 유지했으나, 로드맵 다건 보관 기획에 맞춰 제거)
         this.mapper.confirmGoal(goalId, months, listingId, modifier);
 
         // 참고: Step5 정밀 시뮬레이션은 findGoal 조회 시 확정 매물 기준으로 실시간 계산한다

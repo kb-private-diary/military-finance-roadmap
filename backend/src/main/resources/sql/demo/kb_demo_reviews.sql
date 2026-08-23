@@ -358,7 +358,8 @@ INSERT INTO `income`
 (8, 1, '국군재정관리단', 'SALARY', 1200000, '2026-05-10 09:00:00', NOW(), 'demo', NULL, NULL, 'N'),
 (9, 1, '국군재정관리단', 'SALARY', 1200000, '2026-06-10 09:00:00', NOW(), 'demo', NULL, NULL, 'N'),
 (10, 1, '국군재정관리단', 'SALARY', 1200000, '2026-07-10 09:00:00', NOW(), 'demo', NULL, NULL, 'N'),
-(11, 1, '국군재정관리단', 'SALARY', 1200000, '2026-08-10 09:00:00', NOW(), 'demo', NULL, NULL, 'N'),
+-- ⭐ [데모 시연용] user1의 8월분(2026-08-10, 상병 120만)을 일부러 뺐다 → 월급 배치로 "입금되는 순간"을 시연한다.
+--    POST /api/openbanking/salary/run-batch 실행 시 배치가 "8월 급여 없네" → 8월분 1건을 자동 입금(id 11은 결번, auto_increment로 새 id 부여).
 (12, 2, '국군재정관리단', 'SALARY', 750000, '2024-07-10 09:00:00', NOW(), 'demo', NULL, NULL, 'N'),
 (13, 2, '국군재정관리단', 'SALARY', 900000, '2024-08-10 09:00:00', NOW(), 'demo', NULL, NULL, 'N'),
 (14, 2, '국군재정관리단', 'SALARY', 900000, '2024-09-10 09:00:00', NOW(), 'demo', NULL, NULL, 'N'),
@@ -428,6 +429,150 @@ INSERT INTO `spending_review`
 (18, 20, 'SATISFIED', '2025-10-02 09:00:00', NOW(), 'demo', NULL, NULL, 'N'),
 (19, 21, 'REGRET', '2025-10-03 20:00:00', NOW(), 'demo', NULL, NULL, 'N');
 
+-- ######################################################################
+--  [데모추가] user1(id=1) 후회소비 시연 데이터 (created_nm='demo_hb')
+--  목적: ①소비점호(미점호=review 없는 지출) 태깅거리 확보 ②대시보드 캘린더 알록달록
+--  기준일: 오늘 2026-08-08.  spending_id 22~53 / review_id 20~41 (기존 21·19 뒤 연속)
+--  재실행 안전: 위 DELETE 블록이 user_id IN (1,2) 기준으로 지우므로 이 행들도 함께 정리됨
+--  (spending 먼저 → spending_review 나중: FK spending_id 정합 유지)
+-- ######################################################################
+
+-- ── 1) 소비점호용 '미점호' : 이번달(2026-08) 지출 10건, spending_review 없음 ──
+--  현역 일상소비(편의점·배달·카페·게임·PX) - 아래 spending_review에 안 넣어 미점호로 남김
+INSERT INTO `spending`
+(`spending_id`, `user_id`, `merchant_name`, `category`, `amount`, `spent_at`,
+ `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`) VALUES
+(22, 1, 'GS25 위수지역점',   'CONVENIENCE', 8500,  '2026-08-01 12:30:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(23, 1, '배달의민족',        'DELIVERY',    19000, '2026-08-01 19:40:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(24, 1, '스타벅스',          'ETC',         6300,  '2026-08-02 15:10:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(25, 1, '넥슨',              'GAME',        30000, '2026-08-03 22:15:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(26, 1, 'CU 부대앞점',       'CONVENIENCE', 5400,  '2026-08-04 18:20:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(27, 1, '요기요',            'DELIVERY',    22000, '2026-08-05 20:05:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(28, 1, '국군복지단 PX',     'PX',          15000, '2026-08-06 13:40:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(29, 1, '쿠팡이츠',          'DELIVERY',    17500, '2026-08-07 21:00:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(30, 1, '세븐일레븐 부대점', 'CONVENIENCE', 9900,  '2026-08-08 12:10:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(31, 1, 'APPLE 앱스토어',    'GAME',        12000, '2026-08-08 23:30:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+
+-- ── 2) 캘린더용 '후회(REGRET)' : 이번달 10일 분산, 금액 4레벨 골고루 ──
+--  ~1만: 08-02·04·07 / ~3만: 08-03·06·14 / ~5만: 08-10·12 / 5만+: 08-01·08
+--  (08-10·12·14는 오늘 이후지만 캘린더 채색용으로 의도 배치 - 부모 지시 예시 준수)
+(32, 1, '넥슨',       'GAME',     60000, '2026-08-01 23:20:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(33, 1, '배달의민족', 'DELIVERY',  9000, '2026-08-02 20:30:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(34, 1, '넥슨',       'GAME',     32000, '2026-08-03 21:40:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(35, 1, '쿠팡이츠',   'DELIVERY', 12000, '2026-08-04 19:50:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(36, 1, '요기요',     'DELIVERY', 28000, '2026-08-06 20:25:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(37, 1, 'APPLE 앱스토어', 'GAME',  8500, '2026-08-07 22:45:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(38, 1, '넥슨',       'GAME',     95000, '2026-08-08 22:00:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(39, 1, '배달의민족', 'DELIVERY', 48000, '2026-08-10 20:15:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(40, 1, '넥슨',       'GAME',     50000, '2026-08-12 23:10:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(41, 1, '쿠팡이츠',   'DELIVERY', 30000, '2026-08-14 19:30:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+
+-- ── 3) 만족(SATISFIED 5) / 애매(SOSO 3) : 이번달, 비율 자연스럽게 ──
+(42, 1, '국군복지단 PX', 'PX',          20000, '2026-08-02 14:00:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(43, 1, '교보문고',      'ETC',         18000, '2026-08-05 16:30:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(44, 1, '스타벅스',      'ETC',         5800,  '2026-08-06 10:20:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(45, 1, '국군복지단 PX', 'PX',          12000, '2026-08-09 13:15:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(46, 1, 'KTX 서울-부산', 'VACATION',    47000, '2026-08-11 09:40:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(47, 1, 'CU 부대앞점',   'CONVENIENCE', 7000,  '2026-08-03 18:00:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(48, 1, '배달의민족',    'DELIVERY',    21000, '2026-08-07 20:40:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(49, 1, '스타벅스',      'ETC',         6500,  '2026-08-13 15:50:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+
+-- ── 4) 지난달(2026-07) : 월별 비교 그래프용 4건 ──
+(50, 1, '넥슨',          'GAME',     40000, '2026-07-05 22:30:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(51, 1, '배달의민족',    'DELIVERY', 25000, '2026-07-12 20:10:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(52, 1, '국군복지단 PX', 'PX',       15000, '2026-07-18 13:20:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(53, 1, '스타벅스',      'ETC',      6000,  '2026-07-25 16:00:00', NOW(), 'demo_hb', NULL, NULL, 'N');
+
+-- ── 회고 태깅(spending_review) : 위 spending 22~31(미점호)은 제외, 32~53만 태깅 ──
+--  reviewed_at = spent_at 로 맞춤(기존 파일 규칙). FK: 위 spending INSERT 뒤라 정합.
+INSERT INTO `spending_review`
+(`review_id`, `spending_id`, `review_type`, `reviewed_at`,
+ `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`) VALUES
+-- 캘린더용 REGRET 10건 (spending 32~41)
+(20, 32, 'REGRET',    '2026-08-01 23:20:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(21, 33, 'REGRET',    '2026-08-02 20:30:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(22, 34, 'REGRET',    '2026-08-03 21:40:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(23, 35, 'REGRET',    '2026-08-04 19:50:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(24, 36, 'REGRET',    '2026-08-06 20:25:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(25, 37, 'REGRET',    '2026-08-07 22:45:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(26, 38, 'REGRET',    '2026-08-08 22:00:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(27, 39, 'REGRET',    '2026-08-10 20:15:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(28, 40, 'REGRET',    '2026-08-12 23:10:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(29, 41, 'REGRET',    '2026-08-14 19:30:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+-- 만족(SATISFIED) 5건 (spending 42~46)
+(30, 42, 'SATISFIED', '2026-08-02 14:00:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(31, 43, 'SATISFIED', '2026-08-05 16:30:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(32, 44, 'SATISFIED', '2026-08-06 10:20:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(33, 45, 'SATISFIED', '2026-08-09 13:15:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(34, 46, 'SATISFIED', '2026-08-11 09:40:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+-- 애매(SOSO) 3건 (spending 47~49)
+(35, 47, 'SOSO',      '2026-08-03 18:00:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(36, 48, 'SOSO',      '2026-08-07 20:40:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(37, 49, 'SOSO',      '2026-08-13 15:50:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+-- 지난달(2026-07) 태깅 4건 (spending 50~53)
+(38, 50, 'REGRET',    '2026-07-05 22:30:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(39, 51, 'REGRET',    '2026-07-12 20:10:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(40, 52, 'SATISFIED', '2026-07-18 13:20:00', NOW(), 'demo_hb', NULL, NULL, 'N'),
+(41, 53, 'SOSO',      '2026-07-25 16:00:00', NOW(), 'demo_hb', NULL, NULL, 'N');
+
+-- [데모추가 건수] spending +32건(id 22~53) / spending_review +22건(id 20~41)
+--   · 미점호(리뷰無): 10건(22~31)  · REGRET: 12건(캘린더10 + 7월2)  · SATISFIED: 6건  · SOSO: 4건
+
+-- ── [데모추가2, 08-09] 캘린더 색 더 다양화 + 미점호 넉넉히 20건 (created_nm='demo_cal_*') ──
+--  demo_hb 위에 얹어: 8월 8일 다양한 레벨 + 7월(월이동 데모) + 미점호 20건
+INSERT INTO `spending`
+(`spending_id`, `user_id`, `merchant_name`, `category`, `amount`, `spent_at`,
+ `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`) VALUES
+-- ① 이번달(2026-08) 후회소비 - 날짜별 레벨 다양
+(54, 1, '김밥천국',   'FOOD',        8000,  '2026-08-01 12:30:00', NOW(), 'demo_cal_regret',     NULL, NULL, 'N'),
+(55, 1, '무신사',     'SHOPPING',    25000, '2026-08-02 15:10:00', NOW(), 'demo_cal_regret',     NULL, NULL, 'N'),
+(56, 1, 'CGV 서면',   'CULTURE',     45000, '2026-08-03 19:00:00', NOW(), 'demo_cal_regret',     NULL, NULL, 'N'),
+(57, 1, '배달의민족', 'DELIVERY',    62000, '2026-08-04 20:30:00', NOW(), 'demo_cal_regret',     NULL, NULL, 'N'),
+(58, 1, '메가커피',   'CAFE',        6500,  '2026-08-05 09:20:00', NOW(), 'demo_cal_regret',     NULL, NULL, 'N'),
+(59, 1, '카카오T',    'TRANSPORT',   18000, '2026-08-06 18:00:00', NOW(), 'demo_cal_regret',     NULL, NULL, 'N'),
+(60, 1, '쿠팡',       'SHOPPING',    55000, '2026-08-07 21:00:00', NOW(), 'demo_cal_regret',     NULL, NULL, 'N'),
+(61, 1, '요기요',     'DELIVERY',    38000, '2026-08-08 13:40:00', NOW(), 'demo_cal_regret',     NULL, NULL, 'N'),
+-- ② 지난달(2026-07) 후회소비 - 월 이동 데모용
+(62, 1, '스타벅스',   'CAFE',        28000, '2026-07-02 14:00:00', NOW(), 'demo_cal_regret_jul', NULL, NULL, 'N'),
+(63, 1, '편의점 CU',  'CONVENIENCE', 9000,  '2026-07-05 22:10:00', NOW(), 'demo_cal_regret_jul', NULL, NULL, 'N'),
+(64, 1, '무신사',     'SHOPPING',    55000, '2026-07-09 16:30:00', NOW(), 'demo_cal_regret_jul', NULL, NULL, 'N'),
+(65, 1, '배달의민족', 'DELIVERY',    40000, '2026-07-13 20:00:00', NOW(), 'demo_cal_regret_jul', NULL, NULL, 'N'),
+(66, 1, '넷플릭스',   'CULTURE',     15000, '2026-07-16 10:00:00', NOW(), 'demo_cal_regret_jul', NULL, NULL, 'N'),
+(67, 1, '쿠팡',       'SHOPPING',    48000, '2026-07-20 19:20:00', NOW(), 'demo_cal_regret_jul', NULL, NULL, 'N'),
+(68, 1, '메가커피',   'CAFE',        7000,  '2026-07-24 09:00:00', NOW(), 'demo_cal_regret_jul', NULL, NULL, 'N'),
+(69, 1, '요기요',     'DELIVERY',    33000, '2026-07-27 21:30:00', NOW(), 'demo_cal_regret_jul', NULL, NULL, 'N'),
+(70, 1, 'CGV 서면',   'CULTURE',     60000, '2026-07-30 18:00:00', NOW(), 'demo_cal_regret_jul', NULL, NULL, 'N'),
+-- ③ 미점호 20건 (소비점호 대기, spending_review 없음)
+(71, 1, '군마트 PX',  'PX',          8500,  '2026-08-01 17:30:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(72, 1, 'GS25',       'CONVENIENCE', 4800,  '2026-08-01 08:15:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(73, 1, '스타벅스',   'CAFE',        6300,  '2026-08-02 10:00:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(74, 1, '맘스터치',   'FOOD',        11000, '2026-08-02 19:20:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(75, 1, '배달의민족', 'DELIVERY',    23000, '2026-08-03 20:40:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(76, 1, '스팀',       'GAME',        33000, '2026-08-03 23:10:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(77, 1, 'CU',         'CONVENIENCE', 3900,  '2026-08-04 07:50:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(78, 1, '군마트 PX',  'PX',          12500, '2026-08-04 18:00:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(79, 1, '메가커피',   'CAFE',        4500,  '2026-08-05 09:30:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(80, 1, '무신사',     'SHOPPING',    41000, '2026-08-05 15:00:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(81, 1, '카카오T',    'TRANSPORT',   9800,  '2026-08-05 21:00:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(82, 1, '요기요',     'DELIVERY',    19500, '2026-08-06 20:00:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(83, 1, 'GS25',       'CONVENIENCE', 5200,  '2026-08-06 12:30:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(84, 1, '넥슨',       'GAME',        29000, '2026-08-06 22:40:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(85, 1, '김밥천국',   'FOOD',        7500,  '2026-08-07 12:00:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(86, 1, '스타벅스',   'CAFE',        11800, '2026-08-07 16:20:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(87, 1, '쿠팡',       'SHOPPING',    36000, '2026-08-07 21:30:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(88, 1, '군마트 PX',  'PX',          6700,  '2026-08-08 08:40:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(89, 1, 'CGV 서면',   'CULTURE',     15000, '2026-08-08 14:00:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N'),
+(90, 1, '배달의민족', 'DELIVERY',    21000, '2026-08-08 20:10:00', NOW(), 'demo_cal_untagged',   NULL, NULL, 'N');
+
+-- ①② 후회소비에 REGRET 리뷰 부여 (review_id 자동, created_nm으로 매칭 / 미점호(③)는 제외)
+INSERT INTO `spending_review` (`spending_id`, `review_type`, `reviewed_at`, `created_date`, `created_nm`, `del_yn`)
+SELECT s.`spending_id`, 'REGRET', s.`spent_at`, NOW(), 'demo_cal', 'N'
+  FROM `spending` s
+ WHERE s.`user_id` = 1
+   AND s.`created_nm` IN ('demo_cal_regret', 'demo_cal_regret_jul')
+   AND s.`del_yn` = 'N'
+   AND NOT EXISTS (SELECT 1 FROM `spending_review` r WHERE r.`spending_id` = s.`spending_id` AND r.`del_yn` = 'N');
+
 -- ── 오픈뱅킹 연동(openbanking_link) : 계좌당 1행, fintech_use_num 전부 유니크 ─
 --  적금계좌는 account_id 채움, 입출금계좌는 account_id NULL
 INSERT INTO `openbanking_link`
@@ -446,20 +591,17 @@ INSERT INTO `rent_goal`
 (`goal_id`, `user_id`, `title`, `selection_mode`, `school_id`, `commute_radius_km`,
  `monthly_budget`, `residence_preset`, `residence_months`, `status`, `confirmed_listing_id`,
  `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`) VALUES
--- user1: 부산 REGION, 월예산 70만, 거주 12개월, CONFIRMED
-(1, 1, '부산 자취방 찾기', 'REGION', NULL, NULL, 700000,  'YEAR', 12, 'CONFIRMED', NULL, NOW(), 'demo', NULL, NULL, 'N'),
--- user2: 서울 REGION, 월예산 100만, DRAFT
+-- user1: 자취는 미등록 상태로 시작 → 시연 때 직접 step1~5로 등록해 정상 로드맵(확정매물 포함) 생성.
+--   (기존 데모는 confirmed_listing_id=NULL인 CONFIRMED라 상세가 비어 제거함. 매물은 동적 적재라 고정 연결 불가)
+-- user2: 서울 REGION, 월예산 100만, DRAFT(이어보기 데모)
 (2, 2, '서울 자취방 찾기', 'REGION', NULL, NULL, 1000000, 'YEAR', 12, 'DRAFT',     NULL, NOW(), 'demo', NULL, NULL, 'N');
 
 INSERT INTO `rent_goal_region`
 (`region_id`, `goal_id`, `region_code`, `created_date`, `created_nm`, `modified_date`, `modified_nm`, `del_yn`) VALUES
--- user1 부산 법정동 2개
-(1, 1, '2620010100', NOW(), 'demo', NULL, NULL, 'N'),
-(2, 1, '2644010300', NOW(), 'demo', NULL, NULL, 'N'),
--- user2 서울 법정동 1개
+-- user2 서울 법정동 1개 (user1은 자취 미등록이라 지역 없음)
 (3, 2, '1168010100', NOW(), 'demo', NULL, NULL, 'N');
 
--- [건수 요약] saving_account 4 / saving_history 60 / income 28 / spending 21 / spending_review 19 / openbanking_link 6 / rent_goal 2 / rent_goal_region 3
+-- [건수 요약] saving_account 4 / saving_history 60 / income 27 (user1 8월분은 시연용 제외) / spending 21 / spending_review 19 / openbanking_link 6 / rent_goal 1 (user2 DRAFT만, user1은 시연 때 직접 등록) / rent_goal_region 1
 
 -- --------------------------------------------------------------------
 --  [태석] 여행 / 여행목표(travel_goal)

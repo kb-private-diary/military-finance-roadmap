@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import openbankingApi from '@/api/openbankingApi';
 
 import carRoutes from './car';
 import chatRoutes from './chat';
@@ -37,7 +38,7 @@ const router = createRouter({
 });
 
 // 라우팅 가드
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const auth = useAuthStore();
   // 로그인 상태여도 Welcome(진입 페이지)은 그대로 보여준다(버튼 눌러야 Home 이동).
   // Login 화면만 이미 로그인 상태면 건너뛰고 홈으로.
@@ -47,6 +48,23 @@ router.beforeEach((to) => {
   // 인증 필요한 화면인데 로그인 안 됐으면 로그인 페이지로
   if (to.meta.requiresAuth && !auth.isLogin) {
     return { name: 'Login', query: { redirect: to.fullPath } };
+  }
+  // 오픈뱅킹 미연동이면 온보딩으로 강제 (로그인 상태 + 온보딩/로그인/웰컴 화면 제외)
+  //   세션당 1회만 조회(sessionStorage 캐시) → 매 라우팅마다 API 호출 방지
+  const OB_SKIP = ['Onboarding', 'Login', 'Welcome'];
+  if (to.meta.requiresAuth && auth.isLogin && !OB_SKIP.includes(to.name)) {
+    if (sessionStorage.getItem('ob_linked') !== 'Y') {
+      try {
+        const linked = await openbankingApi.getStatus();
+        if (linked) {
+          sessionStorage.setItem('ob_linked', 'Y');
+        } else {
+          return { name: 'Onboarding' };
+        }
+      } catch {
+        // status 조회 실패 시 통과 (서버 문제로 서비스 전체가 막히는 것 방지)
+      }
+    }
   }
 });
 

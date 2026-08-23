@@ -80,6 +80,14 @@
            AND del_yn = 'N'
     </select>
 
+    <!-- 학교 시군구코드 캐시 (좌표→시군구 역지오코딩 결과 저장, 다음 조회부터 카카오 호출 없이 재사용) -->
+    <update id="updateSchoolSigungu">
+        UPDATE school
+           SET sigungu_code = #{sigunguCode}
+         WHERE school_id = #{schoolId}
+           AND del_yn = 'N'
+    </update>
+
     <!-- 목표 단건 조회 (상세) -->
     <select id="findGoalById" resultType="org.scoula.rent.domain.RentGoalVO">
         SELECT goal_id, user_id, title, selection_mode, school_id, commute_radius_km,
@@ -96,6 +104,15 @@
         SET del_yn = 'Y', modified_date = NOW(), modified_nm = #{modifiedNm}
         WHERE user_id = #{userId}
           AND status = 'DRAFT'
+          AND del_yn = 'N'
+    </update>
+
+    <!-- 새 로드맵 저장 시 기존 CONFIRMED soft delete (회원당 1건 유지, 기존 대체) -->
+    <update id="deleteConfirmedGoalByUserId">
+        UPDATE rent_goal
+        SET del_yn = 'Y', modified_date = NOW(), modified_nm = #{modifiedNm}
+        WHERE user_id = #{userId}
+          AND status = 'CONFIRMED'
           AND del_yn = 'N'
     </update>
 
@@ -154,6 +171,15 @@
           FROM region_code
          WHERE sigungu_code = #{sigunguCode}
            AND del_yn = 'N'
+         LIMIT 1
+    </select>
+
+    <!-- 시군구코드 → 시도명·시군구명 (매물 지오코딩 주소 조합용: "시도 시군구 동 지번") -->
+    <select id="findRegionNameBySigungu" parameterType="string" resultType="org.scoula.rent.domain.RegionCodeVO">
+        SELECT sido_name, sigungu_name
+          FROM region_code
+         WHERE sigungu_code = #{sigunguCode}
+           AND del_yn = 'N' AND is_abolished = 'N'
          LIMIT 1
     </select>
 

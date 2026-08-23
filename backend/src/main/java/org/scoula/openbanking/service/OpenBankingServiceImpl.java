@@ -27,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 오픈뱅킹 연동 서비스 구현
@@ -35,6 +36,7 @@ import lombok.RequiredArgsConstructor;
  * <p>계좌 연동은 여러 계좌를 한 트랜잭션으로 저장하므로, 한 건이라도 실패하면
  * 전부 롤백되도록 {@code @Transactional} 을 검</p>
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OpenBankingServiceImpl implements OpenBankingService {
@@ -80,6 +82,14 @@ public class OpenBankingServiceImpl implements OpenBankingService {
         AuthUrlResponse res = new AuthUrlResponse();
         res.setAuthUrl(authUrl);
         return res;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AccountInfo> getLinkableAccounts(Long userId) {
+        // 실제 오픈뱅킹: 인증 콜백 code로 토큰 발급 후 계좌 조회. Mock은 userId를 code로 사용 (getToken 참조)
+        TokenResponse token = client.getToken(String.valueOf(userId));
+        return client.getAccounts(token.getAccessToken(), token.getUserSeqNo());
     }
 
     @Override
@@ -151,8 +161,9 @@ public class OpenBankingServiceImpl implements OpenBankingService {
     /** 적금계좌를 saving_account에 저장 + 납입내역을 saving_history에 회차별 저장 → account_id 반환 */
     private Long saveSaving(AccountInfo acc, Long userId, TokenResponse token, String actor) {
         // 납입내역(적금 입금) 조회 - 회차·금액 산출
+        // 개설일(fromDate)을 넘겨 Mock이 개설일부터 현재까지 매월 납입내역을 동적 생성하게 함 (회원별 개설일 정합성)
         List<TransactionInfo> pays = client.getTransactions(
-                token.getAccessToken(), acc.getFintechUseNum(), null, null);
+                token.getAccessToken(), acc.getFintechUseNum(), acc.getOpenDate(), null);
 
         long monthlySave = pays.isEmpty() ? 0L : pays.get(0).getAmount(); // 한달 납입금 (회차 금액)
         int monthlyCount = pays.size();                                   // 납입 회차수
@@ -165,6 +176,9 @@ public class OpenBankingServiceImpl implements OpenBankingService {
         account.setMonthlyCount(monthlyCount);
         account.setCurrAmount(acc.getBalance() == null ? 0L : acc.getBalance()); // 누적납입 = 잔액
         account.setAccountStatus("ACTIVE");
+        // 적금 종류 판별: 상품명에 군적금 키워드가 있으면 MILITARY(만기금 계산 대상), 없으면 GENERAL(일반적금)
+        //   → 석윤 만기금 계산은 MILITARY 만 대상으로 하여, 자유적금 등이 섞여도 계산이 꼬이지 않게 함
+        account.setProductType(isMilitarySaving(acc.getProductName()) ? "MILITARY" : "GENERAL");
         // 개설일 저장 (석윤 만기금 계산이 open_date를 개설일로 읽음, created_date 감사컬럼과 별개)
         account.setOpenDate(acc.getOpenDate() != null ? LocalDate.parse(acc.getOpenDate()) : null);
         account.setCreatedNm(actor);
@@ -183,6 +197,20 @@ public class OpenBankingServiceImpl implements OpenBankingService {
             savingWriteMapper.insertSavingHistory(history);
         }
         return account.getAccountId();
+    }
+
+    /**
+     * 적금 상품명으로 군적금 여부 판별 (product_type 세팅용).
+     * 상품명에 "군적금 / 장병 / 나라사랑" 중 하나라도 포함되면 군적금(MILITARY)으로 본다.
+     * (예: "나라사랑 군적금", "장병내일준비적금", "IBK 나라사랑 적금")
+     */
+    private boolean isMilitarySaving(String productName) {
+        if (productName == null) {
+            return false;
+        }
+        return productName.contains("군적금")
+                || productName.contains("장병")
+                || productName.contains("나라사랑");
     }
 
     @Override
@@ -217,6 +245,11 @@ public class OpenBankingServiceImpl implements OpenBankingService {
                 if (!"OUT".equals(tx.getInoutType())) {
                     continue; // 출금(지출)만 적재, 입금은 제외
                 }
+                // 재동기화 중복 방지: 같은 거래(일시+가맹점+금액)가 이미 적재됐으면 skip (기존 점호 기록 보존)
+                if (spendingMapper.existsSpending(userId, tx.getTxDateTime(),
+                        tx.getMerchantName(), tx.getAmount())) {
+                    continue;
+                }
                 // 가맹점명 → 카테고리 분류 (규칙 없으면 ETC)
                 String category = spendingMapper.findCategoryByMerchant(tx.getMerchantName());
 
@@ -231,7 +264,7 @@ public class OpenBankingServiceImpl implements OpenBankingService {
             }
         }
 
-        // TODO: 재동기화 시 중복 적재 방지 (마지막 적재 시점 이후만 조회) - 배치 단계에서 보강
+        // 중복 거래는 위 루프에서 existsSpending 으로 걸러졌으므로 남은 신규 지출만 적재
         if (!toInsert.isEmpty()) {
             spendingMapper.insertSpendings(toInsert);
         }
@@ -243,32 +276,68 @@ public class OpenBankingServiceImpl implements OpenBankingService {
     }
 
     /**
-     * 계급별 월급을 income에 적재 (입대 다음달부터 현재까지 매월 10일, 재동기화 시 기존 급여 정리 후 재적재)
-     * 실제 군인 봉급은 국군재정관리단이 매월 10일 지급, 금액은 회원 계급의 rank_salary
+     * 계급별 월급을 income에 <b>멱등</b> 적재한다 (입대 다음달~오늘까지 매월 10일, 이미 있는 달은 건너뜀).
+     * <p>실제 군 봉급 지급일 = 매월 10일. 금액은 <b>현재 계급</b>의 rank_salary(진급하면 자동 반영).
+     * 전역(예정)일이 지난 달은 넣지 않아 실제처럼 전역 후 급여가 끊긴다.
+     * 그 달 급여가 이미 있으면 건너뛰므로 연동 sync·매일 배치 어디서 여러 번 불려도 중복이 안 쌓인다.</p>
+     * @return 이번 호출에서 새로 적재한 급여 건수
      */
-    private void saveSalaries(Long userId, String actor) {
+    private int saveSalaries(Long userId, String actor) {
         Long monthlySalary = mapper.findMonthlySalaryByUserId(userId);
         LocalDate enlistDate = mapper.findEnlistDateByUserId(userId);
         if (monthlySalary == null || enlistDate == null) {
-            return; // 계급·입대일 없으면 급여 없음
+            return 0; // 계급·입대일 없으면 급여 없음
         }
 
-        // 재동기화 중복 방지 - 기존 급여 내역 정리 후 재적재
-        incomeWriteMapper.deleteSalariesByUserId(userId, actor);
+        // 지급 범위: 입대 다음달 10일(첫 봉급) ~ 오늘. 단 전역일이 지났으면 전역일까지만
+        LocalDate firstPayDay = enlistDate.plusMonths(1).withDayOfMonth(10);
+        LocalDate lastDay = LocalDate.now();
+        LocalDate dischargeDate = mapper.findDischargeDateByUserId(userId);
+        if (dischargeDate != null && dischargeDate.isBefore(lastDay)) {
+            lastDay = dischargeDate; // 전역 후에는 월급 없음
+        }
 
-        // 입대 다음달 10일이 첫 봉급일, 현재까지 매월 적재 (실제 군 봉급 지급일 = 매월 10일)
-        LocalDate payDay = enlistDate.plusMonths(1).withDayOfMonth(10);
-        LocalDate today = LocalDate.now();
-        while (!payDay.isAfter(today)) {
-            IncomeVO income = new IncomeVO();
-            income.setUserId(userId);
-            income.setSource("국군재정관리단");
-            income.setCategory("SALARY");
-            income.setAmount(monthlySalary);
-            income.setReceivedAt(payDay.atTime(9, 0)); // 10일 09:00 입금
-            income.setCreatedNm(actor);
-            incomeWriteMapper.insertIncome(income);
+        int inserted = 0;
+        LocalDate payDay = firstPayDay;
+        while (!payDay.isAfter(lastDay)) {
+            // 멱등: 그 달 급여가 이미 있으면 건너뜀
+            boolean exists = incomeWriteMapper.existsSalaryInYearMonth(
+                    userId, payDay.getYear(), payDay.getMonthValue());
+            if (!exists) {
+                IncomeVO income = new IncomeVO();
+                income.setUserId(userId);
+                income.setSource("국군재정관리단");
+                income.setCategory("SALARY");
+                income.setAmount(monthlySalary);
+                income.setReceivedAt(payDay.atTime(9, 0)); // 10일 09:00 입금
+                income.setCreatedNm(actor);
+                incomeWriteMapper.insertIncome(income);
+                inserted++;
+            }
             payDay = payDay.plusMonths(1);
         }
+        return inserted;
+    }
+
+    /**
+     * [월급 배치] 오픈뱅킹 연동 회원 전체에 이번 달까지의 급여를 멱등 적재한다.
+     * <p>매일 도는 스케줄러(IncomeSalaryScheduler)와 데모용 수동 트리거가 공용으로 호출한다.
+     * 회원별로 독립 처리하며, 한 명이 실패해도 catch 후 다음 회원을 계속 진행한다(배치가 죽지 않음).
+     * 트랜잭션으로 묶지 않아 회원별 적재가 개별 커밋된다(YouthPolicySync 배치와 동일 방식).</p>
+     * @return 이번 배치에서 새로 적재된 급여 총 건수
+     */
+    @Override
+    public int runMonthlySalaryBatch() {
+        List<Long> userIds = mapper.findAllActiveLinkedUserIds();
+        int total = 0;
+        for (Long userId : userIds) {
+            try {
+                total += saveSalaries(userId, "SALARY_BATCH");
+            } catch (Exception e) {
+                log.error("월급 배치 실패 userId={}", userId, e);
+            }
+        }
+        log.info("월급 배치 완료: 대상 {}명, 신규 적재 {}건", userIds.size(), total);
+        return total;
     }
 }

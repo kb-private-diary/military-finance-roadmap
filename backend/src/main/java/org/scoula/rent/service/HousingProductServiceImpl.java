@@ -30,6 +30,12 @@ public class HousingProductServiceImpl implements HousingProductService {
     private static final String PROVIDER_DAEJEON = "대전광역시";        // 대전시 청년 월세지원
     private static final int MEOMULJARI_MIN_MONTHS = 12;               // 임대차 12개월 미만이면 신청 불가
 
+    // 비청년 대상(신혼부부·다자녀) 전용/겸용 정책 제외 키워드
+    //   온통청년(청년 포털)이지만 지자체가 '청년/신혼부부'를 묶어 등록해 신혼부부 전용·겸용이 섞여 유입된다.
+    //   미혼 자취 병사 타깃이라 상품명에 아래 키워드가 있으면 화면에서 제외한다 (DB 원본은 보존, 조회 시점 필터).
+    //   '신혼'은 '신혼부부'를 포함하고, '청년 신혼부부' 겸용도 제외 대상 → contains 로 판정.
+    private static final List<String> NON_YOUTH_TARGET_KEYWORDS = List.of("신혼", "다자녀");
+
     // 대전 이중배타 안내 (월세지원이 MONTHLY_SUBSIDY 뿐 아니라 DEPOSIT_LOAN 이자지원과도 배타 - 명세 2-2)
     private static final String DAEJEON_CROSS_NOTE =
             "국토부 청년월세 지원뿐 아니라 청년 주택임차보증금 이자지원 사업과도 중복 지급이 불가합니다 (두 그룹 동시 배타)";
@@ -66,9 +72,10 @@ public class HousingProductServiceImpl implements HousingProductService {
 
         LocalDate today = LocalDate.now();
 
-        // 5) 특수 예외 제외(명세 3-4) → DTO 변환(공고기간·이중배타 반영) → 정렬(priority, 만료 하단)
+        // 5) 특수 예외 제외(명세 3-4) + 비청년 대상(신혼부부·다자녀) 제외 → DTO 변환(공고기간·이중배타 반영) → 정렬
         List<HousingProductResponseDTO> products = candidates.stream()
                 .filter(vo -> !isExcludedMeomuljari(vo, months))
+                .filter(vo -> !isNonYouthTarget(vo))
                 .map(vo -> HousingProductResponseDTO.of(vo, isOpen(vo, today), crossExclusiveNote(vo)))
                 .sorted(sortComparator())
                 .toList();
@@ -104,6 +111,18 @@ public class HousingProductServiceImpl implements HousingProductService {
     private boolean isExcludedMeomuljari(HousingProductVO vo, int months) {
         boolean isMeomuljari = vo.getProductName() != null && vo.getProductName().contains(NAME_MEOMULJARI);
         return isMeomuljari && months < MEOMULJARI_MIN_MONTHS;
+    }
+
+    /**
+     * 비청년 대상(신혼부부·다자녀) 정책 여부 - 상품명에 제외 키워드가 하나라도 포함되면 true.
+     * 온통청년에 섞여 유입된 신혼부부 전용/겸용을 미혼 자취 병사 화면에서 걸러낸다 (명세 3장 대상 필터).
+     */
+    private boolean isNonYouthTarget(HousingProductVO vo) {
+        String name = vo.getProductName();
+        if (name == null) {
+            return false;
+        }
+        return NON_YOUTH_TARGET_KEYWORDS.stream().anyMatch(name::contains);
     }
 
     /**

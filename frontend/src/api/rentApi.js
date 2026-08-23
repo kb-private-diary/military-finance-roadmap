@@ -43,15 +43,6 @@ export default {
     return data.data;
   },
 
-  // 거주기간 슬라이더 재계산 (Step3) — { costBreakdown, affordability }
-  async simulate(listingId, goalId, months) {
-    const { data } = await instance.get(
-      `${BASE_URL}/listings/${listingId}/simulate`,
-      { params: { goalId, months } },
-    );
-    return data.data;
-  },
-
   // 감당도 조회 (Step3 재정 체크) — depositMode: INCLUDE(보증금 포함, 기본) | EXCLUDE(보증금은 전세대출로 제외)
   //   GET /listings/{listingId}/affordability?months=&depositMode= → affordability
   async findAffordability(listingId, months, depositMode = 'INCLUDE') {
@@ -75,18 +66,20 @@ export default {
   },
 
   // 금융상품 조회 (Step4) — { months, gap, products[] }
-  async findProducts(goalId, listingId, months) {
-    const { data } = await instance.get(`${BASE_URL}/goals/${goalId}/products`, {
-      params: { listingId, months },
+  async findProducts(listingId, months) {
+    const { data } = await instance.get(`${BASE_URL}/listings/${listingId}/products`, {
+      params: { months },
     });
     return data.data;
   },
 
   // 로드맵 저장 (Step4 → 5) — body: { listingId, months, selectedProductIds }
   async confirmGoal(goalId, payload) {
+    // 백엔드는 query 파라미터(?months=&listingId=)로 받는다 (body 아님)
     const { data } = await instance.post(
       `${BASE_URL}/goals/${goalId}/confirm`,
-      payload,
+      null,
+      { params: { months: payload.months, listingId: payload.listingId } },
     );
     return data.data; // { goalId, status, months, redirectUrl }
   },

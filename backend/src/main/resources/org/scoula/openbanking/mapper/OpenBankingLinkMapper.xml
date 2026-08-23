@@ -12,6 +12,14 @@
            AND del_yn = 'N'
     </select>
 
+    <!-- 회원 전역(예정)일 조회 (급여 배치: 전역 후 급여 미지급용) user 테이블은 member/석윤 소유, 조회만 함 -->
+    <select id="findDischargeDateByUserId" parameterType="long" resultType="java.time.LocalDate">
+        SELECT discharge_date
+          FROM `user`
+         WHERE id = #{userId}
+           AND del_yn = 'N'
+    </select>
+
     <!-- 회원 계급의 월급액 조회 (급여 income 저장용) user·military_rank는 석윤 소유, 조회만 함 -->
     <select id="findMonthlySalaryByUserId" parameterType="long" resultType="java.lang.Long">
         SELECT mr.rank_salary
@@ -19,6 +27,14 @@
           JOIN military_rank mr ON u.rank_id = mr.rank_id
          WHERE u.id = #{userId}
            AND u.del_yn = 'N'
+    </select>
+
+    <!-- 오픈뱅킹 연동된(활성) 전체 회원 ID 목록 (월급 배치 대상 - 한 회원이 여러 계좌 연동해도 1건) -->
+    <select id="findAllActiveLinkedUserIds" resultType="long">
+        SELECT DISTINCT user_id
+          FROM openbanking_link
+         WHERE del_yn = 'N'
+         ORDER BY user_id
     </select>
 
     <!--

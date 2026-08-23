@@ -183,6 +183,7 @@
 
         WHERE rg.user_id = #{userId}
         AND rg.status = 'CONFIRMED'
+        AND rg.confirmed_listing_id IS NOT NULL
         AND rg.del_yn = 'N'
         AND (#{category} = 'all' OR #{category} = 'rent')
 

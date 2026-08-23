@@ -6,7 +6,9 @@ import org.scoula.rent.dto.HousingProductRecommendResponseDTO;
 import org.scoula.rent.dto.YouthSyncResultDTO;
 import org.scoula.rent.service.HousingProductService;
 import org.scoula.rent.service.YouthPolicySyncService;
+import org.scoula.security.account.domain.CustomUser;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -26,9 +28,10 @@ public class HousingProductController {
     @GetMapping("/listings/{listingId}/products")
     public ResponseEntity<ApiResponse<HousingProductRecommendResponseDTO>> recommendProducts(
             @PathVariable Long listingId,
-            @RequestParam Long userId,   // TODO: JWT 연동 후 SecurityContext 로 교체
+            @AuthenticationPrincipal CustomUser customUser,   // JWT 에서 userId 식별 (다른 rent API 와 통일)
             @RequestParam int months) {
-        return ResponseEntity.ok(ApiResponse.success(service.recommend(listingId, userId, months)));
+        return ResponseEntity.ok(ApiResponse.success(
+                service.recommend(listingId, customUser.getMember().getId(), months)));
     }
 
     // POST /api/rent/admin/youth-sync

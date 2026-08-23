@@ -26,23 +26,34 @@ const termsOpen = ref(true);
 const agreed = ref(false);
 const TERMS = [
   '이용 목적: 군적금 현황 관리 · 후회소비 회고 · 목표 로드맵',
-  '계좌 조회 (필수)',
-  '잔액 조회 (필수)',
-  '거래내역 조회 (필수)',
+  '내 계좌 확인 (필수)',
+  '잔액 확인 (필수)',
+  '지출·수입 내역 확인 (필수)',
   '이용 기간: 1년 (자동 갱신 가능)',
 ];
 
 // ── Step3 계좌 선택 ───────────────────────────────────────
-// TODO: 실제 계좌 목록은 오픈뱅킹 인증(auth-url) 콜백 후 받아옴, 지금은 샘플임
-const ACCOUNTS = [
-  { fintechUseNum: 'F001', bankName: '신한은행', accountType: 'SAVING', productName: '군장병적금', balance: 1000000, required: true },
-  { fintechUseNum: 'F002', bankName: 'KB국민은행', accountType: 'SAVING', productName: '군장병적금', balance: 1000000, required: true },
-  { fintechUseNum: 'F003', bankName: 'KB국민은행', accountType: 'CHECKING', productName: '입출금계좌', balance: null, required: true },
-  { fintechUseNum: 'F004', bankName: '신한은행', accountType: 'SAVING', productName: '군장병적금', balance: 1000000, required: false },
-];
-const selected = ref(new Set(ACCOUNTS.filter((a) => a.required).map((a) => a.fintechUseNum)));
+// 실제 오픈뱅킹처럼 인증 후 계좌 목록을 API(getAccounts)로 받아옴 (하드코딩 샘플 제거)
+const accounts = ref([]);            // 연동 가능한 계좌 목록 (서버 조회)
+const selected = ref(new Set());     // 선택된 fintechUseNum (기본: 전체 선택)
+const accountsLoading = ref(false);
+
+// 계좌 목록 조회 (약관 동의 후 step3 진입 시). 실패하면 빈 목록 + 에러 토스트
+const loadAccounts = async () => {
+  accountsLoading.value = true;
+  try {
+    const list = (await openbankingApi.getAccounts()) || [];
+    accounts.value = list;
+    selected.value = new Set(list.map((a) => a.fintechUseNum)); // 기본 전체 선택
+  } catch {
+    accounts.value = [];
+    show('계좌 목록을 불러오지 못했어요.', 'error');
+  } finally {
+    accountsLoading.value = false;
+  }
+};
+
 const toggleAccount = (a) => {
-  if (a.required) return; // 필수는 해제 불가
   const s = new Set(selected.value);
   s.has(a.fintechUseNum) ? s.delete(a.fintechUseNum) : s.add(a.fintechUseNum);
   selected.value = s;
@@ -50,39 +61,60 @@ const toggleAccount = (a) => {
 const linkedAccounts = ref([]);
 const linking = ref(false);
 
+// 잔액/거래 표시 (적금=잔액, 입출금=거래내역 수집)
 const balanceText = (a) =>
   a.accountType === 'CHECKING'
-    ? '거래내역 수집 중'
+    ? '지출을 자동으로 정리해요'
     : `잔액 ${((a.balance ?? 0) / 10000).toLocaleString('ko-KR')}만원`;
+
+// 적금 금리·정부매칭·만기 표시 (적금 계좌만) — "연 5.0% · 정부매칭 100% · 만기 2027-09-09"
+const rateText = (a) => {
+  if (a.accountType !== 'SAVING') return '';
+  const parts = [];
+  if (a.interestRate != null) parts.push(`연 ${a.interestRate}%`);
+  if (a.govMatchRate != null) parts.push(`정부매칭 ${a.govMatchRate}%`);
+  if (a.maturityDate) parts.push(`만기 ${a.maturityDate}`);
+  return parts.join(' · ');
+};
 
 // ── 단계 이동 ─────────────────────────────────────────────
 const goAgree = () => (step.value = 2);
 const confirmAgree = () => {
   if (!agreed.value) return show('필수 약관에 동의해주세요.', 'error');
   step.value = 3;
+  loadAccounts(); // 실제 오픈뱅킹처럼 인증 후 계좌 목록 조회
 };
 const linkAccounts = async () => {
   if (linking.value) return;
   linking.value = true;
   const nums = [...selected.value];
+  if (!nums.length) {
+    linking.value = false;
+    return show('연동할 계좌를 하나 이상 선택해주세요.', 'error');
+  }
   try {
     const linked = await openbankingApi.link({
       code: 'mock',
       state: 'mock',
       selectedFintechNums: nums,
     });
-    linkedAccounts.value = linked?.length
-      ? linked
-      : ACCOUNTS.filter((a) => selected.value.has(a.fintechUseNum));
+    linkedAccounts.value = linked || [];
+    step.value = 4; // 성공 시에만 완료 화면으로 (하드코딩 폴백 제거)
   } catch {
-    // 백엔드 미기동/실패 시 선택 계좌로 표시 (TODO: 폴백 제거)
-    linkedAccounts.value = ACCOUNTS.filter((a) => selected.value.has(a.fintechUseNum));
+    show('계좌 연동에 실패했어요. 다시 시도해주세요.', 'error');
   } finally {
     linking.value = false;
-    step.value = 4;
   }
 };
-const startService = () => router.push({ name: 'Home' });
+const startService = async () => {
+  try {
+    await openbankingApi.sync(); // 연동 후 거래내역·급여 동기화 (spending/income 적재)
+  } catch {
+    // 동기화 실패해도 진행 (홈에서 다시 시도 가능)
+  }
+  sessionStorage.setItem('ob_linked', 'Y'); // 연동 완료 → 라우터 가드 통과
+  router.push({ name: 'Home' });
+};
 </script>
 
 <template>
@@ -127,25 +159,11 @@ const startService = () => router.push({ name: 'Home' });
     <!-- STEP 3 · 계좌 선택 -->
     <template v-else-if="step === 3">
       <h2 class="ob-title sm">연동할 계좌 선택</h2>
-      <p class="ob-sub">(필수) 군장병적금, 입출금 계좌 1개</p>
+      <p class="ob-sub">연동할 계좌를 골라주세요</p>
+      <p v-if="accountsLoading" class="ob-sub">계좌 불러오는 중…</p>
       <div class="acc-list">
         <button
-          v-for="a in ACCOUNTS.filter((x) => x.required)"
-          :key="a.fintechUseNum"
-          class="acc"
-          :class="{ 'is-on': selected.has(a.fintechUseNum) }"
-        >
-          <span class="acc__check">{{ selected.has(a.fintechUseNum) ? '✅' : '⬜' }}</span>
-          <span class="acc__body">
-            <span class="acc__name">{{ a.bankName }} {{ a.productName }}</span>
-            <span class="acc__bal">{{ balanceText(a) }}</span>
-          </span>
-        </button>
-      </div>
-      <p class="ob-sub" style="margin-top: 12px">(선택)</p>
-      <div class="acc-list">
-        <button
-          v-for="a in ACCOUNTS.filter((x) => !x.required)"
+          v-for="a in accounts"
           :key="a.fintechUseNum"
           class="acc"
           :class="{ 'is-on': selected.has(a.fintechUseNum) }"
@@ -155,9 +173,11 @@ const startService = () => router.push({ name: 'Home' });
           <span class="acc__body">
             <span class="acc__name">{{ a.bankName }} {{ a.productName }}</span>
             <span class="acc__bal">{{ balanceText(a) }}</span>
+            <span v-if="rateText(a)" class="acc__rate">{{ rateText(a) }}</span>
           </span>
         </button>
       </div>
+      <p v-if="!accountsLoading && !accounts.length" class="ob-sub">연동 가능한 계좌가 없어요.</p>
       <BottomButtonBar
         :primary-label="linking ? '연동 중…' : '완료'"
         :primary-disabled="linking"
@@ -168,8 +188,8 @@ const startService = () => router.push({ name: 'Home' });
     <!-- STEP 4 · 연동 완료 -->
     <template v-else>
       <img :src="soldierImg" alt="텅장일병 마스코트" class="mascot" />
-      <h2 class="ob-title">연동 완료!</h2>
-      <p class="ob-desc">총 계좌 {{ linkedAccounts.length }}개가 연동됐어요</p>
+      <h2 class="ob-title">연동됐어요!</h2>
+      <p class="ob-desc">{{ linkedAccounts.length }}개 계좌를 연동했어요</p>
       <div class="acc-list">
         <div v-for="a in linkedAccounts" :key="a.fintechUseNum" class="acc is-on">
           <span class="acc__check">✅</span>
@@ -315,6 +335,11 @@ const startService = () => router.push({ name: 'Home' });
 .acc__bal {
   font-size: 11px;
   color: var(--text-muted);
+}
+.acc__rate {
+  font-size: 11px;
+  color: var(--kb-yellow-dark, #b8860b);
+  font-weight: 600;
 }
 .ob :deep(.bottom-button-bar .bar-button.primary) {
   background: var(--kb-yellow);

@@ -26,4 +26,15 @@
         </foreach>
     </insert>
 
+    <!-- 동일 거래가 이미 적재됐는지 (재동기화 중복 방지, 점호 기록 보존) -->
+    <select id="existsSpending" resultType="boolean">
+        SELECT COUNT(*) &gt; 0
+          FROM spending
+         WHERE user_id = #{userId}
+           AND spent_at = #{spentAt}
+           AND merchant_name = #{merchantName}
+           AND amount = #{amount}
+           AND del_yn = 'N'
+    </select>
+
 </mapper>

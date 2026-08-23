@@ -1,7 +1,7 @@
 <script setup>
 // SCR-RENT-04 · Step 4) 금융상품 + 저장  담당: 수연
 // 디자인: 목업 재구성 — 감당도 요약 카드 + 조언 박스 + 정책/KB 탭 + 상품 카드
-// 상품 선택(다중 토글)·confirmGoal 저장 로직은 기존 방식 유지
+// Step4는 추천 상품을 "보여주기만" 하는 화면(기획) — 상품 선택 없음, confirmGoal로 로드맵만 저장
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import rentApi from '@/api/rentApi';
@@ -92,28 +92,29 @@ const restWidth = computed(() => 100 - coverWidth.value);
 // ── 조언 박스 계산 ─────────────────────────────────────────
 const hasSurplus = computed(() => (af.value.surplus ?? 0) > 0);
 const hasShortfall = computed(() => (af.value.shortfall ?? 0) > 0);
-// 적금 연 3% 가정 → 12개월 뒤 이자(만원 반올림)
-const savingsInterestMan = computed(() => Math.round(((af.value.surplus ?? 0) * 0.03) / 10000));
-// 버팀목 대출 연 2.1% 가정 → 월 이자(천단위 반올림, 원)
+// 버팀목 대출 실금리: 받아온 상품 중 버팀목의 rateMin(housing_product DB값, 전국 정부상품) 사용
+//   응답에 없으면(예외) 연 2.1% 폴백. 주택도시기금 청년전용 버팀목 = region_code NULL(전국)이라 항상 추천됨
+const loanRate = computed(() => {
+  const all = [
+    ...(recommend.value?.monthlySubsidy || []),
+    ...(recommend.value?.depositLoan || []),
+    ...(recommend.value?.free || []),
+  ];
+  const bumtmok = all.find((p) => p.productName?.includes('버팀목') && p.rateMin != null);
+  return bumtmok ? Number(bumtmok.rateMin) / 100 : 0.021;
+});
+const loanRatePct = computed(() => (loanRate.value * 100).toFixed(1)); // 표시용 (예: "1.5")
+// 버팀목 대출 월 이자(천단위 반올림, 원)
 const loanMonthlyInterest = computed(() => {
-  const won = ((af.value.shortfall ?? 0) * 0.021) / 12;
+  const won = ((af.value.shortfall ?? 0) * loanRate.value) / 12;
   return Math.round(won / 1000) * 1000;
 });
 const loanMonthlyLabel = computed(() => `${loanMonthlyInterest.value.toLocaleString('ko-KR')}원`);
 
-// ── 상품 선택(다중 토글) — confirmGoal 의 selectedProductIds 로 전송 ──
-const selectedProductIds = ref([]);
-const isSelected = (id) => selectedProductIds.value.includes(id);
-const toggleProduct = (id) => {
-  const i = selectedProductIds.value.indexOf(id);
-  if (i === -1) selectedProductIds.value.push(id);
-  else selectedProductIds.value.splice(i, 1);
-};
-
 // ── 로드 ───────────────────────────────────────────────────
 const loadProducts = async () => {
   try {
-    const data = await rentApi.findProducts(goalId, listingId, months);
+    const data = await rentApi.findProducts(listingId, months);
     recommend.value = data && (data.monthlySubsidy || data.depositLoan || data.free) ? data : null;
   } catch {
     recommend.value = null;
@@ -143,7 +144,7 @@ const saveRoadmap = async () => {
   if (saving.value) return;
   saving.value = true;
   try {
-    await rentApi.confirmGoal(goalId, { listingId, months, selectedProductIds: selectedProductIds.value });
+    await rentApi.confirmGoal(goalId, { listingId, months });
   } catch {
     // 저장 실패를 숨기지 않고 정직하게 에러 노출 후 중단(이동 안 함)
     show('로드맵을 저장하지 못했어요', 'error');
@@ -151,6 +152,7 @@ const saveRoadmap = async () => {
     return;
   }
   show('로드맵을 저장했어요', 'success');
+  rentStore.reset(); // 저장 완료 → 위저드 입력값 초기화(다음엔 처음부터 새로 등록). goalId 등은 지역 상수라 영향 없음
   await router.push({ name: 'RentGoalDetail', params: { goalId } });
   saving.value = false;
 };
@@ -195,13 +197,13 @@ const saveRoadmap = async () => {
       <div v-if="hasSurplus" class="advice advice--good">
         <div class="advice__body">
           <p class="advice__t"><span class="advice__emoji">💰</span>{{ surplusMan }}만원이 남아요</p>
-          <p class="advice__s">적금에 넣으면 12개월 뒤 이자 약 {{ savingsInterestMan }}만원 (연 3% 가정)</p>
+          <p class="advice__s">남는 돈은 적금이나 비상금으로 모아두면 좋아요</p>
         </div>
       </div>
       <div v-else-if="hasShortfall" class="advice advice--warn">
         <div class="advice__body">
           <p class="advice__t"><span class="advice__emoji">🏦</span>{{ shortfallMan }}만원을 메워야 해요</p>
-          <p class="advice__s">버팀목 대출이면 월 이자 약 {{ loanMonthlyLabel }} (연 2.1% 가정)</p>
+          <p class="advice__s">버팀목 대출이면 월 이자 약 {{ loanMonthlyLabel }} (연 {{ loanRatePct }}%, 주택도시기금)</p>
         </div>
       </div>
 
@@ -226,7 +228,7 @@ const saveRoadmap = async () => {
       </div>
 
       <!-- 6. 탭 내용 -->
-      <p class="pick-hint">함께 저장할 상품을 선택하세요 (여러 개 가능)</p>
+      <p class="pick-hint">목표에 맞는 추천 상품이에요. 카드를 눌러 상세 정보를 확인하세요</p>
 
       <!-- 정책상품 탭 -->
       <template v-if="activeTab === 'POLICY'">
@@ -238,9 +240,6 @@ const saveRoadmap = async () => {
               :key="p.productId"
               type="button"
               class="prod"
-              :class="{ 'is-selected': isSelected(p.productId) }"
-              :aria-pressed="isSelected(p.productId)"
-              @click="toggleProduct(p.productId)"
             >
               <span class="prod__body">
                 <span class="prod__name">{{ p.productName }}</span>
@@ -269,9 +268,6 @@ const saveRoadmap = async () => {
               :key="p.productId"
               type="button"
               class="prod"
-              :class="{ 'is-selected': isSelected(p.productId) }"
-              :aria-pressed="isSelected(p.productId)"
-              @click="toggleProduct(p.productId)"
             >
               <span class="prod__body">
                 <span class="prod__name">{{ p.productName }}</span>
@@ -301,9 +297,6 @@ const saveRoadmap = async () => {
             :key="p.productId"
             type="button"
             class="prod"
-            :class="{ 'is-selected': isSelected(p.productId) }"
-            :aria-pressed="isSelected(p.productId)"
-            @click="toggleProduct(p.productId)"
           >
             <span class="prod__body">
               <span class="prod__name">{{ p.productName }}</span>
@@ -333,7 +326,7 @@ const saveRoadmap = async () => {
       </div>
 
       <!-- 8. 안내 문구 -->
-      <p class="foot-note">선택한 상품과 함께 로드맵을 저장할 수 있어요</p>
+      <p class="foot-note">추천 상품을 확인하고 로드맵을 저장하세요</p>
     </template>
 
     <BottomButtonBar
@@ -553,15 +546,6 @@ const saveRoadmap = async () => {
   background: #fff;
   font-family: inherit;
   text-align: left;
-  cursor: pointer;
-  transition: border-color 0.12s ease, box-shadow 0.12s ease;
-}
-.prod:active {
-  transform: scale(0.995);
-}
-.prod.is-selected {
-  border-color: var(--kb-yellow);
-  box-shadow: 0 0 0 1.5px var(--kb-yellow);
 }
 .prod__body {
   flex: 1;

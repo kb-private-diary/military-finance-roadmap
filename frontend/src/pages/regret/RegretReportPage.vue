@@ -21,6 +21,10 @@ const CATEGORY_LABEL = {
   TRANSPORT: '교통',
   CULTURE: '문화/여가',
   CONVENIENCE: '편의점',
+  PX: 'PX·군마트',
+  DELIVERY: '배달',
+  GAME: '게임',
+  VACATION: '휴가/여행',
   ETC: '기타',
 };
 
@@ -96,22 +100,18 @@ const donutItems = computed(() => {
   ].filter((i) => i.value > 0);
 });
 
-// 카테고리별 후회/만족 비중 막대 (후회 금액 큰 순 정렬)
+// 카테고리별 후회 비중 막대 (전체 후회소비 대비, 후회 금액 큰 순 정렬)
+//   백엔드 categoryRegrets는 후회(REGRET)만 집계하므로, 만족 대비가 아니라 "전체 후회 중 이 카테고리 비중"으로 표시
 const catRows = computed(() => {
   const list = stats.value?.categoryRegrets || [];
+  const totalRegret = list.reduce((sum, c) => sum + (c.amount || 0), 0);
   return [...list]
-    .map((c) => {
-      const regret = c.amount || 0;
-      const satisfied = c.satisfied || 0;
-      const sum = regret + satisfied;
-      return {
-        category: c.category,
-        count: c.count || 0,
-        regret,
-        satisfied,
-        regretPct: sum > 0 ? Math.round((regret / sum) * 100) : 0,
-      };
-    })
+    .map((c) => ({
+      category: c.category,
+      count: c.count || 0,
+      regret: c.amount || 0,
+      regretPct: totalRegret > 0 ? Math.round(((c.amount || 0) / totalRegret) * 100) : 0,
+    }))
     .sort((a, b) => b.regret - a.regret);
 });
 
@@ -213,7 +213,7 @@ const goBack = () => router.push({ name: 'RegretDashboard' });
           </span>
           <div class="crow-amt">
             <span>후회 {{ formatWon(c.regret) }}</span>
-            <span>만족 {{ formatWon(c.satisfied) }}</span>
+            <span class="cshare">전체 후회의 {{ c.regretPct }}%</span>
           </div>
         </div>
         <p class="cat-note">채워진 만큼이 후회 비중이에요</p>

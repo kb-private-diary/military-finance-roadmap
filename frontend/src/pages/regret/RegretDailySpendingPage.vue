@@ -25,6 +25,10 @@ const CATEGORY = {
   TRANSPORT: { label: '교통', icon: '🚕' },
   CULTURE: { label: '문화/여가', icon: '🎬' },
   CONVENIENCE: { label: '편의점', icon: '🏪' },
+  PX: { label: 'PX·군마트', icon: '🎖️' },
+  DELIVERY: { label: '배달', icon: '🛵' },
+  GAME: { label: '게임', icon: '🎮' },
+  VACATION: { label: '휴가/여행', icon: '✈️' },
   ETC: { label: '기타', icon: '💳' },
 };
 const cat = (c) => CATEGORY[c] || { label: c, icon: '💳' };

@@ -17,7 +17,7 @@
         )
     </insert>
 
-    <!-- 회원 급여 내역 소프트 삭제 (재동기화 시 중복 방지 - 정리 후 재적재) -->
+    <!-- 회원 급여 내역 소프트 삭제 (급여 전체 리셋이 필요할 때) -->
     <update id="deleteSalariesByUserId">
         UPDATE income
            SET del_yn = 'Y',
@@ -27,5 +27,18 @@
            AND category = 'SALARY'
            AND del_yn = 'N'
     </update>
+
+    <!-- 특정 연월 급여 존재 여부 (월급 배치 멱등: 그달 급여가 이미 있으면 안 넣음) -->
+    <select id="existsSalaryInYearMonth" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1
+              FROM income
+             WHERE user_id = #{userId}
+               AND category = 'SALARY'
+               AND YEAR(received_at) = #{year}
+               AND MONTH(received_at) = #{month}
+               AND del_yn = 'N'
+        )
+    </select>
 
 </mapper>

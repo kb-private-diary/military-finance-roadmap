@@ -4,6 +4,8 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import regretApi from '@/api/regretApi';
+import roadmapApi from '@/api/roadmapApi';
+import rentApi from '@/api/rentApi';
 import { formatManwon, formatWon } from '@/util/format';
 import BaseCard from '@/components/common/BaseCard.vue';
 import DonutChart from '@/components/common/DonutChart.vue';
@@ -17,6 +19,9 @@ const now = new Date();
 const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
 const monthLabel = `${now.getMonth() + 1}월`;
 
+// 후회 캘린더가 보고 있는 월 (이전/다음 버튼으로 이동, 미래월은 이번달까지)
+const calViewDate = ref(new Date(now.getFullYear(), now.getMonth(), 1));
+
 const CATEGORY_LABEL = {
   FOOD: '식비',
   CAFE: '카페/간식',
@@ -24,12 +29,31 @@ const CATEGORY_LABEL = {
   TRANSPORT: '교통',
   CULTURE: '문화/여가',
   CONVENIENCE: '편의점',
+  PX: 'PX·군마트',
+  DELIVERY: '배달',
+  GAME: '게임',
+  VACATION: '휴가/여행',
   ETC: '기타',
 };
 
-// 이번달 일자별 후회소비 금액 합계 (히트맵 농담 계산용) — { [day]: 합계원 }
-// findSpendings() 실데이터에서 계산, 데이터 없으면 빈 객체 → 전부 level 0
-const dailyRegretAmount = ref({});
+// 후회소비 전체 실데이터 (findSpendings). 캘린더 월 이동 시 재조회 없이 이 데이터에서 재집계
+const allSpendings = ref([]);
+
+// 캘린더가 보고 있는 월의 일자별 후회소비 합계 (히트맵 농담 계산용) — { [day]: 합계원 }
+// 데이터 없으면 빈 객체 → 전부 level 0
+const dailyRegretAmount = computed(() => {
+  const y = calViewDate.value.getFullYear();
+  const m = calViewDate.value.getMonth();
+  const map = {};
+  (allSpendings.value || []).forEach((s) => {
+    if (s.reviewType !== 'REGRET') return;
+    const dt = new Date(s.spentAt);
+    if (dt.getFullYear() !== y || dt.getMonth() !== m) return;
+    const day = dt.getDate();
+    map[day] = (map[day] || 0) + (s.amount || 0);
+  });
+  return map;
+});
 
 // 후회금액 합계 → 히트맵 레벨(0~4) 매핑
 //   0원=0(회색) / ~1만=1 / ~3만=2 / ~5만=3 / 5만 초과=4
@@ -48,20 +72,9 @@ const loading = ref(true);
 // 이번달 일자별 후회소비 집계 (실데이터). 실패해도 히트맵은 빈 상태로 방어(토스트 중복 방지)
 const loadDaily = async () => {
   try {
-    const list = await regretApi.findSpendings();
-    const y = now.getFullYear();
-    const m = now.getMonth();
-    const map = {};
-    (list || []).forEach((s) => {
-      if (s.reviewType !== 'REGRET') return;
-      const dt = new Date(s.spentAt);
-      if (dt.getFullYear() !== y || dt.getMonth() !== m) return;
-      const day = dt.getDate();
-      map[day] = (map[day] || 0) + (s.amount || 0);
-    });
-    dailyRegretAmount.value = map;
+    allSpendings.value = (await regretApi.findSpendings()) || [];
   } catch {
-    dailyRegretAmount.value = {};
+    allSpendings.value = [];
   }
 };
 
@@ -112,6 +125,7 @@ onMounted(() => {
   load();
   loadMonths();
   loadDaily();
+  loadRentCost();
 });
 
 const donutItems = computed(() => {
@@ -130,8 +144,8 @@ const ratioText = computed(() =>
 
 // 이번달 달력 셀 (앞쪽 빈칸 + 1~말일, 각 날짜에 지출 레벨)
 const calendarCells = computed(() => {
-  const y = now.getFullYear();
-  const m = now.getMonth();
+  const y = calViewDate.value.getFullYear();
+  const m = calViewDate.value.getMonth();
   const firstDow = new Date(y, m, 1).getDay(); // 0=일
   const daysInMonth = new Date(y, m + 1, 0).getDate();
   const cells = [];
@@ -142,6 +156,33 @@ const calendarCells = computed(() => {
   return cells;
 });
 
+// 캘린더 월 이동 (미래월은 이번달까지만)
+const calMonthLabel = computed(
+  () => `${calViewDate.value.getFullYear()}년 ${calViewDate.value.getMonth() + 1}월`,
+);
+const canGoNextMonth = computed(() => {
+  const v = calViewDate.value;
+  return (
+    v.getFullYear() < now.getFullYear() ||
+    (v.getFullYear() === now.getFullYear() && v.getMonth() < now.getMonth())
+  );
+});
+const goPrevMonth = () => {
+  calViewDate.value = new Date(
+    calViewDate.value.getFullYear(),
+    calViewDate.value.getMonth() - 1,
+    1,
+  );
+};
+const goNextMonth = () => {
+  if (!canGoNextMonth.value) return;
+  calViewDate.value = new Date(
+    calViewDate.value.getFullYear(),
+    calViewDate.value.getMonth() + 1,
+    1,
+  );
+};
+
 const goReview = () => router.push({ name: 'RegretReview' });
 
 // 라벨 클릭 → 라벨별 모아보기 (REGRET | SOSO | SATISFIED)
@@ -151,19 +192,38 @@ const goLabel = (label) =>
 // ── "이만큼 아끼면?" 로드맵 연결 ────────────────────────────────
 // 이번달 후회소비를 절감액으로 보고, 4개 로드맵 목표에 보탰을 때 효과 환산
 // TODO(백엔드): 각 로드맵 목표 잔여액 API 연동되면 가정치 대신 실값으로 계산
-const ASSUMED_MONTHLY_RENT = 530000; // 자취 실질월부담 가정 (매물 샘플 기준)
 const saveMonthly = computed(() => stats.value?.regretAmount ?? 0);
 const saveYear = computed(() => saveMonthly.value * 12);
-const extraRentMonths = computed(() =>
-  Math.max(Math.floor(saveYear.value / ASSUMED_MONTHLY_RENT), 1),
-);
+
+// 저장된 자취 로드맵의 월 주거비 (하드코딩 대신 실데이터). 로드맵 없으면 null → 등록 유도 멘트
+const rentMonthlyCost = ref(null);
+const loadRentCost = async () => {
+  try {
+    const list = await roadmapApi.findRoadmapList('rent');
+    if (list?.length) {
+      const goal = await rentApi.findGoal(list[0].goalId);
+      rentMonthlyCost.value =
+        goal?.precisionSimulation?.monthlyHousingCost?.housingTotal ?? null;
+    }
+  } catch {
+    rentMonthlyCost.value = null;
+  }
+};
+// 저장된 자취 로드맵 있으면 실 주거비로 "N개월 더" 환산, 없으면 null (유도 멘트로 분기)
+const extraRentMonths = computed(() => {
+  if (!rentMonthlyCost.value) return null;
+  return Math.max(Math.floor(saveYear.value / rentMonthlyCost.value), 1);
+});
 
 const roadmapCards = computed(() => [
   {
     key: 'rent',
     icon: '🏠',
     name: '자취',
-    desc: `1년 모으면 자취 ${extraRentMonths.value}개월 더`,
+    desc:
+      extraRentMonths.value != null
+        ? `1년 모으면 자취 ${extraRentMonths.value}개월 더`
+        : '자취 로드맵 등록하고 분석 받아보기',
     route: 'RentGoalCreate',
   },
   {
@@ -194,8 +254,8 @@ const goRoadmap = (name) => router.push({ name });
 // 캘린더 셀 클릭 → 해당 일자 지출 목록으로 이동 (void 셀은 무시)
 const goDay = (c) => {
   if (c.void) return;
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const y = calViewDate.value.getFullYear();
+  const m = String(calViewDate.value.getMonth() + 1).padStart(2, '0');
   const d = String(c.day).padStart(2, '0');
   router.push({ name: 'RegretDailySpending', params: { date: `${y}-${m}-${d}` } });
 };
@@ -255,7 +315,17 @@ const goDay = (c) => {
     </div>
 
     <BaseCard padding="14px">
-      <p class="sec">후회 캘린더</p>
+      <div class="cal-head">
+        <button class="cal-nav" type="button" aria-label="이전 달" @click="goPrevMonth">‹</button>
+        <p class="sec cal-title">{{ calMonthLabel }} 후회 캘린더</p>
+        <button
+          class="cal-nav"
+          type="button"
+          aria-label="다음 달"
+          :disabled="!canGoNextMonth"
+          @click="goNextMonth"
+        >›</button>
+      </div>
       <div class="heat-head">
         <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
       </div>
@@ -503,6 +573,32 @@ button.lg {
   color: var(--text-body);
   margin-bottom: 10px;
 }
+/* ── 캘린더 월 이동 헤더 ── */
+.cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.cal-title {
+  margin: 0;
+}
+.cal-nav {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: var(--bg-subtle, #f2f2f5);
+  color: var(--text-body);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.cal-nav:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
 /* ── 캘린더 히트맵 ── */
 .heat-head {
   display: grid;

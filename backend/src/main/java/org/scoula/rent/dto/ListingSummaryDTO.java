@@ -1,6 +1,7 @@
 package org.scoula.rent.dto;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 import org.scoula.rent.domain.RentListingVO;
 
@@ -16,9 +17,16 @@ public class ListingSummaryDTO {
     private Long listingId;
     private String buildingName;
     private String jibunAddress; // 읍면동 + 지번 (예: 장전동 123-45)
+    private String dongName;     // 읍면동명 (좌표 없는 매물 지도 지오코딩 폴백용)
     private Integer floor;
     private BigDecimal latitude;
     private BigDecimal longitude;
+    private BigDecimal areaSqm;   // 전용면적(㎡)
+    private Integer buildYear;    // 건축년도 (VO builtYear → 프론트 buildYear)
+    private LocalDate dealDate;   // 계약일
+    private Long deposit;         // 보증금(원)
+    private Long monthlyRent;     // 월세(원)
+    private Long maintenanceFee;  // 월 관리비(원) - step5 비용계산 표시용 (calcManagementFee 계산값, 서비스에서 세팅)
 
     public static ListingSummaryDTO of(RentListingVO vo) {
         String umd = vo.getUmdName() == null ? "" : vo.getUmdName();
@@ -27,9 +35,15 @@ public class ListingSummaryDTO {
                 .listingId(vo.getListingId())
                 .buildingName(vo.getBuildingName())
                 .jibunAddress((umd + " " + jibun).trim())
+                .dongName(vo.getUmdName())
                 .floor(vo.getFloor())
                 .latitude(vo.getLatitude())
                 .longitude(vo.getLongitude())
+                .areaSqm(vo.getAreaSqm())
+                .buildYear(vo.getBuiltYear())
+                .dealDate(vo.getDealDate())
+                .deposit(vo.getDeposit())
+                .monthlyRent(vo.getMonthlyRent())
                 .build();
     }
 }

@@ -166,6 +166,8 @@ const categoryMap = {
 
 const mapRoadmapItem = (item) => {
   const category = categoryMap[item.categoryId];
+  // categoryMap 에 없는 카테고리는 스킵 (전체 목록 조회 시 map 에러로 리스트 전체가 사라지는 것 방지)
+  if (!category) return null;
 
   return {
     goalId: item.goalId,
@@ -186,7 +188,7 @@ const fetchRoadmaps = async (category = 'ALL') => {
   try {
     const result = await roadmapApi.findRoadmapList(category.toLowerCase());
 
-    roadmaps.value = result.map(mapRoadmapItem);
+    roadmaps.value = result.map(mapRoadmapItem).filter(Boolean);
     visibleCount.value = 4;
   } catch (e) {
     console.error(e);

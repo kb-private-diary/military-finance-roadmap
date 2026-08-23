@@ -49,9 +49,6 @@ const PRICE_BADGE = {
   EXPENSIVE: { label: '⛔ 지역 평균보다 비쌈', cls: 'pill--expensive' },
 };
 
-// 통신비: findGoal 응답에 없어 상수로 둠(하드코딩 "데이터"가 아니라 명시 상수).
-// 1인 가구 월 평균 통신비 추정치(과기정통부 가계통신비 통계 참고). 실데이터 연동 시 교체.
-const MONTHLY_TELECOM_FEE = 55000;
 
 const goal = ref(null);
 const listing = ref(null);
@@ -67,16 +64,27 @@ const TABS = [
   { key: 'products', label: '금융상품' },
 ];
 
-// findProducts(대출 상품) 응답 → 섹션 레이아웃 정규화. 실패/빈값이면 빈 배열.
+// findProducts 응답 → 섹션 레이아웃 정규화. 실패/빈값이면 빈 배열.
+//   백엔드는 monthlySubsidy/depositLoan/free 3그룹으로 응답 (RentProductsPage와 동일 구조)
 const normalizeProducts = (data) => {
-  if (!data?.products?.length) return [];
+  const all = [
+    ...(data?.monthlySubsidy || []),
+    ...(data?.depositLoan || []),
+    ...(data?.free || []),
+  ];
+  if (!all.length) return [];
   return [
     {
       caption: '관련 금융상품',
-      items: data.products.map((p) => ({
+      items: all.map((p) => ({
         name: p.productName,
-        org: p.productType === 'POLICY' ? '정책상품' : 'KB국민',
-        link: p.link || '#',
+        org:
+          p.productType === 'POLICY'
+            ? '정책상품'
+            : p.productType === 'LOCAL'
+              ? '지자체'
+              : 'KB국민',
+        link: p.externalUrl || '#',
       })),
     },
   ];
@@ -118,7 +126,7 @@ const load = async () => {
   try {
     const lid = listing.value?.listingId || goal.value?.confirmedListingId;
     const months = goal.value?.residenceMonths || rentStore.months || 6;
-    const p = await rentApi.findProducts(goalId, lid, months);
+    const p = await rentApi.findProducts(lid, months);
     productSections.value = normalizeProducts(p);
   } catch {
     productSections.value = [];
@@ -169,34 +177,52 @@ const coordText = computed(() =>
 );
 const KAKAO_KEY = import.meta.env.VITE_KAKAO_MAP_KEY; // 하드코딩 금지 (.env)
 const mapEl = ref(null);
-const showMap = computed(() => !!KAKAO_KEY && hasCoords.value);
+// 지오코딩용 동 주소: load-nationwide 매물은 좌표가 NULL이라 dongName(예 "부산 남구 대연동")으로 대략 위치를 찾는다.
+// "부산 남구 대연동~~~"처럼 뒤에 물결·부가문자가 붙는 경우가 있어 앞 3토큰(시 구 동)만 쓰고 비주소 문자는 제거해 검색 정확도를 높인다.
+const geocodeQuery = computed(() => {
+  const raw = listing.value?.dongName;
+  if (!raw) return '';
+  return raw
+    .trim()
+    .split(/\s+/)
+    .slice(0, 3)
+    .join(' ')
+    .replace(/[^가-힣0-9\s]/g, '') // 물결·특수문자 제거
+    .trim();
+});
+const showMap = computed(() => !!KAKAO_KEY && (hasCoords.value || !!geocodeQuery.value));
 let mapReady = false;
 
+// libraries=services: Geocoder(동 주소 → 좌표 변환)를 쓰려면 필수
 const loadKakaoSdk = () =>
   new Promise((resolve, reject) => {
     if (window.kakao?.maps) return resolve();
     const existing = document.getElementById('kakao-map-sdk');
     if (existing) {
-      existing.addEventListener('load', () => resolve());
-      existing.addEventListener('error', reject);
+      // 이미 삽입된 스크립트: load 이벤트가 이미 지났을 수 있어(재방문) 폴링으로 로드 완료를 감지
+      const t0 = Date.now();
+      const timer = setInterval(() => {
+        if (window.kakao?.maps) {
+          clearInterval(timer);
+          resolve();
+        } else if (Date.now() - t0 > 5000) {
+          clearInterval(timer);
+          reject(new Error('kakao sdk load timeout'));
+        }
+      }, 50);
       return;
     }
     const script = document.createElement('script');
     script.id = 'kakao-map-sdk';
-    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_KEY}&autoload=false`;
+    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_KEY}&autoload=false&libraries=services`;
     script.onload = () => resolve();
     script.onerror = reject;
     document.head.appendChild(script);
   });
 
 // 대략 위치만: 마커 대신 반경 150m 원(Circle). 자취 테마라 핑크(목업 지정색).
-const initMap = () => {
-  if (!mapEl.value || !hasCoords.value) return;
+const drawCircle = (pos) => {
   const { kakao } = window;
-  const pos = new kakao.maps.LatLng(
-    Number(listing.value.latitude),
-    Number(listing.value.longitude),
-  );
   const map = new kakao.maps.Map(mapEl.value, { center: pos, level: 4 });
   const circle = new kakao.maps.Circle({
     center: pos,
@@ -209,6 +235,40 @@ const initMap = () => {
     fillOpacity: 0.18,
   });
   circle.setMap(map);
+  // 컨테이너 크기가 늦게 확정되는 경우(탭/렌더 타이밍) 대비해 재배치 - 회색 빈 지도 방지
+  setTimeout(() => {
+    map.relayout();
+    map.setCenter(pos);
+  }, 150);
+};
+
+// 지도 초기화: 좌표 있으면 그 좌표로, 없으면 동 주소를 지오코딩해 대략 위치로 Circle 표시.
+const initMap = (retry = 0) => {
+  if (!mapEl.value) {
+    // 지도 컨테이너가 아직 렌더 전이면 다음 프레임에 재시도 (최대 10회, 렌더 타이밍 경쟁 방어)
+    if (retry < 10) requestAnimationFrame(() => initMap(retry + 1));
+    return;
+  }
+  const { kakao } = window;
+  // (1) 좌표 있으면 기존 경로 그대로
+  if (hasCoords.value) {
+    drawCircle(
+      new kakao.maps.LatLng(
+        Number(listing.value.latitude),
+        Number(listing.value.longitude),
+      ),
+    );
+    return;
+  }
+  // (2) 좌표 없고 동 주소 있으면 지오코딩 → 대략 위치 Circle. 실패 시 조용히 폴백(컨테이너만 빈 상태)
+  if (geocodeQuery.value && kakao.maps.services) {
+    const geocoder = new kakao.maps.services.Geocoder();
+    geocoder.addressSearch(geocodeQuery.value, (result, status) => {
+      if (status === kakao.maps.services.Status.OK && result[0]) {
+        drawCircle(new kakao.maps.LatLng(Number(result[0].y), Number(result[0].x)));
+      }
+    });
+  }
 };
 
 const setupMap = async () => {
@@ -302,7 +362,6 @@ const fixedCostItems = computed(() => {
     { label: '월세', amount: l.monthlyRent ?? 0 },
     { label: '관리비', amount: l.maintenanceFee ?? 0, sub: '평당 추정' },
     { label: '전기·가스·수도', amount: utilityFee.value, sub: '월별 계수 반영' },
-    { label: '통신비', amount: MONTHLY_TELECOM_FEE, sub: '1인 가구 평균(상수)' },
   ];
 });
 const fixedCostTotal = computed(() =>
