@@ -8,6 +8,7 @@ import BaseModal from '@/components/common/BaseModal.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -113,13 +114,10 @@ onBeforeUnmount(() => {
   <div class="travel-products">
     <RoadmapCharacterSlider :step="4" label="여행 로드맵" />
 
-    <header class="page-header">
-      <h1 class="text-title">금융상품 추천</h1>
-      <p class="text-caption">
-        여행에 활용할 수 있는 금융상품을 확인해보세요.<br />
-        별도의 선택 없이 여행 로드맵을 저장할 수 있어요.
-      </p>
-    </header>
+    <PageHeader
+      title="여행 떠나기 전, 아래 금융상품은 어떠십니까?"
+      description="여행에서 활용하기 좋은 금융상품입니다. 알찬 여행이 되시길 바랍니다."
+    />
 
     <div v-if="loading" class="status-box text-caption" role="status">
       금융상품 정보를 불러오고 있습니다.
@@ -220,8 +218,8 @@ onBeforeUnmount(() => {
     </section>
 
     <BottomButtonBar
-      secondary-label="이 전"
-      :primary-label="saving ? '저장 중...' : '저 장'"
+      secondary-label="이전"
+      :primary-label="saving ? '저장 중...' : '저장'"
       :primary-disabled="loading || saving"
       @secondary-click="goPrevious"
       @primary-click="saveRoadmap"
@@ -242,6 +240,10 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+/* 제목 아래 컨텐츠 간격 통일(20px) */
+.travel-products :deep(.page-header) {
+  margin-bottom: 20px;
+}
 .travel-products {
   min-height: 100%;
   padding: 18px 0 88px;
@@ -250,19 +252,6 @@ onBeforeUnmount(() => {
 
 .travel-products :deep(.character-slider) {
   margin-bottom: 28px;
-}
-
-.page-header {
-  margin-bottom: 24px;
-}
-
-.page-header h1,
-.page-header p {
-  margin: 0;
-}
-
-.page-header p {
-  margin-top: 8px;
 }
 
 .status-box {

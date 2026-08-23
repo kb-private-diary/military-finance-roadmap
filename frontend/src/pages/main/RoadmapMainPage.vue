@@ -7,15 +7,14 @@ import { useRouter } from 'vue-router';
 import { useToast } from '@/composables/useToast';
 
 import BaseCard from '@/components/common/BaseCard.vue';
-import CategoryButton from '@/components/common/CategoryButton.vue';
+import CategoryFilter from '@/components/common/CategoryFilter.vue';
 import LikeButton from '@/components/common/LikeButton.vue';
 import BaseModal from '@/components/common/BaseModal.vue';
 
-import rabbitImage from '@/assets/images/roadmap/rabbit.png';
-import travelImage from '@/assets/images/roadmap/travel.png';
-import carImage from '@/assets/images/roadmap/car.png';
-import jobImage from '@/assets/images/roadmap/job.png';
-import rentImage from '@/assets/images/roadmap/rent.png';
+import travelImage from '@/assets/images/roadmap/travel-1.png';
+import carImage from '@/assets/images/roadmap/car-2.png';
+import jobImage from '@/assets/images/roadmap/job-1.png';
+import rentImage from '@/assets/images/roadmap/rent-1.png';
 import roadmapApi from '@/api/roadmapApi';
 import EmptyState from '@/components/common/EmptyState.vue';
 import bookmarkApi from '@/api/bookmarkApi';
@@ -82,67 +81,54 @@ const emptyStateMap = {
   },
 };
 
-const categories = [
+// 타이밍별 그룹: 여행·진로는 복무 중에 시작 가능, 자동차·자취는 전역 후
+const categoryGroups = [
   {
-    code: 'TRAVEL',
-    title: '추억 쌓으러',
-    description: '전역하고 어디부터 가지?',
-    image: travelImage,
-
-    routeName: 'TravelGoalCreate',
+    key: 'IN_SERVICE',
+    items: [
+      {
+        code: 'TRAVEL',
+        title: '추억 쌓으러',
+        description: '복무 중 설레는 계획',
+        image: travelImage,
+        routeName: 'TravelGoalCreate',
+      },
+      {
+        code: 'JOB',
+        title: '꿈 찾으러',
+        description: '복무 중 미래 그리기',
+        image: jobImage,
+        routeName: 'JobGoalCreate',
+      },
+    ],
   },
   {
-    code: 'CAR',
-    title: '차 뽑으러',
-    description: '전역하고 무슨 차 타지?',
-    image: carImage,
-
-    routeName: 'CarGoalCreate',
-  },
-  {
-    code: 'JOB',
-    title: '꿈 찾으러',
-    description: '전역하고 뭐부터 준비하지?',
-    image: jobImage,
-
-    routeName: 'JobGoalCreate',
-  },
-  {
-    code: 'RENT',
-    title: '자취 하러',
-    description: '전역하고 어디에 살지?',
-    image: rentImage,
-
-    routeName: 'RentGoalCreate',
+    key: 'AFTER_DISCHARGE',
+    items: [
+      {
+        code: 'CAR',
+        title: '차 뽑으러',
+        description: '전역 후 드디어 내 차',
+        image: carImage,
+        routeName: 'CarGoalCreate',
+      },
+      {
+        code: 'RENT',
+        title: '자취 하러',
+        description: '전역 후 나만의 공간',
+        image: rentImage,
+        routeName: 'RentGoalCreate',
+      },
+    ],
   },
 ];
 
 const roadmapFilters = [
-  {
-    code: 'ALL',
-    label: '전체',
-    variant: 'pastel-purple',
-  },
-  {
-    code: 'TRAVEL',
-    label: '여행',
-    variant: 'pastel-blue',
-  },
-  {
-    code: 'RENT',
-    label: '자취',
-    variant: 'pastel-pink',
-  },
-  {
-    code: 'CAR',
-    label: '자동차',
-    variant: 'pastel-green',
-  },
-  {
-    code: 'JOB',
-    label: '진로',
-    variant: 'pastel-yellow',
-  },
+  { code: 'ALL', label: '전체', theme: 'roadmap' },
+  { code: 'TRAVEL', label: '여행', theme: 'travel' },
+  { code: 'RENT', label: '자취', theme: 'rent' },
+  { code: 'CAR', label: '자동차', theme: 'car' },
+  { code: 'JOB', label: '진로', theme: 'job' },
 ];
 
 const categoryMap = {
@@ -320,50 +306,66 @@ onMounted(async () => {
   <div class="roadmap-main">
     <section class="roadmap-main__intro">
       <div class="roadmap-main__heading">
-        <p class="text-overline roadmap-main__eyebrow">전역하면 뭐하지?</p>
+        <p class="text-overline roadmap-main__eyebrow">군월급·군적금, 어디에 쓸까?</p>
 
-        <h2 class="text-title roadmap-main__title">군적금 로드맵</h2>
+        <h2 class="text-title roadmap-main__title">전역 로드맵 작전</h2>
       </div>
-
-      <img :src="rabbitImage" alt="로드맵 토끼" class="roadmap-main__rabbit" />
     </section>
 
-    <section class="roadmap-main__categories">
-      <BaseCard
-        v-for="category in categories"
-        :key="category.code"
-        padding="10px"
-        class="roadmap-main__category-card"
-        @click="selectCategory(category)"
-      >
-        <img
-          :src="category.image"
-          :alt="category.title"
-          class="roadmap-main__category-image"
-        />
+    <section
+      v-for="group in categoryGroups"
+      :key="group.key"
+      class="roadmap-main__category-group"
+    >
+      <div class="roadmap-main__categories">
+        <BaseCard
+          v-for="category in group.items"
+          :key="category.code"
+          padding="10px"
+          class="roadmap-main__category-card"
+          @click="selectCategory(category)"
+        >
+          <!-- 전술 코너 마크 (HUD/조준경 프레임) -->
+          <span class="roadmap-main__corner roadmap-main__corner--tl" aria-hidden="true"></span>
+          <span class="roadmap-main__corner roadmap-main__corner--tr" aria-hidden="true"></span>
+          <span class="roadmap-main__corner roadmap-main__corner--bl" aria-hidden="true"></span>
+          <span class="roadmap-main__corner roadmap-main__corner--br" aria-hidden="true"></span>
 
-        <p class="text-label roadmap-main__category-title">
-          {{ category.title }}
-        </p>
+          <!-- 아이콘 조준경 링 (타겟 조준) -->
+          <div class="roadmap-main__scope">
+            <span class="roadmap-main__scope-tick roadmap-main__scope-tick--t" aria-hidden="true"></span>
+            <span class="roadmap-main__scope-tick roadmap-main__scope-tick--b" aria-hidden="true"></span>
+            <span class="roadmap-main__scope-tick roadmap-main__scope-tick--l" aria-hidden="true"></span>
+            <span class="roadmap-main__scope-tick roadmap-main__scope-tick--r" aria-hidden="true"></span>
+            <img
+              :src="category.image"
+              :alt="category.title"
+              class="roadmap-main__category-image"
+            />
+          </div>
 
-        <p class="text-caption roadmap-main__category-description">
-          {{ category.description }}
-        </p>
-      </BaseCard>
+          <p class="text-label roadmap-main__category-title">
+            {{ category.title }}
+          </p>
+
+          <p class="text-caption roadmap-main__category-description">
+            {{ category.description }}
+          </p>
+        </BaseCard>
+      </div>
     </section>
 
     <section class="roadmap-main__saved">
-      <h2 class="text-title roadmap-main__saved-title">나의 로드맵</h2>
+      <div class="roadmap-main__saved-heading">
+        <p class="text-overline roadmap-main__saved-eyebrow">어떤 작전 세웠지?</p>
+        <h2 class="text-title roadmap-main__saved-title">나의 로드맵 작전</h2>
+      </div>
 
       <div class="roadmap-main__filters">
-        <CategoryButton
-          v-for="category in roadmapFilters"
-          :key="category.code"
-          :label="category.label"
-          :variant="category.variant"
-          :active="selectedRoadmapCategory === category.code"
-          class="roadmap-main__filter-button"
-          @click="selectRoadmapCategory(category.code)"
+        <CategoryFilter
+          :model-value="selectedRoadmapCategory"
+          :categories="roadmapFilters"
+          @update:model-value="selectRoadmapCategory"
         />
       </div>
 
@@ -516,17 +518,20 @@ onMounted(async () => {
   margin-top: 8px;
 }
 
-.roadmap-main__rabbit {
-  width: 58px;
-  height: auto;
-  flex-shrink: 0;
+/* 타이밍 그룹 (복무 중에 시작 / 전역 후를 준비) */
+.roadmap-main__category-group {
+  margin-top: 26px;
+}
+
+/* 두 번째 그룹은 위 카드 줄과 좌우 간격(18px)과 동일하게 → 균일한 2x2 그리드 */
+.roadmap-main__category-group + .roadmap-main__category-group {
+  margin-top: 18px;
 }
 
 .roadmap-main__categories {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 18px;
-  margin-top: 24px;
 }
 
 .roadmap-main__category-card {
@@ -534,22 +539,30 @@ onMounted(async () => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  aspect-ratio: 1 / 1;
-  gap: 4px;
+  gap: 6px;
+  padding: 22px 12px; /* 정사각(aspect-ratio) 제거 → 내용 기준 높이 + 적당한 여백 */
   cursor: pointer;
   transition:
     transform 0.2s ease,
-    border-color 0.2s ease;
+    box-shadow 0.2s ease;
 }
 
 .roadmap-main__category-card:active {
   transform: scale(0.98);
 }
 
+/* 호버/선택 - 노란 테두리(box-shadow 링이라 레이아웃 안 밀림, 타겟 락온 느낌) */
+:deep(.roadmap-main__category-card:hover.base-card),
+:deep(.roadmap-main__category-card:active.base-card) {
+  box-shadow:
+    0 0 0 2px var(--kb-yellow),
+    0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
 .roadmap-main__category-image {
-  width: 48px;
-  height: 48px;
-  margin: 4px 0;
+  width: 28px;
+  height: 28px;
+  margin: 0;
   object-fit: contain;
 }
 
@@ -559,42 +572,129 @@ onMounted(async () => {
   text-align: center;
 }
 
+/* 제목 조금 키움 (text-label 14px → 16px) */
+.roadmap-main__category-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
 .roadmap-main__category-description {
   color: var(--text-muted);
   line-height: 1.4;
   word-break: keep-all;
 }
 
+/* 카드: 흰 배경 + 노란 테두리. hover/선택 시 테두리만 진하게.
+   테두리 두께를 1.5px로 고정해 hover 시 크기 변화로 스크롤이 흔들리던 문제 방지. */
 :deep(.roadmap-main__category-card.base-card) {
-  border-color: var(--line);
+  position: relative;
+  border: none;
+  border-radius: 8px;
+  background-color: #fff;
 }
 
-:deep(.roadmap-main__category-card:hover.base-card) {
-  border: 2px solid var(--kb-yellow);
+/* 전술 코너 마크 - 카드 네 모서리 국방색 꺾쇠 (조준 프레임) */
+.roadmap-main__corner {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 2.5px solid var(--military-green);
+  z-index: 1;
+  pointer-events: none;
+}
+.roadmap-main__corner--tl {
+  top: 4px;
+  left: 4px;
+  border-right: 0;
+  border-bottom: 0;
+}
+.roadmap-main__corner--tr {
+  top: 4px;
+  right: 4px;
+  border-left: 0;
+  border-bottom: 0;
+}
+.roadmap-main__corner--bl {
+  bottom: 4px;
+  left: 4px;
+  border-right: 0;
+  border-top: 0;
+}
+.roadmap-main__corner--br {
+  bottom: 4px;
+  right: 4px;
+  border-left: 0;
+  border-top: 0;
+}
+
+/* 아이콘 조준경 링 (타겟 조준) - 원 + 십자 눈금 */
+.roadmap-main__scope {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 50px;
+  margin: 4px auto;
+}
+.roadmap-main__scope::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--military-green);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.roadmap-main__scope-tick {
+  position: absolute;
+  background: var(--military-green);
+  pointer-events: none;
+}
+.roadmap-main__scope-tick--t {
+  top: -4px;
+  left: 50%;
+  width: 2px;
+  height: 8px;
+  transform: translateX(-50%);
+}
+.roadmap-main__scope-tick--b {
+  bottom: -4px;
+  left: 50%;
+  width: 2px;
+  height: 8px;
+  transform: translateX(-50%);
+}
+.roadmap-main__scope-tick--l {
+  left: -4px;
+  top: 50%;
+  width: 8px;
+  height: 2px;
+  transform: translateY(-50%);
+}
+.roadmap-main__scope-tick--r {
+  right: -4px;
+  top: 50%;
+  width: 8px;
+  height: 2px;
+  transform: translateY(-50%);
 }
 
 .roadmap-main__saved {
   margin-top: 40px;
 }
 
-.roadmap-main__saved-title {
+.roadmap-main__saved-eyebrow {
   margin: 0;
 }
 
-.roadmap-main__filters {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 4px;
-  width: 100%;
-  margin-top: 14px;
+.roadmap-main__saved-title {
+  margin: 8px 0 0;
 }
 
-:deep(.roadmap-main__filter-button) {
+/* CategoryFilter 컴포넌트가 자체 grid(5등분)를 가지므로 래퍼는 폭·여백만 담당 */
+.roadmap-main__filters {
   width: 100%;
-  min-width: 0;
-  padding: 5px 2px;
-  font-size: 10px;
-  letter-spacing: -0.5px;
+  margin-top: 14px;
 }
 
 .roadmap-main__saved-card {
@@ -699,5 +799,12 @@ onMounted(async () => {
 
 .roadmap-main__more-button:hover {
   background: var(--background);
+}
+</style>
+
+<style>
+/* 로드맵 메인 화면 전체 배경 - D-Day·목돈작전과 같은 은은한 세이지 그린(연 카키) */
+.app-content:has(.roadmap-main) {
+  background-color: rgba(120, 152, 130, 0.08);
 }
 </style>

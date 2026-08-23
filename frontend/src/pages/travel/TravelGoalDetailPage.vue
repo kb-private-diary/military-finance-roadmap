@@ -8,6 +8,8 @@ import BaseCard from '@/components/common/BaseCard.vue';
 import BaseTag from '@/components/common/BaseTag.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
+import TabBar from '@/components/common/TabBar.vue';
 import { formatDate, formatWon } from '@/util/format';
 
 const route = useRoute();
@@ -37,20 +39,6 @@ const readErrorMessage = (error, fallback) =>
 const cost = computed(() => detail.value?.cost ?? {});
 const products = computed(() => detail.value?.products ?? {});
 const budgetPlan = computed(() => detail.value?.budgetPlan ?? null);
-const regretInsight = computed(() => detail.value?.regretInsight ?? null);
-const regretCoveragePercent = computed(() => {
-  const remainingAmount = Number(regretInsight.value?.remainingAmount ?? 0);
-  if (remainingAmount <= 0) return 100;
-
-  return Math.min(
-    100,
-    Math.round(
-      (Number(regretInsight.value?.regretSavingsAmount ?? 0) /
-        remainingAmount) *
-        100,
-    ),
-  );
-});
 
 const dateRange = computed(() => {
   if (!detail.value) return '';
@@ -172,10 +160,6 @@ const loadDetail = async () => {
   }
 };
 
-const selectTab = (key) => {
-  activeTab.value = key;
-};
-
 const goToRoadmap = () => router.push({ name: 'RoadmapMain' });
 
 onMounted(() => {
@@ -191,6 +175,12 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="travel-detail">
+    <!-- 헤더: 자취 상세와 동일하게 PageHeader + 도메인 태그 한 줄 -->
+    <header class="travel-detail__head">
+      <PageHeader breadcrumb="저장한 로드맵" title="내가 그린 전역 작전" />
+      <BaseTag label="여행" variant="travel" />
+    </header>
+
     <div v-if="loading" class="status-box text-caption" role="status">
       여행 로드맵을 불러오고 있습니다.
     </div>
@@ -206,7 +196,6 @@ onBeforeUnmount(() => {
 
     <template v-else-if="detail">
       <BaseCard padding="18px" class="detail-header">
-        <BaseTag label="여행" variant="blue" />
         <h1 class="detail-header__title text-title">{{ detail.title }}</h1>
         <p class="detail-header__date">{{ dateRange }}</p>
         <p class="detail-header__route">
@@ -226,42 +215,11 @@ onBeforeUnmount(() => {
         </div>
       </BaseCard>
 
-      <section
-        v-if="regretInsight"
-        class="regret-insight"
-        aria-label="후회소비 절감 안내"
-      >
-        <p class="regret-insight__tag">⭐ 후회소비 인사이트</p>
-        <p class="regret-insight__text">
-          최근 {{ regretInsight.regretLookbackMonths }}개월간 월평균 후회소비가
-          <strong>{{ formatWon(regretInsight.avgRegretSpending) }}</strong
-          >이에요. 이 금액을
-          {{ regretInsight.regretSavingsMonths }}개월 동안 모으면
-          <strong>{{ formatWon(regretInsight.regretSavingsAmount) }}</strong
-          >으로, 여행 경비 부족분
-          <strong>{{ formatWon(regretInsight.remainingAmount) }}</strong>의
-          <strong class="regret-insight__rate">
-            {{ regretCoveragePercent }}%
-          </strong>
-          를 채울 수 있어요.
-        </p>
-      </section>
-
       <section class="detail-content">
-        <div class="tab-row" role="tablist" aria-label="여행 상세 정보">
-          <button
-            v-for="tab in TABS"
-            :key="tab.key"
-            type="button"
-            class="tab-button"
-            :class="{ 'is-active': activeTab === tab.key }"
-            role="tab"
-            :aria-selected="activeTab === tab.key"
-            @click="selectTab(tab.key)"
-          >
-            {{ tab.label }}
-          </button>
-        </div>
+        <TabBar
+          v-model="activeTab"
+          :tabs="TABS.map((tab) => ({ label: tab.label, value: tab.key }))"
+        />
 
         <div v-if="activeTab === 'goal'" class="tab-panel">
           <ul v-if="selectedItems.length" class="selected-list">
@@ -497,7 +455,7 @@ onBeforeUnmount(() => {
 
     <BottomButtonBar
       v-if="!loading && !loadError && detail"
-      primary-label="확 인"
+      primary-label="확인"
       @primary-click="goToRoadmap"
     />
   </div>
@@ -511,6 +469,14 @@ onBeforeUnmount(() => {
   gap: 18px;
   padding: 18px 0 88px;
   color: var(--text-strong);
+}
+
+/* 헤더: PageHeader + 도메인 태그 한 줄 (자취 상세와 동일) */
+.travel-detail__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .status-box {
@@ -542,7 +508,7 @@ onBeforeUnmount(() => {
 }
 
 .detail-header__title {
-  margin: 12px 0 0;
+  margin: 0;
 }
 
 .detail-header__date,
@@ -596,69 +562,10 @@ onBeforeUnmount(() => {
   font-size: 24px;
 }
 
-.regret-insight {
-  padding: 16px;
-  border: 1px solid var(--kb-yellow-deep);
-  border-radius: 14px;
-  background: var(--kb-yellow-pale);
-}
-
-.regret-insight__tag,
-.regret-insight__text {
-  margin: 0;
-}
-
-.regret-insight__tag {
-  color: var(--brand-gold);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.regret-insight__text {
-  margin-top: 6px;
-  color: var(--text-body);
-  font-size: 13px;
-  line-height: 1.65;
-}
-
-.regret-insight__text strong {
-  color: var(--text-strong);
-}
-
-.regret-insight__text .regret-insight__rate {
-  color: var(--success);
-}
-
 .detail-content {
   display: flex;
   flex-direction: column;
   gap: 18px;
-}
-
-.tab-row {
-  display: flex;
-  gap: 3px;
-  border-bottom: 1px solid var(--line);
-}
-
-.tab-button {
-  flex: 1;
-  padding: 12px 4px;
-  border: 1px solid transparent;
-  border-bottom: 0;
-  border-radius: 12px 12px 0 0;
-  background: var(--kb-gray-pale);
-  color: var(--text-hint);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.tab-button.is-active {
-  border-color: var(--line-strong);
-  background: var(--surface-default);
-  color: var(--text-strong);
-  font-weight: 700;
 }
 
 .tab-panel {

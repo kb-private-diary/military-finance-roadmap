@@ -15,6 +15,7 @@ import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import CascaderSelect from '@/components/common/CascaderSelect.vue';
 import DateRangePicker from '@/components/common/DateRangePicker.vue';
 import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 import { toIsoDate } from '@/util/format';
 import {
   DOMESTIC_COUNTRY,
@@ -48,11 +49,8 @@ const draftLoadFailed = ref(false);
 let scrollContainer = null;
 
 const today = toIsoDate(new Date());
-const MANWON_TO_WON = 10_000;
 
 const unwrap = (response) => response.data?.data;
-const toWon = (amountInManwon) => Number(amountInManwon) * MANWON_TO_WON;
-const toManwon = (amountInWon) => Number(amountInWon) / MANWON_TO_WON;
 
 const toOptions = (cities = []) =>
   cities.map(({ city }) => ({ label: city, value: city }));
@@ -213,7 +211,7 @@ const toGoalRequest = () => ({
   style: form.style,
   startDate: form.startDate,
   endDate: form.endDate,
-  totalBudget: toWon(form.totalBudget),
+  totalBudget: Number(form.totalBudget),
 });
 
 const toCostInputSnapshot = (request) =>
@@ -259,8 +257,7 @@ const restoreDraft = (draft) => {
   form.style = draft.style || 'common';
   form.startDate = draft.startDate || '';
   form.endDate = draft.endDate || '';
-  form.totalBudget =
-    draft.totalBudget != null ? toManwon(draft.totalBudget) : '';
+  form.totalBudget = draft.totalBudget ?? '';
   initialFormSnapshot.value = toGoalRequest();
 };
 
@@ -378,7 +375,7 @@ const submitGoal = async () => {
   <div class="travel-goal">
     <RoadmapCharacterSlider :step="1" label="여행 로드맵" />
 
-    <h2 class="travel-goal__title text-title">어디로 떠나고 싶습니까?</h2>
+    <PageHeader title="어디로 떠나고 싶습니까?" />
 
     <form class="travel-form" @submit.prevent="submitGoal">
       <BaseInput
@@ -422,6 +419,7 @@ const submitGoal = async () => {
         v-model="form.totalBudget"
         label="여행예산"
         type="amount"
+        suffix="만원"
         placeholder="총 여행 예산"
       />
 
@@ -435,8 +433,10 @@ const submitGoal = async () => {
     </form>
 
     <BottomButtonBar
-      :primary-label="submitting ? '등록 중...' : '여행 로드맵 추천 받기'"
+      secondary-label="이전"
+      :primary-label="submitting ? '등록 중...' : '여행 추천받기'"
       :primary-disabled="!isFormValid || submitting"
+      @secondary-click="router.push({ name: 'RoadmapMain' })"
       @primary-click="submitGoal"
     />
   </div>
@@ -447,21 +447,20 @@ const submitGoal = async () => {
   min-height: 100%;
   padding: 18px 0 88px;
   color: var(--text-strong);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+/* 제목 아래 컨텐츠 간격 통일(20px): flex gap 32 - 12 = 20 */
+.travel-goal :deep(.page-header) {
+  margin-bottom: -12px;
 }
 
-.travel-goal :deep(.character-slider) {
-  margin-bottom: 28px;
-}
-
-.travel-goal__title {
-  margin: 0 0 22px;
-  line-height: 1.35;
-}
 
 .travel-form {
   display: flex;
   flex-direction: column;
-  gap: 19px;
+  gap: var(--space-8);
 }
 
 .form-error {

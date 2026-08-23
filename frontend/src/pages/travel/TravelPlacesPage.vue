@@ -5,9 +5,10 @@ import travelApi from '@/api/travelApi';
 import saluteImage from '@/assets/images/salute.png';
 import BaseCard from '@/components/common/BaseCard.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
-import CategoryButton from '@/components/common/CategoryButton.vue';
+import TabBar from '@/components/common/TabBar.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -193,25 +194,13 @@ onBeforeUnmount(() => {
   <div class="travel-places">
     <RoadmapCharacterSlider :step="3" label="여행 로드맵" />
 
-    <header class="page-header">
-      <h1 class="text-title">어디를 둘러볼까요?</h1>
-      <p class="text-caption">
-        여행지의 인기 관광지와 맛집을 확인해보세요.
-      </p>
-    </header>
+    <PageHeader
+      title="어떤 여행 코스를 원하십니까?"
+      description="원하는 인기 관광지와 맛집을 여러개 선택 가능합니다."
+    />
 
-    <div class="category-tabs" role="tablist" aria-label="추천 유형">
-      <CategoryButton
-        v-for="category in categories"
-        :key="category.value"
-        variant="oval-yellow"
-        :label="category.label"
-        :active="selectedCategory === category.value"
-        role="tab"
-        :aria-selected="selectedCategory === category.value"
-        @click="selectedCategory = category.value"
-      />
-    </div>
+    <TabBar v-model="selectedCategory" :tabs="categories" />
+
 
     <div v-if="loading" class="status-box text-caption" role="status">
       추천 정보를 불러오고 있습니다.
@@ -299,12 +288,12 @@ onBeforeUnmount(() => {
     </ul>
 
     <BottomButtonBar
-      secondary-label="이 전"
+      secondary-label="이전"
       :primary-label="
         saving
           ? '저장 중...'
           : selectedPlaces.size
-            ? '다 음'
+            ? '선택완료'
             : '선택하지 않고 넘어가기'
       "
       :primary-disabled="loading || Boolean(loadError) || saving"
@@ -315,6 +304,10 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+/* 제목 아래 컨텐츠 간격 통일(20px) */
+.travel-places :deep(.page-header) {
+  margin-bottom: 20px;
+}
 .travel-places {
   min-height: 100%;
   padding: 18px 0 88px;
@@ -325,22 +318,7 @@ onBeforeUnmount(() => {
   margin-bottom: 28px;
 }
 
-.page-header {
-  margin: 0 0 20px;
-}
-
-.page-header h1 {
-  margin: 0;
-  line-height: 1.35;
-}
-
-.page-header p {
-  margin: 8px 0 0;
-}
-
-.category-tabs {
-  display: flex;
-  gap: 6px;
+.travel-places :deep(.tab-bar) {
   margin-bottom: 18px;
 }
 
