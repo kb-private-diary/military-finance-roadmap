@@ -6,10 +6,13 @@ import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import jobApi from '@/api/jobApi';
+import regretApi from '@/api/regretApi';
 
 import BaseCard from '@/components/common/BaseCard.vue';
 import BaseTag from '@/components/common/BaseTag.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
+import TabBar from '@/components/common/TabBar.vue';
 
 import calculatorImage from '@/assets/images/calculator.png';
 
@@ -42,7 +45,7 @@ const expandedItemKey = ref(null);
 // 비용 상세 내역 아코디언
 const isCostDetailExpanded = ref(false);
 
-// 최근 3개월 월평균 후회소비 기반 준비비용 활용 분석
+// 최근 1개월 후회소비 기반 준비비용 활용 분석
 const regretAnalysis = ref(null);
 
 const isValidGoalId = computed(
@@ -352,14 +355,6 @@ const toggleCostDetail = () => {
 };
 
 // ─────────────────────────────────────────────
-// 탭
-// ─────────────────────────────────────────────
-
-const selectTab = (key) => {
-  activeTab.value = key;
-};
-
-// ─────────────────────────────────────────────
 // 상세 조회
 // ─────────────────────────────────────────────
 
@@ -388,14 +383,32 @@ const loadDetail = async () => {
 };
 
 // ─────────────────────────────────────────────
-// 최근 3개월 월평균 후회소비 기반 준비비용 활용 분석
+// 최근 1개월 후회소비 기반 준비비용 활용 분석
 // ─────────────────────────────────────────────
 
-const loadRegretAnalysis = () => {
+const loadRegretAnalysis = async () => {
   try {
-    // 최근 3개월 월평균 후회소비 - 진로 상세 조회 응답에 포함되어 내려옴
-    // (평균은 데이터 존재 개월수가 아닌 3으로 나눈 값 - 백엔드에서 계산)
-    const avgRegretSpending = Number(detail.value?.avgRegretSpending ?? 0);
+    // 로그인 사용자의 전체 지출 내역 조회
+    const spendings = await regretApi.findSpendings();
+
+    const today = new Date();
+    const oneMonthAgo = new Date(today);
+
+    // 오늘 기준 한 달 전 날짜 계산
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+
+    // 최근 1개월 내 후회소비(REGRET)만 합산
+    const regretAmount = spendings
+      .filter((spending) => {
+        const spentAt = new Date(spending.spentAt);
+
+        return (
+          spentAt >= oneMonthAgo &&
+          spentAt <= today &&
+          spending.reviewType === 'REGRET'
+        );
+      })
+      .reduce((total, spending) => total + Number(spending.amount ?? 0), 0);
 
     // 후회소비 금액으로 활용 가능한 준비비용 후보 구성
     const prepItems = [];
@@ -451,23 +464,29 @@ const loadRegretAnalysis = () => {
       }
     });
 
-    // 월평균 후회소비로 전액 마련 가능한 항목 중 비용이 가장 큰 항목 선택
+    // 후회소비 금액으로 전액 마련 가능한 항목만 조회
+    // 필기 → 실기 → 자격증 전체비용 → 인강 순으로 우선 추천
     const affordableItems = prepItems
-      .filter((item) => item.amount <= avgRegretSpending)
-      .sort((a, b) => b.amount - a.amount);
+      .filter((item) => item.amount <= regretAmount)
+      .sort((a, b) => {
+        if (a.priority !== b.priority) {
+          return a.priority - b.priority;
+        }
+
+        return a.amount - b.amount;
+      });
 
     let recommendationMessage = '';
     let targetItemName = null;
     let targetItemAmount = 0;
-    let affordablePercent = null;
 
-    // ① 최근 3개월 후회소비 내역이 없는 경우 (NPE·계산 오류 방지 위해 최우선 분기)
-    // → 템플릿에서 avgRegretSpending 으로 분기, 별도 인사이트 미표시
-    if (avgRegretSpending <= 0) {
-      // no-op
+    // ① 최근 1개월 후회소비가 없는 경우
+    if (regretAmount === 0) {
+      recommendationMessage =
+        '지금의 소비 습관을 유지하면서 진로 준비를 이어가보세요.';
     }
 
-    // ② 월평균 후회소비로 준비항목 하나 이상 마련 가능한 경우 → 가장 비용이 큰 항목 제안
+    // ② 후회소비 금액으로 준비항목 하나 이상 마련 가능한 경우
     else if (affordableItems.length > 0) {
       const targetItem = affordableItems[0];
 
@@ -475,26 +494,17 @@ const loadRegretAnalysis = () => {
       targetItemAmount = targetItem.amount;
     }
 
-    // ③ 마련 가능한 항목이 없는 경우 → 전체 예상 준비비용 대비 마련 가능 비율 안내
-    else if (totalCost.value > 0) {
-      affordablePercent = Math.min(
-        100,
-        Math.round((avgRegretSpending / totalCost.value) * 100),
-      );
-    }
-
-    // ④ 비교할 준비항목 자체가 없는 경우
+    // ③ 후회소비는 있지만 준비항목 비용보다 적은 경우
     else {
       recommendationMessage =
         '작은 금액도 모이면 진로 준비에 도움이 돼요.\n다음 준비비용을 위해 모아보는 건 어떨까요?';
     }
 
     regretAnalysis.value = {
-      avgRegretSpending,
+      regretAmount,
       recommendationMessage,
       targetItemName,
       targetItemAmount,
-      affordablePercent,
     };
   } catch (error) {
     console.error('후회소비 준비비용 활용 분석 실패:', error);
@@ -547,15 +557,21 @@ onMounted(async () => {
   await loadDetail();
 
   // 목표 상세 조회 후 선택한 준비항목을 기준으로
-  // 최근 3개월 월평균 후회소비 활용 가능 금액 계산
+  // 최근 1개월 후회소비 활용 가능 금액 계산
   if (detail.value) {
-    loadRegretAnalysis();
+    await loadRegretAnalysis();
   }
 });
 </script>
 
 <template>
   <div class="job-detail">
+    <!-- 헤더: 자취 상세와 동일하게 PageHeader + 도메인 태그 한 줄 -->
+    <header class="job-detail__head">
+      <PageHeader breadcrumb="저장한 로드맵" title="내가 그린 전역 작전" />
+      <BaseTag label="진로" variant="job" />
+    </header>
+
     <!-- 로딩 -->
     <div v-if="loading" class="job-detail__state text-caption">
       불러오는 중...
@@ -572,8 +588,6 @@ onMounted(async () => {
       ───────────────────────────── -->
       <BaseCard padding="18px" class="goal-summary-card">
         <div class="goal-summary-card__header">
-          <span class="goal-summary-card__tag"> 진로 </span>
-
           <strong class="goal-summary-card__title">
             {{ goalTitle }}
           </strong>
@@ -626,20 +640,10 @@ onMounted(async () => {
       <!-- ─────────────────────────────
            탭 - 기존 코드 유지
       ───────────────────────────── -->
-      <div class="tab-row">
-        <button
-          v-for="tab in TABS"
-          :key="tab.key"
-          type="button"
-          class="tab-button"
-          :class="{
-            'is-active': activeTab === tab.key,
-          }"
-          @click="selectTab(tab.key)"
-        >
-          {{ tab.label }}
-        </button>
-      </div>
+      <TabBar
+        v-model="activeTab"
+        :tabs="TABS.map((tab) => ({ label: tab.label, value: tab.key }))"
+      />
 
       <!-- ==================================================
            1. 선택한 목표
@@ -1217,28 +1221,25 @@ onMounted(async () => {
           </div>
 
           <template v-if="regretAnalysis">
-            <!-- 최근 3개월 월평균 후회소비 -->
+            <!-- 최근 1개월 후회소비 -->
             <div class="cost-analysis-card__amount">
-              <p v-if="regretAnalysis.avgRegretSpending > 0">
-                최근 3개월 월평균
+              <p v-if="regretAnalysis.regretAmount > 0">
+                최근 1개월간
                 <strong>
-                  {{ formatAmount(regretAnalysis.avgRegretSpending) }}
+                  {{ formatAmount(regretAnalysis.regretAmount) }}
                 </strong>
                 을 후회소비로 사용했어요.
               </p>
 
-              <p v-else>최근 3개월간 후회소비 내역이 없어요.</p>
+              <p v-else>최근 1개월간 후회소비로 기록된 지출이 없어요.</p>
             </div>
 
-            <!-- 준비비용 활용 제안 - 후회소비가 있을 때만 표시 -->
-            <div
-              v-if="regretAnalysis.avgRegretSpending > 0"
-              class="cost-analysis-card__result"
-            >
-              <!-- 월평균 후회소비로 준비항목을 마련할 수 있는 경우 -->
+            <!-- 준비비용 활용 제안 -->
+            <div class="cost-analysis-card__result">
+              <!-- 후회소비 금액으로 준비항목을 마련할 수 있는 경우 -->
               <template v-if="regretAnalysis.targetItemName">
                 <p class="cost-analysis-card__result-label">
-                  최근 3개월 월평균 후회소비를 줄이면
+                  다음에는 후회소비 대신
                 </p>
 
                 <div class="cost-analysis-card__target">
@@ -1252,21 +1253,11 @@ onMounted(async () => {
                 </div>
 
                 <p class="cost-analysis-card__result-message">
-                  을 마련할 수 있어요.
+                  을 마련해보는 건 어떨까요?
                 </p>
               </template>
 
-              <!-- 마련 가능한 준비항목이 없어 전체 준비비용 대비 비율로 안내하는 경우 -->
-              <p
-                v-else-if="regretAnalysis.affordablePercent !== null"
-                class="cost-analysis-card__result-message"
-              >
-                최근 3개월 월평균 후회소비를 줄이면
-                전체 예상 준비비용의 약 {{ regretAnalysis.affordablePercent }}%를
-                마련할 수 있어요.
-              </p>
-
-              <!-- 비교할 준비항목이 없는 경우 -->
+              <!-- 후회소비가 없거나 준비항목 금액보다 부족한 경우 -->
               <p v-else class="cost-analysis-card__result-message">
                 {{ regretAnalysis.recommendationMessage }}
               </p>
@@ -1389,17 +1380,7 @@ onMounted(async () => {
       </section>
     </template>
 
-    <!-- 하단 버튼 -->
-    <BottomButtonBar
-      secondary-label="삭제"
-      primary-label="확인"
-      :secondary-disabled="loading || deleting"
-      :primary-disabled="loading || deleting"
-      @secondary-click="openDeleteModal"
-      @primary-click="handleConfirm"
-    />
-
-    <!-- 하단 확인 버튼 -->
+    <!-- 하단 버튼 (자취 상세와 동일하게 확인만) -->
     <BottomButtonBar
       primary-label="확인"
       :primary-disabled="loading"
@@ -1411,6 +1392,14 @@ onMounted(async () => {
 <style scoped>
 .job-detail {
   padding: 0 20px 96px;
+}
+
+/* 헤더: PageHeader + 도메인 태그 한 줄 (자취 상세와 동일) */
+.job-detail__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .job-detail__state {
@@ -1440,43 +1429,17 @@ onMounted(async () => {
   gap: 10px;
 }
 
-.goal-summary-card__tag {
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  padding: 5px 10px;
-
-  background: var(--pastel-yellow);
-  border-radius: 999px;
-
-  color: var(--kb-dark-gray);
-  font-size: 11px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
 .goal-summary-card__title {
-  min-width: 0;
   color: var(--text-strong);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
-  line-height: 1.4;
-  word-break: keep-all;
 }
 
 .goal-summary-card__date {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 100%;
   margin-top: 16px;
-
-  color: var(--text-strong);
-  font-size: 16px;
-  font-weight: 700;
-  line-height: 1.4;
-  word-break: keep-all;
 }
 
 .goal-summary-card__date span {
@@ -1557,29 +1520,6 @@ onMounted(async () => {
    탭
 ───────────────────────────── */
 
-.tab-row {
-  display: flex;
-  gap: 4px;
-  border-bottom: 1px solid var(--line);
-}
-
-.tab-button {
-  flex: 1;
-  padding: 12px 0;
-  color: var(--text-muted);
-  font-size: 14px;
-  font-weight: 600;
-  background: transparent;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-}
-
-.tab-button.is-active {
-  color: var(--text-strong);
-  border-bottom-color: var(--kb-yellow-deep);
-}
-
 .job-detail__tab-content {
   padding: 22px 0 16px;
 }
@@ -1631,12 +1571,12 @@ onMounted(async () => {
 }
 
 .prep-item-card__title {
+  overflow: hidden;
   color: var(--text-strong);
   font-size: 14px;
   font-weight: 700;
-  line-height: 1.4;
-  white-space: normal;
-  word-break: keep-all;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .prep-item-card__arrow,
@@ -2039,13 +1979,11 @@ onMounted(async () => {
 }
 
 .cost-detail-row span {
-  display: -webkit-box;
   overflow: hidden;
   color: var(--text-body);
   font-size: 11px;
-  word-break: keep-all;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cost-detail-row strong {
@@ -2229,22 +2167,4 @@ onMounted(async () => {
   stroke-linejoin: round;
 }
 
-/* ─────────────────────────────
-   삭제 모달
-───────────────────────────── */
-
-.job-detail__modal-message {
-  margin: 0;
-  color: var(--text-strong);
-  font-size: 14px;
-  text-align: center;
-}
-
-.job-detail__modal-description {
-  margin: 8px 0 0;
-  color: var(--text-muted);
-  font-size: 12px;
-  line-height: 1.5;
-  text-align: center;
-}
 </style>
