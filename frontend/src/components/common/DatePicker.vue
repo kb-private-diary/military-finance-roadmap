@@ -1,13 +1,14 @@
 <script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { formatDate, toIsoDate } from '@/util/format';
 
 const props = defineProps({
-  modelValue: { type: Array, default: () => ['', ''] },
+  modelValue: { type: String, default: '' },
   label: { type: String, default: '' },
   min: { type: String, default: '' },
   max: { type: String, default: '' },
   disabled: { type: Boolean, default: false },
+  placeholder: { type: String, default: '날짜를 선택해주세요' },
 });
 
 const emit = defineEmits(['update:modelValue']);
@@ -26,7 +27,7 @@ const parseIsoDate = (value) => {
 };
 
 const initialVisibleDate = () =>
-  parseIsoDate(props.modelValue?.[0]) || parseIsoDate(props.min) || new Date();
+  parseIsoDate(props.modelValue) || parseIsoDate(props.min) || new Date();
 
 const visibleMonth = ref(
   new Date(
@@ -36,19 +37,10 @@ const visibleMonth = ref(
   ),
 );
 
-const startDate = computed(() => props.modelValue?.[0] || '');
-const endDate = computed(() => props.modelValue?.[1] || '');
+const selectedDate = computed(() => props.modelValue || '');
 
-const triggerLabel = computed(() => {
-  if (!startDate.value) return '출발일과 도착일을 선택해주세요.';
-  if (!endDate.value) return `${formatDate(startDate.value)} → 도착일 선택`;
-  return `${formatDate(startDate.value)} ~ ${formatDate(endDate.value)}`;
-});
-
-const selectionGuide = computed(() =>
-  startDate.value && !endDate.value
-    ? '도착일을 선택해주세요.'
-    : '출발일을 먼저 선택해주세요.',
+const triggerLabel = computed(() =>
+  selectedDate.value ? formatDate(selectedDate.value) : props.placeholder,
 );
 
 const calendarTitle = computed(
@@ -89,7 +81,7 @@ const canGoNext = computed(() => {
 
 const open = () => {
   if (props.disabled) return;
-  const selected = parseIsoDate(startDate.value) || initialVisibleDate();
+  const selected = parseIsoDate(selectedDate.value) || initialVisibleDate();
   visibleMonth.value = new Date(
     selected.getFullYear(),
     selected.getMonth(),
@@ -117,32 +109,9 @@ const moveMonth = (amount) => {
 
 const selectDate = (day) => {
   if (day.disabled) return;
-
-  if (!startDate.value || endDate.value || day.value < startDate.value) {
-    emit('update:modelValue', [day.value, '']);
-    return;
-  }
-
-  emit('update:modelValue', [startDate.value, day.value]);
+  emit('update:modelValue', day.value);
   isOpen.value = false;
 };
-
-const clear = () => {
-  emit('update:modelValue', ['', '']);
-  visibleMonth.value = new Date(
-    initialVisibleDate().getFullYear(),
-    initialVisibleDate().getMonth(),
-    1,
-  );
-};
-
-const isInRange = (value) =>
-  Boolean(
-    startDate.value &&
-      endDate.value &&
-      value > startDate.value &&
-      value < endDate.value,
-  );
 
 const closeOnOutsideClick = (event) => {
   if (rootRef.value && !rootRef.value.contains(event.target)) {
@@ -153,13 +122,6 @@ const closeOnOutsideClick = (event) => {
 const closeOnEscape = (event) => {
   if (event.key === 'Escape') isOpen.value = false;
 };
-
-watch(
-  () => props.min,
-  (min) => {
-    if (startDate.value && min && startDate.value < min) clear();
-  },
-);
 
 onMounted(() => {
   document.addEventListener('click', closeOnOutsideClick);
@@ -173,28 +135,28 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div ref="rootRef" class="date-range-picker">
-    <div v-if="label" class="date-range-picker__label">{{ label }}</div>
+  <div ref="rootRef" class="date-picker">
+    <div v-if="label" class="date-picker__label">{{ label }}</div>
 
     <button
       type="button"
-      class="date-range-picker__trigger"
-      :class="{ 'date-range-picker__trigger--open': isOpen }"
+      class="date-picker__trigger"
+      :class="{ 'date-picker__trigger--open': isOpen }"
       :disabled="disabled"
       :aria-expanded="isOpen"
       @click="open"
     >
       <span
-        class="date-range-picker__trigger-text"
+        class="date-picker__trigger-text"
         :class="{
-          'date-range-picker__trigger-text--placeholder': !startDate,
+          'date-picker__trigger-text--placeholder': !selectedDate,
         }"
       >
         {{ triggerLabel }}
       </span>
 
       <svg
-        class="date-range-picker__calendar-icon"
+        class="date-picker__calendar-icon"
         viewBox="0 0 24 24"
         width="18"
         height="18"
@@ -212,25 +174,13 @@ onUnmounted(() => {
 
     <div
       v-if="isOpen"
-      class="date-range-picker__panel"
-      :class="{ 'date-range-picker__panel--up': openUpward }"
+      class="date-picker__panel"
+      :class="{ 'date-picker__panel--up': openUpward }"
     >
-      <div class="date-range-picker__selection">
-        <span>{{ selectionGuide }}</span>
-        <button
-          v-if="startDate"
-          type="button"
-          class="date-range-picker__clear"
-          @click="clear"
-        >
-          초기화
-        </button>
-      </div>
-
-      <div class="date-range-picker__header">
+      <div class="date-picker__header">
         <button
           type="button"
-          class="date-range-picker__navigation"
+          class="date-picker__navigation"
           :disabled="!canGoPrevious"
           aria-label="이전 달"
           @click="moveMonth(-1)"
@@ -240,7 +190,7 @@ onUnmounted(() => {
         <strong>{{ calendarTitle }}</strong>
         <button
           type="button"
-          class="date-range-picker__navigation"
+          class="date-picker__navigation"
           :disabled="!canGoNext"
           aria-label="다음 달"
           @click="moveMonth(1)"
@@ -249,26 +199,24 @@ onUnmounted(() => {
         </button>
       </div>
 
-      <div class="date-range-picker__weekdays" aria-hidden="true">
+      <div class="date-picker__weekdays" aria-hidden="true">
         <span v-for="weekday in WEEKDAYS" :key="weekday">
           {{ weekday }}
         </span>
       </div>
 
-      <div class="date-range-picker__days">
+      <div class="date-picker__days">
         <div
           v-for="day in calendarDays"
           :key="day.value"
-          class="date-range-picker__day-cell"
-          :class="{ 'date-range-picker__day-cell--range': isInRange(day.value) }"
+          class="date-picker__day-cell"
         >
           <button
             type="button"
-            class="date-range-picker__day"
+            class="date-picker__day"
             :class="{
-              'date-range-picker__day--outside': !day.currentMonth,
-              'date-range-picker__day--selected':
-                day.value === startDate || day.value === endDate,
+              'date-picker__day--outside': !day.currentMonth,
+              'date-picker__day--selected': day.value === selectedDate,
             }"
             :disabled="day.disabled"
             :aria-label="day.value"
@@ -283,7 +231,7 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.date-range-picker {
+.date-picker {
   position: relative;
   display: flex;
   width: 100%;
@@ -291,13 +239,13 @@ onUnmounted(() => {
   gap: 8px;
 }
 
-.date-range-picker__label {
+.date-picker__label {
   color: var(--kb-dark-gray);
   font-size: 15px;
   font-weight: 600;
 }
 
-.date-range-picker__trigger {
+.date-picker__trigger {
   position: relative;
   display: flex;
   align-items: center;
@@ -316,20 +264,20 @@ onUnmounted(() => {
   transition: border-color 0.2s;
 }
 
-.date-range-picker__trigger:hover,
-.date-range-picker__trigger:focus-visible,
-.date-range-picker__trigger--open {
+.date-picker__trigger:hover,
+.date-picker__trigger:focus-visible,
+.date-picker__trigger--open {
   border-bottom-color: var(--kb-yellow-deep);
   outline: none;
 }
 
-.date-range-picker__trigger:disabled {
+.date-picker__trigger:disabled {
   background: var(--surface-subtle);
   color: var(--text-disabled);
   cursor: not-allowed;
 }
 
-.date-range-picker__trigger-text {
+.date-picker__trigger-text {
   flex: 1;
   overflow: hidden;
   font-size: 15px;
@@ -339,18 +287,18 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-.date-range-picker__trigger-text--placeholder {
+.date-picker__trigger-text--placeholder {
   color: var(--placeholder);
   font-weight: 400;
 }
 
-.date-range-picker__calendar-icon {
+.date-picker__calendar-icon {
   position: absolute;
   right: 4px;
   color: var(--gray-mid);
 }
 
-.date-range-picker__panel {
+.date-picker__panel {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
@@ -364,43 +312,21 @@ onUnmounted(() => {
 }
 
 /* 아래 공간 부족 시 위로 펼침 (하단 고정 버튼 가림 방지) */
-.date-range-picker__panel--up {
+.date-picker__panel--up {
   top: auto;
   bottom: calc(100% + 6px);
 }
 
-.date-range-picker__selection,
-.date-range-picker__header {
+.date-picker__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-}
-
-.date-range-picker__selection {
-  min-height: 28px;
-  margin-bottom: 6px;
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
-.date-range-picker__clear {
-  padding: 4px;
-  border: 0;
-  background: transparent;
-  color: var(--kb-gold);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.date-range-picker__header {
   min-height: 38px;
   color: var(--text-strong);
   font-size: 15px;
 }
 
-.date-range-picker__navigation {
+.date-picker__navigation {
   display: grid;
   width: 34px;
   height: 34px;
@@ -414,44 +340,40 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
-.date-range-picker__navigation:hover:not(:disabled) {
+.date-picker__navigation:hover:not(:disabled) {
   background: var(--line);
 }
 
-.date-range-picker__navigation:disabled {
+.date-picker__navigation:disabled {
   color: var(--text-disabled);
   cursor: not-allowed;
 }
 
-.date-range-picker__weekdays,
-.date-range-picker__days {
+.date-picker__weekdays,
+.date-picker__days {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
-.date-range-picker__weekdays {
+.date-picker__weekdays {
   margin: 5px 0;
   color: var(--text-hint);
   font-size: 11px;
   text-align: center;
 }
 
-.date-range-picker__weekdays span:first-child {
+.date-picker__weekdays span:first-child {
   color: var(--danger);
 }
 
-.date-range-picker__day-cell {
+.date-picker__day-cell {
   display: grid;
   min-width: 0;
   height: 36px;
   place-items: center;
 }
 
-.date-range-picker__day-cell--range {
-  background: var(--kb-yellow-pale);
-}
-
-.date-range-picker__day {
+.date-picker__day {
   display: grid;
   width: 32px;
   height: 32px;
@@ -465,27 +387,22 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
-.date-range-picker__day:hover:not(:disabled) {
+.date-picker__day:hover:not(:disabled) {
   background: var(--line);
 }
 
-/* 선택 범위(연노랑) 안의 날짜는 호버 오버레이 없이 밴드를 균일하게 유지 */
-.date-range-picker__day-cell--range .date-range-picker__day:hover:not(:disabled) {
-  background: transparent;
-}
-
-.date-range-picker__day--outside {
+.date-picker__day--outside {
   color: var(--text-hint);
 }
 
-.date-range-picker__day--selected,
-.date-range-picker__day--selected:hover:not(:disabled) {
+.date-picker__day--selected,
+.date-picker__day--selected:hover:not(:disabled) {
   background: var(--kb-yellow);
   color: var(--kb-dark-gray);
   font-weight: 700;
 }
 
-.date-range-picker__day:disabled {
+.date-picker__day:disabled {
   color: var(--text-disabled);
   cursor: not-allowed;
   opacity: 0.55;

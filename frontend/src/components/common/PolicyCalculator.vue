@@ -5,7 +5,7 @@
 // PolicyProductDetailPage와 SimulatorProductListPage(예적금 상품 계산기)에서 동일하게 쓰는 공통 컴포넌트.
 // product.hasCalculator가 false면 아무것도 그리지 않으므로 호출부에서 별도 v-if가 필요 없다.
 import { computed, ref, watch } from 'vue';
-import { formatWon } from '@/util/format';
+import { formatManwon, formatManwon1 } from '@/util/format';
 import BaseInput from '@/components/common/BaseInput.vue';
 import BaseRadioGroup from '@/components/common/BaseRadioGroup.vue';
 
@@ -38,30 +38,48 @@ const matchingRate = computed(() =>
 );
 
 // 상품별 최소·최대 납입금(정보 카드의 "납입금" 항목과 동일한 한도)을 벗어나면 인라인으로 안내한다.
+// 입력은 만원 단위 → 계산·결과는 원 단위라 ×10000 변환
+const amountWon = computed(() => (Number(inputAmount.value) || 0) * 10000);
+
+// 최소·최대 납입 한도(만원) — placeholder "최소 N 최대 N"에 사용
+const minLimitMan = computed(() =>
+  Math.round((props.product.minLimit ?? 0) / 10000),
+);
+const maxLimitMan = computed(() =>
+  props.product.maxLimit != null
+    ? Math.round(props.product.maxLimit / 10000)
+    : null,
+);
+
 const amountError = computed(() => {
   if (!inputAmount.value) {
     return '';
   }
-  const amount = Number(inputAmount.value);
+  const amount = amountWon.value;
   if (amount < props.product.minLimit) {
-    return `최소 ${formatWon(props.product.minLimit)} 이상 입력해주세요`;
+    return `최소 ${formatManwon(props.product.minLimit)} 이상 입력해주세요`;
   }
   if (props.product.maxLimit != null && amount > props.product.maxLimit) {
-    return `최대 ${formatWon(props.product.maxLimit)} 이하로 입력해주세요`;
+    return `최대 ${formatManwon(props.product.maxLimit)} 이하로 입력해주세요`;
   }
   return '';
 });
 
+// 한도를 벗어나면(에러) 계산하지 않는다 — 결과를 0으로.
+const validAmountWon = computed(() =>
+  inputAmount.value === '' || amountError.value ? 0 : amountWon.value,
+);
+
 // 정기적금식 단리: 매월 납입액이 계산 기간(calcPeriodMonths) 동안 매달 쌓인다.
 const principal = computed(() => {
-  const amount = Number(inputAmount.value) || 0;
+  const amount = validAmountWon.value;
   const months = props.product.calcPeriodMonths || 0;
   return amount * months;
 });
 
 // 정부매칭분도 매달 같이 적립되는 것처럼 원금+매칭분 합산 잔액에 이자가 붙는다.
 const interest = computed(() => {
-  const amount = Number(inputAmount.value) || 0;
+  const amount = validAmountWon.value;
   const months = props.product.calcPeriodMonths || 0;
   if (!amount || !months) {
     return 0;
@@ -86,7 +104,7 @@ const totalReceipt = computed(
 
 <template>
   <div v-if="product.hasCalculator" class="policy-calculator">
-    <h3 class="policy-calculator__title">금융 계산기</h3>
+    <h3 class="policy-calculator__title">예상 수령액 계산해보기</h3>
 
     <div class="policy-calculator__inputs">
       <div class="policy-calculator__field policy-calculator__field--months">
@@ -100,11 +118,12 @@ const totalReceipt = computed(
           v-model="inputAmount"
           type="amount"
           variant="underline"
-          suffix="원"
-          placeholder="0"
+          :placeholder="
+            maxLimitMan != null ? `최대 ${maxLimitMan}만원` : '0'
+          "
           :error="amountError"
         />
-        <span class="policy-calculator__unit">납입시</span>
+        <span class="policy-calculator__unit">만원 납입시</span>
       </div>
     </div>
     <p v-if="amountError" class="policy-calculator__error">
@@ -123,25 +142,25 @@ const totalReceipt = computed(
     <div class="policy-calculator__result">
       <div class="policy-calculator__row">
         <span class="policy-calculator__label">원금</span>
-        <span class="policy-calculator__value">{{ formatWon(principal) }}</span>
+        <span class="policy-calculator__value">{{ formatManwon1(principal) }}</span>
       </div>
       <div class="policy-calculator__row">
         <span class="policy-calculator__label"
           >예상 이자({{ product.minRate }}% 세전)</span
         >
-        <span class="policy-calculator__value">{{ formatWon(interest) }}</span>
+        <span class="policy-calculator__value">{{ formatManwon1(interest) }}</span>
       </div>
       <div class="policy-calculator__row">
         <span class="policy-calculator__label">정부 매칭지원금</span>
         <span class="policy-calculator__value">{{
-          formatWon(matchingFund)
+          formatManwon1(matchingFund)
         }}</span>
       </div>
       <div class="policy-calculator__row policy-calculator__row--total">
         <span class="policy-calculator__label">총 수령금</span>
         <span
           class="policy-calculator__value policy-calculator__value--total"
-          >{{ formatWon(totalReceipt) }}</span
+          >{{ formatManwon1(totalReceipt) }}</span
         >
       </div>
     </div>
@@ -164,17 +183,18 @@ const totalReceipt = computed(
 
 .policy-calculator__field {
   display: flex;
-  flex: 1;
+  flex: 2;
   align-items: center;
   gap: 6px;
 }
 
+/* 개월 칸은 금액 칸의 절반(1:2) — 금액 placeholder가 다 보이게 */
 .policy-calculator__field--months {
-  flex: 0 0 auto;
+  flex: 1;
 }
 
 .policy-calculator__months {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--text-strong);
 }
@@ -183,6 +203,14 @@ const totalReceipt = computed(
   flex-shrink: 0;
   font-size: 13px;
   color: var(--text-body);
+}
+
+/* 금액 입력 값·단위를 기간 표시("60개월간")와 같은 크기로 맞춤 */
+.policy-calculator__field :deep(.base-input--underline .base-input__field) {
+  font-size: 15px;
+}
+.policy-calculator__field :deep(.base-input__suffix) {
+  font-size: 13px;
 }
 
 /* 인풋 자체 폭에 맞춰 줄바꿈되던 BaseInput 기본 에러 문구 대신, 아래에 전체 폭으로 따로 보여준다 */

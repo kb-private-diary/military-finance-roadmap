@@ -46,3 +46,31 @@ a,
   width: 80px;
   height: 80px;
 }
+
+/* ──────────────────────────────────────────────────────────
+   페이지 좌우 여백 통일 (우리 처음 맞춘 레이아웃 기준)
+   - 좌우 gutter는 오직 .app-content(24px) 한 곳에서만 담당한다.
+   - 각 페이지 루트가 넣던 좌우 패딩/Bootstrap container 여백을 제거해
+     모든 화면의 콘텐츠 폭을 통일한다. (세로 패딩은 페이지별 유지)
+   - 음수 margin breakout(예: margin: 0 -24px 풀블리드)은 margin이라 충돌 안 함.
+   ────────────────────────────────────────────────────────── */
+.app-content > * {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+.app-content > .container,
+.app-content > .container-fluid {
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+/* 모바일 앱처럼 스크롤바 전역 숨김 (스크롤 동작은 유지) - 모든 페이지·내부 컨테이너 포함 */
+* {
+  scrollbar-width: none; /* Firefox */
+}
+*::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/Edge */
+  width: 0;
+  height: 0;
+}

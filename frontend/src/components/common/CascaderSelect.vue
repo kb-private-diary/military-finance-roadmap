@@ -18,6 +18,7 @@ const emit = defineEmits(['update:modelValue']);
 
 const rootRef = ref(null);
 const isOpen = ref(false);
+const openUpward = ref(false); // 아래 공간 부족하면 위로 펼침 (하단 고정버튼 가림 방지)
 
 const hasMiddleLevel = computed(
   () => Object.keys(props.middleByGroup).length > 0,
@@ -60,6 +61,16 @@ const selectedLabel = computed(() => {
 
 const toggle = () => {
   if (props.disabled) return;
+  // 열기 직전: 아래 공간이 패널(252px)+여유보다 좁으면 위로 펼쳐 하단 고정버튼 가림 방지
+  if (!isOpen.value) {
+    const rect = rootRef.value?.getBoundingClientRect();
+    if (rect) {
+      const PANEL_HEIGHT = 252;
+      const SAFETY = 90; // 하단 고정 버튼 등 여유
+      const spaceBelow = window.innerHeight - rect.bottom;
+      openUpward.value = spaceBelow < PANEL_HEIGHT + SAFETY;
+    }
+  }
   isOpen.value = !isOpen.value;
 };
 
@@ -149,7 +160,10 @@ onUnmounted(() => {
     <div
       v-if="isOpen"
       class="cascader-select__panel"
-      :class="{ 'cascader-select__panel--three': hasMiddleLevel }"
+      :class="{
+        'cascader-select__panel--three': hasMiddleLevel,
+        'cascader-select__panel--up': openUpward,
+      }"
     >
       <div class="cascader-select__column">
         <button
@@ -348,6 +362,12 @@ onUnmounted(() => {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+/* 아래 공간 부족 시 위로 펼침 (하단 고정 버튼 가림 방지) */
+.cascader-select__panel--up {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
 .cascader-select__column {
   overflow-y: auto;
   background: var(--surface-default);
@@ -378,8 +398,9 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
-.cascader-select__option:hover {
-  background: var(--kb-yellow-pale);
+/* 우리 확정 디자인: 활성 아닌 옵션만 회색 호버 (F7F7F8) */
+.cascader-select__option:not(.cascader-select__option--active):hover {
+  background: var(--line);
 }
 
 .cascader-select__option--active {

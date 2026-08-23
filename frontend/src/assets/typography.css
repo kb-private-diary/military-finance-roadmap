@@ -30,12 +30,14 @@
   font-display: swap;
 }
 
+/* 폰트는 전역 Noto Sans KR 로 통일 — 아래 클래스들은 font-family 를 지정하지 않고 상속받는다.
+   (예전 Escoredream·GyeonggiMillenniumTitle 커스텀 폰트는 다른 텍스트와 안 맞아 제거) */
+
 /* 상단 제목 */
 .text-overline {
   font-size: 14px;
   font-weight: 400;
   color: var(--text-body);
-  font-family: 'Escoredream', sans-serif;
 }
 
 /* 화면 주제목 */
@@ -43,7 +45,6 @@
   font-size: 18px;
   font-weight: 700;
   color: var(--text-strong);
-  font-family: 'GyeonggiMillenniumTitle', sans-serif;
 }
 
 /* 소제목 */
@@ -51,7 +52,6 @@
   font-size: 14px;
   font-weight: 500;
   color: var(--text-strong);
-  font-family: 'Escoredream', sans-serif;
 }
 
 /* 주석·안내 */
@@ -60,5 +60,59 @@
   font-weight: 400;
   line-height: 1.5;
   color: var(--text-hint);
-  font-family: 'GyeonggiMillenniumTitle', sans-serif;
+}
+
+/* ──────────────────────────────────────────────
+   텍스트 스케일 (자취·후회소비 실사용값 기준 · 담당: 수연)
+   기본 글씨체는 Noto Sans KR (전역). 역할별로 아래 클래스만 붙이면 통일됨.
+   * 주제목(18/700)은 <PageHeader> 컴포넌트, 칩/태그는 <BaseTag> 컴포넌트 사용
+   ────────────────────────────────────────────── */
+
+/* 카드 제목 (자취 매물명) */
+.text-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+/* 소제목 · 섹션 라벨 (카드 안 구분 제목) */
+.text-section {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+/* 기본 본문 (일반 문장·설명) — Bootstrap의 .text-body와 충돌 피해 .text-base 사용 */
+.text-base {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-body);
+}
+
+/* 보조 안내 · 캡션 (제일 많이 쓰임 · head-sub·cap·hero-sub·lc-meta) */
+.text-sub {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* 작은 라벨 · 범례 */
+.text-mini {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* 강조 금액 (일반) */
+.text-amount {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+/* 강조 금액 (큰 · 후회소비 hero-amt) */
+.text-amount-lg {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--text-strong);
 }

@@ -3,7 +3,7 @@
 // SavingProductDetailPage와 SimulatorProductListPage(예적금 상품 계산기)에서 동일하게 쓰는 공통 컴포넌트.
 // 계산 로직이 여기 한 곳에만 있어야 두 화면의 결과가 어긋나지 않는다.
 import { computed, ref, watch } from 'vue';
-import { formatWon } from '@/util/format';
+import { formatManwon, formatManwon1 } from '@/util/format';
 import BaseInput from '@/components/common/BaseInput.vue';
 
 // 일반과세 이자소득세율(14% + 지방소득세 1.4%). 비과세 상품은 isTaxExempt로 0 처리.
@@ -46,29 +46,47 @@ const selectedRate = computed(() => {
 });
 
 // 상품별 최소·최대 납입금(정보 카드의 "납입금" 항목과 동일한 한도)을 벗어나면 인라인으로 안내한다.
+// 입력은 만원 단위 → 계산·결과는 원 단위라 ×10000 변환
+const amountWon = computed(() => (Number(inputAmount.value) || 0) * 10000);
+
+// 최소·최대 납입 한도(만원) — placeholder "최소 N 최대 N"에 사용
+const minLimitMan = computed(() =>
+  Math.round((props.product.minLimit ?? 0) / 10000),
+);
+const maxLimitMan = computed(() =>
+  props.product.maxLimit != null
+    ? Math.round(props.product.maxLimit / 10000)
+    : null,
+);
+
 const amountError = computed(() => {
   if (!inputAmount.value) {
     return '';
   }
-  const amount = Number(inputAmount.value);
+  const amount = amountWon.value;
   if (amount < props.product.minLimit) {
-    return `최소 ${formatWon(props.product.minLimit)} 이상 입력해주세요`;
+    return `최소 ${formatManwon(props.product.minLimit)} 이상 입력해주세요`;
   }
   if (props.product.maxLimit != null && amount > props.product.maxLimit) {
-    return `최대 ${formatWon(props.product.maxLimit)} 이하로 입력해주세요`;
+    return `최대 ${formatManwon(props.product.maxLimit)} 이하로 입력해주세요`;
   }
   return '';
 });
 
+// 한도를 벗어나면(에러) 계산하지 않는다 — 결과를 0으로 (유효성 검사가 실제로 의미 있게).
+const validAmountWon = computed(() =>
+  inputAmount.value === '' || amountError.value ? 0 : amountWon.value,
+);
+
 const principal = computed(() => {
-  const amount = Number(inputAmount.value) || 0;
+  const amount = validAmountWon.value;
   const months = Number(selectedMonths.value) || 0;
   // 예금은 입력 금액을 한 번만 예치하는 것이므로 개월수를 곱하지 않는다.
   return isDeposit.value ? amount : amount * months;
 });
 
 const interest = computed(() => {
-  const amount = Number(inputAmount.value) || 0;
+  const amount = validAmountWon.value;
   const months = Number(selectedMonths.value) || 0;
   if (!amount || !months) {
     return 0;
@@ -95,7 +113,7 @@ const totalReceipt = computed(
 
 <template>
   <div class="saving-calculator">
-    <h3 class="saving-calculator__title">금융 계산기</h3>
+    <h3 class="saving-calculator__title">예적금 계산해보기</h3>
 
     <div class="saving-calculator__inputs">
       <div class="saving-calculator__field saving-calculator__field--months">
@@ -111,13 +129,18 @@ const totalReceipt = computed(
           v-model="inputAmount"
           type="amount"
           variant="underline"
-          suffix="원"
-          placeholder="0"
+          :placeholder="
+            isDeposit
+              ? `최소 ${minLimitMan}만원`
+              : maxLimitMan != null
+                ? `최대 ${maxLimitMan}만원`
+                : '0'
+          "
           :error="amountError"
         />
-        <span class="saving-calculator__unit">{{
-          isDeposit ? '예치시' : '납입시'
-        }}</span>
+        <span class="saving-calculator__unit"
+          >만원 {{ isDeposit ? '예치시' : '납입시' }}</span
+        >
       </div>
     </div>
     <p v-if="amountError" class="saving-calculator__error">
@@ -127,23 +150,23 @@ const totalReceipt = computed(
     <div class="saving-calculator__result">
       <div class="saving-calculator__row">
         <span class="saving-calculator__label">원금</span>
-        <span class="saving-calculator__value">{{ formatWon(principal) }}</span>
+        <span class="saving-calculator__value">{{ formatManwon1(principal) }}</span>
       </div>
       <div class="saving-calculator__row">
         <span class="saving-calculator__label"
           >예상 이자({{ selectedRate }}% 세전)</span
         >
-        <span class="saving-calculator__value">{{ formatWon(interest) }}</span>
+        <span class="saving-calculator__value">{{ formatManwon1(interest) }}</span>
       </div>
       <div class="saving-calculator__row">
         <span class="saving-calculator__label">세금</span>
-        <span class="saving-calculator__value">{{ formatWon(tax) }}</span>
+        <span class="saving-calculator__value">{{ formatManwon1(tax) }}</span>
       </div>
       <div class="saving-calculator__row saving-calculator__row--total">
         <span class="saving-calculator__label">총 수령금</span>
         <span
           class="saving-calculator__value saving-calculator__value--total"
-          >{{ formatWon(totalReceipt) }}</span
+          >{{ formatManwon1(totalReceipt) }}</span
         >
       </div>
     </div>
@@ -166,34 +189,33 @@ const totalReceipt = computed(
 
 .saving-calculator__field {
   display: flex;
-  flex: 1;
+  flex: 2;
   align-items: center;
   gap: 6px;
 }
 
+/* 개월 칸은 금액 칸의 절반(1:2) — 금액 placeholder "최소 N 최대 N"이 다 보이게 */
 .saving-calculator__field--months {
-  flex: 0 0 auto;
+  flex: 1;
 }
-
+.saving-calculator__field--months :deep(.base-input),
 .saving-calculator__field--months :deep(.dropdown) {
-  width: auto;
-}
-
-.saving-calculator__field--months :deep(.dropdown__button) {
-  width: auto;
-  justify-content: flex-start;
-  padding: 8px 22px 8px 2px;
-}
-
-.saving-calculator__field--months :deep(.dropdown__text) {
-  flex: none;
-  text-align: left;
+  flex: 1;
+  min-width: 0;
 }
 
 .saving-calculator__unit {
   flex-shrink: 0;
   font-size: 13px;
   color: var(--text-body);
+}
+
+/* 금액 입력 값·단위를 개월 select("6개월간")과 같은 크기로 맞춤 */
+.saving-calculator__field :deep(.base-input--underline .base-input__field) {
+  font-size: 15px;
+}
+.saving-calculator__field :deep(.base-input__suffix) {
+  font-size: 13px;
 }
 
 /* 인풋 자체 폭에 맞춰 줄바꿈되던 BaseInput 기본 에러 문구 대신, 아래에 전체 폭으로 따로 보여준다 */
