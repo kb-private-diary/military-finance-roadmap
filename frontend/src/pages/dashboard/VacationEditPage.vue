@@ -9,11 +9,15 @@ import { useToast } from '@/composables/useToast';
 import BaseInput from '@/components/common/BaseInput.vue';
 import BaseModal from '@/components/common/BaseModal.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
+import DatePicker from '@/components/common/DatePicker.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
+import TabBar from '@/components/common/TabBar.vue';
 
+// 버튼(TabBar)으로 4개 선택 - 짧은 라벨
 const CATEGORY_OPTIONS = [
-  { label: '포상휴가', value: 'REWARD' },
-  { label: '위로휴가', value: 'CONSOLATION' },
-  { label: '청원휴가', value: 'PETITION' },
+  { label: '포상', value: 'REWARD' },
+  { label: '위로', value: 'CONSOLATION' },
+  { label: '청원', value: 'PETITION' },
   { label: '기타', value: 'ETC' },
 ];
 
@@ -82,7 +86,7 @@ const deleteVacation = async () => {
   isSubmitting.value = true;
   try {
     await dashboardApi.deleteVacation(vacationId.value);
-    router.push({ name: 'Dashboard' });
+    router.back();
   } catch (error) {
     console.error(error);
     show(error.response?.data?.message ?? '휴가 삭제에 실패했습니다.', 'error');
@@ -116,7 +120,7 @@ const submit = async () => {
     } else {
       await dashboardApi.createVacation(payload);
     }
-    router.push({ name: 'Dashboard' });
+    router.back();
   } catch (error) {
     console.error(error);
     show(error.response?.data?.message ?? '휴가 저장에 실패했습니다.', 'error');
@@ -131,9 +135,10 @@ onMounted(fetchDetail);
 <template>
   <div class="vacation-edit container py-4">
     <div class="vacation-edit__header">
-      <h2 class="vacation-edit__title">
-        {{ isEditMode ? '휴가 수정' : '휴가 추가' }}
-      </h2>
+      <PageHeader
+        :breadcrumb="isEditMode ? '휴가 수정' : '휴가 추가'"
+        :title="isEditMode ? '휴가 정보 재정비' : '새 휴가 전력 보충'"
+      />
       <button
         v-if="isEditMode"
         type="button"
@@ -158,26 +163,36 @@ onMounted(fetchDetail);
     <p v-else-if="isLoading" class="text-caption">불러오는 중...</p>
 
     <template v-else>
-      <BaseInput
-        v-model="category"
-        type="select"
-        label="휴가 종류"
-        placeholder="선택"
-        :options="CATEGORY_OPTIONS"
-      />
+      <!-- 휴가 종류 - 버튼으로 선택 (디폴트 없음) -->
+      <div class="vacation-edit__field">
+        <span class="vacation-edit__label text-label">휴가 종류</span>
+        <TabBar
+          variant="fill"
+          :model-value="category"
+          :tabs="CATEGORY_OPTIONS"
+          @update:model-value="category = $event"
+        />
+      </div>
       <BaseInput
         v-model="name"
         type="text"
         label="휴가 이름"
         placeholder="휴가 이름 입력"
       />
-      <BaseInput v-model="acquiredDate" type="date" label="획득일" />
+      <!-- 획득일 - 우리 DatePicker 컴포넌트 -->
+      <DatePicker
+        v-model="acquiredDate"
+        label="획득일"
+        placeholder="획득일 선택"
+      />
       <div class="vacation-edit__field">
         <BaseInput
           v-model="days"
           type="number"
-          label="일수"
-          placeholder="일수 입력"
+          label="휴가 일수"
+          suffix="일"
+          placeholder="휴가 일수 입력"
+          class="vacation-edit__days"
         />
         <p
           v-if="usedDays > 0"
@@ -226,12 +241,26 @@ onMounted(fetchDetail);
   gap: 12px;
 }
 
-.vacation-edit__title {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 800;
-  color: var(--text-strong);
+/* 획득일 DatePicker - 갈색 밑줄로 (기본 골드 대신) */
+.vacation-edit :deep(.date-picker__trigger) {
+  border-bottom-color: var(--chart-1);
 }
+
+/* 휴가 일수 입력 - 군적금 시뮬레이션 입력창처럼 값 오른쪽 정렬 + '일' 접미사 자리 확보 */
+.vacation-edit__days :deep(.base-input__field) {
+  text-align: right;
+  padding-right: 44px;
+}
+/* number 입력 스피너(위아래 화살표) 숨김 */
+.vacation-edit__days :deep(input[type='number'])::-webkit-inner-spin-button,
+.vacation-edit__days :deep(input[type='number'])::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.vacation-edit__days :deep(input[type='number']) {
+  -moz-appearance: textfield;
+}
+
 
 .vacation-edit__delete-btn {
   display: inline-flex;
