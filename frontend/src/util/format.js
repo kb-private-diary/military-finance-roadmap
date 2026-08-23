@@ -12,6 +12,12 @@ export const formatWon = (amount) =>
 export const formatManwon = (amount) =>
   `${Math.round((amount ?? 0) / 10000).toLocaleString('ko-KR')}만원`;
 
+// 만원 단위 + 소수 1자리 + "만원"  →  formatManwon1(15750) === "1.6만원"
+// 이자·세금처럼 만원 미만이 섞여 정수 만원으론 "0만원"이 돼버리는 작은 금액에 쓴다.
+// 딱 떨어지면 .0은 자동으로 생략된다 (1800000 → "180만원").
+export const formatManwon1 = (amount) =>
+  `${(Math.round((amount ?? 0) / 1000) / 10).toLocaleString('ko-KR')}만원`;
+
 // 이미 "만원" 단위로 내려오는 금액 표기용  →  formatManwonUnit(1200) === "1,200만원"
 // car 도메인처럼 백엔드 DTO가 만원 단위 정수를 그대로 내려주는 화면에서 사용 (formatManwon과 달리 나누지 않음).
 export const formatManwonUnit = (amount) =>
