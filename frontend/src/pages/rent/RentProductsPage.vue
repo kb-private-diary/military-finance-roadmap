@@ -1,7 +1,7 @@
 <script setup>
 // SCR-RENT-04 · Step 4) 금융상품 + 저장  담당: 수연
 // 디자인: 목업 재구성 — 감당도 요약 카드 + 조언 박스 + 정책/KB 탭 + 상품 카드
-// Step4는 추천 상품을 "보여주기만" 하는 화면(기획) — 상품 선택 없음, confirmGoal로 로드맵만 저장
+// Step4는 추천만 보여주는 화면(기획) — 상품 선택 없음, confirmGoal로 로드맵만 저장
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import rentApi from '@/api/rentApi';
@@ -9,8 +9,10 @@ import { useRentStore } from '@/stores/rent';
 import { useToast } from '@/composables/useToast';
 import { formatManwon } from '@/util/format';
 import BaseCard from '@/components/common/BaseCard.vue';
+import BaseModal from '@/components/common/BaseModal.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 import rentPolicyIcon from '@/assets/images/rent-policy-product.png';
 import rentKbIcon from '@/assets/images/rent-kb-product.png';
 
@@ -29,6 +31,7 @@ const recommend = ref(null); // findProducts 응답 원본
 const affordability = ref(null); // findAffordability 응답
 const loading = ref(true);
 const saving = ref(false);
+const isCompleteModalOpen = ref(false); // 저장 완료 모달 (여행/자동차/취업과 통일)
 
 // ── 상품 목록: 세 그룹을 합쳐 productId 중복 제거 ──────────────
 const allProducts = computed(() => {
@@ -151,17 +154,22 @@ const saveRoadmap = async () => {
     saving.value = false;
     return;
   }
-  show('로드맵을 저장했어요', 'success');
-  rentStore.reset(); // 저장 완료 → 위저드 입력값 초기화(다음엔 처음부터 새로 등록). goalId 등은 지역 상수라 영향 없음
-  await router.push({ name: 'RentGoalDetail', params: { goalId } });
+  rentStore.reset(); // 저장 완료 → 위저드 입력값 초기화(다음엔 처음부터). goalId 등은 지역 상수라 영향 없음
+  // 저장 완료 모달 노출 → 확인 시 상세로 이동 (여행/자동차/취업 플로우와 통일)
+  isCompleteModalOpen.value = true;
   saving.value = false;
+};
+
+// 저장 완료 모달 확인/취소 → 저장된 로드맵 상세로 이동
+const goToDetail = () => {
+  router.push({ name: 'RentGoalDetail', params: { goalId } });
 };
 </script>
 
 <template>
   <div class="products">
     <RoadmapCharacterSlider :step="4" label="자취 로드맵" />
-    <h2 class="page-title">이 금융상품 어떠십니까?</h2>
+    <PageHeader title="이 금융상품 어떠십니까?" />
 
     <p v-if="loading" class="loading">불러오는 중...</p>
 
@@ -336,6 +344,16 @@ const saveRoadmap = async () => {
       @secondary-click="goPrev"
       @primary-click="saveRoadmap"
     />
+
+    <BaseModal
+      v-model="isCompleteModalOpen"
+      title="알림"
+      confirm-text="확인"
+      @confirm="goToDetail"
+      @cancel="goToDetail"
+    >
+      <p class="complete-modal__message">자취 로드맵이 저장되었습니다.</p>
+    </BaseModal>
   </div>
 </template>
 
@@ -345,12 +363,6 @@ const saveRoadmap = async () => {
   display: flex;
   flex-direction: column;
   gap: 12px;
-}
-.page-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-strong);
-  line-height: 1.35;
 }
 .loading {
   padding: 60px 0;
@@ -369,20 +381,6 @@ const saveRoadmap = async () => {
 .af-head__label {
   font-size: 13px;
   color: var(--text-muted);
-}
-.af-head__pct {
-  font-size: 18px;
-  font-weight: 800;
-}
-/* 3단계: 딱 맞아요(초록) / 빠듯해요(주황) / 예산 초과(빨강) */
-.af-head__pct.is-ok {
-  color: var(--success);
-}
-.af-head__pct.is-tight {
-  color: #e08a00;
-}
-.af-head__pct.is-over {
-  color: var(--danger);
 }
 .afbar {
   display: flex;
@@ -529,7 +527,7 @@ const saveRoadmap = async () => {
 }
 .group__title {
   margin-top: 4px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--text-strong);
 }

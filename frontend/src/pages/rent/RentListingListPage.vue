@@ -8,9 +8,19 @@ import { useRentStore } from '@/stores/rent';
 import { formatManwon } from '@/util/format';
 import { useToast } from '@/composables/useToast';
 import BaseCard from '@/components/common/BaseCard.vue';
+import BaseInput from '@/components/common/BaseInput.vue';
+import Chip from '@/components/common/Chip.vue';
+import Badge from '@/components/common/Badge.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
+import busIcon from '@/assets/images/bus.png';
+import subwayIcon from '@/assets/images/subway.png';
+import walkIcon from '@/assets/images/walk.png';
+import checkGreenIcon from '@/assets/images/check-green.png';
+import budgetTightIcon from '@/assets/images/budget-tight.png';
+import budgetOverIcon from '@/assets/images/budget-over.png';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -29,6 +39,11 @@ const ESTATE_LABEL = {
 const listings = ref([]);
 const loading = ref(true);
 const sortMode = ref('recommend'); // recommend | cheap | near
+const sortOptions = [
+  { label: '추천순', value: 'recommend' },
+  { label: '저렴한 순', value: 'cheap' },
+  { label: '가까운 순', value: 'near' },
+];
 
 const filterText = computed(() => {
   const d = rentStore.draft;
@@ -63,16 +78,16 @@ const trafficText = (l) =>
 const trafficBadge = (l) => {
   const t = trafficText(l);
   if (!t) return null;
-  if (t.includes('버스')) return { emoji: '🚌', cls: 'badge--brown', text: t };
-  if (t.includes('역')) return { emoji: '🚇', cls: 'badge--blue', text: t };
-  return { emoji: '🚶', cls: 'badge--blue', text: t }; // 도보
+  if (t.includes('버스')) return { icon: busIcon, tone: 'cream', text: t, iconSize: 13 };
+  if (t.includes('역')) return { icon: subwayIcon, tone: 'blue', text: t };
+  return { icon: walkIcon, tone: 'blue', text: t }; // 도보
 };
 
 // ── 재정 뱃지(affordLevel) ────────────────────────────────────
 const AFFORD = {
-  ENOUGH: { emoji: '👍', cls: 'badge--green' },
-  TIGHT: { emoji: '⚠️', cls: 'badge--amber' },
-  OVER: { emoji: '❌', cls: 'badge--red' },
+  ENOUGH: { icon: checkGreenIcon, tone: 'green' },
+  TIGHT: { icon: budgetTightIcon, tone: 'yellow', iconSize: 13 },
+  OVER: { icon: budgetOverIcon, tone: 'red', iconSize: 13 },
 };
 const affordBadge = (l) => {
   const m = AFFORD[l.affordLevel];
@@ -150,7 +165,7 @@ const onComplete = () => {
   <div class="listings">
     <RoadmapCharacterSlider :step="2" label="자취 로드맵" />
 
-    <h2 class="title">로드맵을 선택해주세요.</h2>
+    <PageHeader title="로드맵을 선택해주세요." />
 
     <p v-if="loading" class="loading">불러오는 중...</p>
 
@@ -168,11 +183,12 @@ const onComplete = () => {
 
     <template v-else>
       <div class="sortbar">
-        <select v-model="sortMode" class="sort-select" aria-label="정렬">
-          <option value="recommend">추천순</option>
-          <option value="cheap">저렴한 순</option>
-          <option value="near">가까운 순</option>
-        </select>
+        <BaseInput
+          v-model="sortMode"
+          type="select"
+          :options="sortOptions"
+          class="sortbar__select"
+        />
         <span class="filter">{{ filterText }}</span>
       </div>
 
@@ -184,26 +200,26 @@ const onComplete = () => {
       >
         <button class="listing-card" @click="selectListing(l)">
           <span class="name-row">
-            <span class="chip">{{ ESTATE_LABEL[l.estateType] || '매물' }}</span>
+            <Chip :text="ESTATE_LABEL[l.estateType] || '매물'" />
             <span class="name">{{ l.buildingName }}</span>
           </span>
           <span class="meta">{{ metaLine(l) }}</span>
           <span class="price">{{ priceLine(l) }}</span>
           <span class="badges">
-            <span
+            <Badge
               v-if="trafficBadge(l)"
-              class="badge"
-              :class="trafficBadge(l).cls"
-            >
-              {{ trafficBadge(l).emoji }} {{ trafficBadge(l).text }}
-            </span>
-            <span
+              :tone="trafficBadge(l).tone"
+              :icon="trafficBadge(l).icon"
+              :icon-size="trafficBadge(l).iconSize"
+              :text="trafficBadge(l).text"
+            />
+            <Badge
               v-if="affordBadge(l)"
-              class="badge"
-              :class="affordBadge(l).cls"
-            >
-              {{ affordBadge(l).emoji }} {{ affordBadge(l).text }}
-            </span>
+              :tone="affordBadge(l).tone"
+              :icon="affordBadge(l).icon"
+              :icon-size="affordBadge(l).iconSize"
+              :text="affordBadge(l).text"
+            />
           </span>
         </button>
       </BaseCard>
@@ -211,7 +227,7 @@ const onComplete = () => {
 
     <BottomButtonBar
       secondary-label="이전"
-      primary-label="선택 완료"
+      primary-label="선택완료"
       :primary-disabled="!rentStore.selectedListingId"
       @secondary-click="onPrev"
       @primary-click="onComplete"
@@ -226,13 +242,6 @@ const onComplete = () => {
   flex-direction: column;
   gap: 10px;
 }
-.title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-strong);
-  line-height: 1.35;
-  margin-bottom: 2px;
-}
 .loading {
   padding: 40px 0;
   text-align: center;
@@ -246,19 +255,22 @@ const onComplete = () => {
   gap: 8px;
   margin-bottom: 2px;
 }
-.sort-select {
-  appearance: none;
-  padding: 6px 26px 6px 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background-color: #ffffff;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23767676' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
+/* 정렬: confirmed BaseInput select을 컴팩트하게 (내용 폭에 맞춤) */
+.sortbar__select {
+  flex: 0 0 auto;
+  width: auto;
+}
+.sortbar__select :deep(.dropdown),
+.sortbar__select :deep(.dropdown__button) {
+  width: auto;
+}
+.sortbar__select :deep(.dropdown__button) {
+  min-height: 0;
+  padding: 4px 22px 4px 4px;
   font-size: 12px;
-  font-family: inherit;
-  color: var(--text-body);
-  cursor: pointer;
+}
+.sortbar__select :deep(.dropdown__text) {
+  flex: none;
 }
 .filter {
   font-size: 11px;
@@ -288,15 +300,6 @@ const onComplete = () => {
   gap: 6px;
   min-width: 0;
 }
-.chip {
-  flex-shrink: 0;
-  padding: 2px 6px;
-  border-radius: 5px;
-  background: #9d9d9d;
-  color: #fff;
-  font-size: 9px;
-  font-weight: 600;
-}
 .name {
   font-size: 13px;
   font-weight: 700;
@@ -320,42 +323,6 @@ const onComplete = () => {
   gap: 4px;
   flex-wrap: wrap;
   margin-top: 6px;
-}
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 10px;
-  font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 999px;
-  white-space: nowrap;
-}
-/* 뱃지 색: 수연 확정 스펙(목업 기준, 글자색 전부 #000) */
-.badge--blue {
-  /* 도보/지하철 */
-  background: #d3e6ff;
-  color: #000;
-}
-.badge--brown {
-  /* 버스 */
-  background: #ffead3;
-  color: #000;
-}
-.badge--green {
-  /* 딱 맞아요 */
-  background: #e1f3e0;
-  color: #000;
-}
-.badge--amber {
-  /* 빠듯해요 */
-  background: #ffffc3;
-  color: #000;
-}
-.badge--red {
-  /* 예산 초과 */
-  background: #f4d1d1;
-  color: #000;
 }
 .cta {
   padding: 9px 18px;

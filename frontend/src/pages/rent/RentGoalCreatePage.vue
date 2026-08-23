@@ -10,7 +10,11 @@ import { useToast } from '@/composables/useToast';
 import BaseCard from '@/components/common/BaseCard.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import BaseBottomSheet from '@/components/common/BaseBottomSheet.vue';
+import SearchSelect from '@/components/common/SearchSelect.vue';
 import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
+import TabBar from '@/components/common/TabBar.vue';
+import RangeSlider from '@/components/common/RangeSlider.vue';
 import rentSchoolIcon from '@/assets/images/rent-school.png';
 import rentMapIcon from '@/assets/images/rent-map.png';
 
@@ -19,27 +23,22 @@ const rentStore = useRentStore();
 const { show } = useToast();
 const draft = rentStore.draft;
 
-// 학교 검색 — 정상 응답(배열)만 반영, 결과 없거나 실패 시 빈 목록(부산대 폴백 제거)
-const keyword = ref('');
-const schoolResults = ref([]);
-const searching = ref(false);
-const searchSchools = async () => {
-  if (keyword.value.trim().length < 2) return (schoolResults.value = []);
-  searching.value = true;
+// 학교 검색 — 전체 학교 목록을 한 번 불러와 공통 SearchSelect가 클라이언트 필터링
+// (백엔드 /rent/schools 는 keyword 없으면 전체 목록 반환)
+const schoolList = ref([]);
+const selectedSchool = ref(null);
+const loadSchools = async () => {
   try {
-    const data = await rentApi.searchSchools(keyword.value.trim());
-    schoolResults.value = Array.isArray(data) ? data : [];
+    const data = await rentApi.searchSchools('');
+    schoolList.value = Array.isArray(data) ? data : [];
   } catch {
-    schoolResults.value = [];
-  } finally {
-    searching.value = false;
+    schoolList.value = [];
   }
 };
-watch(keyword, searchSchools);
+loadSchools();
 const selectSchool = (s) => {
   rentStore.setConditions({ schoolId: s.schoolId, schoolName: s.schoolName, schoolAddress: s.address });
-  schoolResults.value = [];
-  keyword.value = ''; // 검색창 초기화 (선택된 학교는 아래 카드에 표시됨)
+  // 선택된 학교는 아래 카드에 표시됨 (SearchSelect 는 선택 후 내부 검색어를 스스로 비움)
 };
 
 // 지역 (최대 3개) — 바텀시트에서 시도 → 시군구 → 동 계층 선택 (rentApi.findRegions 실 API)
@@ -142,13 +141,6 @@ const resetToSigungu = () => {
 const radiusOpen = ref(true);
 
 // 월 예산 슬라이더 채움(노랑) 표현 — 30~150 구간을 %로 환산해 트랙 배경에 그린다.
-const budgetFillStyle = computed(() => {
-  const pct = ((draft.monthlyBudget - 30) / (150 - 30)) * 100;
-  return {
-    background: `linear-gradient(to right, var(--kb-yellow) 0%, var(--kb-yellow) ${pct}%, var(--kb-gray-pale) ${pct}%, var(--kb-gray-pale) 100%)`,
-  };
-});
-
 const canProceed = computed(() =>
   draft.locationType === 'SCHOOL' ? !!draft.schoolId : draft.regions.length > 0,
 );
@@ -171,46 +163,30 @@ const goNext = async () => {
   <div class="rent-goal">
     <RoadmapCharacterSlider :step="1" label="자취 로드맵" />
 
-    <!-- 1. 어디에서 (목업: 페이지 제목은 질문 한 줄) -->
+    <PageHeader title="어디에 집을 구하고 싶습니까?" />
+
+    <!-- 1. 어디에서 -->
     <section class="field">
-      <h2 class="page-title">어디에 집을 구하고 싶습니까?</h2>
-      <div class="toggle-row">
-        <button
-          type="button"
-          class="toggle-item"
-          :class="{ 'is-active': draft.locationType === 'SCHOOL' }"
-          @click="rentStore.setConditions({ locationType: 'SCHOOL' })"
-        >
-          학교 근처 <img :src="rentSchoolIcon" class="toggle-icon" alt="" />
-        </button>
-        <button
-          type="button"
-          class="toggle-item"
-          :class="{ 'is-active': draft.locationType === 'REGION' }"
-          @click="rentStore.setConditions({ locationType: 'REGION' })"
-        >
-          지역으로 <img :src="rentMapIcon" class="toggle-icon" alt="" />
-        </button>
-      </div>
+      <TabBar
+        :model-value="draft.locationType"
+        :tabs="[
+          { label: '학교 근처', value: 'SCHOOL' },
+          { label: '지역으로', value: 'REGION' },
+        ]"
+        @update:model-value="rentStore.setConditions({ locationType: $event })"
+      />
 
       <!-- 학교 모드 -->
       <template v-if="draft.locationType === 'SCHOOL'">
         <p class="label">학교 선택</p>
-        <div class="search">
-          <input
-            v-model="keyword"
-            type="text"
-            class="search-input"
-            placeholder="학교 이름 검색"
-          />
-          <ul v-if="schoolResults.length" class="dropdown">
-            <li v-for="s in schoolResults" :key="s.schoolId" @click="selectSchool(s)">
-              <strong>{{ s.schoolName }}</strong><span>{{ s.address }}</span>
-            </li>
-          </ul>
-          <p v-else-if="searching" class="hint">검색 중...</p>
-          <p v-else-if="keyword.trim().length >= 2" class="hint">검색 결과가 없어요</p>
-        </div>
+        <SearchSelect
+          v-model="selectedSchool"
+          :items="schoolList"
+          label-key="schoolName"
+          sub-key="address"
+          placeholder="학교 이름 검색"
+          @select="selectSchool"
+        />
         <BaseCard v-if="draft.schoolId" padding="12px 14px">
           <div class="picked-name">{{ draft.schoolName }}</div>
           <div class="picked-addr">{{ draft.schoolAddress }}</div>
@@ -245,36 +221,37 @@ const goNext = async () => {
         </button>
         <span class="muted">{{ draft.radiusKm }}km</span>
       </div>
-      <div v-if="radiusOpen" class="radius-row">
-        <button
-          v-for="km in [1, 3, 5]"
-          :key="km"
-          type="button"
-          class="radius-btn"
-          :class="{ 'is-active': draft.radiusKm === km }"
-          @click="rentStore.setConditions({ radiusKm: km })"
-        >
-          {{ km }}km
-        </button>
-      </div>
+      <TabBar
+        v-if="radiusOpen"
+        variant="fill"
+        :model-value="draft.radiusKm"
+        :tabs="[
+          { label: '1km', value: 1 },
+          { label: '3km', value: 3 },
+          { label: '5km', value: 5 },
+        ]"
+        @update:model-value="rentStore.setConditions({ radiusKm: $event })"
+      />
     </section>
 
     <!-- 2. 월 예산 (월세 + 관리비) — 매물 추천은 실질 월부담(월세+관리비+보증금환산) 기준 -->
     <section class="field">
-      <div class="row-between">
-        <p class="label">월 예산 (월세 + 관리비)</p>
-        <span class="budget-val">{{ draft.monthlyBudget }}<span class="budget-unit">만원</span></span>
-      </div>
-      <input type="range" min="30" max="150" step="5" :value="draft.monthlyBudget" class="slider"
-        :style="budgetFillStyle"
-        @input="rentStore.setConditions({ monthlyBudget: Number($event.target.value) })" />
-      <div class="scale"><span>30만원</span><span>90만원</span><span>150만원</span></div>
-      <p class="hint">월세와 관리비를 합친 실질 월부담을 기준으로 매물을 추천해드려요</p>
+      <RangeSlider
+        :model-value="draft.monthlyBudget"
+        :min="30"
+        :max="150"
+        :step="5"
+        label="월 예산 (월세 + 관리비)"
+        unit="만원"
+        :ticks="['30만원', '90만원', '150만원']"
+        hint="월세와 관리비를 합친 실질 월부담을 기준으로 매물을 추천해드려요"
+        @update:model-value="rentStore.setConditions({ monthlyBudget: $event })"
+      />
     </section>
 
     <BottomButtonBar
       secondary-label="이전"
-      :primary-label="submitting ? '불러오는 중...' : '추천 받기'"
+      :primary-label="submitting ? '불러오는 중...' : '자취 추천받기'"
       :primary-disabled="!canProceed || submitting"
       @secondary-click="router.push({ name: 'RoadmapMain' })"
       @primary-click="goNext"
@@ -329,19 +306,12 @@ const goNext = async () => {
   padding: 20px 0 88px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-}
-.page-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-strong);
-  line-height: 1.35;
-  margin-bottom: 4px;
+  gap: var(--space-8);
 }
 .field {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-2);
 }
 .label {
   font-size: 14px;
@@ -352,132 +322,13 @@ const goNext = async () => {
   font-size: 11px;
   color: var(--text-hint);
 }
-.strong {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-body);
-}
 .row-between {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
-/* 반경 버튼 - 목업보다 작게 (3등분 소형 세그먼트) */
-.radius-row {
-  display: flex;
-  gap: 8px;
-}
-.radius-btn {
-  flex: 1;
-  padding: 9px 0;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--kb-gray-pale);
-  color: var(--text-body);
-  font-size: 13px;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.radius-btn.is-active {
-  background: var(--kb-yellow);
-  border-color: var(--kb-yellow);
-  color: var(--text-strong);
-  font-weight: 700;
-}
-/* 위치 토글 — 탭 스타일 (선택: 흰 배경+테두리 도드라짐 / 비선택: 연회색) */
-.toggle-row {
-  display: flex;
-  gap: 6px;
-}
-.toggle-item {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 14px 0;
-  border: 1px solid transparent;
-  border-radius: 14px 14px 4px 4px;
-  background: var(--kb-gray-pale);
-  color: var(--text-hint);
-  font-size: 14px;
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.toggle-item.is-active {
-  background: #fff;
-  border-color: var(--line-strong);
-  color: var(--text-strong);
-  font-weight: 700;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-/* 아이콘은 실제 이미지(학교/지도), 글자 뒤에 배치 */
-.toggle-icon {
-  width: 20px;
-  height: 20px;
-  object-fit: contain;
-}
 .search {
   position: relative;
-}
-/* 학교 검색창 — 연회색 배경, 포커스 시 흰 배경+노랑 테두리 */
-.search-input {
-  width: 100%;
-  padding: 13px 14px;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  background: #f5f6f8;
-  font-size: 14px;
-  color: var(--text-body);
-  font-family: inherit;
-  outline: none;
-  transition:
-    border-color 0.15s ease,
-    background 0.15s ease;
-}
-.search-input::placeholder {
-  color: var(--text-hint);
-}
-.search-input:focus {
-  border-color: var(--kb-yellow-deep);
-  background: #fff;
-}
-.dropdown {
-  margin: 8px 0 0;
-  padding: 6px;
-  list-style: none;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  max-height: 210px;
-  overflow-y: auto;
-}
-.dropdown li {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-}
-.dropdown li:hover {
-  background: var(--kb-yellow-pale);
-}
-.dropdown strong {
-  font-size: 13px;
-  color: var(--text-body);
-}
-.dropdown span {
-  font-size: 11px;
-  color: var(--text-hint);
-}
-.hint {
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--text-hint);
 }
 .picked-name {
   font-size: 14px;
@@ -599,62 +450,4 @@ const goNext = async () => {
   font-family: inherit;
 }
 /* 월 예산 슬라이더 — 채움(노랑)은 인라인 배경, 핸들은 흰 원+노랑 테두리 */
-.slider {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 6px;
-  border-radius: 3px;
-  margin: 12px 0 8px;
-  background: var(--kb-gray-pale);
-  cursor: pointer;
-}
-.slider::-webkit-slider-runnable-track {
-  height: 6px;
-  border-radius: 3px;
-  background: transparent;
-}
-.slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  margin-top: -6px;
-  border-radius: 50%;
-  background: #fff;
-  border: 2px solid var(--kb-yellow-deep);
-  box-shadow: 0 1px 3px var(--shadow-thumb);
-  cursor: pointer;
-}
-.slider::-moz-range-track {
-  height: 6px;
-  border-radius: 3px;
-  background: transparent;
-}
-.slider::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #fff;
-  border: 2px solid var(--kb-yellow-deep);
-  box-shadow: 0 1px 3px var(--shadow-thumb);
-  cursor: pointer;
-}
-.scale {
-  display: flex;
-  justify-content: space-between;
-  font-size: 10px;
-  color: var(--text-hint);
-}
-.budget-val {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-strong);
-}
-.budget-unit {
-  margin-left: 2px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-muted);
-}
 </style>
