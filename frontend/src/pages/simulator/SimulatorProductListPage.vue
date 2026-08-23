@@ -5,12 +5,13 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import productApi from '@/api/productApi';
-import { formatKoreanWon } from '@/util/format';
+import { formatManwon } from '@/util/format';
 import BaseCard from '@/components/common/BaseCard.vue';
 import BaseInput from '@/components/common/BaseInput.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
-import CategoryButton from '@/components/common/CategoryButton.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
+import TabBar from '@/components/common/TabBar.vue';
 import SavingCalculator from '@/components/common/SavingCalculator.vue';
 import PolicyCalculator from '@/components/common/PolicyCalculator.vue';
 
@@ -112,10 +113,6 @@ const fetchSelectedDetail = async () => {
 
 watch(selectedId, fetchSelectedDetail);
 
-const selectTab = (tab) => {
-  activeTab.value = tab;
-};
-
 const fetchAll = async () => {
   isLoading.value = true;
   loadError.value = '';
@@ -142,11 +139,11 @@ const limitText = computed(() => {
   if (!selectedProduct.value) {
     return '';
   }
-  const min = `${formatKoreanWon(selectedProduct.value.minLimit)} 이상`;
+  const min = `${formatManwon(selectedProduct.value.minLimit)} 이상`;
   const max =
     selectedProduct.value.maxLimit == null
       ? '한도 없음'
-      : `${formatKoreanWon(selectedProduct.value.maxLimit)} 이하`;
+      : `${formatManwon(selectedProduct.value.maxLimit)} 이하`;
   return `${min} ${max}`;
 });
 
@@ -173,19 +170,12 @@ const goProductLink = () => {
 
 <template>
   <div class="product-calc container py-4">
-    <p class="product-calc__eyebrow">계산해보고 모으자</p>
-    <h2 class="product-calc__title">예적금 상품 계산기</h2>
+    <PageHeader
+      breadcrumb="예적금 계산기"
+      title="받을 목돈, 미리 점검하라"
+    />
 
-    <div class="product-calc__tabs">
-      <CategoryButton
-        v-for="tab in TABS"
-        :key="tab.value"
-        variant="square-yellow"
-        :active="activeTab === tab.value"
-        :label="tab.label"
-        @click="selectTab(tab.value)"
-      />
-    </div>
+    <TabBar v-model="activeTab" variant="underline" :tabs="TABS" />
 
     <p v-if="loadError" class="product-calc__error">{{ loadError }}</p>
     <p v-else-if="isLoading" class="text-caption">불러오는 중...</p>
@@ -258,16 +248,23 @@ const goProductLink = () => {
           </template>
         </BaseCard>
 
-        <!-- 정책 상품 중 hasCalculator=false인 상품은 계산기 자체가 없으므로 빈 카드를 띄우지 않는다. -->
-        <BaseCard
+        <!-- 상품 정보와 금융 계산기 구분 - 회색 굵은 선 -->
+        <div
           v-if="activeTab !== 'policy' || selectedProduct.hasCalculator"
+          class="product-calc__divider"
+        />
+
+        <!-- 계산기는 카드에서 빼서 회색 선 아래에 바로 표시(카드 콘텐츠에 맞춰 좌우 인셋). -->
+        <div
+          v-if="activeTab !== 'policy' || selectedProduct.hasCalculator"
+          class="product-calc__calc"
         >
           <SavingCalculator
             v-if="activeTab !== 'policy'"
             :product="selectedProduct"
           />
           <PolicyCalculator v-else :product="selectedProduct" />
-        </BaseCard>
+        </div>
 
         <BottomButtonBar
           primary-label="상품 자세히보기"
@@ -285,26 +282,20 @@ const goProductLink = () => {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding-bottom: 88px;
+  /* 총 수령금과 하단 고정 버튼 사이 여백 넉넉히. py-4(부트스트랩 !important)를 이겨야 해서 !important */
+  padding-bottom: 84px !important;
 }
 
-.product-calc__eyebrow {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-hint);
+/* 상품 정보와 예적금 계산 사이 회색 굵은 구분선 (좌우 풀블리드, 위아래 여백 넓게) */
+.product-calc__divider {
+  height: 8px;
+  margin: 16px -24px;
+  background-color: var(--bg-gray);
 }
 
-.product-calc__title {
-  margin: 0 0 8px;
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-strong);
-}
-
-.product-calc__tabs {
-  display: flex;
-  gap: 8px;
+/* 계산기(카드 밖)를 위 상품 카드 콘텐츠와 같은 폭으로 맞춤 (BaseCard 안쪽 여백과 동일) */
+.product-calc__calc {
+  padding: 0 20px;
 }
 
 .product-calc__error {
@@ -335,7 +326,7 @@ const goProductLink = () => {
 }
 
 .product-calc__highlight {
-  color: var(--danger);
+  color: var(--military-green);
   font-weight: 700;
 }
 </style>
