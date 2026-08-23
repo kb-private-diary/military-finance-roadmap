@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, ref, watch } from 'vue';
+import { nextTick, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 const router = useRouter();
@@ -7,16 +7,20 @@ const route = useRoute();
 
 // 탭 네비게이션 정의 (라우트 정의서 기준 route name 사용)
 const tabItems = [
-  { label: '홈', routeName: 'Home' },
-  { label: 'D-Day', routeName: 'Dashboard' },
-  { label: '로드맵', routeName: 'RoadmapMain' },
-  { label: '금융계산기', routeName: 'Simulator' },
-  { label: '전우들', routeName: 'Social' },
-  { label: '후회소비', routeName: 'RegretDashboard' },
+  { label: '홈', routeName: 'Home', match: ['/', '/home'] },
+  { label: 'D-Day', routeName: 'Dashboard', match: ['/dashboard'] },
+  // 로드맵 섹션: 로드맵 메인 + 목표 도메인 하위 페이지(자동차·자취·진로·여행)까지 포함
+  { label: '로드맵', routeName: 'RoadmapMain', match: ['/roadmap', '/car', '/rent', '/job', '/travel'] },
+  { label: '목돈작전', routeName: 'Simulator', match: ['/simulator'] },
+  { label: '전우들', routeName: 'Social', match: ['/social'] },
+  { label: '후회소비', routeName: 'RegretDashboard', match: ['/regret'] },
 ];
 
-// 현재 라우트와 탭 매칭 (path 문자열 비교 대신 route name 기반 — 컨벤션 라우트 규칙 준수)
-const isActiveTab = computed(() => (routeName) => route.name === routeName);
+// 현재 경로가 탭 섹션에 속하는지 판정 — 하위 상세 페이지도 상위 탭이 활성으로 보이도록 prefix 매칭
+const isTabActive = (tab) =>
+  tab.match.some((m) =>
+    m === '/' ? route.path === '/' : route.path === m || route.path.startsWith(`${m}/`),
+  );
 
 // 탭 버튼 DOM 참조 모음 (선택된 탭 전체 노출을 위한 스크롤 이동에 사용)
 const tabRefs = ref({});
@@ -29,9 +33,7 @@ const setTabRef = (routeName) => (el) => {
 
 // 선택된 탭이 잘려 보이지 않도록 스크롤 위치 조정
 const scrollActiveTabIntoView = () => {
-  const activeName = tabItems.find(
-    (tab) => tab.routeName === route.name,
-  )?.routeName;
+  const activeName = tabItems.find((tab) => isTabActive(tab))?.routeName;
   const activeEl = activeName ? tabRefs.value[activeName] : null;
   if (activeEl) {
     activeEl.scrollIntoView({
@@ -63,7 +65,7 @@ const moveToTab = (routeName) => {
       :key="tab.routeName"
       :ref="setTabRef(tab.routeName)"
       class="app-tabnav__item"
-      :class="{ 'app-tabnav__item--active': isActiveTab(tab.routeName) }"
+      :class="{ 'app-tabnav__item--active': isTabActive(tab) }"
       type="button"
       @click="moveToTab(tab.routeName)"
     >
@@ -100,8 +102,8 @@ const moveToTab = (routeName) => {
 }
 
 .app-tabnav__item--active {
-  color: var(--text-strong);
+  color: var(--text-strong); /* 찐한 검정 글자 */
   font-weight: 700;
-  border-bottom: 2px solid var(--kb-yellow-deep);
+  border-bottom: 3px solid var(--text-strong); /* 하단 검정 줄 */
 }
 </style>

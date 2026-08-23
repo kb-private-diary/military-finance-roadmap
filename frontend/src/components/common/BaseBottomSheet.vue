@@ -1,7 +1,7 @@
 <script setup>
 // 화면 아래에서 위로 올라오는 바텀시트. 추가 입력·선택 등에 쓴다.
 // 구성: [제목 + 닫기(X)] · [내용 slot] · [아래 버튼]. 내용에 따라 높이가 늘어난다.
-defineProps({
+const props = defineProps({
   // 열림 여부 (v-model)
   modelValue: { type: Boolean, required: true, default: false },
   // 상단 제목 (비우면 제목 줄 숨김)
@@ -12,6 +12,10 @@ defineProps({
   cancelText: { type: String, required: false, default: '' },
   // 우측 상단 닫기(X) 버튼 표시 여부
   showClose: { type: Boolean, required: false, default: true },
+  // 주요 버튼 비활성화 (유효성 미충족 등) — true면 눌러도 confirm/close 안 됨
+  confirmDisabled: { type: Boolean, required: false, default: false },
+  // 바깥(어두운 배경) 탭으로 닫기 허용 여부 — 입력 폼 등 실수 방지 시 false
+  closeOnOverlay: { type: Boolean, required: false, default: true },
 });
 
 const emit = defineEmits(['update:modelValue', 'confirm', 'cancel', 'close']);
@@ -19,6 +23,7 @@ const emit = defineEmits(['update:modelValue', 'confirm', 'cancel', 'close']);
 const close = () => emit('update:modelValue', false);
 
 const onConfirm = () => {
+  if (props.confirmDisabled) return;
   emit('confirm');
   close();
 };
@@ -32,12 +37,18 @@ const onClose = () => {
   emit('close');
   close();
 };
+
+// 바깥(오버레이) 탭 — closeOnOverlay가 false면 무시
+const onOverlayClick = () => {
+  if (!props.closeOnOverlay) return;
+  onClose();
+};
 </script>
 
 <template>
   <Teleport to="body">
     <Transition name="sheet">
-      <div v-if="modelValue" class="sheet-overlay" @click.self="onClose">
+      <div v-if="modelValue" class="sheet-overlay" @click.self="onOverlayClick">
         <div class="sheet-panel" role="dialog" aria-modal="true">
           <header class="sheet-header">
             <h3 v-if="title" class="sheet-title">{{ title }}</h3>
@@ -68,6 +79,7 @@ const onClose = () => {
             <button
               type="button"
               class="sheet-btn sheet-btn--confirm"
+              :disabled="confirmDisabled"
               @click="onConfirm"
             >
               {{ confirmText }}
@@ -162,6 +174,11 @@ const onClose = () => {
   background-color: #ffcc00;
   border: none;
   color: #1a1a1a;
+}
+.sheet-btn--confirm:disabled {
+  background-color: var(--kb-gray-pale);
+  color: var(--text-disabled);
+  cursor: not-allowed;
 }
 
 .sheet-enter-active,

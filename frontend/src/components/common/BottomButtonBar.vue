@@ -35,7 +35,7 @@ defineEmits(['primary-click', 'secondary-click']);
 </template>
 
 <style scoped>
-/* 화면 하단 고정. 프레임 폭(아이폰 16 기준 393px)에 맞춰 가운데 정렬한다. */
+/* 화면 하단 고정. 프레임 폭에 맞춰(--app-max-width) 가운데 정렬 → 어느 폰 사이즈든 프레임과 일치. */
 .bottom-button-bar {
   position: fixed;
   z-index: 100;
@@ -44,7 +44,7 @@ defineEmits(['primary-click', 'secondary-click']);
   transform: translateX(-50%);
   display: flex;
   width: 100%;
-  max-width: 393px;
+  max-width: var(--app-max-width);
   background-color: #ffffff;
   padding-bottom: env(safe-area-inset-bottom);
 }

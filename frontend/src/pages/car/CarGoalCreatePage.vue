@@ -5,11 +5,12 @@ import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import carApi from '@/api/carApi';
 import { useCarStore } from '@/stores/car';
-import BaseCard from '@/components/common/BaseCard.vue';
 import BaseInput from '@/components/common/BaseInput.vue';
-import CategoryButton from '@/components/common/CategoryButton.vue';
+import TabBar from '@/components/common/TabBar.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
+import DatePicker from '@/components/common/DatePicker.vue';
 import { toIsoDate } from '@/util/format';
 
 const router = useRouter();
@@ -113,58 +114,56 @@ const submitGoal = async () => {
   <div class="car-goal">
     <RoadmapCharacterSlider :step="1" label="자동차 로드맵" />
 
-    <h2 class="car-goal__title text-title">무엇을 준비하고 싶으신가요?</h2>
+    <PageHeader title="어떤 자동차를 타고 싶습니까?" />
 
     <form class="car-form" @submit.prevent="submitGoal">
-      <fieldset class="field">
-        <legend class="field__label text-label">신차 / 중고</legend>
-        <div class="toggle-row">
-          <CategoryButton
-            variant="square-yellow"
-            label="신차"
-            :active="form.isNew === true"
-            @click="selectIsNew(true)"
-          />
-          <CategoryButton
-            variant="square-yellow"
-            label="중고"
-            :active="form.isNew === false"
-            @click="selectIsNew(false)"
-          />
-        </div>
+      <!-- 신차/중고 + 수동예산: 한 그룹(내부 간격 좁게) -->
+      <div class="field-group">
+        <fieldset class="field">
+          <legend class="field__label text-label">신차 / 중고</legend>
+        <TabBar
+          variant="fill"
+          :model-value="form.isNew"
+          :tabs="[
+            { label: '신차', value: true },
+            { label: '중고', value: false },
+          ]"
+          @update:model-value="selectIsNew"
+        />
       </fieldset>
 
       <div class="field">
         <div class="row-between">
-          <button type="button" class="link-toggle" @click="budgetOpen = !budgetOpen">
-            수동 예산 입력 (선택) {{ budgetOpen ? '▲' : '▼' }}
-          </button>
+          <span class="budget-toggle">
+            <button type="button" class="link-toggle" @click="budgetOpen = !budgetOpen">
+              수동 예산 입력 (선택) {{ budgetOpen ? '▲' : '▼' }}
+            </button>
+          </span>
           <span class="field__hint-inline">
             {{ form.budget ? `${form.budget}만원` : '군적금 만기예상액 기준' }}
           </span>
         </div>
-        <BaseCard v-if="budgetOpen" padding="12px 14px">
-          <BaseInput
-            v-model="form.budget"
-            type="amount"
-            suffix="만원"
-            placeholder="입력 안 하면 군적금 만기예상액 기준으로 추천돼요"
-          />
-          <p class="field__hint">
-            만기예상액을 다 쓰지 않고 일부만 쓰고 싶다면, 원하는 한도를 입력해주세요.
-          </p>
-        </BaseCard>
+        <BaseInput
+          v-if="budgetOpen"
+          v-model="form.budget"
+          type="amount"
+          suffix="만원"
+          placeholder="예산 입력"
+        />
+        <p v-if="budgetOpen" class="budget-help">
+          군적금 만기액 기준이 아닌 원하는 한도를 입력하세요
+        </p>
+        </div>
       </div>
 
-      <label class="field">
+      <div class="field">
         <span class="field__label text-label">목표 구매 시기</span>
-        <input
+        <DatePicker
           v-model="form.targetDate"
-          type="date"
-          class="date-input"
           :min="today"
+          placeholder="목표 구매 시기 선택"
         />
-      </label>
+      </div>
 
       <div class="field">
         <BaseInput
@@ -194,8 +193,10 @@ const submitGoal = async () => {
     </form>
 
     <BottomButtonBar
-      :primary-label="submitting ? '등록 중...' : '차량 추천 받기'"
+      secondary-label="이전"
+      :primary-label="submitting ? '등록 중...' : '자동차 추천받기'"
       :primary-disabled="!isFormValid || submitting"
+      @secondary-click="router.push({ name: 'RoadmapMain' })"
       @primary-click="submitGoal"
     />
   </div>
@@ -206,21 +207,27 @@ const submitGoal = async () => {
   min-height: 100%;
   padding: 18px 0 88px;
   color: var(--text-strong);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+/* 제목 아래 컨텐츠 간격 통일(20px): flex gap 32 - 12 = 20 */
+.car-goal :deep(.page-header) {
+  margin-bottom: -12px;
 }
 
-.car-goal :deep(.character-slider) {
-  margin-bottom: 28px;
-}
-
-.car-goal__title {
-  margin: 0 0 22px;
-  line-height: 1.35;
-}
 
 .car-form {
   display: flex;
   flex-direction: column;
-  gap: 19px;
+  gap: var(--space-8);
+}
+
+/* 신차/중고 + 수동예산 = 한 그룹 (내부는 좁게, 다음 필드와는 --space-8) */
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .field {
@@ -229,13 +236,16 @@ const submitGoal = async () => {
   margin: 0;
   padding: 0;
   flex-direction: column;
-  gap: 7px;
+  gap: var(--space-2);
   border: 0;
 }
 
 .field__label {
   margin: 0;
   padding: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-body);
 }
 
 .field__hint {
@@ -264,28 +274,25 @@ const submitGoal = async () => {
   font-family: inherit;
 }
 
+/* 수동 예산 토글 */
+.budget-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 수동 예산 안내 (한 줄, 회색) */
+.budget-help {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  word-break: keep-all;
+}
+
 .field__hint-inline {
   font-size: 11px;
   color: var(--text-hint);
-}
-
-.toggle-row {
-  display: flex;
-  gap: 8px;
-}
-
-.date-input {
-  width: 100%;
-  height: 40px;
-  padding: 0 6px;
-  border: 0;
-  border-bottom: 2px solid var(--military-green);
-  border-radius: 0;
-  outline: none;
-  background: transparent;
-  color: var(--text-body);
-  font-family: inherit;
-  font-size: 14px;
 }
 
 .form-error {

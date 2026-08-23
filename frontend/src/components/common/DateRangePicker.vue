@@ -16,6 +16,7 @@ const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
 const rootRef = ref(null);
 const isOpen = ref(false);
+const openUpward = ref(false); // 아래 공간 부족하면 위로 펼침 (하단 고정버튼 가림 방지)
 
 const parseIsoDate = (value) => {
   if (!value) return null;
@@ -94,6 +95,15 @@ const open = () => {
     selected.getMonth(),
     1,
   );
+  // 열기 직전: 아래 공간이 달력(약 380px)보다 좁으면 위로 펼쳐 하단 버튼 가림 방지
+  if (!isOpen.value) {
+    const rect = rootRef.value?.getBoundingClientRect();
+    if (rect) {
+      const PANEL_HEIGHT = 380;
+      const SAFETY = 60;
+      openUpward.value = window.innerHeight - rect.bottom < PANEL_HEIGHT + SAFETY;
+    }
+  }
   isOpen.value = !isOpen.value;
 };
 
@@ -200,7 +210,11 @@ onUnmounted(() => {
       </svg>
     </button>
 
-    <div v-if="isOpen" class="date-range-picker__panel">
+    <div
+      v-if="isOpen"
+      class="date-range-picker__panel"
+      :class="{ 'date-range-picker__panel--up': openUpward }"
+    >
       <div class="date-range-picker__selection">
         <span>{{ selectionGuide }}</span>
         <button
@@ -297,6 +311,7 @@ onUnmounted(() => {
   background: transparent;
   color: var(--text-body);
   font: inherit;
+  font-size: 15px;
   cursor: pointer;
   transition: border-color 0.2s;
 }
@@ -348,6 +363,12 @@ onUnmounted(() => {
   box-shadow: 0 4px 12px var(--shadow-dropdown);
 }
 
+/* 아래 공간 부족 시 위로 펼침 (하단 고정 버튼 가림 방지) */
+.date-range-picker__panel--up {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
 .date-range-picker__selection,
 .date-range-picker__header {
   display: flex;
@@ -394,7 +415,7 @@ onUnmounted(() => {
 }
 
 .date-range-picker__navigation:hover:not(:disabled) {
-  background: var(--kb-yellow-pale);
+  background: var(--line);
 }
 
 .date-range-picker__navigation:disabled {
@@ -445,7 +466,12 @@ onUnmounted(() => {
 }
 
 .date-range-picker__day:hover:not(:disabled) {
-  background: var(--kb-yellow-pale);
+  background: var(--line);
+}
+
+/* 선택 범위(연노랑) 안의 날짜는 호버 오버레이 없이 밴드를 균일하게 유지 */
+.date-range-picker__day-cell--range .date-range-picker__day:hover:not(:disabled) {
+  background: transparent;
 }
 
 .date-range-picker__day--outside {

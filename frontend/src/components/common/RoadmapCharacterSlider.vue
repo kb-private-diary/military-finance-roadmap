@@ -39,9 +39,11 @@ const characterImg = computed(() => {
   return stepImages[idx];
 });
 
-const CHARACTER_BASE_SIZE = 32;
-const characterSize = computed(() =>
-  currentStep.value <= 1 ? CHARACTER_BASE_SIZE * 1.2 : CHARACTER_BASE_SIZE * 1.15,
+// 포즈별 가로세로 비율이 달라, 각 이미지의 '가장 긴 변'이 비슷하게(≈46px) 보이도록 폭을 개별 지정
+// (step1 lying은 납작해서 넓게, 서 있는 포즈는 좁게 — 시각적 크기 균일화)
+const STEP_WIDTHS = [33, 25, 28, 24]; // lying, sitdown, run, salute (전체적으로 축소)
+const characterSize = computed(
+  () => STEP_WIDTHS[currentStep.value - 1] ?? 38,
 );
 
 const characterStyle = computed(() => ({
@@ -49,6 +51,19 @@ const characterStyle = computed(() => ({
   bottom: `calc(100% - 4px)`,
   width: `${characterSize.value}px`,
 }));
+
+// n번째 단계의 트랙상 위치 (%) — step1 = 0%, 마지막 = 100% (4등분)
+const tickPercent = (n) => {
+  if (props.totalSteps <= 1) return 0;
+  return ((n - 1) / (props.totalSteps - 1)) * 100;
+};
+
+// STEP 라벨 위치 — 양 끝은 트랙 밖으로 안 넘치게 정렬 보정
+const labelStyle = (n) => {
+  if (n === 1) return { left: '0%', transform: 'translateX(0)' };
+  if (n === props.totalSteps) return { left: '100%', transform: 'translateX(-100%)' };
+  return { left: `${tickPercent(n)}%`, transform: 'translateX(-50%)' };
+};
 </script>
 
 <template>
@@ -56,6 +71,13 @@ const characterStyle = computed(() => ({
     <div v-if="label" class="character-slider__label">{{ label }}</div>
     <div class="character-slider__track">
       <div class="character-slider__fill" :style="{ width: `${percent}%` }" />
+      <span
+        v-for="n in totalSteps"
+        :key="`tick-${n}`"
+        class="character-slider__tick"
+        :class="{ 'is-reached': n <= currentStep }"
+        :style="{ left: `${tickPercent(n)}%` }"
+      />
       <img
         :src="characterImg"
         class="character-slider__character"
@@ -63,7 +85,16 @@ const characterStyle = computed(() => ({
         alt="진행 상황 캐릭터"
       />
     </div>
-    <div class="character-slider__step">step {{ currentStep }}</div>
+    <div class="character-slider__steps">
+      <span
+        v-for="n in totalSteps"
+        :key="`label-${n}`"
+        class="character-slider__step-label"
+        :class="{ 'is-current': n === currentStep }"
+        :style="labelStyle(n)"
+        >STEP {{ n }}</span
+      >
+    </div>
   </div>
 </template>
 
@@ -81,9 +112,9 @@ const characterStyle = computed(() => ({
 .character-slider__track {
   position: relative;
   height: 6px;
-  width: 88%;
-  /* 곰돌이가 트랙 위에 서므로 캐릭터 높이만큼만 위 여백 확보 */
-  margin-top: 42px;
+  /* 양옆 20px씩 줄여(인셋) 곰돌이가 중앙 정렬이어도 트랙 밖으로 안 나가게 */
+  /* margin-top 42px: 곰돌이가 트랙 위에 서므로 캐릭터 높이만큼 위 여백 확보 */
+  margin: 42px 20px 0;
   border-radius: 999px;
   background-color: var(--kb-gray-pale);
 }
@@ -95,19 +126,50 @@ const characterStyle = computed(() => ({
   transition: width 0.25s ease;
 }
 
+/* 4등분 눈금 (0 / 33 / 66 / 100%) */
+.character-slider__tick {
+  position: absolute;
+  top: 50%;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background-color: var(--kb-gray-pale);
+  border: 2px solid var(--surface-default, #fff);
+  transform: translate(-50%, -50%);
+  z-index: 1;
+}
+
+.character-slider__tick.is-reached {
+  background-color: var(--military-green);
+}
+
 .character-slider__character {
   position: absolute;
   height: auto;
   transform: translateX(-50%);
   transition: left 0.25s ease;
   pointer-events: none;
+  z-index: 2;
 }
 
-.character-slider__step {
-  margin-top: 0.35rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #96817c;
-  text-align: right;
+/* STEP 라벨 전부 표시 (눈금 위치에 맞춰) */
+.character-slider__steps {
+  position: relative;
+  height: 1.1rem;
+  /* 트랙과 동일하게 양옆 20px 인셋 → 라벨이 눈금 위치와 계속 정렬됨 */
+  margin: 0.5rem 20px 0;
+}
+
+.character-slider__step-label {
+  position: absolute;
+  font-size: 0.64rem; /* STEP 글자 살짝 축소 */
+  font-weight: 500;
+  color: var(--text-gray-light); /* 비현재 STEP은 연한 회색 */
+  white-space: nowrap;
+}
+
+.character-slider__step-label.is-current {
+  color: var(--military-green);
+  font-weight: 700;
 }
 </style>

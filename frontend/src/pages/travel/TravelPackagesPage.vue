@@ -6,6 +6,7 @@ import BaseCard from '@/components/common/BaseCard.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 import { formatWon } from '@/util/format';
 
 const route = useRoute();
@@ -87,12 +88,10 @@ onBeforeUnmount(() => {
   <div class="travel-packages">
     <RoadmapCharacterSlider :step="3" label="여행 로드맵" />
 
-    <header class="page-header">
-      <h1 class="text-title">이런 패키지는 어떠세요?</h1>
-      <p class="text-caption">
-        개별 여행 예상 경비보다 저렴하고 일정에 맞는 상품이에요.
-      </p>
-    </header>
+    <PageHeader
+      title="패키지 여행은 어떠십니까?"
+      description="자유 여행보다 저렴하고 일정에 맞는 상품들을 추천합니다."
+    />
 
     <div v-if="loading" class="status-box text-caption" role="status">
       패키지 상품을 불러오고 있습니다.
@@ -195,12 +194,12 @@ onBeforeUnmount(() => {
     </p>
 
     <BottomButtonBar
-      secondary-label="이 전"
+      secondary-label="이전"
       :primary-label="
         saving
           ? '저장 중...'
           : selectedPackageId
-            ? '다 음'
+            ? '선택완료'
             : '선택하지 않고 넘어가기'
       "
       :primary-disabled="
@@ -214,6 +213,10 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+/* 제목 아래 컨텐츠 간격 통일(20px) */
+.travel-packages :deep(.page-header) {
+  margin-bottom: 20px;
+}
 .travel-packages {
   min-height: 100%;
   padding: 18px 0 88px;
@@ -222,18 +225,6 @@ onBeforeUnmount(() => {
 
 .travel-packages :deep(.character-slider) {
   margin-bottom: 28px;
-}
-
-.page-header {
-  margin-bottom: 18px;
-}
-
-.page-header h1 {
-  margin: 0;
-}
-
-.page-header p {
-  margin: 8px 0 0;
 }
 
 .status-box {

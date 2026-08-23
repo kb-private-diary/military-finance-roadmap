@@ -62,24 +62,6 @@ defineProps({
   color: var(--text-strong);
 }
 
-/* 보라 포인트 컬러 배지용 (휴가 카테고리 PETITION 등) */
-.base-tag--purple {
-  background-color: var(--pastel-purple);
-  color: var(--text-strong);
-}
-
-/* 브라운 포인트 컬러 배지용 (휴가 카테고리 ETC 등) */
-.base-tag--brown {
-  background-color: var(--brown-active-bg);
-  color: var(--text-strong);
-}
-
-/* 자취(rent) 테마 핑크 배지용 */
-.base-tag--pink {
-  background-color: var(--rent-pink);
-  color: var(--surface-default);
-}
-
 /* 로드맵 카테고리 파스텔 배지 */
 .base-tag--pastel-blue {
   background-color: var(--pastel-blue);
@@ -99,5 +81,27 @@ defineProps({
 .base-tag--pastel-pink {
   background-color: var(--pastel-pink);
   color: var(--text-strong);
+}
+
+/* 도메인 카테고리 태그 (정확한 --theme-* 색 + 흰 글자) */
+.base-tag--roadmap {
+  background-color: var(--theme-roadmap);
+  color: #fff;
+}
+.base-tag--travel {
+  background-color: var(--theme-travel);
+  color: #fff;
+}
+.base-tag--rent {
+  background-color: var(--theme-rent);
+  color: #fff;
+}
+.base-tag--car {
+  background-color: var(--theme-car);
+  color: #fff;
+}
+.base-tag--job {
+  background-color: var(--theme-job);
+  color: #fff;
 }
 </style>

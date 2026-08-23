@@ -5,9 +5,11 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import BaseInput from '@/components/common/BaseInput.vue';
-import CategoryButton from '@/components/common/CategoryButton.vue';
+import CascaderSelect from '@/components/common/CascaderSelect.vue';
+import TabBar from '@/components/common/TabBar.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 import jobApi from '@/api/jobApi';
 
 const router = useRouter();
@@ -57,15 +59,6 @@ const parentCategories = computed(() =>
   categoryList.value.filter((category) => category.categoryLevel === 1),
 );
 
-// 선택한 대분류의 중분류 목록
-const childCategories = computed(() =>
-  categoryList.value.filter(
-    (category) =>
-      category.categoryLevel === 2 &&
-      category.parentId === Number(parentCategoryId.value),
-  ),
-);
-
 const universityOptions = computed(() =>
   universityList.value.map((university) => ({
     value: university.univId,
@@ -79,6 +72,79 @@ const majorOptions = computed(() =>
     label: major.majorName,
   })),
 );
+
+// ── 공통 CascaderSelect(2단) 연동 ──
+// 취업·공무원: 대분류(parentCategory) → 세부(childCategory)
+// 편입: 대학(university) → 학과(major, 대학 선택 시 지연 로드)
+const cascaderGroups = computed(() => {
+  if (goalType.value === 'J03') {
+    return universityOptions.value;
+  }
+
+  return parentCategories.value.map((category) => ({
+    value: category.categoryId,
+    label: category.categoryName,
+  }));
+});
+
+const cascaderChildrenByGroup = computed(() => {
+  const map = {};
+
+  if (goalType.value === 'J03') {
+    // 학과는 선택된 대학에 대해서만 로드됨
+    if (univId.value) {
+      map[univId.value] = majorOptions.value;
+    }
+
+    return map;
+  }
+
+  parentCategories.value.forEach((parent) => {
+    map[parent.categoryId] = categoryList.value
+      .filter(
+        (category) =>
+          category.categoryLevel === 2 &&
+          category.parentId === parent.categoryId,
+      )
+      .map((category) => ({
+        value: category.categoryId,
+        label: category.categoryName,
+      }));
+  });
+
+  return map;
+});
+
+// v-model = [그룹값, 자식값] ↔ 기존 개별 상태(refs) 매핑
+const cascaderValue = computed({
+  get() {
+    if (goalType.value === 'J03') {
+      return [univId.value || '', majorId.value || ''];
+    }
+
+    return [parentCategoryId.value || '', categoryId.value || ''];
+  },
+  set([group, child]) {
+    if (goalType.value === 'J03') {
+      if (group !== univId.value) {
+        // 대학 변경 → 학과 재로드(watch)·선택 초기화
+        univId.value = group;
+        majorId.value = '';
+      } else {
+        majorId.value = child;
+      }
+
+      return;
+    }
+
+    if (group !== parentCategoryId.value) {
+      parentCategoryId.value = group;
+      categoryId.value = '';
+    } else {
+      categoryId.value = child;
+    }
+  },
+});
 
 // 취업·공무원 카테고리 조회
 const loadCategories = async () => {
@@ -204,58 +270,6 @@ const expectedDate = computed(() => {
   return `${expectedYear.value}-${String(expectedMonth.value).padStart(2, '0')}`;
 });
 
-// ── 드롭다운 표시 ──
-const isOptionDropdownOpen = ref(false);
-
-const selectedOptionLabel = computed(() => {
-  if (goalType.value === 'J03') {
-    const university = universityList.value.find(
-      (item) => item.univId === Number(univId.value),
-    );
-
-    const major = majorList.value.find(
-      (item) => item.majorId === Number(majorId.value),
-    );
-
-    if (!university || !major) return '';
-
-    return `${university.univName} > ${major.majorName}`;
-  }
-
-  const parentCategory = parentCategories.value.find(
-    (item) => item.categoryId === Number(parentCategoryId.value),
-  );
-
-  const childCategory = childCategories.value.find(
-    (item) => item.categoryId === Number(categoryId.value),
-  );
-
-  if (!parentCategory || !childCategory) return '';
-
-  return `${parentCategory.categoryName} > ${childCategory.categoryName}`;
-});
-
-// ── 선택 처리 ──
-const selectParentCategory = (selectedId) => {
-  parentCategoryId.value = selectedId;
-  categoryId.value = '';
-};
-
-const selectChildCategory = (selectedId) => {
-  categoryId.value = selectedId;
-  isOptionDropdownOpen.value = false;
-};
-
-const selectUniversity = (selectedId) => {
-  univId.value = selectedId;
-  majorId.value = '';
-};
-
-const selectMajor = (selectedId) => {
-  majorId.value = selectedId;
-  isOptionDropdownOpen.value = false;
-};
-
 // ── watch ──
 watch(
   parentCategoryId,
@@ -285,7 +299,6 @@ watch(
     // 진로 유형 변경 시 기존 선택값 초기화
     expectedYear.value = '';
     expectedMonth.value = '';
-    isOptionDropdownOpen.value = false;
 
     await loadGoalOptions();
   },
@@ -408,21 +421,12 @@ const handleSubmit = async () => {
   <div class="job-goal-create">
     <RoadmapCharacterSlider :step="1" label="진로 로드맵" />
 
-    <h2 class="job-goal-create__title text-title">무엇을 준비하고 싶습니까?</h2>
+    <PageHeader title="무엇을 준비하고 싶습니까?" />
 
     <div class="job-goal-create__type-section">
       <p class="job-goal-create__type-label">진로 유형</p>
 
-      <div class="job-goal-create__type-toggle">
-        <CategoryButton
-          v-for="type in GOAL_TYPES"
-          :key="type.value"
-          :label="type.label"
-          variant="oval-yellow"
-          :active="goalType === type.value"
-          @click="goalType = type.value"
-        />
-      </div>
+      <TabBar variant="fill" v-model="goalType" :tabs="GOAL_TYPES" />
     </div>
 
     <!--  기존 BaseInput 1개 대신 입력칸 아래 2단 드롭다운 -->
@@ -431,139 +435,15 @@ const handleSubmit = async () => {
         {{ jobCodeLabel }}
       </div>
 
-      <div class="job-cascader">
-        <button
-          type="button"
-          class="job-cascader__trigger"
-          :class="{ 'job-cascader__trigger--open': isOptionDropdownOpen }"
-          :disabled="optionLoading"
-          @click="isOptionDropdownOpen = !isOptionDropdownOpen"
-        >
-          <span
-            class="job-cascader__trigger-text"
-            :class="{
-              'job-cascader__trigger-text--placeholder': !selectedOptionLabel,
-            }"
-          >
-            {{
-              optionLoading ? '불러오는 중...' : selectedOptionLabel || '선택'
-            }}
-          </span>
-
-          <svg
-            class="job-cascader__arrow"
-            :class="{ 'job-cascader__arrow--open': isOptionDropdownOpen }"
-            viewBox="0 0 24 24"
-            width="16"
-            height="16"
-          >
-            <path
-              d="M7 10l5 5 5-5"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-            />
-          </svg>
-        </button>
-
-        <div v-if="isOptionDropdownOpen" class="job-cascader__panel">
-          <!-- 취업·공무원 -->
-          <template v-if="goalType !== 'J03'">
-            <div class="job-cascader__column">
-              <button
-                v-for="parentCategory in parentCategories"
-                :key="parentCategory.categoryId"
-                type="button"
-                class="job-cascader__option"
-                :class="{
-                  'job-cascader__option--active':
-                    Number(parentCategoryId) === parentCategory.categoryId,
-                }"
-                @click="selectParentCategory(parentCategory.categoryId)"
-              >
-                <span>{{ parentCategory.categoryName }}</span>
-                <span class="job-cascader__option-arrow">›</span>
-              </button>
-            </div>
-
-            <div class="job-cascader__column">
-              <div v-if="!parentCategoryId" class="job-cascader__empty">
-                왼쪽에서 분류를 선택해주세요.
-              </div>
-
-              <template v-else>
-                <button
-                  v-for="childCategory in childCategories"
-                  :key="childCategory.categoryId"
-                  type="button"
-                  class="job-cascader__option"
-                  :class="{
-                    'job-cascader__option--active':
-                      Number(categoryId) === childCategory.categoryId,
-                  }"
-                  @click="selectChildCategory(childCategory.categoryId)"
-                >
-                  {{ childCategory.categoryName }}
-                </button>
-              </template>
-            </div>
-          </template>
-
-          <!-- 편입 -->
-          <template v-else>
-            <div class="job-cascader__column">
-              <button
-                v-for="university in universityList"
-                :key="university.univId"
-                type="button"
-                class="job-cascader__option"
-                :class="{
-                  'job-cascader__option--active':
-                    Number(univId) === university.univId,
-                }"
-                @click="selectUniversity(university.univId)"
-              >
-                <span>{{ university.univName }}</span>
-                <span class="job-cascader__option-arrow">›</span>
-              </button>
-            </div>
-
-            <div class="job-cascader__column">
-              <div v-if="!univId" class="job-cascader__empty">
-                왼쪽에서 대학을 선택해주세요.
-              </div>
-
-              <div v-else-if="optionLoading" class="job-cascader__empty">
-                학과를 불러오는 중입니다.
-              </div>
-
-              <div
-                v-else-if="majorList.length === 0"
-                class="job-cascader__empty"
-              >
-                등록된 학과가 없습니다.
-              </div>
-
-              <template v-else>
-                <button
-                  v-for="major in majorList"
-                  :key="major.majorId"
-                  type="button"
-                  class="job-cascader__option"
-                  :class="{
-                    'job-cascader__option--active':
-                      Number(majorId) === major.majorId,
-                  }"
-                  @click="selectMajor(major.majorId)"
-                >
-                  {{ major.majorName }}
-                </button>
-              </template>
-            </div>
-          </template>
-        </div>
-      </div>
+      <CascaderSelect
+        v-model="cascaderValue"
+        :groups="cascaderGroups"
+        :children-by-group="cascaderChildrenByGroup"
+        :placeholder="optionLoading ? '불러오는 중...' : '선택'"
+        :disabled="optionLoading"
+        group-empty-text="왼쪽에서 분류를 선택해주세요."
+        child-empty-text="선택 가능한 항목이 없습니다."
+      />
     </div>
 
     <div class="job-goal-create__date-field">
@@ -588,8 +468,10 @@ const handleSubmit = async () => {
       </div>
     </div>
     <BottomButtonBar
-      primary-label="진로 로드맵 추천 받기"
+      secondary-label="이전"
+      primary-label="진로 추천받기"
       :primary-disabled="!isFormValid"
+      @secondary-click="router.push({ name: 'RoadmapMain' })"
       @primary-click="handleSubmit"
     />
   </div>
@@ -599,190 +481,37 @@ const handleSubmit = async () => {
 .job-goal-create {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--space-8);
   padding: 20px 20px 100px;
 }
 
-.job-goal-create__title {
-  margin: 0 0 22px;
-  line-height: 1.35;
-}
-
-.job-goal-create__type-toggle {
+/* 진로 유형 (라벨 + 채움 버튼) */
+.job-goal-create__type-section {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 /* 직무·직렬·학과 */
 .job-goal-create__option-field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .job-goal-create__type-label,
 .job-goal-create__option-label,
 .job-goal-create__date-label {
-  color: var(--kb-dark-gray);
-  font-size: 15px;
-  font-weight: 600;
-}
-
-/* 2단 드롭다운 */
-.job-cascader {
-  position: relative;
-  width: 100%;
-}
-
-.job-cascader__trigger {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 44px;
-  padding: 10px 28px 10px 12px;
-
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid var(--kb-gold);
-  border-radius: 0;
-
   color: var(--text-body);
-  font: inherit;
-  font-size: 15px;
-  font-weight: 500;
-  text-align: center;
-  cursor: pointer;
-  transition: border-color 0.2s;
-}
-
-.job-cascader__trigger:hover {
-  border-bottom-color: var(--kb-yellow-deep);
-}
-
-.job-cascader__trigger:focus-visible,
-.job-cascader__trigger--open {
-  border-bottom-color: var(--kb-yellow-deep);
-  outline: none;
-}
-
-.job-cascader__trigger:disabled {
-  background: var(--surface-subtle);
-  cursor: not-allowed;
-}
-
-.job-cascader__trigger-text {
-  flex: 1;
-  overflow: visible;
-  font-size: 15px;
-  font-weight: 500;
-  line-height: 1.4;
-  text-align: center;
-  white-space: normal;
-  word-break: keep-all;
-}
-
-.job-cascader__trigger-text--placeholder {
-  color: var(--placeholder);
-  font-weight: 400;
-}
-
-.job-cascader__arrow {
-  position: absolute;
-  right: 4px;
-  flex-shrink: 0;
-  color: var(--gray-mid);
   font-size: 14px;
-  transition:
-    transform 0.3s ease,
-    color 0.2s ease;
-}
-
-.job-cascader__arrow--open {
-  color: var(--kb-yellow-deep);
-  transform: rotate(180deg);
-}
-
-/* 드롭다운 패널 */
-.job-cascader__panel {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  right: 0;
-  z-index: 999;
-
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-
-  height: 280px;
-  overflow: hidden;
-
-  background: var(--surface-default);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  box-shadow: 0 4px 12px var(--shadow-dropdown);
-}
-
-.job-cascader__column {
-  overflow-y: auto;
-  background: var(--surface-default);
-}
-
-.job-cascader__column + .job-cascader__column {
-  border-left: 1px solid var(--line);
-}
-
-.job-cascader__option {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-
-  width: 100%;
-  min-height: 44px;
-  padding: 10px 12px;
-
-  border: 0;
-  background: var(--surface-default);
-
-  color: var(--kb-dark-gray);
-  font-size: 14px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.job-cascader__option:hover {
-  background: var(--kb-yellow-pale);
-}
-
-.job-cascader__option--active {
-  background: var(--kb-yellow);
-  color: var(--kb-dark-gray);
   font-weight: 600;
-}
-
-.job-cascader__option-arrow {
-  margin-left: 8px;
-  color: var(--kb-gray);
-  font-size: 16px;
-}
-
-.job-cascader__empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  padding: 20px;
-  color: var(--text-muted);
-  font-size: 13px;
-  text-align: center;
 }
 
 /* 목표 시기 */
 .job-goal-create__date-field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .job-goal-create__date-row {

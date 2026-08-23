@@ -1,15 +1,18 @@
 <script setup>
 // SCR-CAR-03 · step3) 자동차 비용 계산  (담당: 호빈)
 // step3 - 취득세 포함 구매비용 + 연간 유지비 + 3년 총비용
-// UI는 여행 로드맵 비용 페이지(TravelCostPage)와 동일한 형식(도넛차트+범례+막대그래프)으로 맞춤
+// 예상 비용 내역: 탭(한 달 기준 / 3년 기준) + 물통 + 리스트 (EstimatedCostCard)
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import carApi from '@/api/carApi';
-import BaseCard from '@/components/common/BaseCard.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
-import DonutChart from '@/components/common/DonutChart.vue';
-import ProgressBar from '@/components/common/ProgressBar.vue';
+import EstimatedCostCard from '@/components/common/EstimatedCostCard.vue';
+import GoalSummaryCard from '@/components/common/GoalSummaryCard.vue';
 import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
+import TabBar from '@/components/common/TabBar.vue';
+import carBudgetIcon from '@/assets/images/car-budget.png';
+import carPriceIcon from '@/assets/images/car-price.png';
 import { formatManwonUnit } from '@/util/format';
 
 const route = useRoute();
@@ -33,37 +36,154 @@ const readErrorMessage = (error, fallback) =>
   fallback;
 
 const purchaseTotal = computed(() => (purchase.value?.price ?? 0) + (purchase.value?.tax ?? 0));
-const maintenanceTotalMin = computed(() => maintenanceCost.value?.totalMaintenanceCostMin ?? 0);
-const maintenanceTotalMax = computed(() => maintenanceCost.value?.totalMaintenanceCostMax ?? 0);
-const threeYearTotalMin = computed(() => purchaseTotal.value + maintenanceTotalMin.value * 3);
-const threeYearTotalMax = computed(() => purchaseTotal.value + maintenanceTotalMax.value * 3);
 
-// 도넛차트는 하나의 값만 받을 수 있어 보험료는 min~max 중간값으로 대표한다.
+const MAINTENANCE_MONTHS = 36;
+
+// 4색(사용자 지정): 자동차세 → 정비 → 보험료 → 연료비 (연할수록 작은 항목)
+const CAT_COLORS = {
+  tax: '#FFECBE',
+  repair: '#DAC183',
+  insurance: '#B39D89',
+  fuel: '#6E6053',
+};
+const INK_DARK = '#5b4b2e';
+const INK_LIGHT = '#ffffff';
+
+const mc = () => maintenanceCost.value || {};
 const insuranceMidAnnual = computed(() => {
-  const min = maintenanceCost.value?.insurancePremiumMin ?? 0;
-  const max = maintenanceCost.value?.insurancePremiumMax ?? 0;
+  const min = mc().insurancePremiumMin ?? 0;
+  const max = mc().insurancePremiumMax ?? 0;
   return (min + max) / 2;
 });
-const fuelTaxAnnual = computed(
+const monthlyOf = (annual) => Math.round((annual ?? 0) / 12);
+const monthlyFuel = computed(() => monthlyOf(mc().estimatedFuelCostAnnual));
+const monthlyInsurance = computed(() => monthlyOf(insuranceMidAnnual.value));
+const monthlyRepair = computed(() => monthlyOf(mc().estimatedRepairCostAnnual));
+const monthlyTax = computed(() => monthlyOf(mc().annualVehicleTaxAfterDiscount));
+const monthlyTotal = computed(
   () =>
-    (maintenanceCost.value?.estimatedFuelCostAnnual ?? 0) +
-    (maintenanceCost.value?.annualVehicleTaxAfterDiscount ?? 0),
+    monthlyFuel.value + monthlyInsurance.value + monthlyRepair.value + monthlyTax.value,
+);
+const maint3yTotal = computed(() => monthlyTotal.value * MAINTENANCE_MONTHS);
+
+// 탭① 한 달 기준 — 유지비 4개 항목 (위→아래: 작은 것부터, 물통 바닥에 큰 항목)
+const monthlyData = computed(() => {
+  if (!maintenanceCost.value) return null;
+  const g = goal.value || {};
+  const carType = CAR_TYPE_LABEL[g.carTypeCode] || '';
+  const total = monthlyTotal.value || 1;
+  const pct = (m) => Math.round((m / total) * 100);
+  const items = [
+    { label: '자동차세', sub: `${carType} 기준`, monthly: monthlyTax.value, color: CAT_COLORS.tax, ink: INK_DARK },
+    { label: '정비', sub: '소모품·정기점검', monthly: monthlyRepair.value, color: CAT_COLORS.repair, ink: INK_DARK },
+    { label: '보험료', sub: `경력 ${g.experienceYears ?? 0}년 · ${g.region ?? ''}`, monthly: monthlyInsurance.value, color: CAT_COLORS.insurance, ink: INK_LIGHT },
+    { label: '연료비', sub: mc().fuelType ? `${mc().fuelType} 기준` : '', monthly: monthlyFuel.value, color: CAT_COLORS.fuel, ink: INK_LIGHT, showName: true },
+  ].map((it) => ({
+    ...it,
+    percent: pct(it.monthly),
+    amountText: formatManwonUnit(it.monthly),
+    showName: it.showName || false,
+  }));
+  return {
+    headLabel: '월 예상 유지비',
+    amount: monthlyTotal.value,
+    unit: '만원',
+    subNote: `${carType} · 운전경력 ${g.experienceYears ?? 0}년 기준`,
+    items,
+  };
+});
+
+// 탭② 3년 기준 — 유지비 + 구매 비용 2개 층 (차값·취득세는 들여쓰기)
+const yearlyData = computed(() => {
+  if (!maintenanceCost.value || !purchase.value) return null;
+  const buy = purchaseTotal.value;
+  const keep = maint3yTotal.value;
+  const total = buy + keep || 1;
+  const pct = (v) => Math.round((v / total) * 100);
+  const monthlyMin =
+    monthlyFuel.value + monthlyOf(mc().insurancePremiumMin) + monthlyRepair.value + monthlyTax.value;
+  const monthlyMax =
+    monthlyFuel.value + monthlyOf(mc().insurancePremiumMax) + monthlyRepair.value + monthlyTax.value;
+  return {
+    headLabel: '3년 총 예상 비용',
+    amount: Math.round(total),
+    unit: '만원',
+    range: `${formatManwonUnit(buy + monthlyMin * MAINTENANCE_MONTHS)} ~ ${formatManwonUnit(buy + monthlyMax * MAINTENANCE_MONTHS)}`,
+    items: [
+      { label: '유지비', sub: `월 ${monthlyTotal.value}만원 × ${MAINTENANCE_MONTHS}개월`, percent: pct(keep), color: 'var(--kb-yellow)', ink: 'var(--kb-dark-gray)', showName: true, amountText: formatManwonUnit(keep) },
+      { label: '구매 비용', sub: '살 때 딱 한 번', percent: pct(buy), color: CAT_COLORS.fuel, ink: INK_LIGHT, showName: true, amountText: formatManwonUnit(buy) },
+    ],
+    nested: [
+      { label: '시세', value: formatManwonUnit(purchase.value.price) },
+      { label: '취득세', value: formatManwonUnit(purchase.value.tax) },
+    ],
+  };
+});
+
+// 탭(카드 밖): 한 달 기준 / 3년 기준
+const COST_TABS = [
+  { label: '한 달 기준', value: 'monthly' },
+  { label: '3년 기준', value: 'yearly' },
+];
+const costTab = ref('monthly');
+const activeCostState = computed(() =>
+  costTab.value === 'monthly' ? monthlyData.value : yearlyData.value,
 );
 
-const costItems = computed(() => [
-  { label: '구매비용', value: purchaseTotal.value, color: 'var(--chart-1)' },
-  { label: '세금·연료비', value: fuelTaxAnnual.value * 3, color: 'var(--chart-3)' },
-  { label: '보험료', value: insuranceMidAnnual.value * 3, color: 'var(--chart-4)' },
-]);
-
-const chartTotal = computed(() =>
-  costItems.value.reduce((sum, item) => sum + item.value, 0),
+// 목표 요약 카드 (GoalSummaryCard)
+const CAR_TYPE_LABEL = { 1: '경차', 2: '준중형', 3: 'SUV' };
+const summaryChip = computed(() =>
+  goal.value ? (goal.value.isNew ? '신차' : '중고') : '',
 );
-
-const percentOf = (value) => {
-  if (!chartTotal.value) return 0;
-  return Math.round((value / chartTotal.value) * 100);
-};
+// 차 정보 스펙 — 차종 · 연식 · 주행거리 · 시세 · 취득세 · 공채매입 (경차는 공채 면제)
+const summarySpecs = computed(() => {
+  const g = goal.value;
+  const p = purchase.value;
+  if (!g || !p) return [];
+  const specs = [];
+  if (g.carTypeCode) {
+    specs.push({ label: '차종', value: CAR_TYPE_LABEL[g.carTypeCode] });
+  }
+  if (!g.isNew && g.selectedYear) {
+    specs.push({ label: '연식', value: `${g.selectedYear}년식` });
+  }
+  if (!g.isNew && g.selectedMileageKm) {
+    specs.push({
+      label: '주행거리',
+      value: `${g.selectedMileageKm.toLocaleString()}km`,
+    });
+  }
+  specs.push({ label: '시세', value: formatManwonUnit(p.price) });
+  specs.push({ label: '취득세', value: formatManwonUnit(p.tax) });
+  specs.push({
+    label: '공채매입',
+    value: g.carTypeCode === 1 ? '면제 대상' : formatManwonUnit(p.bond ?? 0),
+  });
+  return specs;
+});
+// 예산 비교: 내 예산 vs 실제 차값(구매비용) → 여유/부족 뱃지
+const summaryCompare = computed(() => {
+  const g = goal.value;
+  if (!g || !g.budget) return null;
+  const price = Math.round(purchaseTotal.value);
+  const diff = g.budget - price;
+  return {
+    left: {
+      label: '내 예산',
+      value: `${g.budget.toLocaleString()}만`,
+      icon: carBudgetIcon,
+    },
+    right: {
+      label: '실제 차값',
+      value: `${price.toLocaleString()}만`,
+      icon: carPriceIcon,
+    },
+    badge:
+      diff >= 0
+        ? { text: `${diff.toLocaleString()}만 여유`, tone: 'good' }
+        : { text: `${(-diff).toLocaleString()}만 필요`, tone: 'bad' },
+  };
+});
 
 const loadCost = async () => {
   loading.value = true;
@@ -79,11 +199,19 @@ const loadCost = async () => {
     if (goal.value.isNew) {
       const taxResult = await carApi.findAcquisitionTax(goalId.value);
       const tax = unwrap(taxResult);
-      purchase.value = { price: tax.vehiclePrice, tax: tax.acquisitionTaxAmount };
+      purchase.value = {
+        price: tax.vehiclePrice,
+        tax: tax.acquisitionTaxAmount,
+        bond: tax.bondPurchaseAmount,
+      };
     } else {
       const usedResult = await carApi.findUsedPrice(goalId.value);
       const used = unwrap(usedResult);
-      purchase.value = { price: used.estimatedUsedPrice, tax: used.acquisitionTaxAmount };
+      purchase.value = {
+        price: used.estimatedUsedPrice,
+        tax: used.acquisitionTaxAmount,
+        bond: used.bondPurchaseAmount,
+      };
     }
   } catch (error) {
     loadError.value = readErrorMessage(error, '비용 정보를 불러오지 못했습니다.');
@@ -121,53 +249,31 @@ const handlePrev = () => {
     </div>
 
     <template v-else>
-      <h2 class="car-cost__title text-title">
-        3년간 예상되는<br />총 준비 비용입니다.
-      </h2>
-      <p class="car-cost__total">
-        {{ formatManwonUnit(threeYearTotalMin) }}~{{ formatManwonUnit(threeYearTotalMax) }}
-      </p>
+      <PageHeader
+        title="자동차 로드맵의 예상 비용 내역입니다."
+        description="자동차 구매 시, 3년 간 유지비를 분석해드립니다."
+      />
 
-      <BaseCard
-        class="cost-card"
-        padding="29px 22px 31px"
-        aria-label="자동차 비용 상세"
-      >
-        <div class="chart-area">
-          <DonutChart
-            :items="costItems"
-            :size="174"
-            :thickness="38"
-            chart-label="구매비용, 세금·연료비, 보험료 비율"
-          />
+      <GoalSummaryCard
+        v-if="goal"
+        accent="var(--kb-yellow)"
+        class="car-cost__summary"
+        :chip="summaryChip"
+        :title="goal.selectedModelName || '자동차 목표'"
+        :compare="summaryCompare"
+        :specs="summarySpecs"
+      />
 
-          <ul class="legend">
-            <li v-for="item in costItems" :key="item.label">
-              <span
-                class="legend__swatch"
-                :style="{ backgroundColor: item.color }"
-              />
-              <span class="text-caption">{{ item.label }}</span>
-            </li>
-          </ul>
-        </div>
-
-        <ul class="breakdown">
-          <li v-for="item in costItems" :key="item.label">
-            <span class="breakdown__label text-caption">{{ item.label }}</span>
-            <ProgressBar
-              :value="item.value"
-              :total="chartTotal"
-              :color="item.color"
-              :height="6"
-            />
-            <strong>{{ percentOf(item.value) }}%</strong>
-          </li>
-        </ul>
-
-        <p class="cost-card__hint">구매 비용 + 3년치 세금·연료비·보험료 기준</p>
-        <p class="cost-card__notice">상세 요금은 저장을 완료하면 보여줍니다.</p>
-      </BaseCard>
+      <div class="car-cost__tabs">
+        <TabBar variant="segment" v-model="costTab" :tabs="COST_TABS" />
+      </div>
+      <EstimatedCostCard
+        v-if="activeCostState"
+        class="car-cost__cost"
+        :state="activeCostState"
+        :dividers="false"
+        note=""
+      />
     </template>
 
     <BottomButtonBar
@@ -191,101 +297,15 @@ const handlePrev = () => {
   margin-bottom: 28px;
 }
 
-.car-cost__title {
-  margin: 0 0 14px;
-  line-height: 1.35;
-  text-align: center;
+.car-cost__summary {
+  margin: 20px 0;
 }
 
-.car-cost__total {
-  margin: 0 0 18px;
-  color: var(--kb-gray);
-  font-size: 27px;
-  font-weight: 500;
-  line-height: 1.25;
-  text-align: center;
+.car-cost__tabs {
+  margin-bottom: 16px;
 }
-
-.cost-card {
-  border-radius: 13px;
-}
-
-.chart-area {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 23px;
-  margin-bottom: 36px;
-}
-
-.legend,
-.breakdown {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.legend {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.legend li {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--text-body);
-  font-size: 11px;
-  white-space: nowrap;
-}
-
-.legend__swatch {
-  width: 12px;
-  height: 12px;
-  flex: 0 0 12px;
-}
-
-.breakdown {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.breakdown li {
-  display: grid;
-  grid-template-columns: 68px minmax(0, 1fr) 38px;
-  align-items: center;
-  gap: 9px;
-  color: var(--kb-gray);
-  font-size: 12px;
-}
-
-.breakdown__label {
-  font-weight: 500;
-}
-
-.breakdown strong {
-  color: var(--text-body);
-  font-size: 12px;
-  font-weight: 600;
-  text-align: right;
-}
-
-.cost-card__hint {
-  margin: 18px 0 0;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
-  color: var(--text-hint);
-  font-size: 11px;
-  text-align: center;
-}
-
-.cost-card__notice {
-  margin: 4px 0 0;
-  color: var(--text-hint);
-  font-size: 10px;
-  text-align: center;
+.car-cost__cost {
+  margin-top: 4px;
 }
 
 .status-box {

@@ -8,6 +8,7 @@ import BaseCard from '@/components/common/BaseCard.vue';
 import BaseModal from '@/components/common/BaseModal.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 import { formatManwonUnit } from '@/util/format';
 
 const route = useRoute();
@@ -102,7 +103,10 @@ const handlePrev = () => {
   <div class="car-products">
     <RoadmapCharacterSlider :step="currentStep" label="자동차 로드맵" />
 
-    <h2 class="car-products__title text-title">금융상품 추천</h2>
+    <PageHeader
+      title="자동차 구매 전, 아래 금융상품은 어떠십니까?"
+      description="자세한 내용은 KB손해보험 홈페이지에서 확인할 수 있습니다."
+    />
 
     <div v-if="loading" class="car-products__status text-caption">불러오는 중...</div>
     <p v-else-if="loadError" class="form-error text-caption" role="alert">
@@ -194,7 +198,7 @@ const handlePrev = () => {
     </template>
 
     <BottomButtonBar
-      :primary-label="completing ? '저장 중...' : '완료'"
+      :primary-label="completing ? '저장 중...' : '저장'"
       secondary-label="이전"
       :primary-disabled="loading || !!loadError || completing"
       @primary-click="handleComplete"
@@ -222,9 +226,9 @@ const handlePrev = () => {
   padding: 18px 0 96px;
   color: var(--text-strong);
 }
-
-.car-products__title {
-  margin: 0;
+/* 제목 아래 컨텐츠 간격 통일(20px): flex gap 16 + ph mb 4 */
+.car-products :deep(.page-header) {
+  margin-bottom: 4px;
 }
 
 .car-products__status {

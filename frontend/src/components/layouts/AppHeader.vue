@@ -49,10 +49,6 @@ const goMyPage = () => {
   // 라우트 정의서 SCR-MYP-01 (/mypage) 기준
   router.push({ name: 'MyPage' });
 };
-
-const goHome = () => {
-  router.push({ name: 'Home' });
-};
 </script>
 
 <template>
@@ -171,6 +167,7 @@ const goHome = () => {
           />
         </svg>
       </button>
+
     </div>
   </header>
 </template>

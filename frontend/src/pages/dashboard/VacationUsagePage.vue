@@ -9,9 +9,12 @@ import { useToast } from '@/composables/useToast';
 import BaseCard from '@/components/common/BaseCard.vue';
 import BaseInput from '@/components/common/BaseInput.vue';
 import BaseModal from '@/components/common/BaseModal.vue';
+import DatePicker from '@/components/common/DatePicker.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 import ProgressBar from '@/components/common/ProgressBar.vue';
 import { formatDate } from '@/util/format';
+import ramuIcon from '@/assets/images/char-ramu.png';
 
 const route = useRoute();
 const router = useRouter();
@@ -150,20 +153,30 @@ const deleteUsage = async () => {
 };
 
 const goPrevious = () => router.back();
-const goComplete = () => router.push({ name: 'Dashboard' });
+// 진입했던 화면(대개 대시보드)으로 돌아간다. push로 새로 열면 스크롤이 최상단으로 튀므로 back 사용.
+const goComplete = () => router.back();
 
 onMounted(fetchDetail);
 </script>
 
 <template>
   <div class="vacation-usage container py-4">
-    <h2 class="vacation-usage__title">{{ detail?.name ?? '휴가' }} 사용내역</h2>
+    <PageHeader
+      :breadcrumb="`${detail?.name ?? '휴가'} 사용 등록`"
+      title="사용 내역 기록·보고"
+    />
 
     <p v-if="loadError" class="vacation-usage__error">{{ loadError }}</p>
     <p v-else-if="isLoading" class="text-caption">불러오는 중...</p>
 
     <template v-else-if="detail">
       <div class="vacation-usage__summary">
+        <img
+          :src="ramuIcon"
+          alt=""
+          aria-hidden="true"
+          class="vacation-usage__mascot"
+        />
         <p class="vacation-usage__summary-label">잔여</p>
         <p class="vacation-usage__summary-value">
           {{ detail.remainingDays }}일
@@ -184,8 +197,63 @@ onMounted(fetchDetail);
         </p>
       </div>
 
+      <!-- 요약과 사용 내역 구분 - 회색 굵은 선 -->
+      <div class="vacation-usage__section-divider" />
+
       <section class="vacation-usage__usages">
-        <h3 class="vacation-usage__section-title">사용 내역</h3>
+        <div class="vacation-usage__usages-head">
+          <h3 class="vacation-usage__section-title">사용 내역</h3>
+          <!-- 갈색 버튼: 내역이 많아도 스크롤 없이 상단에서 바로 추가 -->
+          <button
+            v-if="!isAddFormOpen"
+            type="button"
+            class="usage-add-btn"
+            @click="openAddForm"
+          >
+            + 사용 회차 추가
+          </button>
+        </div>
+
+        <!-- 추가 폼은 상단에 열려서 내역이 많아도 스크롤 없이 등록 -->
+        <div v-if="isAddFormOpen" class="add-usage-form">
+          <div class="add-usage-form__fields">
+            <DatePicker
+              v-model="newUsageDate"
+              label="사용일"
+              placeholder="사용일 선택"
+            />
+            <BaseInput
+              v-model="newUsageDays"
+              type="number"
+              label="사용 일수"
+              suffix="일"
+              placeholder="일수 입력"
+            />
+          </div>
+          <div class="add-usage-form__footer">
+            <p v-if="usageFormError" class="add-usage-form__hint">
+              {{ usageFormError }}
+            </p>
+            <div class="add-usage-form__actions">
+              <button
+                type="button"
+                class="add-usage-form__btn add-usage-form__btn--confirm"
+                :disabled="isSubmitting"
+                @click="registerUsage"
+              >
+                등록
+              </button>
+              <button
+                type="button"
+                class="add-usage-form__btn add-usage-form__btn--cancel"
+                :disabled="isSubmitting"
+                @click="cancelAddForm"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
 
         <BaseCard
           v-for="(usage, index) in detail.usages"
@@ -223,52 +291,6 @@ onMounted(fetchDetail);
             사용일 {{ formatDate(usage.usedDate) }}
           </p>
         </BaseCard>
-
-        <div class="vacation-usage__divider" />
-
-        <div v-if="isAddFormOpen" class="add-usage-form">
-          <div class="add-usage-form__fields">
-            <BaseInput v-model="newUsageDate" type="date" label="사용일" />
-            <BaseInput
-              v-model="newUsageDays"
-              type="number"
-              label="사용 일수"
-              suffix="일"
-              placeholder="일수 입력"
-            />
-          </div>
-          <div class="add-usage-form__footer">
-            <p v-if="usageFormError" class="add-usage-form__hint">
-              {{ usageFormError }}
-            </p>
-            <div class="add-usage-form__actions">
-              <button
-                type="button"
-                class="add-usage-form__btn add-usage-form__btn--confirm"
-                :disabled="isSubmitting"
-                @click="registerUsage"
-              >
-                등록
-              </button>
-              <button
-                type="button"
-                class="add-usage-form__btn add-usage-form__btn--cancel"
-                :disabled="isSubmitting"
-                @click="cancelAddForm"
-              >
-                취소
-              </button>
-            </div>
-          </div>
-        </div>
-        <button
-          v-else
-          type="button"
-          class="add-usage-trigger"
-          @click="openAddForm"
-        >
-          + 사용 회차 추가
-        </button>
       </section>
     </template>
 
@@ -301,21 +323,65 @@ onMounted(fetchDetail);
   padding-bottom: 88px;
 }
 
-.vacation-usage__title {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 800;
-  color: var(--text-strong);
-}
-
 .vacation-usage__error {
   color: var(--danger);
 }
 
 .vacation-usage__summary {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding-right: 76px; /* 라무 아이콘 자리 확보 */
+}
+
+/* 라무 마스코트 - 요약 우상단 */
+.vacation-usage__mascot {
+  position: absolute;
+  top: -8px;
+  right: 0;
+  width: 70px;
+  height: 70px;
+  object-fit: contain;
+}
+
+/* 요약과 사용 내역 사이 회색 굵은 구분선 (좌우 풀블리드) */
+.vacation-usage__section-divider {
+  height: 8px;
+  margin: 4px -24px;
+  background-color: var(--bg-gray);
+}
+
+/* 사용 내역 헤더: 제목 + 갈색 추가 버튼 */
+.vacation-usage__usages-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+/* 갈색(chart-1) 추가 버튼 - 상단에 두어 스크롤 없이 등록 */
+.usage-add-btn {
+  flex: none;
+  padding: 7px 13px;
+  border: none;
+  border-radius: 999px;
+  background-color: var(--chart-1);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.usage-add-btn:active {
+  opacity: 0.85;
+}
+
+/* 사용일 DatePicker - 획득일과 통일된 갈색 밑줄 */
+.vacation-usage :deep(.date-picker__trigger) {
+  border-bottom-color: var(--chart-1);
 }
 
 .vacation-usage__summary-label {
@@ -399,10 +465,6 @@ onMounted(fetchDetail);
   cursor: not-allowed;
 }
 
-.vacation-usage__divider {
-  height: 1px;
-  background-color: var(--line);
-}
 
 .add-usage-form {
   display: flex;
@@ -459,14 +521,4 @@ onMounted(fetchDetail);
   cursor: not-allowed;
 }
 
-.add-usage-trigger {
-  padding: 12px;
-  border: 1px dashed var(--line-strong);
-  border-radius: 12px;
-  background: none;
-  color: var(--text-body);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
 </style>

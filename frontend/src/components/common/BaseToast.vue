@@ -31,7 +31,7 @@ const { toasts } = useToast();
   align-items: center;
   gap: 8px;
   width: 100%;
-  max-width: 393px;
+  max-width: var(--app-max-width);
   padding: 0 16px;
   z-index: 1000;
   pointer-events: none;

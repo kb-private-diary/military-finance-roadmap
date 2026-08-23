@@ -6,7 +6,10 @@ import { useRoute, useRouter } from 'vue-router';
 import carApi from '@/api/carApi';
 import dashboardApi from '@/api/dashboardApi';
 import BaseCard from '@/components/common/BaseCard.vue';
+import BaseTag from '@/components/common/BaseTag.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
+import TabBar from '@/components/common/TabBar.vue';
 import { formatDate, formatManwonUnit } from '@/util/format';
 
 const route = useRoute();
@@ -113,10 +116,6 @@ const loadDetail = async () => {
 
 onMounted(loadDetail);
 
-const selectTab = (key) => {
-  activeTab.value = key;
-};
-
 const goToList = () => {
   router.push({ name: 'CarRecommend', params: { goalId: goalId.value } });
 };
@@ -128,6 +127,12 @@ const goToRoadmap = () => {
 
 <template>
   <div class="car-detail">
+    <!-- 헤더: 자취 상세와 동일하게 PageHeader + 도메인 태그 한 줄 -->
+    <header class="car-detail__head">
+      <PageHeader breadcrumb="저장한 로드맵" title="내가 그린 전역 작전" />
+      <BaseTag label="자동차" variant="car" />
+    </header>
+
     <div v-if="loading" class="car-detail__status text-caption">불러오는 중...</div>
     <p v-else-if="loadError" class="form-error text-caption" role="alert">
       {{ loadError }}
@@ -135,7 +140,6 @@ const goToRoadmap = () => {
 
     <template v-else>
       <BaseCard padding="16px 18px" class="car-detail__header">
-        <span class="car-detail__category">자동차</span>
         <h2 class="car-detail__name">{{ goal.selectedModelName || '자동차 목표' }}</h2>
         <p class="car-detail__date">{{ formatDate(goal.targetDate) }}</p>
         <p class="car-detail__route">
@@ -177,18 +181,10 @@ const goToRoadmap = () => {
           </p>
         </div>
 
-        <div class="tab-row">
-          <button
-            v-for="tab in TABS"
-            :key="tab.key"
-            type="button"
-            class="tab-button"
-            :class="{ 'is-active': activeTab === tab.key }"
-            @click="selectTab(tab.key)"
-          >
-            {{ tab.label }}
-          </button>
-        </div>
+        <TabBar
+          v-model="activeTab"
+          :tabs="TABS.map((t) => ({ label: t.label, value: t.key }))"
+        />
 
         <!-- 탭: 선택한 목표 -->
         <div v-if="activeTab === 'goal'" class="tab-panel">
@@ -328,7 +324,6 @@ const goToRoadmap = () => {
 
     <BottomButtonBar
       primary-label="확인"
-      secondary-label="삭제"
       @primary-click="goToRoadmap"
     />
   </div>
@@ -341,6 +336,14 @@ const goToRoadmap = () => {
   gap: 16px;
   padding: 18px 0 96px;
   color: var(--text-strong);
+}
+
+/* 헤더: PageHeader + 도메인 태그 한 줄 (자취 상세와 동일) */
+.car-detail__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .car-detail__status,
@@ -361,18 +364,8 @@ const goToRoadmap = () => {
   align-items: flex-start;
 }
 
-.car-detail__category {
-  display: inline-block;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: var(--pastel-purple);
-  color: var(--surface-default);
-  font-size: 11px;
-  font-weight: 700;
-}
-
 .car-detail__name {
-  margin: 10px 0 0;
+  margin: 0;
   font-size: 18px;
   font-weight: 700;
   color: var(--text-strong);
@@ -451,29 +444,6 @@ const goToRoadmap = () => {
 
 .insight__hl {
   color: #2e9e5b;
-}
-
-.tab-row {
-  display: flex;
-  gap: 4px;
-  border-bottom: 1px solid var(--line);
-}
-
-.tab-button {
-  flex: 1;
-  padding: 12px 0;
-  border: 0;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-}
-
-.tab-button.is-active {
-  color: var(--text-strong);
-  border-bottom-color: var(--kb-yellow-deep);
 }
 
 .tab-panel {
@@ -580,7 +550,7 @@ const goToRoadmap = () => {
 
 .section-title {
   margin: 0 0 12px;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--text-body);
   display: block;

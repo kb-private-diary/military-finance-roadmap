@@ -1,26 +1,57 @@
 /* 색상 토큰. 전 파트가 이 변수만 참조한다. 색을 바꿀 때 이 파일만 고친다.
    main.js 에서 typography.css 보다 먼저 import 한다. */
 :root {
+  /* 반응형 프레임 최대 폭 — 폰은 100%로 꽉 채우고, 이 값에서 상한 (하단바·토스트·레이아웃 공통 참조).
+     480 = 아이폰 16 Pro Max(440)·대형 안드로이드까지 꽉 채우고, 데스크탑에선 여기서 상한 */
+  --app-max-width: 480px;
+
+  /* ── 여백 스케일 (spacing tokens) · 4px 배수 ──
+     padding·margin·gap 은 이 값들만 사용해 일관성 유지. 예: padding: var(--space-4);
+     좌우 gutter = --space-6(24px) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
   /* KB 브랜드 팔레트 (KB금융그룹 CI 가이드) */
-  --kb-yellow: #ffcc00; /* KB Yellow Negative — 주요 버튼 */
+  --kb-yellow: #ffd338; /* 주 노란색 — 주요 버튼(확인/다음 등) */
   --kb-yellow-deep: #ffbc00; /* KB Yellow Positive */
   --kb-gray: #60584c; /* KB Gray */
   --kb-dark-gray: #545045; /* KB Dark Gray */
 
-  --kb-gray-pale: #e8e8e8; /* 보조 버튼 · 비활성 배경 */
+  --kb-gray-pale: #ebeef0; /* 버튼 회색 (보통 회색) — 보조 버튼(이전)·비활성 버튼 배경 */
+  --tag-gray: #393f4c; /* 태그 회색 (진한 회색) */
+  --tag-gray-mid: #9d9d9d; /* 회색 태그 (중간 회색, 흰 글자용) */
+  --btn-gray-text: #666561; /* 회색·흰색 버튼 글자색 */
   --danger: #fa6e6e; /* 삭제·해지 */
   --success: #2e9e5b; /* 비밀번호 일치 등 인라인 성공 상태 텍스트 */
+
+  /* 도메인 테마 색 (파스텔) — 로드맵 카테고리별 */
+  --theme-travel: #8fd3f8; /* 여행 (파스텔 톤에 맞춰 연하게 조정) */
+  --theme-job: #f0c84d; /* 진로 (흰 글자 대비 위해 조금 진한 골든 옐로우로 조정) */
+  --theme-car: #a4d09e; /* 자동차 */
+  --theme-rent: #f3adae; /* 자취 */
+  --theme-roadmap: #e5adf3; /* 로드맵 전체 */
 
   /* 텍스트 */
   --text-strong: #000000;
   --text-body: #545045;
-  --text-muted: #767676;
-  --text-hint: #999999;
+  --text-muted: #696e76; /* 글자 회색 (통일) */
+  --text-hint: #696e76; /* 글자 회색 (통일) */
+  --text-gray-light: #838b93; /* 글자 연한 회색 */
   --text-disabled: #a0a0a0;
 
-  /* 경계선 */
-  --line: #e0e0e0;
-  --line-strong: #d0d0d0;
+  /* 회색 구분선·배경 */
+  --line: #f7f7f8; /* 굵은 중앙선 (섹션 구분 두꺼운 선) */
+  --line-strong: #f7f7f8; /* 굵은 중앙선 (섹션 구분 두꺼운 선) */
+  --divider-thin: #dde0e3; /* 얇은 중앙선 */
+  --input-border: #d1d5db; /* 입력칸(박스) 테두리 — 흰 배경에서 잘 보이는 회색 */
+  --bg-gray: #eaedef; /* 배경 회색 */
 
   /* 여행 로드맵 */
   --travel-primary: #657052;
@@ -48,20 +79,35 @@
 
   /* KB 골드 (BaseInput underline/dropdown 밑줄, 강조 텍스트) */
   --kb-gold: #85714d; /* KB Gold (Pantone 872 C) */
-  --kb-yellow-pale: #fff9e6; /* KB 연한 노란색 — 드롭다운 hover/selected 배경 */
+  --kb-yellow-pale: #fff1cb; /* 연한 노란색 (전역) — 드롭다운 hover/selected 배경 등 */
+  --yellow-pale-text: #571e12; /* 글씨 갈색 — 연한 노란색 버튼/배경 위 글씨 */
   --brand-gold: #a9895a; /* 브랜드 골드 톤 — 예상 수령액 등 강조 텍스트 */
 
   /* 국방색 (BaseTag 활성 배지) */
   --military-green: #536349;
   --military-green-light: #e0e6dc;
 
+  /* 우드랜드 카모 팔레트 (적금 여정 등 군인 테마) — 메인은 --military-green */
+  --camo-green: #485c3e; /* 우드랜드 그린 (짙은 올리브그린) */
+  --camo-olive: #5f6b39; /* 올리브 그린 */
+  --camo-olive-light: #8b8a52; /* 라이트 올리브(카키) */
+  --camo-sand: #cabf87; /* 라이트 카키/샌드 */
+  --camo-camel: #b7a06a; /* 카멜 탄 */
+  --camo-rust: #6b3a24; /* 러스트 브라운 */
+  --camo-dark: #33320f; /* 다크 올리브(블랙 계열) */
+  --camo-forest: #12271b; /* 다크 포레스트 그린 */
+  /* 배경용 연한 톤 (칩·박스) */
+  --camo-green-tint: #e3ebdc;
+  --camo-sand-tint: #f2ead2;
+  --camo-rust-tint: #efe3d8;
+
   /* 로드맵 진행 단계 (RoadmapProgress) */
   --roadmap-active: #f0ad2e; /* 완료/활성 단계 마커·커넥터·배지 강조색 */
   --roadmap-stage-bg: #f5e9cf; /* 비활성 단계 버튼 배경 */
 
   /* 회색 계열 (비활성 배경·보조 텍스트) */
-  --gray-pale-bg: #f5f5f5; /* 비활성 배경 (CategoryButton·BaseTag 등) */
-  --gray-mid: #9e9e9e; /* 보조 텍스트·아이콘·비활성 텍스트 */
+  --gray-pale-bg: #ebeef0; /* 버튼 회색 (보통 회색) — 비활성 배경 (CategoryButton 등) */
+  --gray-mid: #696e76; /* 글자 회색 — 보조 텍스트·아이콘 */
   --gray-track: #d9d9d9; /* ToggleSwitch 비활성 트랙 */
   --gray-track-light: #e5e5e5; /* ToggleSwitch inner 트랙 배경 */
   --placeholder: #bdbdbd; /* 인풋 placeholder */
@@ -93,7 +139,5 @@
 
   /* 알림 */
   --notification: #ff3b30; /* 읽지 않은 알림 배지 */
-
-  /* 경고 */
   --warning-strong: #ff3b30; /* 예산 초과 등 주의가 필요한 상태 */
 }

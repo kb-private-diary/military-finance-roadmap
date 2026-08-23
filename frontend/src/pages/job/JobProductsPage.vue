@@ -9,6 +9,7 @@ import BaseCard from '@/components/common/BaseCard.vue';
 import BaseTag from '@/components/common/BaseTag.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 import roadmapRabbit from '@/assets/images/roadmap/rabbit.png';
 import BaseModal from '@/components/common/BaseModal.vue';
 import { useToast } from '@/composables/useToast';
@@ -125,7 +126,7 @@ onMounted(() => {
   <div class="job-products">
     <RoadmapCharacterSlider :step="4" label="진로 로드맵" />
 
-    <h2 class="job-products__title text-title">금융상품 추천</h2>
+    <PageHeader title="금융상품 추천" />
 
     <div v-if="loading" class="job-products__loading job-products__body">
       추천 정보를 불러오는 중입니다.
@@ -295,10 +296,6 @@ onMounted(() => {
 
 .job-products {
   padding: 0 20px 96px;
-}
-
-.job-products__title {
-  margin: 28px 0 24px;
 }
 
 .job-products__loading,

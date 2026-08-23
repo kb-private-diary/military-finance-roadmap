@@ -61,12 +61,14 @@ const props = defineProps({
 </template>
 
 <style scoped>
-/* 아이폰 16-17 기준 프레임 크기 (미니앱 특성상 고정 프레임 유지) */
+/* 반응형 프레임: 폰 화면을 꽉 채우고(width 100%), 큰 화면(데스크탑)에선 --app-max-width 로 상한 */
 .app-layout {
   display: flex;
   flex-direction: column;
-  width: 393px;
-  height: 852px;
+  width: 100%;
+  max-width: var(--app-max-width);
+  height: 100vh; /* fallback */
+  height: 100dvh; /* 모바일 브라우저 UI 고려한 실제 높이 */
   margin: 0 auto;
   background-color: #ffffff;
   overflow: hidden;
@@ -74,7 +76,7 @@ const props = defineProps({
 
 .app-content {
   flex: 1;
-  padding: 0 20px 20px;
+  padding: 0 24px 20px; /* 우리 처음 맞춘 좌우 gutter 24px */
   overflow-y: auto;
   overflow-x: hidden;
 }

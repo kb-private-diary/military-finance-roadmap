@@ -1,18 +1,18 @@
 <script setup>
 // SCR-SIM-01 · 군적금 시뮬레이터  (담당: 석윤)
 // 군적금 만기금 시뮬레이션 메인 + 모의 계산(바텀시트)
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import productApi from '@/api/productApi';
 import simulatorApi from '@/api/simulatorApi';
-import { formatWon } from '@/util/format';
+import { formatManwon } from '@/util/format';
 import BaseBottomSheet from '@/components/common/BaseBottomSheet.vue';
-import BaseCard from '@/components/common/BaseCard.vue';
 import BaseInput from '@/components/common/BaseInput.vue';
-import BaseTag from '@/components/common/BaseTag.vue';
-import CategoryButton from '@/components/common/CategoryButton.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
-import SavingsBreakdown from '@/components/common/SavingsBreakdown.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
+import TabBar from '@/components/common/TabBar.vue';
+import SavingTimeline from '@/components/common/SavingTimeline.vue';
+import colliImg from '@/assets/images/colli.png';
 
 const route = useRoute();
 const router = useRouter();
@@ -22,8 +22,6 @@ const isLoading = ref(true);
 const hasNoAccount = ref(false);
 
 const savingLoss = ref(null);
-const today = new Date();
-const todayLabel = `${today.getMonth() + 1}월 ${today.getDate()}일`;
 
 // 'real' = 실제 계좌 기준 상세내역 / 'simulated' = 모의 계산 결과로 대체된 상세내역
 const viewMode = ref('real');
@@ -64,29 +62,78 @@ const endMonthOptions = computed(() =>
   monthOptions.value.filter((opt) => opt.value >= draftStartMonth.value),
 );
 
+// 장병내일준비적금 한도: 월 납입 55만원 · 최대 24개월
+const MAX_MONTHLY_MAN = 55;
+const MAX_MONTHS = 24;
+
+// 월 납입액 유효성 문구 (한도 초과 시 빨간 안내)
+const monthlySaveError = computed(() => {
+  if (monthlySave.value === '') return '';
+  return Number(monthlySave.value) > MAX_MONTHLY_MAN
+    ? `월 납입액은 최대 ${MAX_MONTHLY_MAN}만원까지 가능해요. 다시 입력해 주세요.`
+    : '';
+});
+
+// 납입 개월 수 유효성 문구 (최대 24개월)
+const saveMonthsError = computed(() => {
+  if (saveMonths.value === '') return '';
+  return Number(saveMonths.value) > MAX_MONTHS
+    ? `납입 개월 수는 최대 ${MAX_MONTHS}개월까지 가능해요. 다시 입력해 주세요.`
+    : '';
+});
+
+// 구간별 금액 유효성 문구 (동일 한도)
+const periodAmountError = computed(() => {
+  const amt = periodDraft.value.amount;
+  if (amt === '' || amt == null) return '';
+  return Number(amt) > MAX_MONTHLY_MAN
+    ? `금액은 최대 ${MAX_MONTHLY_MAN}만원까지 가능해요.`
+    : '';
+});
+
 const isDraftValid = computed(() => {
   const end = periodDraft.value.endMonth;
+  const amt = Number(periodDraft.value.amount);
   return (
     end !== '' &&
     Number(end) >= draftStartMonth.value &&
-    Number(periodDraft.value.amount) > 0
+    amt > 0 &&
+    amt <= MAX_MONTHLY_MAN
   );
 });
 
 const isCalcFormValid = computed(() => {
   if (calcMode.value === 'constant') {
-    return Number(monthlySave.value) > 0 && saveMonths.value !== '';
+    const m = Number(monthlySave.value);
+    const months = Number(saveMonths.value);
+    return (
+      m > 0 &&
+      m <= MAX_MONTHLY_MAN &&
+      saveMonths.value !== '' &&
+      months > 0 &&
+      months <= MAX_MONTHS
+    );
   }
   return periods.value.length > 0;
 });
 
-// 상세내역 카드에 실제로 보여줄 값 (실제 계좌 vs 모의 계산 결과)
-const activeDetails = computed(() =>
-  viewMode.value === 'simulated' ? simulatedResult.value : details.value,
-);
+// 실행 후 결과 카드로 스크롤하기 위한 ref
+const simResultRef = ref(null);
+// 되돌리기 시 적금 여정(타임라인) 시작점으로 스크롤하기 위한 ref
+const timelineRef = ref(null);
 
-const formatManwon = (amount) =>
-  `${Math.round((amount ?? 0) / 10000).toLocaleString('ko-KR')}만원`;
+// 모의 결과 → 실제 내역으로 되돌리기 (+ 타임라인 시작점으로 스크롤)
+const resetToReal = () => {
+  viewMode.value = 'real';
+  simulatedResult.value = null;
+  simulateError.value = '';
+  nextTick(() => {
+    timelineRef.value?.$el?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
+  });
+};
 
 // 개월차 구간의 개월 수 (양 끝 포함)
 const monthDiff = (startMonthOffset, endMonthOffset) =>
@@ -122,6 +169,12 @@ const fetchSavingLoss = async () => {
 
 const openCalcSheet = () => {
   simulateError.value = '';
+  // 다시 들어올 때마다 입력값 전부 새로 초기화 (이전 계산값 남지 않게)
+  calcMode.value = 'constant';
+  monthlySave.value = '';
+  saveMonths.value = '';
+  periods.value = [];
+  periodDraft.value = { endMonth: '', amount: '' };
   isCalcSheetOpen.value = true;
 };
 
@@ -141,6 +194,23 @@ const resetPeriods = () => {
   periodDraft.value = { endMonth: '', amount: '' };
 };
 
+// 특정 구간 삭제 — 남은 구간은 기간·금액을 유지한 채 1개월부터 연속되게 재배치한다.
+const removePeriod = (index) => {
+  let cursor = 1;
+  periods.value = periods.value
+    .filter((_, i) => i !== index)
+    .map((p) => {
+      const duration = p.endMonthOffset - p.startMonthOffset + 1;
+      const reseq = {
+        startMonthOffset: cursor,
+        endMonthOffset: cursor + duration - 1,
+        amount: p.amount,
+      };
+      cursor += duration;
+      return reseq;
+    });
+};
+
 const runCalculation = async () => {
   if (!isCalcFormValid.value) {
     simulateError.value = '입력값을 모두 채워주세요.';
@@ -149,12 +219,14 @@ const runCalculation = async () => {
 
   try {
     if (calcMode.value === 'constant') {
+      // 입력은 만원 단위 → API/결과는 원 단위라 ×10000 변환
+      const monthlyWon = Number(monthlySave.value) * 10000;
       const apiResult = await simulatorApi.calculateConstant({
-        monthlySave: Number(monthlySave.value),
+        monthlySave: monthlyWon,
         saveMonths: Number(saveMonths.value),
       });
       simulatedResult.value = {
-        monthlySaveTotal: Number(monthlySave.value),
+        monthlySaveTotal: monthlyWon,
         joinableMonths: Number(saveMonths.value),
         expectedPrincipal: apiResult.totalPrincipal,
         expectedInterest: apiResult.totalInterest,
@@ -165,7 +237,7 @@ const runCalculation = async () => {
       const payload = periods.value.map((period) => ({
         startMonthOffset: period.startMonthOffset,
         endMonthOffset: period.endMonthOffset,
-        amount: period.amount,
+        amount: period.amount * 10000, // 만원 → 원
       }));
       const apiResult = await simulatorApi.calculateVariable(payload);
       const totalMonths = periods.value.reduce(
@@ -187,6 +259,14 @@ const runCalculation = async () => {
     }
     viewMode.value = 'simulated';
     simulateError.value = '';
+    isCalcSheetOpen.value = false;
+    // 결과가 그려진 뒤(다음 틱) 결과 카드로 부드럽게 스크롤
+    nextTick(() => {
+      simResultRef.value?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    });
   } catch (error) {
     console.error(error);
     simulateError.value =
@@ -211,33 +291,44 @@ watch(
 // 전체 목록은 "+ 상품 계산해보기"로 SimulatorProductListPage(적금/예금/정책 탭)에서 본다.
 const savingProducts = ref([]);
 const depositProducts = ref([]);
+const policyProducts = ref([]);
 const isProductLoading = ref(true);
 const productError = ref('');
 
+// 미리보기: 적금 2 + 예금 1 + 정책 1 = 최대 4장 (옆으로 넘기는 카드).
+// 종류가 달라도 한 카드 모양으로 렌더되게 공통 형태로 정규화한다.
 const previewProducts = computed(() => {
-  const deposits = depositProducts.value.slice(0, 1);
-  const savings = savingProducts.value.slice(0, 3 - deposits.length);
-  return [...deposits, ...savings];
+  const toCard = (it, category, kind) => ({
+    key: `${category}-${category === 'policy' ? it.policyId : it.productId}`,
+    category,
+    id: category === 'policy' ? it.policyId : it.productId,
+    kind,
+    name: category === 'policy' ? it.policyName : it.productName,
+    isTaxExempt: !!it.isTaxExempt,
+    desc:
+      category === 'policy'
+        ? `최대 연 ${it.maxRate}%` // 정책상품 목록 응답엔 maxRate만 있음(minRate 없음) → 최대금리만 표시
+        : `${it.saveTrm}개월 · 최대 연 ${it.maxRate}%`,
+  });
+  return [
+    ...savingProducts.value.slice(0, 2).map((it) => toCard(it, 'savings', '적금')),
+    ...depositProducts.value.slice(0, 1).map((it) => toCard(it, 'deposits', '예금')),
+    ...policyProducts.value.slice(0, 1).map((it) => toCard(it, 'policy', '정책')),
+  ];
 });
 
 const fetchProducts = async () => {
   isProductLoading.value = true;
   productError.value = '';
   try {
-    const [savings, deposits] = await Promise.all([
+    const [savings, deposits, policies] = await Promise.all([
       productApi.findSavingProductList('savings'),
       productApi.findSavingProductList('deposits'),
+      productApi.findPolicyProductList(),
     ]);
-    // 카테고리(적금/예금)를 항목에 같이 담아둬야, 미리보기에서 예금·적금이 섞인 채로도
-    // 클릭 시 어느 탭으로 이동해야 하는지 알 수 있다.
-    savingProducts.value = savings.map((item) => ({
-      ...item,
-      category: 'savings',
-    }));
-    depositProducts.value = deposits.map((item) => ({
-      ...item,
-      category: 'deposits',
-    }));
+    savingProducts.value = savings;
+    depositProducts.value = deposits;
+    policyProducts.value = policies;
   } catch (error) {
     console.error(error);
     productError.value = '상품 정보를 불러오지 못했습니다.';
@@ -247,43 +338,128 @@ const fetchProducts = async () => {
 };
 
 // 미리보기 카드를 누르면 상세페이지 대신, 그 상품이 바로 선택된 예적금 상품 계산기로 이동한다.
+// 정책 상품은 policyId, 적금·예금은 productId로 딥링크한다.
 const goToProductCalculator = (item) => {
-  router.push({
-    name: 'SimulatorProductList',
-    query: { tab: item.category, productId: item.productId },
-  });
+  const query = { tab: item.category };
+  if (item.category === 'policy') {
+    query.policyId = item.id;
+  } else {
+    query.productId = item.id;
+  }
+  router.push({ name: 'SimulatorProductList', query });
 };
 
 const goToProductList = () => {
   router.push({ name: 'SimulatorProductList', query: { tab: 'savings' } });
 };
 
+// ── 미리보기 카드 캐러셀 (옆으로 넘기기 + 페이지네이션) ──
+const carouselRef = ref(null);
+const activeCard = ref(0);
+const endSpacer = ref(0);
+
+// 카드 폭 + gap(10). 폭이 바뀌어도 맞게 실제 카드에서 측정한다.
+const cardStep = () => {
+  const card = carouselRef.value?.querySelector('.product-chip-card');
+  return card ? card.offsetWidth + 10 : 200;
+};
+
+// 마지막 카드도 왼쪽 정렬로 스냅되도록 뒤 여백 폭을 계산(컨테이너 폭 - 카드 폭).
+// 이게 있어야 카드가 작아도 모든 카드가 고유한 스냅 위치를 가져 점이 안 겹친다.
+const measureCarousel = () => {
+  const el = carouselRef.value;
+  const card = el?.querySelector('.product-chip-card');
+  if (!el || !card) return;
+  endSpacer.value = Math.max(0, el.clientWidth - card.offsetWidth);
+};
+
+const onCarouselScroll = () => {
+  const el = carouselRef.value;
+  if (!el) return;
+  const i = Math.round(el.scrollLeft / cardStep());
+  activeCard.value = Math.min(previewProducts.value.length - 1, Math.max(0, i));
+};
+
+const scrollToCard = (i) => {
+  carouselRef.value?.scrollTo({ left: i * cardStep(), behavior: 'smooth' });
+};
+
+// 데스크탑: 세로 휠을 가로 스크롤로 (모바일은 터치 스와이프가 기본 동작)
+const onCarouselWheel = (e) => {
+  const el = carouselRef.value;
+  if (!el || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+  el.scrollLeft += e.deltaY;
+  e.preventDefault();
+};
+
+// 미리보기 카드가 렌더된 뒤 스페이서 폭을 다시 잰다.
+watch(previewProducts, () => nextTick(measureCarousel));
+
 onMounted(() => {
   fetchSavingDetails();
   fetchSavingLoss();
   fetchProducts();
+  window.addEventListener('resize', measureCarousel);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', measureCarousel);
 });
 </script>
 
 <template>
   <div class="simulator-page container py-4">
-    <div class="simulator-page__header">
-      <div class="simulator-page__summary">
-        <p class="simulator-page__summary-title">
-          현재 납입액
-          {{ details ? formatManwon(details.currentPaidAmount) : '-' }},
+    <PageHeader
+      eyebrow="충성! 전역 적금 작전"
+      title="만기일, 목돈 집결 완료"
+      size="lg"
+    />
+
+    <SavingTimeline
+      v-if="details && !hasNoAccount"
+      ref="timelineRef"
+      :details="details"
+      :loss="savingLoss"
+    />
+
+    <button type="button" class="calc-banner" @click="openCalcSheet">
+      <div class="calc-banner__text">
+        <p class="calc-banner__title">
+          월 납입액을 바꾸면?<br />시뮬레이션으로 미리 확인!
         </p>
-        <p class="simulator-page__summary-sub">
-          {{ details ? details.currentPaidMonths : 0 }}개월 납입 중
-        </p>
+        <span class="calc-banner__cta">
+          군적금 시뮬레이션 해보기
+          <i class="calc-banner__chevron" aria-hidden="true">›</i>
+        </span>
       </div>
-      <CategoryButton
-        class="simulator-page__calc-btn"
-        variant="oval-yellow"
-        active
-        label="모의 계산"
-        @click="openCalcSheet"
-      />
+      <img class="calc-banner__img" :src="colliImg" alt="" />
+    </button>
+
+    <div
+      v-if="viewMode === 'simulated' && simulatedResult"
+      ref="simResultRef"
+      class="sim-result"
+    >
+      <div class="sim-result__top">
+        <span class="sim-result__badge">시뮬레이션</span>
+        <button type="button" class="sim-result__reset" @click="resetToReal">
+          ↑ 실제 내역으로
+        </button>
+      </div>
+      <p class="sim-result__label">
+        {{ Math.round(simulatedResult.monthlySaveTotal / 10000).toLocaleString('ko-KR') }}만원으로
+        {{ simulatedResult.joinableMonths }}개월 넣으면, 예상 만기 수령액
+      </p>
+      <b class="sim-result__value">{{
+        formatManwon(simulatedResult.totalReceiptAmount)
+      }}</b>
+      <div class="sim-result__break">
+        <span><em>원금</em>{{ formatManwon(simulatedResult.expectedPrincipal) }}</span>
+        <span><em>이자</em>{{ formatManwon(simulatedResult.expectedInterest) }}</span>
+        <span class="sim-result__gov"
+          ><em>정부지원</em>{{ formatManwon(simulatedResult.expectedMatchingFund) }}</span
+        >
+      </div>
     </div>
 
     <p v-if="simulateError" class="simulator-page__error">
@@ -298,88 +474,66 @@ onMounted(() => {
       description="군적금에 가입하면 예상 만기 수령액을 시뮬레이션할 수 있어요"
     />
 
-    <BaseCard v-else-if="activeDetails" class="report-card" padding="16px">
-      <div class="report-card__title-row">
-        <p class="report-card__title">충성, 군장병적금 보고합니다.</p>
-        <div v-if="viewMode === 'simulated'" class="report-card__title-actions">
-          <BaseTag label="모의 결과" variant="yellow" />
-          <button
-            type="button"
-            class="report-card__reset"
-            aria-label="리셋"
-            @click="fetchSavingDetails"
-          >
-            ↻
-          </button>
-        </div>
-      </div>
-
-      <div class="report-card__stats">
-        <div class="report-card__stat-row">
-          <span class="report-card__stat-label">월 납입액</span>
-          <span class="report-card__stat-value">{{
-            formatManwon(activeDetails.monthlySaveTotal)
-          }}</span>
-        </div>
-        <div class="report-card__stat-row">
-          <span class="report-card__stat-label">총 납입 개월 수</span>
-          <span class="report-card__stat-value"
-            >{{ activeDetails.joinableMonths }}개월</span
-          >
-        </div>
-      </div>
-
-      <SavingsBreakdown
-        :principal="activeDetails.expectedPrincipal"
-        :interest="activeDetails.expectedInterest"
-        :matching-fund="activeDetails.expectedMatchingFund"
-        :total="activeDetails.totalReceiptAmount"
-      />
-    </BaseCard>
-
     <BaseBottomSheet
       v-model="isCalcSheetOpen"
-      title="군적금 모의 계산"
+      title="군적금 시뮬레이션"
       confirm-text="실행"
       cancel-text="취소"
+      :show-close="false"
+      :close-on-overlay="false"
+      :confirm-disabled="!isCalcFormValid"
       @confirm="runCalculation"
     >
-      <div class="calc-sheet__mode-tabs">
-        <CategoryButton
-          variant="square-yellow"
-          :active="calcMode === 'constant'"
-          label="고정 금액"
-          @click="calcMode = 'constant'"
-        />
-        <CategoryButton
-          variant="square-yellow"
-          :active="calcMode === 'variable'"
-          label="구간별 금액"
-          @click="calcMode = 'variable'"
-        />
-      </div>
+      <TabBar
+        v-model="calcMode"
+        class="calc-sheet__mode-tabs"
+        variant="underline"
+        :tabs="[
+          { label: '고정 금액', value: 'constant' },
+          { label: '구간별 금액', value: 'variable' },
+        ]"
+      />
 
       <div v-if="calcMode === 'constant'" class="calc-sheet__form">
-        <BaseInput
-          v-model="monthlySave"
-          type="amount"
-          label="월 납입액"
-          suffix="원"
-          placeholder="최대 550,000"
-        />
-        <BaseInput
-          v-model="saveMonths"
-          type="number"
-          label="납입 개월 수"
-          suffix="개월"
-          placeholder="최대 24"
-        />
+        <p class="calc-sheet__hint">
+          매달 같은 금액을 납입한다고 가정하고 계산해요.
+        </p>
+        <div class="calc-sheet__field-group">
+          <BaseInput
+            v-model="monthlySave"
+            type="amount"
+            label="월 납입액"
+            suffix="만원"
+            placeholder="최대 55"
+          />
+          <p class="calc-sheet__field-error">{{ monthlySaveError }}</p>
+        </div>
+        <div class="calc-sheet__field-group">
+          <BaseInput
+            v-model="saveMonths"
+            type="number"
+            label="납입 개월 수"
+            suffix="개월"
+            placeholder="최대 24"
+          />
+          <p class="calc-sheet__field-error">{{ saveMonthsError }}</p>
+        </div>
       </div>
 
       <div v-else class="calc-sheet__form">
-        <p class="calc-sheet__hint">
-          구간마다 다른 금액을 납입한다고 가정하고 계산해요.
-        </p>
+        <div class="calc-sheet__var-head">
+          <p class="calc-sheet__hint">
+            구간마다 다른 금액을 납입한다고 가정하고 계산해요.
+          </p>
+          <button
+            v-if="periods.length"
+            type="button"
+            class="calc-sheet__reset-link"
+            @click="resetPeriods"
+          >
+            전체 초기화
+          </button>
+        </div>
 
         <div v-if="periods.length" class="calc-sheet__period-list">
           <div
@@ -393,8 +547,16 @@ onMounted(() => {
               }}개월)
             </span>
             <span class="calc-sheet__period-row-amount">
-              {{ formatWon(period.amount) }}
+              {{ period.amount.toLocaleString('ko-KR') }}만원
             </span>
+            <button
+              type="button"
+              class="calc-sheet__period-remove"
+              aria-label="구간 삭제"
+              @click="removePeriod(index)"
+            >
+              ✕
+            </button>
           </div>
         </div>
 
@@ -419,102 +581,107 @@ onMounted(() => {
             </div>
           </div>
 
-          <div class="calc-sheet__amount-row">
-            <BaseInput
-              type="amount"
-              label="금액 설정"
-              suffix="원"
-              placeholder="최대 550,000"
-              :model-value="periodDraft.amount"
-              @update:model-value="periodDraft.amount = $event"
-            />
-            <div class="calc-sheet__amount-actions">
-              <button
-                type="button"
-                class="calc-sheet__reset-btn"
-                @click="resetPeriods"
-              >
-                초기화
-              </button>
-              <button
-                type="button"
-                class="calc-sheet__register-btn"
-                :disabled="!isDraftValid"
-                @click="registerPeriod"
-              >
-                등록
-              </button>
+          <div class="calc-sheet__field-group">
+            <div class="calc-sheet__amount-row">
+              <BaseInput
+                type="amount"
+                label="금액 설정"
+                suffix="만원"
+                placeholder="최대 55"
+                :model-value="periodDraft.amount"
+                @update:model-value="periodDraft.amount = $event"
+              />
+              <div class="calc-sheet__amount-actions">
+                <button
+                  type="button"
+                  class="calc-sheet__register-btn"
+                  :disabled="!isDraftValid"
+                  @click="registerPeriod"
+                >
+                  등록
+                </button>
+              </div>
             </div>
+            <!-- 유효성 문구: 고정 높이 슬롯 (있든 없든 자리 유지 → 시트 안 튀게) -->
+            <p class="calc-sheet__field-error">{{ periodAmountError }}</p>
           </div>
         </template>
       </div>
     </BaseBottomSheet>
 
-    <BaseCard v-if="savingLoss" class="loss-card">
-      <p class="loss-card__eyebrow">
-        {{ todayLabel }}, 만약
-        <span class="loss-card__highlight">중도 해지</span>를 한다면?
-      </p>
-      <h3 class="loss-card__title">예상 수령액 및 손실금</h3>
-
-      <div class="loss-card__stat">
-        <span class="loss-card__stat-label">해지 시, 수령 액은?</span>
-        <span class="loss-card__stat-value">{{
-          formatWon(savingLoss.withdrawalAmount)
-        }}</span>
-      </div>
-      <div class="loss-card__stat">
-        <span class="loss-card__stat-label">해지 시, 손실 액은?</span>
-        <span class="loss-card__stat-value loss-card__stat-value--danger"
-          >-{{ formatWon(savingLoss.lossAmount) }}</span
-        >
-      </div>
-    </BaseCard>
-
     <div class="product-section">
-      <div class="product-section__header">
-        <div>
-          <p class="product-section__eyebrow">모으고 또 모으자</p>
-          <h2 class="product-section__title">예적금 상품</h2>
-        </div>
+      <div class="product-intro">
+        <PageHeader
+          eyebrow="한 푼도 놓치지 마라"
+          title="예적금으로 목돈 보급"
+          size="lg"
+        />
         <button
           type="button"
-          class="product-section__more-btn"
+          class="product-intro__link"
           @click="goToProductList"
         >
-          + 상품 계산해보기
+          예적금 계산기 바로가기
+          <span class="product-intro__chevron" aria-hidden="true">›</span>
         </button>
       </div>
 
-      <p v-if="productError" class="simulator-page__error">
-        {{ productError }}
-      </p>
-      <p v-else-if="isProductLoading" class="text-caption">불러오는 중...</p>
+      <div class="product-box">
+        <p v-if="productError" class="simulator-page__error">
+          {{ productError }}
+        </p>
+        <p v-else-if="isProductLoading" class="text-caption">불러오는 중...</p>
 
-      <EmptyState
-        v-else-if="previewProducts.length === 0"
-        title="추천 상품이 없어요"
-        description="조건에 맞는 상품을 찾을 수 없어요"
-      />
+        <EmptyState
+          v-else-if="previewProducts.length === 0"
+          title="추천 상품이 없어요"
+          description="조건에 맞는 상품을 찾을 수 없어요"
+        />
 
-      <div v-else class="product-section__list">
-        <BaseCard
-          v-for="item in previewProducts"
-          :key="item.productId"
-          class="product-card"
-          padding="14px 16px"
-          @click="goToProductCalculator(item)"
-        >
-          <p class="product-card__title">{{ item.productName }}</p>
-          <BaseTag
-            v-if="item.isTaxExempt"
-            label="비과세"
-            variant="green-light"
-          />
-          <p class="product-card__desc">
-            {{ item.saveTrm }}개월 기준 최대 연 {{ item.maxRate }}% 금리
-          </p>
-        </BaseCard>
+        <template v-else>
+          <div
+            ref="carouselRef"
+            class="product-carousel"
+            @scroll="onCarouselScroll"
+            @wheel="onCarouselWheel"
+          >
+            <button
+              v-for="item in previewProducts"
+              :key="item.key"
+              type="button"
+              class="product-chip-card"
+              :class="`is-${item.category}`"
+              @click="goToProductCalculator(item)"
+            >
+              <div class="product-chip-card__top">
+                <span class="product-chip-card__kind">{{ item.kind }}</span>
+                <span v-if="item.isTaxExempt" class="product-chip-card__tax"
+                  >비과세</span
+                >
+              </div>
+              <p class="product-chip-card__name">{{ item.name }}</p>
+              <p class="product-chip-card__desc">{{ item.desc }}</p>
+            </button>
+            <!-- 마지막 카드도 왼쪽 정렬로 스냅되게 뒤 여백 확보 (점 겹침 방지) -->
+            <div
+              class="product-carousel__end"
+              aria-hidden="true"
+              :style="{ flex: `0 0 ${endSpacer}px` }"
+            ></div>
+          </div>
+
+          <div v-if="previewProducts.length > 1" class="product-dots">
+            <button
+              v-for="(item, i) in previewProducts"
+              :key="item.key"
+              type="button"
+              class="product-dot"
+              :class="{ 'is-active': i === activeCard }"
+              :aria-label="`${i + 1}번째 상품 보기`"
+              @click="scrollToCard(i)"
+            ></button>
+          </div>
+        </template>
       </div>
     </div>
   </div>
@@ -527,33 +694,129 @@ onMounted(() => {
   gap: 10px;
 }
 
-.simulator-page__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-:deep(.simulator-page__calc-btn) {
-  flex: none;
-  width: auto;
-}
-
-.simulator-page__summary-title {
-  margin: 0 0 4px;
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-strong, #000000);
-}
-
-.simulator-page__summary-sub {
+/* 모의 계산 배너 CTA (제목 + 알약 버튼 + 콜리) */
+.calc-banner {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 20px 20px 20px 22px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(105deg, #e5ecdd 0%, #d6e1c9 100%);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.15s ease;
+}
+.calc-banner:active {
+  transform: scale(0.99);
+}
+.calc-banner__text {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  z-index: 1;
+}
+.calc-banner__title {
   margin: 0;
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 700;
-  color: var(--text-strong, #000000);
+  line-height: 1.32;
+  letter-spacing: -0.02em;
+  color: var(--camo-forest);
+}
+.calc-banner__cta {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 3px;
+  color: var(--military-green);
+  font-size: 13px;
+  font-weight: 700;
+}
+.calc-banner__chevron {
+  font-style: normal;
+  font-size: 16px;
+  line-height: 1;
+}
+.calc-banner__img {
+  flex: none;
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  z-index: 1;
+}
+
+/* 모의 계산 결과 카드 (배너 밑, 시뮬레이션 상태일 때만) */
+.sim-result {
+  padding: 15px 18px;
+  border-radius: 14px;
+  background: var(--surface-default);
+  border: 1px solid var(--input-border);
+}
+.sim-result__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.sim-result__badge {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--military-green);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.sim-result__reset {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--camo-forest);
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+.sim-result__label {
+  margin: 0 0 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--camo-green);
+}
+.sim-result__value {
+  display: block;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--military-green);
+}
+.sim-result__break {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--divider-thin);
+}
+.sim-result__break span {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+.sim-result__break em {
+  margin-right: 4px;
+  font-style: normal;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.sim-result__gov,
+.sim-result__gov em {
+  color: var(--camo-olive) !important;
 }
 
 .simulator-page__error {
@@ -562,81 +825,8 @@ onMounted(() => {
   color: var(--danger, #fa6e6e);
 }
 
-/* ── 군적금 리포트 카드 ── */
-.report-card {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.report-card__title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.report-card__title {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-strong, #000000);
-}
-
-.report-card__title-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.report-card__reset {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: none;
-  background: none;
-  font-size: 15px;
-  color: var(--text-hint, #999999);
-  cursor: pointer;
-}
-
-.report-card__stats {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--line, #e0e0e0);
-  border-radius: 12px;
-  padding: 4px 16px;
-}
-
-.report-card__stat-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 7px 0;
-}
-
-.report-card__stat-row + .report-card__stat-row {
-  border-top: 1px solid var(--line, #e0e0e0);
-}
-
-.report-card__stat-label {
-  font-size: 13px;
-  color: var(--text-hint, #999999);
-}
-
-.report-card__stat-value {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-strong, #000000);
-}
-
 /* ── 모의 계산 바텀시트 ── */
 .calc-sheet__mode-tabs {
-  display: flex;
-  gap: 8px;
   margin-bottom: 16px;
 }
 
@@ -644,12 +834,63 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  /* 고정↔구간별 초기 높이를 맞춰 모드 전환 시 창이 안 흔들리게 */
+  min-height: 254px;
+}
+/* 계산폼 입력값은 모두 오른쪽 정렬 (금액·개월수 통일) */
+.calc-sheet__form :deep(.base-input__field) {
+  text-align: right;
+}
+.calc-sheet__form :deep(.base-input__field.has-suffix) {
+  padding-right: 56px;
+}
+/* 개월수(number) 스피너 화살표 숨김 - 오른쪽 정렬 값과 겹치지 않게 */
+.calc-sheet__form :deep(input[type='number'])::-webkit-inner-spin-button,
+.calc-sheet__form :deep(input[type='number'])::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .calc-sheet__hint {
   margin: 0;
   font-size: 13px;
   color: var(--text-hint, #999999);
+}
+
+/* 구간별 상단: 안내문 + 초기화(밑줄) */
+.calc-sheet__var-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.calc-sheet__reset-link {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+/* 입력칸 + 유효성 문구 묶음 */
+.calc-sheet__field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+/* 유효성 문구 슬롯: 항상 자리 차지해서 시트 높이 안 바뀌게 */
+.calc-sheet__field-error {
+  margin: 0;
+  min-height: 16px;
+  line-height: 16px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--danger);
 }
 
 .calc-sheet__period-list {
@@ -683,6 +924,23 @@ onMounted(() => {
   color: var(--text-strong);
 }
 
+.calc-sheet__period-remove {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.calc-sheet__period-remove:hover {
+  color: var(--danger);
+}
+
 .calc-sheet__range-field {
   display: flex;
   flex-direction: column;
@@ -699,6 +957,11 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+/* 종료개월 select: 남은 공간 채움 ("1개월 ~ [select]"로 여백 없이) */
+.calc-sheet__range-inputs :deep(.base-input) {
+  flex: 1;
+  min-width: 0;
 }
 
 .calc-sheet__range-start {
@@ -721,28 +984,20 @@ onMounted(() => {
 .calc-sheet__amount-actions {
   display: flex;
   gap: 6px;
-  padding-bottom: 2px;
+  /* 버튼이 입력칸보다 작아 바닥에 치우쳐 보이는 걸 세로 중앙으로 살짝 올림 */
+  margin-bottom: 5px;
 }
 
-.calc-sheet__reset-btn,
 .calc-sheet__register-btn {
-  padding: 14px 14px;
+  padding: 8px 14px;
   border: none;
-  border-radius: 12px;
-  font-size: 13px;
-  font-weight: 700;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
-}
-
-.calc-sheet__reset-btn {
-  background-color: var(--surface-muted);
-  color: var(--text-body);
-}
-
-.calc-sheet__register-btn {
-  background-color: var(--kb-yellow-deep);
-  color: var(--text-strong);
+  background-color: var(--chart-1);
+  color: #fff;
 }
 
 .calc-sheet__register-btn:disabled {
@@ -751,117 +1006,174 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
-/* ── 중도해지 수령액·손실금 카드 ── */
-.loss-card {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.loss-card__eyebrow {
-  margin: 0;
-  font-size: 13px;
-  color: var(--text-hint);
-}
-
-.loss-card__highlight {
-  color: var(--danger);
-  font-weight: 700;
-}
-
-.loss-card__title {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 700;
-  color: var(--text-strong);
-}
-
-.loss-card__stat {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px;
-  background-color: var(--military-green-light);
-  border-radius: 14px;
-}
-
-.loss-card__stat-label {
-  font-size: 14px;
-  color: var(--text-body);
-}
-
-.loss-card__stat-value {
-  font-size: 17px;
-  font-weight: 700;
-  color: var(--text-strong);
-}
-
-.loss-card__stat-value--danger {
-  color: var(--danger);
-}
-
-/* ── 예적금 미리보기 (3개 + 더보기) ── */
+/* ── 예적금 미리보기 (색 채운 카드 + 캐러셀) ── */
 .product-section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-}
-
-.product-section__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
   gap: 12px;
+  /* 위 배너와 간격 넓히기 */
+  margin-top: 14px;
 }
 
-.product-section__eyebrow {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-hint);
+/* 바깥 네모 박스 (카드만 담는다) — 흰 배경 위에서 뜨게 그림자로 (테두리 X) */
+.product-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 18px;
+  background: var(--surface-default);
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.06);
 }
 
-.product-section__title {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-strong);
+/* 메인 제목(PageHeader lg) + 바로가기 */
+.product-intro {
+  display: flex;
+  flex-direction: column;
 }
-
-.product-section__more-btn {
-  flex-shrink: 0;
-  padding: 6px 4px;
+/* PageHeader 기본 하단 여백 제거 (바로가기 링크로 간격 제어) */
+.product-intro :deep(.page-header) {
+  margin-bottom: 0;
+}
+.product-intro__link {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 6px;
+  padding: 0;
   border: none;
   background: none;
+  font-family: inherit;
   font-size: 13px;
+  font-weight: 700;
+  color: var(--military-green);
+  cursor: pointer;
+}
+.product-intro__chevron {
+  font-size: 15px;
+  line-height: 1;
+}
+
+/* 옆으로 넘기는 카드 캐러셀 */
+.product-carousel {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.product-carousel::-webkit-scrollbar {
+  display: none;
+}
+.product-carousel__end {
+  align-self: stretch;
+}
+
+/* 색으로 채운 상품 카드 */
+.product-chip-card {
+  flex: 0 0 auto;
+  width: 165px;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 13px 14px;
+  border: none;
+  border-radius: 14px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.product-chip-card:active {
+  transform: scale(0.97);
+}
+.product-chip-card.is-savings {
+  background: #ece8f7;
+}
+.product-chip-card.is-deposits {
+  background: #e4eefb;
+}
+.product-chip-card.is-policy {
+  background: #fdf1cf;
+}
+.product-chip-card__top {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.product-chip-card__kind {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #fff;
+}
+.is-savings .product-chip-card__kind {
+  background: #6f5fb0;
+}
+.is-deposits .product-chip-card__kind {
+  background: #3f6fb5;
+}
+.is-policy .product-chip-card__kind {
+  background: #c1912f;
+}
+.product-chip-card__tax {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  color: #6a5a24;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.product-chip-card__name {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--text-strong);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 37px;
+}
+.product-chip-card__desc {
+  margin: 0;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text-body);
-  cursor: pointer;
 }
 
-.product-section__list {
+/* 페이지네이션 점 */
+.product-dots {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  justify-content: center;
+  gap: 6px;
 }
-
-.product-card {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+.product-dot {
+  width: 6px;
+  height: 6px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: var(--divider-thin);
   cursor: pointer;
+  transition:
+    width 0.2s ease,
+    background 0.2s ease;
 }
-
-.product-card__title {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-strong);
+.product-dot.is-active {
+  width: 16px;
+  background: var(--military-green);
 }
+</style>
 
-.product-card__desc {
-  margin: 0;
-  font-size: 13px;
-  color: var(--text-hint);
+<style>
+/* 목돈작전 화면 배경 - D-Day와 같은 은은한 세이지 그린 컬러감 */
+.app-content:has(.simulator-page) {
+  background-color: rgba(120, 152, 130, 0.06);
 }
 </style>

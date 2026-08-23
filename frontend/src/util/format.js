@@ -14,6 +14,7 @@ export const formatManwon = (amount) =>
 
 // 만원 단위 + 소수 1자리 + "만원"  →  formatManwon1(15750) === "1.6만원"
 // 이자·세금처럼 만원 미만이 섞여 정수 만원으론 "0만원"이 돼버리는 작은 금액에 쓴다(SavingCalculator 등).
+// 딱 떨어지면 .0은 자동으로 생략된다 (1800000 → "180만원").
 export const formatManwon1 = (amount) =>
   `${(Math.round((amount ?? 0) / 1000) / 10).toLocaleString('ko-KR')}만원`;
 

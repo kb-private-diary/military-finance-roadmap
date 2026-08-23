@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
-import { formatAmountInput, parseAmountInput, formatPhoneInput } from '@/util/format';
+import { formatAmountInput, parseAmountInput } from '@/util/format';
 
 const props = defineProps({
   type: {
@@ -159,6 +159,10 @@ const currentSelectLabel = computed(() => {
   const selected = props.options.find((opt) => opt.value === props.modelValue);
   return selected ? selected.label : props.placeholder || '선택';
 });
+// 값을 실제로 골랐는지 (아니면 placeholder 표시 → 회색)
+const isValueSelected = computed(() =>
+  props.options.some((opt) => opt.value === props.modelValue),
+);
 
 // ==========================================
 // Amount(금액) 전용 로직 — 콤마 실시간 포맷 + 커서 유지
@@ -190,23 +194,6 @@ const handleAmountInput = (event) => {
     input.setSelectionRange(caret, caret);
   });
 };
-
-// ==========================================
-// Phone(전화번호) 전용 로직 — 콤마 대신 하이픈 실시간 포맷 + 커서 유지 (amount와 동일한 방식)
-// ==========================================
-const handlePhoneInput = (event) => {
-  const input = event.target;
-  const prevLength = input.value.length;
-  const prevCaret = input.selectionStart ?? prevLength;
-
-  const formatted = formatPhoneInput(input.value);
-  emit('update:modelValue', formatted);
-
-  nextTick(() => {
-    const caret = Math.max(0, prevCaret + (formatted.length - prevLength));
-    input.setSelectionRange(caret, caret);
-  });
-};
 </script>
 
 <template>
@@ -226,7 +213,7 @@ const handlePhoneInput = (event) => {
             class="dropdown__button"
             type="button"
             @click="toggleSelect"
-            :class="{ 'is-open': isSelectOpen }"
+            :class="{ 'is-open': isSelectOpen, 'dropdown__button--placeholder': !isValueSelected }"
             :disabled="disabled"
           >
             <span class="dropdown__text">{{ currentSelectLabel }}</span>
@@ -392,27 +379,11 @@ const handlePhoneInput = (event) => {
         <input
           type="text"
           inputmode="numeric"
-          class="base-input__field"
+          class="base-input__field base-input__field--amount"
           :class="{ 'is-error': error, 'has-icon': icon, 'has-suffix': suffix }"
           :value="amountDisplay"
           @input="handleAmountInput"
           :placeholder="placeholder"
-        />
-        <span v-if="suffix" class="base-input__suffix">{{ suffix }}</span>
-      </template>
-
-      <!-- PHONE (전화번호, 실시간 하이픈 포맷) -->
-      <template v-else-if="type === 'phone'">
-        <span v-if="icon" class="base-input__icon">{{ icon }}</span>
-        <input
-          type="tel"
-          inputmode="numeric"
-          class="base-input__field"
-          :class="{ 'is-error': error, 'has-icon': icon, 'has-suffix': suffix }"
-          :value="modelValue"
-          @input="handlePhoneInput"
-          :placeholder="placeholder"
-          maxlength="13"
         />
         <span v-if="suffix" class="base-input__suffix">{{ suffix }}</span>
       </template>
@@ -447,11 +418,11 @@ const handlePhoneInput = (event) => {
 .base-input {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
   width: 100%;
 }
 .base-input__label {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-body);
   display: flex;
@@ -471,10 +442,10 @@ const handlePhoneInput = (event) => {
 }
 .base-input__field {
   width: 100%;
-  padding: 14px 16px;
-  border: 1.5px solid var(--line);
-  border-radius: 12px;
-  font-size: 16px;
+  padding: 10px 14px;
+  border: 1.5px solid var(--input-border);
+  border-radius: 10px;
+  font-size: 14px;
   color: var(--text-body);
   background-color: var(--surface-default);
   outline: none;
@@ -484,8 +455,20 @@ const handlePhoneInput = (event) => {
 .base-input__field::placeholder {
   color: var(--placeholder);
 }
+/* 금액 입력은 숫자를 오른쪽 정렬 (자릿수 읽기 쉽게) */
+.base-input__field--amount {
+  text-align: right;
+}
+/* 학교이름 검색처럼: 미입력(placeholder 보임)=아주 연한 회색, 포커스/입력=흰색 */
+.base-input__field:placeholder-shown {
+  background-color: #f8f9fb;
+}
+.base-input--underline .base-input__field:placeholder-shown {
+  background-color: transparent;
+}
 .base-input__field:focus {
   border-color: var(--kb-yellow-deep);
+  background-color: var(--surface-default); /* 포커스하면 흰 배경 */
   box-shadow: 0 0 0 3px var(--focus-ring-yellow);
 }
 .base-input__field.is-error {
@@ -532,6 +515,10 @@ const handlePhoneInput = (event) => {
 
 .has-suffix {
   padding-right: 40px;
+}
+/* 금액(우측 정렬)은 숫자와 suffix('만원' 등)가 붙지 않도록 오른쪽 여백 확대 */
+.base-input__field--amount.has-suffix {
+  padding-right: 56px;
 }
 .base-input__suffix {
   position: absolute;
@@ -613,12 +600,17 @@ input[type='month']::-webkit-calendar-picker-indicator:hover {
   border: none;
   border-bottom: 2px solid var(--kb-gold);
   border-radius: 0;
-  font-size: 16px;
+  font-size: 15px;
   color: var(--text-body);
   font-weight: 500;
   cursor: pointer;
   transition: border-color 0.2s;
   position: relative;
+}
+
+/* 아직 선택 안 한 select은 placeholder 회색으로 */
+.dropdown__button--placeholder {
+  color: var(--placeholder);
 }
 
 .dropdown__button:hover,
@@ -655,28 +647,32 @@ input[type='month']::-webkit-calendar-picker-indicator:hover {
   color: var(--kb-yellow-deep);
 }
 
+/* 드롭다운 목록 = 캐스케이드 Select(섹션4) 패널과 동일한 스타일 */
 .dropdown__menu {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
   left: auto;
   min-width: 100%;
-  max-height: 240px;
+  max-height: 252px;
   overflow-y: auto;
   margin: 0;
-  padding: 8px 0;
+  padding: 0;
   background-color: var(--surface-default);
-  border: 1px solid var(--dropdown-border);
-  border-radius: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
   box-shadow: 0 4px 12px var(--shadow-dropdown);
   list-style: none;
   z-index: 100;
 }
 
 .dropdown__item {
-  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 10px 12px;
   font-size: 14px;
-  color: var(--kb-gray);
+  color: var(--kb-dark-gray);
   cursor: pointer;
   transition:
     background-color 0.2s,
@@ -684,13 +680,14 @@ input[type='month']::-webkit-calendar-picker-indicator:hover {
   white-space: nowrap;
 }
 
-.dropdown__item:hover {
-  background-color: var(--kb-yellow-pale);
+/* 선택 안 된 항목 호버 = 회색 (연노랑 X) */
+.dropdown__item:not(.is-selected):hover {
+  background-color: var(--line);
 }
 
 .dropdown__item.is-selected {
-  background-color: var(--kb-yellow-pale);
-  color: var(--kb-yellow-deep);
+  background-color: var(--kb-yellow);
+  color: var(--kb-dark-gray);
   font-weight: 600;
 }
 
