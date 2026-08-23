@@ -26,8 +26,8 @@ const isLoading = ref(false);
 
 const isEmployment = computed(() => goalType.value === 'J01');
 
-// 최근 1개월 실제 지출 금액
-const monthlySpending = ref(0);
+// 최근 3개월 월평균 지출 금액
+const averageMonthlySpending = ref(0);
 
 // ── 비용 계산 ─────────────────────────────────────────────────
 
@@ -82,11 +82,11 @@ const trainingRate = computed(() => {
   return Math.round((trainingTotal.value / totalAmount.value) * 100);
 });
 
-// 최근 1개월 지출 대비 예상 준비비용 비율
+// 최근 3개월 월평균 지출 대비 예상 준비비용 비율
 const spendingRate = computed(() => {
-  if (monthlySpending.value === 0) return 0;
+  if (averageMonthlySpending.value === 0) return 0;
 
-  return Math.round((totalAmount.value / monthlySpending.value) * 100);
+  return Math.round((totalAmount.value / averageMonthlySpending.value) * 100);
 });
 
 // 진행바는 100%를 넘지 않도록 제한
@@ -155,29 +155,15 @@ const fetchJobGoalDetail = async () => {
   }
 };
 
-// ── 최근 1개월 지출 조회 ────────────────────────────────────────
-const fetchMonthlySpending = async () => {
+// ── 최근 3개월 월평균 지출 조회 ──────────────────────────────────
+const fetchAverageMonthlySpending = async () => {
   try {
-    // 로그인 사용자의 전체 지출 내역 조회
-    const spendings = await regretApi.findSpendings();
+    const summary = await regretApi.getSpendingSummary(3);
 
-    const today = new Date();
-    const oneMonthAgo = new Date(today);
-
-    // 오늘 기준 한 달 전 날짜 계산
-    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-
-    // 최근 1개월 내 지출만 합산
-    monthlySpending.value = spendings
-      .filter((spending) => {
-        const spentAt = new Date(spending.spentAt);
-
-        return spentAt >= oneMonthAgo && spentAt <= today;
-      })
-      .reduce((total, spending) => total + Number(spending.amount ?? 0), 0);
+    averageMonthlySpending.value = Number(summary?.avgMonthlySpending ?? 0);
   } catch (error) {
-    console.error('최근 1개월 지출 조회 실패:', error);
-    monthlySpending.value = 0;
+    console.error('최근 3개월 월평균 지출 조회 실패:', error);
+    averageMonthlySpending.value = 0;
   }
 };
 
@@ -195,7 +181,7 @@ const handlePrev = () => {
 
 onMounted(() => {
   fetchJobGoalDetail();
-  fetchMonthlySpending();
+  fetchAverageMonthlySpending();
 });
 </script>
 
@@ -321,10 +307,10 @@ onMounted(() => {
         <section class="spending-compare">
           <div class="spending-compare__head">
             <div>
-              <h2 class="section-title">최근 1개월 지출 대비</h2>
+              <h2 class="section-title">최근 지출 대비</h2>
 
               <p class="spending-compare__description">
-                최근 지출 대비 준비비용을 비교했어요.
+                최근 3개월 월평균 지출과 준비비용을 비교했어요.
               </p>
             </div>
 
@@ -342,8 +328,8 @@ onMounted(() => {
 
           <dl class="spending-compare__list">
             <div class="spending-compare__row">
-              <dt>최근 1개월 지출</dt>
-              <dd>{{ formatWon(monthlySpending) }}</dd>
+              <dt>최근 3개월 월평균 지출</dt>
+              <dd>{{ formatWon(averageMonthlySpending) }}</dd>
             </div>
 
             <div class="spending-compare__row">

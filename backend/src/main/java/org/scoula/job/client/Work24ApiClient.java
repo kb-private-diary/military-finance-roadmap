@@ -75,14 +75,19 @@ public class Work24ApiClient {
         this.validateRegionCode(regionCode);
         this.validateNcsCode(ncsCode);
 
-        LocalDate today = LocalDate.now();
-        LocalDate oneYearLater = today.plusYears(1);
+        // 실제 신청 준비기간을 고려하여
+        // 조회일 기준 7일 이후 ~ 3개월 이내 개강 과정 조회
+        LocalDate searchStartDate =
+                LocalDate.now().plusDays(7);
+
+        LocalDate searchEndDate =
+                LocalDate.now().plusMonths(3);
 
         String startDate =
-                today.format(REQUEST_DATE_FORMAT);
+                searchStartDate.format(REQUEST_DATE_FORMAT);
 
         String endDate =
-                oneYearLater.format(REQUEST_DATE_FORMAT);
+                searchEndDate.format(REQUEST_DATE_FORMAT);
 
         /*
          * NCS 코드는 단계마다 2자리씩 늘어나며 직종이 좁아진다.
@@ -100,8 +105,8 @@ public class Work24ApiClient {
                 + "&srchTraEndDt=" + endDate
                 + "&srchTraArea1=" + this.encode(regionCode)
                 + "&srchNcs" + ncsDepth + "=" + this.encode(ncsSearchCode)
-                + "&sort=ASC"
-                + "&sortCol=2";
+                + "&sort=DESC"
+                + "&sortCol=5";
 
         // K-디지털 등 특정 훈련유형이 있는 경우에만 추가
         if (courseType != null && !courseType.isBlank()) {
