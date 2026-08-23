@@ -1938,8 +1938,7 @@ VALUES
     (3, 'C01', '해커스', '★2027 얼리버드★ 정보처리기사 실기 100% 환급반', 299000, 150000, NULL, 'https://pass.hackers.com/?c=event&evt_code=43284526', '2026-08-19 08:31:15', 'COURSE_SYNC', 'N'),
     (4, 'C01', '해커스', '★2027 얼리버드★ 정보처리기사 3개월 합격반', 299000, 130000, NULL, 'https://pass.hackers.com/?c=event&evt_code=43284526', '2026-08-19 08:31:15', 'COURSE_SYNC', 'N'),
     (5, 'C01', '인프런', '(2026 최신!) 일주일만에 합격하는 정보처리기사 실기', 88000, NULL, NULL, 'https://www.inflearn.com/course/%EC%9D%BC%EC%A3%BC%EC%9D%BC%EB%A7%8C%EC%97%90-%ED%95%A9%EA%B2%A9%ED%95%98%EB%8A%94-%EC%A0%95%EB%B3%B4%EC%B2%98%EB%A6%AC%EA%B8%B0%EC%82%AC-%EC%8B%A4%EA%B8%B0', '2026-08-19 08:31:15', 'COURSE_SYNC', 'N'),
-    (6, 'C01', '인프런', '2025 정보처리기사 필기', 44000, 33000, NULL, 'https://www.inflearn.com/course/%EC%A0%95%EB%B3%B4%EC%B2%98%EB%A6%AC%EA%B8%B0%EC%82%AC-%ED%95%84%EA%B8%B0-2023', '2026-08-19 08:31:15', 'COURSE_SYNC', 'N'),
-    (7, 'C01', '인프런', '2025 정보처리기사필기 기출문제풀이', 38500, 28870, NULL, 'https://www.inflearn.com/course/%EC%A0%95%EB%B3%B4%EC%B2%98%EB%A6%AC%EA%B8%B0%EC%82%AC-%ED%95%84%EA%B8%B0-2023-%EA%B8%B0%EC%B6%9C%EB%AC%B8%EC%A0%9C%ED%92%80%EC%9D%B4', '2026-08-19 08:31:15', 'COURSE_SYNC', 'N'),
+    (6, 'C01', '인프런', '2026 벼락치기 합격! 기출문제 집중 정보처리기사 실기', 48400, 36300, NULL, 'https://www.inflearn.com/course/%EB%B2%BC%EB%9D%BD%EC%B9%98%EA%B8%B0-%ED%95%A9%EA%B2%A9-%EA%B8%B0%EC%B6%9C%EB%AC%B8%EC%A0%9C-%EC%A7%91%EC%A4%91-%EC%A0%95%EB%B3%B4%EC%B2%98%EB%A6%AC', '2026-08-19 08:31:15', 'COURSE_SYNC', 'N'),
 
     (8, 'C01', '해커스', '2027 얼리버드 산업안전기사 100% 환급반', 599000, 319000, NULL, 'https://pass.hackers.com/?c=event&evt_code=43253222', '2026-08-19 08:31:43', 'COURSE_SYNC', 'N'),
     (9, 'C01', '해커스', '2027 얼리버드 산업안전기사 필기+실기 연장반', 520000, 259000, NULL, 'https://pass.hackers.com/?c=event&evt_code=43253222', '2026-08-19 08:31:43', 'COURSE_SYNC', 'N'),
@@ -2067,8 +2066,12 @@ VALUES
     (89, 'C03', '해커스편입', '인문계 편입반', 1090000, 740000, NULL, 'https://ingang.hackersut.com/event/47324122?_C_=725210', NOW(), 'COURSE_SYNC', 'N'),
     (90, 'C03', '해커스편입', '자연계 편입반', 1190000, 840000, NULL, 'https://ingang.hackersut.com/event/47324122?_C_=725210', NOW(), 'COURSE_SYNC', 'N'),
     (91, 'C03', '김영편입', '2027+2028 김영패스 원더 인문', 1370000, 1270000, NULL, 'https://www.kimyoung.co.kr/freepass/2026/wonder_pass.asp', NOW(), 'COURSE_SYNC', 'N'),
-    (92, 'C03', '김영편입', '2027+2028 김영패스 원더 자연', 1570000, 1470000, NULL, 'https://www.kimyoung.co.kr/freepass/2026/wonder_pass.asp', NOW(), 'COURSE_SYNC', 'N');
+    (92, 'C03', '김영편입', '2027+2028 김영패스 원더 자연', 1570000, 1470000, NULL, 'https://www.kimyoung.co.kr/freepass/2026/wonder_pass.asp', NOW(), 'COURSE_SYNC', 'N'),
 
+    -- SQLD
+    (93, 'C01', '인프런', '실습으로 손에 잡히는 SQLD(2과목)', 49500, 37120, NULL, 'https://www.inflearn.com/course/sqld-%EC%99%84%EC%84%B1-2%EA%B3%BC%EB%AA%A9', NOW(), 'COURSE_SYNC', 'N'),
+    (94, 'C01', '인프런', '[2026] 비전공자도 한 번에 합격하는 SQLD 올인원', 79200, 59400, NULL, 'https://www.inflearn.com/course/%EB%B9%84%EC%A0%84%EA%B3%B5%EC%9E%90-sqld-%EC%9E%90%EA%B2%A9%EC%A6%9D', NOW(), 'COURSE_SYNC', 'N'),
+    (95, 'C01', '인프런', 'SQLD 2주만에 따는 필승 합격법: 최신 개정판 기출문제로 초단기 공략', 89100, 66820, NULL, 'https://www.inflearn.com/course/sqld-2%EC%A3%BC-%ED%95%84%EC%8A%B9-%ED%95%A9%EA%B2%A9%EB%B2%95', NOW(), 'COURSE_SYNC', 'N');
 -- --------------------------------------------------------------------
 -- [지원] 공무원 직렬 ↔ 추천 인강 매핑
 -- 테이블: job_category_course
@@ -2157,7 +2160,6 @@ VALUES
     (4, 8, 4, NOW(), 'COURSE_SYNC', 'N'),
     (5, 8, 5, NOW(), 'COURSE_SYNC', 'N'),
     (6, 8, 6, NOW(), 'COURSE_SYNC', 'N'),
-    (7, 8, 7, NOW(), 'COURSE_SYNC', 'N'),
 
     (8, 10, 8, NOW(), 'COURSE_SYNC', 'N'),
     (9, 10, 9, NOW(), 'COURSE_SYNC', 'N'),
@@ -2248,7 +2250,12 @@ VALUES
     -- 어학 : JLPT N1
     (67, 111, 67, NOW(), 'COURSE_SYNC', 'N'),
     (68, 111, 68, NOW(), 'COURSE_SYNC', 'N'),
-    (69, 111, 69, NOW(), 'COURSE_SYNC', 'N');
+    (69, 111, 69, NOW(), 'COURSE_SYNC', 'N'),
+
+    -- SQLD
+    (70, 61, 93, NOW(), 'COURSE_SYNC', 'N'),
+    (71, 61, 94, NOW(), 'COURSE_SYNC', 'N'),
+    (72, 61, 95, NOW(), 'COURSE_SYNC', 'N');
 
 -- --------------------------------------------------------------------
 -- [지원] 편입 전공계열 ↔ 추천 인강 매핑
