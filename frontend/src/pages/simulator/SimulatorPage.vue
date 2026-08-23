@@ -307,9 +307,7 @@ const previewProducts = computed(() => {
     isTaxExempt: !!it.isTaxExempt,
     desc:
       category === 'policy'
-        ? it.minRate === it.maxRate
-          ? `최대 연 ${it.maxRate}%`
-          : `연 ${it.minRate}~${it.maxRate}%`
+        ? `최대 연 ${it.maxRate}%` // 정책상품 목록 응답엔 maxRate만 있음(minRate 없음) → 최대금리만 표시
         : `${it.saveTrm}개월 · 최대 연 ${it.maxRate}%`,
   });
   return [
