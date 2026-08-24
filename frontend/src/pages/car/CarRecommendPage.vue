@@ -248,7 +248,8 @@ const handlePrev = () => {
           :display-value="formatKm(selectedMileageKm)"
           :ticks="['0km', formatKm(MAX_MILEAGE_KM)]"
         />
-        <p v-if="filterLoading" class="filter-panel__status text-caption">가격 재계산 중...</p>
+        <!-- 항상 자리를 차지하고 텍스트만 토글 → 나타났다 사라질 때 목록이 밀리는(layout shift) 깜빡임 방지 -->
+        <p class="filter-panel__status text-caption" :style="{ visibility: filterLoading ? 'visible' : 'hidden' }">가격 재계산 중...</p>
       </div>
     </div>
 
