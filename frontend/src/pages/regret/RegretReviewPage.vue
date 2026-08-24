@@ -6,6 +6,7 @@ import { useRouter } from 'vue-router';
 import regretApi from '@/api/regretApi';
 import { formatWon, formatDate } from '@/util/format';
 import BaseCard from '@/components/common/BaseCard.vue';
+import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import { useToast } from '@/composables/useToast';
 
 const router = useRouter();
@@ -73,6 +74,8 @@ const tag = async (type) => {
   recent.value.unshift({ id: s.spendingId, type });
   try {
     await regretApi.tagReview(s.spendingId, type);
+    // 마지막 카드까지 점호하면 완료 알림(토스트)
+    if (!queue.value.length) showToast('점호 완료했습니다', 'success');
   } catch {
     s.reviewType = null;
     recent.value.shift();
@@ -97,6 +100,12 @@ const undo = () => {
 };
 
 const goDashboard = () => router.push({ name: 'RegretDashboard' });
+
+// 하단 "점호 완료" 버튼: 알림(토스트) 띄우고 후회소비 메인으로 이동
+const finish = () => {
+  showToast('점호 완료했습니다', 'success');
+  goDashboard();
+};
 </script>
 
 <template>
@@ -175,12 +184,15 @@ const goDashboard = () => router.push({ name: 'RegretDashboard' });
         </div>
       </BaseCard>
     </template>
+
+    <!-- 점호 진행 중 하단 고정 버튼: 완료 알림 후 후회소비 메인으로 이동 -->
+    <BottomButtonBar v-if="current" primary-label="점호 완료" @primary-click="finish" />
   </div>
 </template>
 
 <style scoped>
 .review {
-  padding: 20px 0 24px;
+  padding: 20px 0 80px; /* 하단 고정 버튼(BottomButtonBar)에 가리지 않도록 여백 */
   display: flex;
   flex-direction: column;
   gap: 12px;
