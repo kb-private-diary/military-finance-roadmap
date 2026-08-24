@@ -20,6 +20,7 @@
         FROM saving_history sh
         JOIN saving_account sa ON sh.account_id = sa.account_id
         WHERE sa.user_id = #{userId}
+          AND sa.product_type = 'MILITARY'
           AND sa.del_yn = 'N'
           AND sh.del_yn = 'N'
     </select>
@@ -58,6 +59,7 @@
             open_date       AS openDate
         FROM saving_account
         WHERE user_id = #{userId}
+          AND product_type = 'MILITARY'
           AND del_yn = 'N'
     </select>
     <!-- resultType 변경 필요 : 예) org.scoula.openbanking.domain.SavingHistoryVO -->
