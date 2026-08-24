@@ -33,7 +33,7 @@ let scrollContainer = null;
 const fmtMD = (iso) => {
   if (!iso) return '';
   const [, m, d] = iso.split('-');
-  return `${Number(m)}.${Number(d)}`;
+  return `${Number(m)}월 ${Number(d)}일`;
 };
 const tripDateRange = computed(() =>
   goal.value ? `${fmtMD(goal.value.startDate)} ~ ${fmtMD(goal.value.endDate)}` : '',
