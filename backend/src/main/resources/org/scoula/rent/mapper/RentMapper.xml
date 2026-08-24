@@ -69,7 +69,9 @@
           END,
           CHAR_LENGTH(school_name),  -- 같은 순위면 짧은 이름 우선(본교가 대학원/분교보다 위)
           school_name
-        LIMIT 20
+        -- 프론트(SearchSelect)가 전체 목록을 받아 클라이언트 필터링하므로 전체 학교를 반환한다.
+        -- (keyword 없이 호출 → LIKE '%%' 전체 매치. 예전 LIMIT 20이면 앞 20개만 와서 나머지 학교가 검색 안 됨)
+        LIMIT 3000
     </select>
 
     <!-- 학교 단건 조회 (SCHOOL 모드 통학시간 뱃지 - 학교 좌표로 매물 거리 계산) -->

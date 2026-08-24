@@ -79,6 +79,8 @@ defineProps({
     </div>
 
     <div v-if="note" class="ecost__note">💡 {{ note }}</div>
+
+    <slot name="footer" />
   </section>
 </template>
 

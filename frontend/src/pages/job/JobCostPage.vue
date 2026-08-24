@@ -1,13 +1,17 @@
 <script setup>
 // SCR-JOB-03 · step3) 진로 비용 계산 (담당: 지원)
 // step3 - 선택한 자격증·어학 및 인강의 총 예상 비용 확인
+// 자동차·여행 step3와 동일한 공용 컴포넌트(GoalSummaryCard + EstimatedCostCard)로 통일.
+// 등록한 목표 유형(취업 J01 / 공무원 J02 / 편입 J03)에 따라 요약 카드 제목·스펙이 달라진다.
+// 큰 분류(대분류)는 categoryName이 세부만 오므로, findCategoryList의 parentId로 조회한다.
 
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import BaseCard from '@/components/common/BaseCard.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
+import GoalSummaryCard from '@/components/common/GoalSummaryCard.vue';
+import EstimatedCostCard from '@/components/common/EstimatedCostCard.vue';
 import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
-import calculatorIcon from '@/assets/images/calculator.png';
 import jobApi from '@/api/jobApi';
 import { formatWon } from '@/util/format';
 import regretApi from '@/api/regretApi';
@@ -24,7 +28,72 @@ const courses = ref([]);
 const trainings = ref([]);
 const isLoading = ref(false);
 
+// 목표 정보: categoryName = 세부 직무/직렬(구조 경채 등), categoryId = 세부 카테고리 id, univName·majorName = 편입
+const categoryName = ref('');
+const categoryId = ref(null);
+const univName = ref('');
+const majorName = ref('');
+const expectedDate = ref('');
+
+// 대분류·중분류 계층 (findCategoryList) — 큰 분류 이름을 parentId로 역참조
+const categoryList = ref([]);
+
 const isEmployment = computed(() => goalType.value === 'J01');
+
+const goalTypeLabel = computed(() => {
+  if (goalType.value === 'J01') return '취업';
+  if (goalType.value === 'J02') return '공무원';
+  if (goalType.value === 'J03') return '편입';
+
+  return '진로';
+});
+
+// 선택한 세부 카테고리 + 그 부모(큰 분류)
+const leafCategory = computed(
+  () =>
+    categoryList.value.find(
+      (c) => Number(c.categoryId) === Number(categoryId.value),
+    ) || null,
+);
+const parentCategory = computed(() =>
+  leafCategory.value
+    ? categoryList.value.find(
+        (c) => Number(c.categoryId) === Number(leafCategory.value.parentId),
+      ) || null
+    : null,
+);
+// 세부 직무·직렬 이름 (계층에서 못 찾으면 detail의 categoryName 폴백)
+const subCategoryName = computed(
+  () => leafCategory.value?.categoryName || categoryName.value || '',
+);
+// 큰 분류 이름 (IT·개발 / 소방 등)
+const bigCategoryName = computed(() => parentCategory.value?.categoryName || '');
+
+// 목표 시기 "2027-03" → "2027년 3월"
+const formattedExpectedDate = computed(() => {
+  const raw = expectedDate.value;
+  if (!raw) return '미정';
+
+  const [year, month] = String(raw).split('-');
+
+  return month ? `${year}년 ${Number(month)}월` : String(year);
+});
+
+// 제목: 취업=큰분류 > 세부직무 / 공무원=세부 직렬명 / 편입=학과
+const goalName = computed(() => {
+  if (goalType.value === 'J03') {
+    return majorName.value || '학과 미정';
+  }
+
+  if (goalType.value === 'J01') {
+    return bigCategoryName.value && subCategoryName.value
+      ? `${bigCategoryName.value} > ${subCategoryName.value}`
+      : subCategoryName.value || '진로 목표';
+  }
+
+  // 공무원: 선택한 세부 직렬명 (예: 구조 경채)
+  return subCategoryName.value || '진로 목표';
+});
 
 // 최근 3개월 월평균 지출 금액
 const averageMonthlySpending = ref(0);
@@ -44,8 +113,7 @@ const courseTotal = computed(() =>
   courses.value.reduce((sum, item) => sum + Number(item.selectedCost ?? 0), 0),
 );
 
-// 훈련과정 예상비용
-// 실제 준비비용이므로 전체 훈련비가 아닌 본인부담금(selectedCost) 사용
+// 훈련과정 예상비용 (전체 훈련비가 아닌 본인부담금)
 const trainingTotal = computed(() =>
   trainings.value.reduce((sum, item) => sum + Number(item.selfPayment ?? 0), 0),
 );
@@ -55,31 +123,39 @@ const totalAmount = computed(
   () => qualificationTotal.value + courseTotal.value + trainingTotal.value,
 );
 
-// 선택한 전체 준비항목 수
-const selectedItemCount = computed(
-  () =>
-    qualifications.value.length + courses.value.length + trainings.value.length,
-);
+// 비용 비율
+const rateOf = (amount) =>
+  totalAmount.value === 0
+    ? 0
+    : Math.round((amount / totalAmount.value) * 100);
 
-// 자격증·어학 비용 비율
-const qualificationRate = computed(() => {
-  if (totalAmount.value === 0) return 0;
+const qualificationRate = computed(() => rateOf(qualificationTotal.value));
+const courseRate = computed(() => rateOf(courseTotal.value));
+const trainingRate = computed(() => rateOf(trainingTotal.value));
 
-  return Math.round((qualificationTotal.value / totalAmount.value) * 100);
-});
+// 가장 비용 비중이 큰 항목 문구 (EstimatedCostCard 힌트)
+const largestCostMessage = computed(() => {
+  if (totalAmount.value === 0) {
+    return '선택한 준비 항목의 비용 정보가 없어요.';
+  }
 
-// 인터넷 강의 비용 비율
-const courseRate = computed(() => {
-  if (totalAmount.value === 0) return 0;
+  const costItems = [
+    { label: '자격증·어학', amount: qualificationTotal.value },
+    { label: '인터넷 강의', amount: courseTotal.value },
+  ];
 
-  return Math.round((courseTotal.value / totalAmount.value) * 100);
-});
+  if (isEmployment.value) {
+    costItems.push({ label: '훈련과정', amount: trainingTotal.value });
+  }
 
-// 훈련과정 비용 비율
-const trainingRate = computed(() => {
-  if (totalAmount.value === 0) return 0;
+  const maxAmount = Math.max(...costItems.map((item) => item.amount));
+  const largestItems = costItems.filter((item) => item.amount === maxAmount);
 
-  return Math.round((trainingTotal.value / totalAmount.value) * 100);
+  if (largestItems.length > 1) {
+    return '준비 항목의 비용 비중이 비슷해요.';
+  }
+
+  return `${largestItems[0].label} 비용의 비중이 가장 커요.`;
 });
 
 // 최근 3개월 월평균 지출 대비 예상 준비비용 비율
@@ -89,42 +165,140 @@ const spendingRate = computed(() => {
   return Math.round((totalAmount.value / averageMonthlySpending.value) * 100);
 });
 
-// 진행바는 100%를 넘지 않도록 제한
-const spendingProgressRate = computed(() => Math.min(spendingRate.value, 100));
+// ── GoalSummaryCard 데이터 ────────────────────────────────────
+// 스펙: 유형별로 시기·희망 직렬/대학·준비 항목 개수 (취업만 훈련과정 포함)
+const summarySpecs = computed(() => {
+  const qualSpec = { label: '자격증·어학', value: `${qualifications.value.length}개` };
+  const courseSpec = { label: '인터넷 강의', value: `${courses.value.length}개` };
 
-// 가장 비용 비중이 큰 항목 문구
-const largestCostMessage = computed(() => {
-  if (totalAmount.value === 0) {
-    return '선택한 준비 항목의 비용 정보가 없습니다.';
+  if (goalType.value === 'J03') {
+    return [
+      { label: '편입 시기', value: formattedExpectedDate.value },
+      { label: '희망 대학', value: univName.value || '미정' },
+      qualSpec,
+      courseSpec,
+    ];
   }
 
-  const costItems = [
-    {
-      label: '자격증·어학',
-      amount: qualificationTotal.value,
-    },
-    {
-      label: '인터넷 강의',
-      amount: courseTotal.value,
-    },
+  if (goalType.value === 'J02') {
+    return [
+      { label: '합격 시기', value: formattedExpectedDate.value },
+      { label: '희망 직렬', value: bigCategoryName.value || subCategoryName.value || '미정' },
+      qualSpec,
+      courseSpec,
+    ];
+  }
+
+  // 취업 (J01) — 훈련과정 포함
+  return [
+    { label: '취업 시기', value: formattedExpectedDate.value },
+    { label: '훈련과정', value: `${trainings.value.length}개` },
+    qualSpec,
+    courseSpec,
+  ];
+});
+
+// 비교: 최근 3개월 월평균 지출 vs 예상 준비비용 (지출 0이면 뱃지만 생략, 카드는 항상 표시)
+const summaryCompare = computed(() => {
+  const hasSpending = averageMonthlySpending.value > 0;
+  const withinSpending =
+    hasSpending && totalAmount.value <= averageMonthlySpending.value;
+
+  return {
+    left: { label: '3개월 월평균 지출', value: formatWon(averageMonthlySpending.value) },
+    right: { label: '예상 준비비용', value: formatWon(totalAmount.value) },
+    badge: hasSpending
+      ? { text: `지출의 ${spendingRate.value}%`, tone: withinSpending ? 'good' : 'bad' }
+      : null,
+  };
+});
+
+// ── EstimatedCostCard 데이터 (물통) ───────────────────────────
+// 자취 비율바 팔레트 재사용 — 취업이면 훈련과정 추가
+const COST_STYLES = [
+  { color: '#6b5b4d', ink: '#ffffff' }, // 자격증·어학
+  { color: '#a68b73', ink: '#ffffff' }, // 인터넷 강의
+  { color: '#e5c558', ink: '#5b4b2e' }, // 훈련과정
+];
+
+const costCardItems = computed(() => {
+  const base = [
+    { label: '자격증·어학', amount: qualificationTotal.value, percent: qualificationRate.value },
+    { label: '인터넷 강의', amount: courseTotal.value, percent: courseRate.value },
   ];
 
   if (isEmployment.value) {
-    costItems.push({
+    base.push({
       label: '훈련과정',
       amount: trainingTotal.value,
+      percent: trainingRate.value,
     });
   }
 
-  const maxAmount = Math.max(...costItems.map((item) => item.amount));
+  return base.map((it, i) => ({
+    label: it.label,
+    amountText: formatWon(it.amount),
+    percent: it.percent,
+    color: COST_STYLES[i].color,
+    ink: COST_STYLES[i].ink,
+    showName: it.percent >= 10,
+  }));
+});
 
-  const largestItems = costItems.filter((item) => item.amount === maxAmount);
+const costState = computed(() => ({
+  headLabel: '총 예상 준비비용',
+  amount: totalAmount.value,
+  unit: '원',
+  items: costCardItems.value,
+  hint: largestCostMessage.value,
+  hintTone: 'g',
+}));
 
-  if (largestItems.length > 1) {
-    return '준비 항목의 비용 비중이 같아요.';
+// ── 상세 내역 (비용 카드 하단, 클릭 시 선택한 항목 펼침) ────────
+const isDetailExpanded = ref(false);
+const toggleDetail = () => {
+  isDetailExpanded.value = !isDetailExpanded.value;
+};
+
+const selectedItemCount = computed(
+  () =>
+    qualifications.value.length + courses.value.length + trainings.value.length,
+);
+
+const detailGroups = computed(() => {
+  const groups = [];
+
+  if (qualifications.value.length) {
+    groups.push({
+      title: '자격증·어학',
+      items: qualifications.value.map((q) => ({
+        name: q.qualName,
+        amount: Number(q.selectedCost ?? 0),
+      })),
+    });
   }
 
-  return `${largestItems[0].label} 비용의 비중이 가장 커요.`;
+  if (courses.value.length) {
+    groups.push({
+      title: '인터넷 강의',
+      items: courses.value.map((c) => ({
+        name: c.courseName,
+        amount: Number(c.selectedCost ?? 0),
+      })),
+    });
+  }
+
+  if (isEmployment.value && trainings.value.length) {
+    groups.push({
+      title: '훈련과정',
+      items: trainings.value.map((t) => ({
+        name: t.trainingName,
+        amount: Number(t.selfPayment ?? 0),
+      })),
+    });
+  }
+
+  return groups;
 });
 
 // ── 목표 상세 조회 ────────────────────────────────────────────
@@ -143,6 +317,11 @@ const fetchJobGoalDetail = async () => {
     qualifications.value = detail?.qualifications ?? [];
     courses.value = detail?.courses ?? [];
     trainings.value = detail?.trainings ?? [];
+    categoryName.value = detail?.categoryName ?? '';
+    categoryId.value = detail?.categoryId ?? null;
+    univName.value = detail?.univName ?? '';
+    majorName.value = detail?.majorName ?? '';
+    expectedDate.value = detail?.expectedDate ?? '';
   } catch (error) {
     console.error('진로 목표 상세 조회 실패:', error);
 
@@ -152,6 +331,22 @@ const fetchJobGoalDetail = async () => {
     });
   } finally {
     isLoading.value = false;
+  }
+};
+
+// ── 대분류·중분류 카테고리 계층 조회 (큰 분류 이름 역참조용) ────
+const fetchCategoryList = async () => {
+  // 편입(J03)은 대학·학과 체계라 직무 카테고리 없음
+  if (!goalType.value || goalType.value === 'J03') {
+    categoryList.value = [];
+    return;
+  }
+
+  try {
+    categoryList.value = (await jobApi.findCategoryList(goalType.value)) ?? [];
+  } catch (error) {
+    console.error('직무 카테고리 조회 실패:', error);
+    categoryList.value = [];
   }
 };
 
@@ -179,8 +374,9 @@ const handlePrev = () => {
   router.back();
 };
 
-onMounted(() => {
-  fetchJobGoalDetail();
+onMounted(async () => {
+  await fetchJobGoalDetail();
+  fetchCategoryList();
   fetchAverageMonthlySpending();
 });
 </script>
@@ -194,165 +390,65 @@ onMounted(() => {
     </div>
 
     <template v-else>
-      <!-- 총 예상 준비비용 -->
-      <section class="cost-summary">
-        <div class="cost-summary__icon" aria-hidden="true">
-          <img :src="calculatorIcon" alt="" class="cost-summary__icon-image" />
-        </div>
+      <PageHeader
+        title="진로 로드맵의 예상 비용 내역입니다."
+        description="선택한 준비 항목의 총 비용을 분석해드립니다."
+      />
 
-        <div class="cost-summary__content">
-          <p class="cost-summary__label">총 예상 준비비용</p>
+      <GoalSummaryCard
+        theme="job"
+        :chip="goalTypeLabel"
+        :title="goalName"
+        :specs="summarySpecs"
+        :compare="summaryCompare"
+      />
 
-          <strong class="cost-summary__amount">
-            {{ formatWon(totalAmount) }}
-          </strong>
-
-          <p class="cost-summary__description">
-            선택한 준비 항목 {{ selectedItemCount }}개 기준
-          </p>
-        </div>
-      </section>
-
-      <!-- 비용 구성 -->
-      <BaseCard padding="16px">
-        <section class="cost-composition">
-          <h2 class="section-title">비용 구성</h2>
-
-          <div
-            class="stacked-bar"
-            role="img"
-            :aria-label="
-              isEmployment
-                ? `자격증·어학 ${qualificationRate}%, 인터넷 강의 ${courseRate}%, 훈련과정 ${trainingRate}%`
-                : `자격증·어학 ${qualificationRate}%, 인터넷 강의 ${courseRate}%`
-            "
-          >
-            <div
-              v-if="qualificationRate > 0"
-              class="stacked-bar__item stacked-bar__item--qualification"
-              :style="{ width: `${qualificationRate}%` }"
+      <EstimatedCostCard :state="costState" :dividers="false" note="">
+        <!-- 상세 내역 — 같은 카드 하단에서 클릭하면 선택한 준비 항목이 펼쳐진다 -->
+        <template v-if="detailGroups.length" #footer>
+          <div class="cost-detail">
+            <button
+              type="button"
+              class="cost-detail__toggle"
+              :aria-expanded="isDetailExpanded"
+              @click="toggleDetail"
             >
-              <span v-if="qualificationRate >= 15">
-                {{ qualificationRate }}%
+              <span class="cost-detail__label">
+                상세 내역 <em>{{ selectedItemCount }}건</em>
               </span>
-            </div>
+              <span
+                class="cost-detail__arrow"
+                :class="{ 'is-open': isDetailExpanded }"
+                aria-hidden="true"
+              >⌄</span>
+            </button>
 
-            <div
-              v-if="courseRate > 0"
-              class="stacked-bar__item stacked-bar__item--course"
-              :style="{ width: `${courseRate}%` }"
-            >
-              <span v-if="courseRate >= 15"> {{ courseRate }}% </span>
-            </div>
+            <div v-if="isDetailExpanded" class="cost-detail__content">
+              <div
+                v-for="group in detailGroups"
+                :key="group.title"
+                class="cost-detail__group"
+              >
+                <strong class="cost-detail__group-title">{{ group.title }}</strong>
 
-            <div
-              v-if="isEmployment && trainingRate > 0"
-              class="stacked-bar__item stacked-bar__item--training"
-              :style="{ width: `${trainingRate}%` }"
-            >
-              <span v-if="trainingRate >= 15"> {{ trainingRate }}% </span>
+                <div
+                  v-for="(item, index) in group.items"
+                  :key="index"
+                  class="cost-detail__row"
+                >
+                  <span class="cost-detail__name">{{ item.name }}</span>
+                  <strong class="cost-detail__amount">{{ formatWon(item.amount) }}</strong>
+                </div>
+              </div>
             </div>
           </div>
-
-          <ul class="cost-composition__list">
-            <li class="cost-row">
-              <span class="cost-row__dot cost-row__dot--qualification"></span>
-
-              <span class="cost-row__name">자격증·어학</span>
-
-              <strong class="cost-row__amount">
-                {{ formatWon(qualificationTotal) }}
-              </strong>
-
-              <span class="cost-row__rate"> {{ qualificationRate }}% </span>
-            </li>
-
-            <li class="cost-row">
-              <span class="cost-row__dot cost-row__dot--course"></span>
-
-              <span class="cost-row__name">인터넷 강의</span>
-
-              <strong class="cost-row__amount">
-                {{ formatWon(courseTotal) }}
-              </strong>
-
-              <span class="cost-row__rate"> {{ courseRate }}% </span>
-            </li>
-
-            <li v-if="isEmployment" class="cost-row">
-              <span class="cost-row__dot cost-row__dot--training"></span>
-
-              <span class="cost-row__name">훈련과정</span>
-
-              <strong class="cost-row__amount">
-                {{ formatWon(trainingTotal) }}
-              </strong>
-
-              <span class="cost-row__rate"> {{ trainingRate }}% </span>
-            </li>
-          </ul>
-
-          <p class="cost-composition__message">
-            {{ largestCostMessage }}
-          </p>
-
-          <div class="cost-composition__count">
-            상세 내역 {{ selectedItemCount }}건
-          </div>
-        </section>
-      </BaseCard>
-
-      <!-- 최근 1개월 지출 대비 -->
-      <BaseCard padding="20px">
-        <section class="spending-compare">
-          <div class="spending-compare__head">
-            <div>
-              <h2 class="section-title">최근 지출 대비</h2>
-
-              <p class="spending-compare__description">
-                최근 3개월 월평균 지출과 준비비용을 비교했어요.
-              </p>
-            </div>
-
-            <strong class="spending-compare__rate">
-              {{ spendingRate }}%
-            </strong>
-          </div>
-
-          <div class="spending-progress">
-            <div
-              class="spending-progress__bar"
-              :style="{ width: `${spendingProgressRate}%` }"
-            ></div>
-          </div>
-
-          <dl class="spending-compare__list">
-            <div class="spending-compare__row">
-              <dt>최근 3개월 월평균 지출</dt>
-              <dd>{{ formatWon(averageMonthlySpending) }}</dd>
-            </div>
-
-            <div class="spending-compare__row">
-              <dt>예상 준비비용</dt>
-              <dd>{{ formatWon(totalAmount) }}</dd>
-            </div>
-          </dl>
-        </section>
-      </BaseCard>
-
-      <!-- 안내 -->
-      <section class="cost-guide">
-        <h2 class="cost-guide__title">안내</h2>
-
-        <p>· 계산 결과는 예상 금액이며 실제 비용과 다를 수 있습니다.</p>
-
-        <p>· 할인 및 지원 조건에 따라 실제 부담금이 달라질 수 있습니다.</p>
-      </section>
+        </template>
+      </EstimatedCostCard>
     </template>
 
     <BottomButtonBar
-      primaryLabel="다 음"
-      secondaryLabel="이 전"
+      primaryLabel="다음"
+      secondaryLabel="이전"
       @primary-click="handleNext"
       @secondary-click="handlePrev"
     />
@@ -374,290 +470,91 @@ onMounted(() => {
   text-align: center;
 }
 
-/* ── 총 예상 준비비용 ─────────────────────────────────────── */
+/* ── 상세 내역 (비용 카드 하단 · 선택 항목 펼침) ── */
+.cost-detail {
+  border-top: 1px solid var(--line);
+}
 
-.cost-summary {
+.cost-detail__toggle {
   display: flex;
+  width: 100%;
   align-items: center;
-  gap: 14px;
-  padding: 16px;
-  border-radius: 16px;
-  background: var(--kb-yellow-pale);
+  justify-content: space-between;
+  padding: 15px 16px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
 }
 
-.cost-summary__icon {
-  display: flex;
-  width: 48px;
-  height: 48px;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  border-radius: 14px;
-  background: var(--chart-4);
-  color: var(--text-body);
-  font-size: 24px;
-  font-weight: 700;
-}
-
-.cost-summary__icon-image {
-  width: 24px;
-  height: 24px;
-  object-fit: contain;
-  display: block;
-}
-
-.cost-summary__content {
-  min-width: 0;
-}
-
-.cost-summary__label {
-  margin: 0;
-  color: var(--brand-gold);
+.cost-detail__label {
   font-size: 14px;
-  font-weight: 600;
-}
-
-.cost-summary__amount {
-  display: block;
-  margin-top: 4px;
-  color: var(--text-body);
-  font-size: 18px;
   font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.8px;
+  color: var(--text-strong);
 }
 
-.cost-summary__description {
-  margin: 5px 0 0;
+.cost-detail__label em {
+  margin-left: 4px;
+  font-style: normal;
+  font-weight: 600;
   color: var(--text-muted);
-  font-size: 13px;
 }
 
-/* ── 공통 제목 ───────────────────────────────────────────── */
+.cost-detail__arrow {
+  color: var(--text-muted);
+  font-size: 18px;
+  transition: transform 0.2s ease;
+}
 
-.section-title {
-  margin: 0;
-  color: var(--text-body);
-  font-size: 15px;
+.cost-detail__arrow.is-open {
+  transform: rotate(180deg);
+}
+
+.cost-detail__content {
+  padding: 0 16px 16px;
+}
+
+.cost-detail__group {
+  padding-top: 14px;
+}
+
+.cost-detail__group + .cost-detail__group {
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+/* 분류(그룹) 제목 — 항목과 구분되게 진하게 */
+.cost-detail__group-title {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--text-strong);
+  font-size: 13px;
   font-weight: 700;
 }
 
-/* ── 비용 구성 ───────────────────────────────────────────── */
-
-.cost-composition {
-  width: 100%;
-}
-
-.stacked-bar {
+.cost-detail__row {
   display: flex;
-  width: 100%;
-  height: 24px;
-  margin-top: 20px;
-  overflow: hidden;
-  border-radius: 10px;
-  background: var(--gray-track-light);
-}
-
-.stacked-bar__item {
-  display: flex;
-  min-width: 0;
   align-items: center;
-  justify-content: center;
-  color: var(--surface-default);
-  font-size: 12px;
-  font-weight: 600;
-  transition: width 0.25s ease;
+  justify-content: space-between;
+  gap: 16px;
 }
 
-.stacked-bar__item--qualification {
-  background: var(--chart-1);
+.cost-detail__row + .cost-detail__row {
+  margin-top: 10px;
 }
 
-.stacked-bar__item--course {
-  background: var(--chart-2);
-}
-
-.stacked-bar__item--training {
-  background: var(--chart-3);
-}
-
-.cost-composition__list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin: 20px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.cost-row {
-  display: grid;
-  grid-template-columns: 10px minmax(0, 1fr) auto 42px;
-  gap: 12px;
-  align-items: center;
-}
-
-.cost-row__dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-}
-
-.cost-row__dot--qualification {
-  background: var(--chart-1);
-}
-
-.cost-row__dot--course {
-  background: var(--chart-2);
-}
-
-.cost-row__dot--training {
-  background: var(--chart-3);
-}
-
-.cost-row__name {
+.cost-detail__name {
   overflow: hidden;
   color: var(--text-body);
   font-size: 13px;
-  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.cost-row__amount {
-  color: var(--text-body);
+.cost-detail__amount {
+  flex-shrink: 0;
+  color: var(--text-strong);
   font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.cost-row__rate {
-  color: var(--brand-gold);
-  font-size: 13px;
-  font-weight: 600;
-  text-align: right;
-}
-
-.cost-composition__message {
-  margin: 18px 0 0;
-  padding: 8px 10px;
-  border-radius: 10px;
-  background: var(--kb-yellow-pale);
-  color: var(--text-muted);
-  font-size: 12px;
-  line-height: 1.5;
-  text-align: center;
-}
-
-.cost-composition__count {
-  margin-top: 16px;
-  padding-top: 14px;
-  border-top: 1px solid var(--line);
-  color: var(--text-hint);
-  font-size: 12px;
-  text-align: center;
-}
-
-/* ── 최근 1개월 지출 대비 ────────────────────────────────── */
-
-.spending-compare {
-  width: 100%;
-}
-
-.spending-compare__list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin: 22px 0 0;
-}
-
-.spending-compare__row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.spending-compare__row dt {
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
-.spending-compare__row dd {
-  margin: 0;
-  color: var(--text-body);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.spending-progress {
-  width: 100%;
-  height: 10px;
-  margin-top: 24px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: var(--gray-track-light);
-}
-
-.spending-progress__bar {
-  height: 100%;
-  border-radius: inherit;
-  background: var(--kb-yellow);
-  transition: width 0.3s ease;
-}
-
-.spending-compare__summary {
-  margin: 14px 0 0;
-  color: var(--text-muted);
-  font-size: 12px;
-  line-height: 1.5;
-  text-align: center;
-}
-
-.spending-compare__summary strong {
-  color: var(--kb-yellow-deep);
-  font-weight: 700;
-}
-
-.spending-compare__notice {
-  margin: 18px 0 0;
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
-  color: var(--text-hint);
-  font-size: 11px;
-  line-height: 1.5;
-}
-
-.spending-compare__description {
-  margin-top: 4px;
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 1.5;
-}
-
-/* ── 안내 ─────────────────────────────────────────────────── */
-
-.cost-guide {
-  padding: 18px;
-  border-radius: 16px;
-  background: var(--surface-subtle);
-}
-
-.cost-guide__title {
-  margin: 0 0 12px;
-  color: var(--text-body);
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.cost-guide p {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 12px;
-  line-height: 1.7;
-}
-
-.cost-guide p + p {
-  margin-top: 10px;
 }
 </style>

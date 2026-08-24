@@ -33,7 +33,7 @@ let scrollContainer = null;
 const fmtMD = (iso) => {
   if (!iso) return '';
   const [, m, d] = iso.split('-');
-  return `${Number(m)}.${Number(d)}`;
+  return `${Number(m)}월 ${Number(d)}일`;
 };
 const tripDateRange = computed(() =>
   goal.value ? `${fmtMD(goal.value.startDate)} ~ ${fmtMD(goal.value.endDate)}` : '',
@@ -55,7 +55,7 @@ const tripDday = computed(() => {
 });
 const tripBudget = computed(() =>
   goal.value?.totalBudget
-    ? `${Math.round(goal.value.totalBudget / 10000).toLocaleString()}만`
+    ? `${goal.value.totalBudget.toLocaleString()}만` // total_budget은 만원 단위 저장 → ÷10000 하지 않음
     : '',
 );
 // 도착지가 국내 지역이면 국내여행, 아니면 해외여행 (자취 오피스텔 칩처럼)
@@ -159,8 +159,11 @@ const totalBudget = computed(() =>
 );
 
 // 게이지용 내 예산 (만원) — step1에서 입력한 고정 예산 우선, 없으면 파생값
+//   goal.totalBudget은 이미 만원 단위 저장이라 ÷10000 하지 않음. 파생값(totalBudget, 원)만 만원 변환
 const gaugeBudget = computed(() =>
-  Math.round((goal.value?.totalBudget || totalBudget.value) / 10000),
+  goal.value?.totalBudget
+    ? goal.value.totalBudget
+    : Math.round(totalBudget.value / 10000),
 );
 
 onMounted(async () => {

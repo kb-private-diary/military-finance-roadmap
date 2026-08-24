@@ -12,6 +12,13 @@ import BaseCard from '@/components/common/BaseCard.vue';
 import BaseBottomSheet from '@/components/common/BaseBottomSheet.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
+import RangeSlider from '@/components/common/RangeSlider.vue';
+import Badge from '@/components/common/Badge.vue';
+import checkGreenIcon from '@/assets/images/check-green.png';
+import checkBlueIcon from '@/assets/images/check-blue.png';
+import exclamationIcon from '@/assets/images/exclamation.png';
+import realestateIcon from '@/assets/images/realestate.png';
 
 const { show: showToast } = useToast();
 
@@ -61,9 +68,9 @@ const pyeong = computed(() => ((listing.value?.areaSqm ?? 0) / 3.3058).toFixed(1
 // step2를 안 거치고 직접 진입하면 priceLevel이 없어 시세 뱃지는 생략(신선도만 표시).
 // 목업: 배경 채운 pill(초록/파랑/빨강) + 검정 글자.
 const PRICE_BADGE = {
-  CHEAP: { label: '✅ 지역 평균보다 저렴', cls: 'pill--cheap' },
-  AVERAGE: { label: '✔ 지역 평균 수준', cls: 'pill--average' },
-  EXPENSIVE: { label: '⛔ 지역 평균보다 비쌈', cls: 'pill--expensive' },
+  CHEAP: { icon: checkGreenIcon, tone: 'green', text: '지역 평균보다 저렴' },
+  AVERAGE: { icon: checkBlueIcon, tone: 'blue', text: '지역 평균 수준' },
+  EXPENSIVE: { icon: exclamationIcon, tone: 'red', text: '지역 평균보다 비쌈' },
 };
 // 시세뱃지: 백엔드 상세 응답 priceLevel 우선(항상 계산됨), 없으면 step2에서 넘긴 store 값
 const priceBadge = computed(
@@ -204,14 +211,6 @@ watch(
   },
   { immediate: true },
 );
-// 거주기간 슬라이더 채움(노랑) — 6~24 구간을 %로 환산해 트랙 배경에 그린다(step1 예산 슬라이더 방식).
-const monthsFillStyle = computed(() => {
-  const pct = ((months.value - 6) / (24 - 6)) * 100;
-  return {
-    background: `linear-gradient(to right, var(--kb-yellow) 0%, var(--kb-yellow) ${pct}%, var(--kb-gray-pale) ${pct}%, var(--kb-gray-pale) 100%)`,
-  };
-});
-
 const monthlyCost = computed(() => (listing.value?.monthlyRent ?? 0) + (listing.value?.maintenanceFee ?? 0));
 const totalCost = computed(() => (listing.value?.deposit ?? 0) + monthlyCost.value * months.value);
 // 실제 소멸 비용: 돌려받지 못하고 나가는 돈 (월세+관리비)×개월. totalCost 에서 보증금을 뺀 값과 같다.
@@ -377,7 +376,7 @@ const goPrev = () => {
 <template>
   <div v-if="listing" class="detail">
     <RoadmapCharacterSlider :step="3" label="자취 로드맵" />
-    <h2 class="page-title">선택한 로드맵 비용은?</h2>
+    <PageHeader title="선택한 로드맵 비용은?" />
 
     <!-- 매물 카드: 상단 KB 노랑 가로 바 -->
     <BaseCard class="listing-card" padding="16px 16px 18px">
@@ -391,8 +390,19 @@ const goPrev = () => {
 
       <!-- (c) 시세 뱃지(step2 priceLevel, 있을 때만) + 신선도 뱃지 -->
       <div class="pbadges">
-        <span v-if="priceBadge" class="pill" :class="priceBadge.cls">{{ priceBadge.label }}</span>
-        <span v-for="(b, i) in freshBadges" :key="i" class="pill pill--fresh">⭐ {{ b }}</span>
+        <Badge
+          v-if="priceBadge"
+          :tone="priceBadge.tone"
+          :icon="priceBadge.icon"
+          :text="priceBadge.text"
+        />
+        <Badge
+          v-for="(b, i) in freshBadges"
+          :key="i"
+          tone="yellow"
+          :icon="realestateIcon"
+          :text="b"
+        />
       </div>
 
       <!-- (d) 카카오맵: 앱키(.env)+좌표 있으면 대략 위치 원(Circle), 아니면 폴백 -->
@@ -426,12 +436,15 @@ const goPrev = () => {
     <p class="sec-title">기간별 예상 비용</p>
 
     <section class="period">
-      <div class="period__head">
-        <span class="period__label">거주기간</span>
-        <span class="period__val">{{ months }}<em>개월</em></span>
-      </div>
-      <input v-model.number="months" type="range" min="6" max="24" step="1" class="slider" :style="monthsFillStyle" />
-      <div class="scale"><span>6개월</span><span>12개월</span><span>24개월</span></div>
+      <RangeSlider
+        v-model="months"
+        :min="6"
+        :max="24"
+        :step="1"
+        label="거주기간"
+        unit="개월"
+        :ticks="['6개월', '12개월', '24개월']"
+      />
     </section>
 
     <!-- 내 재정 체크 -->
@@ -572,13 +585,6 @@ const goPrev = () => {
   flex-direction: column;
   gap: 12px;
 }
-.page-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-strong);
-  line-height: 1.35;
-}
-
 /* ── 매물 카드 ─────────────────────────────────────────── */
 .listing-card {
   border-top: 4px solid var(--kb-yellow);
@@ -643,25 +649,6 @@ const goPrev = () => {
   flex-wrap: wrap;
   margin: 10px 0;
 }
-.pill {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 999px;
-  color: #000;
-}
-.pill--cheap {
-  background: #e1f3e0;
-}
-.pill--average {
-  background: #d3e6ff;
-}
-.pill--expensive {
-  background: #f4d1d1;
-}
-.pill--fresh {
-  background: #fff4cc;
-}
 
 /* ── 스펙 2열 grid ─────────────────────────────────────── */
 .spec-grid {
@@ -699,77 +686,6 @@ const goPrev = () => {
   flex-direction: column;
   gap: 4px;
 }
-.period__head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-}
-.period__label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-body);
-}
-.period__val {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-strong);
-}
-.period__val em {
-  font-size: 13px;
-  font-weight: 600;
-  font-style: normal;
-  color: var(--text-muted);
-  margin-left: 2px;
-}
-/* 채움(노랑)은 인라인 배경, 핸들은 흰 원+노랑 테두리 (step1 예산 슬라이더와 통일) */
-.slider {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 6px;
-  border-radius: 3px;
-  margin: 12px 0 8px;
-  background: var(--kb-gray-pale);
-  cursor: pointer;
-}
-.slider::-webkit-slider-runnable-track {
-  height: 6px;
-  border-radius: 3px;
-  background: transparent;
-}
-.slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  margin-top: -6px;
-  border-radius: 50%;
-  background: #fff;
-  border: 2px solid var(--kb-yellow-deep);
-  box-shadow: 0 1px 3px var(--shadow-thumb);
-  cursor: pointer;
-}
-.slider::-moz-range-track {
-  height: 6px;
-  border-radius: 3px;
-  background: transparent;
-}
-.slider::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #fff;
-  border: 2px solid var(--kb-yellow-deep);
-  box-shadow: 0 1px 3px var(--shadow-thumb);
-  cursor: pointer;
-}
-.scale {
-  display: flex;
-  justify-content: space-between;
-  font-size: 10px;
-  color: var(--text-hint);
-}
-
 /* ── 내 재정 체크 박스 ─────────────────────────────────── */
 .afford {
   padding: 12px 14px;

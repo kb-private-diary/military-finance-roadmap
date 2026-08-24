@@ -15,6 +15,13 @@ import BaseCard from '@/components/common/BaseCard.vue';
 import BaseTag from '@/components/common/BaseTag.vue';
 import BaseBottomSheet from '@/components/common/BaseBottomSheet.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
+import TabBar from '@/components/common/TabBar.vue';
+import Badge from '@/components/common/Badge.vue';
+import checkGreenIcon from '@/assets/images/check-green.png';
+import checkBlueIcon from '@/assets/images/check-blue.png';
+import exclamationIcon from '@/assets/images/exclamation.png';
+import realestateIcon from '@/assets/images/realestate.png';
 
 const route = useRoute();
 const router = useRouter();
@@ -44,9 +51,9 @@ const INFRA_TYPES = [
 
 // 시세 뱃지: priceLevel(CHEAP/AVERAGE/EXPENSIVE) → 배경 채운 pill
 const PRICE_BADGE = {
-  CHEAP: { label: '✅ 지역 평균보다 저렴', cls: 'pill--cheap' },
-  AVERAGE: { label: '✔ 지역 평균 수준', cls: 'pill--average' },
-  EXPENSIVE: { label: '⛔ 지역 평균보다 비쌈', cls: 'pill--expensive' },
+  CHEAP: { icon: checkGreenIcon, tone: 'green', text: '지역 평균보다 저렴' },
+  AVERAGE: { icon: checkBlueIcon, tone: 'blue', text: '지역 평균 수준' },
+  EXPENSIVE: { icon: exclamationIcon, tone: 'red', text: '지역 평균보다 비쌈' },
 };
 
 
@@ -137,7 +144,6 @@ const load = async () => {
 onMounted(load);
 
 // ── 파생값 ──────────────────────────────────────────────
-const residenceMonths = computed(() => goal.value?.residenceMonths || rentStore.months || 6);
 const listingId = computed(() => listing.value?.listingId || goal.value?.confirmedListingId || null);
 const estateTypeLabel = computed(() => ESTATE_TYPE[listing.value?.estateType] || '오피스텔');
 // 평수 = ㎡ / 3.3058 (소수 1자리). 면적 없으면 null.
@@ -490,10 +496,9 @@ const goConfirm = () => router.push({ name: 'RoadmapMain' });
   <div v-if="!loading && goal" class="detail">
     <!-- 1) 헤더 -->
     <header class="head">
-      <h2 class="head-title">내가 저장한 로드맵</h2>
-      <BaseTag label="자취" variant="pink" />
+      <PageHeader breadcrumb="저장한 로드맵" title="내가 그린 전역 작전" />
+      <BaseTag label="자취" variant="rent" />
     </header>
-    <p class="head-sub">목표 거주 {{ residenceMonths }}개월</p>
 
     <!-- 2) 매물 카드 (상단 핑크 4px 바) -->
     <BaseCard v-if="listing" class="listing-card" padding="16px 16px 18px">
@@ -505,8 +510,18 @@ const goConfirm = () => router.push({ name: 'RoadmapMain' });
 
       <!-- 시세 뱃지 + 신선도 뱃지 -->
       <div v-if="priceBadge || freshLabel" class="pbadges">
-        <span v-if="priceBadge" class="pill" :class="priceBadge.cls">{{ priceBadge.label }}</span>
-        <span v-if="freshLabel" class="pill pill--fresh">⭐ {{ freshLabel }}</span>
+        <Badge
+          v-if="priceBadge"
+          :tone="priceBadge.tone"
+          :icon="priceBadge.icon"
+          :text="priceBadge.text"
+        />
+        <Badge
+          v-if="freshLabel"
+          tone="yellow"
+          :icon="realestateIcon"
+          :text="freshLabel"
+        />
       </div>
 
       <!-- 카카오맵 대략 위치 원(Circle) + 잠금 캡션 -->
@@ -539,20 +554,10 @@ const goConfirm = () => router.push({ name: 'RoadmapMain' });
     </BaseCard>
 
     <!-- 3) 탭 -->
-    <div class="tabs" role="tablist">
-      <button
-        v-for="t in TABS"
-        :key="t.key"
-        type="button"
-        class="tab"
-        :class="{ active: activeTab === t.key }"
-        role="tab"
-        :aria-selected="activeTab === t.key"
-        @click="activeTab = t.key"
-      >
-        {{ t.label }}
-      </button>
-    </div>
+    <TabBar
+      v-model="activeTab"
+      :tabs="TABS.map((t) => ({ label: t.label, value: t.key }))"
+    />
 
     <!-- 탭 1: 나의 매물 -->
     <section v-show="activeTab === 'listing'" class="pane">
@@ -805,19 +810,9 @@ const goConfirm = () => router.push({ name: 'RoadmapMain' });
 /* 1) 헤더 */
 .head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-}
-.head-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-strong);
-}
-.head-sub {
-  margin-top: -8px;
-  font-size: 12px;
-  color: var(--text-muted);
 }
 
 /* 2) 매물 카드 (상단 핑크 바) */
@@ -901,18 +896,6 @@ const goConfirm = () => router.push({ name: 'RoadmapMain' });
   border-radius: 999px;
   color: #000;
 }
-.pill--cheap {
-  background: #e1f3e0;
-}
-.pill--average {
-  background: #d3e6ff;
-}
-.pill--expensive {
-  background: #f4d1d1;
-}
-.pill--fresh {
-  background: #fff4cc;
-}
 
 /* 스펙 2열 grid */
 .spec-grid {
@@ -949,32 +932,6 @@ const goConfirm = () => router.push({ name: 'RoadmapMain' });
   font-weight: 700;
   font-family: inherit;
   cursor: pointer;
-}
-
-/* 3) pill 탭 */
-.tabs {
-  display: flex;
-  gap: 6px;
-  padding: 4px;
-  border-radius: 999px;
-  background: var(--gray-pale-bg);
-}
-.tab {
-  flex: 1;
-  height: 34px;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--text-muted);
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.tab.active {
-  background: #ffffff;
-  color: var(--text-strong);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 /* 탭 콘텐츠 공통 */

@@ -22,6 +22,7 @@ const goalId = computed(() => Number(route.params.goalId));
 const currentStep = 3;
 
 const goal = ref(null);
+const budgetStatus = ref(null); // 만기금 기준 예산(수동 예산 없을 때 폴백)
 const purchase = ref(null); // { price, tax }
 const maintenanceCost = ref(null);
 const loading = ref(true);
@@ -162,15 +163,18 @@ const summarySpecs = computed(() => {
   return specs;
 });
 // 예산 비교: 내 예산 vs 실제 차값(구매비용) → 여유/부족 뱃지
+//   수동 예산(g.budget)이 있으면 그 값, 없으면 군적금 만기금(effectiveBudget)을 예산 기준으로 사용
 const summaryCompare = computed(() => {
   const g = goal.value;
-  if (!g || !g.budget) return null;
+  const hasManual = !!g?.budget;
+  const budget = hasManual ? g.budget : budgetStatus.value?.effectiveBudget;
+  if (!g || !budget) return null;
   const price = Math.round(purchaseTotal.value);
-  const diff = g.budget - price;
+  const diff = budget - price;
   return {
     left: {
-      label: '내 예산',
-      value: `${g.budget.toLocaleString()}만`,
+      label: hasManual ? '내 예산' : '예상 만기금',
+      value: `${budget.toLocaleString()}만`,
       icon: carBudgetIcon,
     },
     right: {
@@ -192,6 +196,14 @@ const loadCost = async () => {
   try {
     const goalResult = await carApi.findGoalDetail(goalId.value);
     goal.value = unwrap(goalResult);
+
+    // 예산 비교 카드용: 수동 예산이 없으면 군적금 만기금(effectiveBudget)을 예산 기준으로 사용
+    try {
+      const budgetResult = await carApi.findBudgetStatus(goalId.value);
+      budgetStatus.value = unwrap(budgetResult);
+    } catch {
+      budgetStatus.value = null; // 만기금 조회 실패해도 비용 화면은 계속
+    }
 
     const maintenanceResult = await carApi.findMaintenanceCost(goalId.value);
     maintenanceCost.value = unwrap(maintenanceResult);

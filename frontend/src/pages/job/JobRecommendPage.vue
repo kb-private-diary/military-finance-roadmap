@@ -3,9 +3,10 @@
 // 취업: 자격증 선택 시 연결 인강 펼침 + 훈련과정 탭
 // 공무원·편입: 자격증·어학 / 인터넷 강의 탭
 
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import BaseCard from '@/components/common/BaseCard.vue';
+import BaseInput from '@/components/common/BaseInput.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
@@ -37,6 +38,38 @@ const goalType = ref('');
 const qualifications = ref([]);
 const courses = ref([]);
 const trainings = ref([]);
+
+// ── 훈련 지역 (고용24 Work24 시도 지역코드) ──
+// 훈련과정은 지역마다 다르게 조회되므로 지역을 골라야 목록이 뜬다.
+const TRAINING_REGIONS = [
+  { code: '11', name: '서울특별시' },
+  { code: '26', name: '부산광역시' },
+  { code: '27', name: '대구광역시' },
+  { code: '28', name: '인천광역시' },
+  { code: '29', name: '광주광역시' },
+  { code: '30', name: '대전광역시' },
+  { code: '31', name: '울산광역시' },
+  { code: '36', name: '세종특별자치시' },
+  { code: '41', name: '경기도' },
+  { code: '43', name: '충청북도' },
+  { code: '44', name: '충청남도' },
+  { code: '45', name: '전북특별자치도' },
+  { code: '46', name: '전라남도' },
+  { code: '47', name: '경상북도' },
+  { code: '48', name: '경상남도' },
+  { code: '50', name: '제주특별자치도' },
+  { code: '51', name: '강원특별자치도' },
+];
+
+const selectedRegionCode = ref('');
+const trainingLoading = ref(false);
+
+const regionOptions = computed(() =>
+  TRAINING_REGIONS.map((region) => ({
+    value: region.code,
+    label: region.name,
+  })),
+);
 
 // ── 선택 상태 ──
 const selectedQualIds = ref(new Set());
@@ -72,6 +105,35 @@ const isFormValid = computed(
   () => totalSelectedCount.value > 0 && !submitting.value,
 );
 
+// ── 훈련과정 조회 ── (선택한 지역의 고용24 훈련과정만)
+const loadTrainings = async () => {
+  if (!isEmployment.value) {
+    return;
+  }
+
+  // 지역 미선택 상태에서는 이전 조회 결과를 남기지 않는다.
+  if (!selectedRegionCode.value) {
+    trainings.value = [];
+    return;
+  }
+
+  trainingLoading.value = true;
+
+  try {
+    trainings.value = await jobApi.findTrainingRecommend(
+      goalId,
+      selectedRegionCode.value,
+    );
+  } catch (error) {
+    trainings.value = [];
+
+    console.error('훈련과정 조회 실패:', error);
+    show('훈련과정을 불러오지 못했습니다.', 'error');
+  } finally {
+    trainingLoading.value = false;
+  }
+};
+
 // ── 추천 조회 ──
 const loadRecommend = async () => {
   loading.value = true;
@@ -83,14 +145,6 @@ const loadRecommend = async () => {
     goalType.value = result.goalType ?? '';
     qualifications.value = result.qualifications ?? [];
     courses.value = result.courses ?? [];
-
-    // 취업 목표인 경우 고용24 훈련과정 추천 조회
-    if (goalType.value === 'J01') {
-      trainings.value = await jobApi.findTrainingRecommend(
-        goalId,
-        '11', // TODO: 테스트용 서울 지역코드
-      );
-    }
   } catch (error) {
     goalType.value = '';
     qualifications.value = [];
@@ -105,6 +159,13 @@ const loadRecommend = async () => {
 };
 
 onMounted(loadRecommend);
+
+// 지역이 바뀌면 이전 지역에서 고른 훈련과정은 목록에 없으므로 선택을 초기화한다.
+watch(selectedRegionCode, async () => {
+  selectedTrainingKeys.value = new Set();
+
+  await loadTrainings();
+});
 
 // ── 선택 처리 ──
 const isQualificationSelected = (qualId) =>
@@ -545,10 +606,27 @@ const handlePrev = () => {
 
       <!-- 취업: 훈련과정 탭 -->
       <section v-else-if="isEmployment" class="job-recommend__list">
+        <!-- 훈련 지역 선택 — 지역마다 고용24 훈련과정이 다르게 조회된다 -->
+        <BaseInput
+          v-model="selectedRegionCode"
+          type="select"
+          placeholder="희망 훈련 지역"
+          :options="regionOptions"
+        />
+
+        <p class="training-notice">
+          선택한 지역에서 직무와 가장 가까운 과정부터 찾고, 없으면 범위를 넓혀
+          보여드려요.
+        </p>
+
+        <p v-if="trainingLoading" class="training-loading">
+          훈련과정을 찾고 있습니다.
+        </p>
+
         <EmptyState
-          v-if="trainings.length === 0"
+          v-else-if="selectedRegionCode && trainings.length === 0"
           title="추천 훈련과정이 없습니다."
-          description="현재 조건에 맞는 고용24 훈련과정이 없습니다."
+          description="선택한 지역에 맞는 고용24 훈련과정이 없습니다."
         />
 
         <template v-else>
@@ -1028,6 +1106,27 @@ const handlePrev = () => {
 
 .job-recommend__selection-divider {
   color: var(--line-strong);
+}
+
+/* ── 훈련 지역 선택 ── */
+.training-notice {
+  margin: 0;
+  color: var(--text-hint);
+  font-size: 12px;
+  line-height: 1.5;
+  word-break: keep-all;
+}
+
+/*
+ * 지역을 바꿀 때마다 노출되므로 공통 로딩 문구보다 여백을 줄여
+ * 목록이 위아래로 크게 흔들리지 않게 한다.
+ */
+.training-loading {
+  margin: 0;
+  padding: 12px 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
 }
 
 /* ── 고용24 훈련과정 ── */

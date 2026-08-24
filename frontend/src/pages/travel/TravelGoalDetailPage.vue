@@ -99,12 +99,12 @@ const costItems = computed(() => {
 
 const budgetDifference = computed(
   () =>
-    (Number(detail.value?.totalBudget) || 0) -
+    (Number(detail.value?.totalBudget) || 0) * 10000 - // totalBudget은 만원 단위 → 원으로 변환해 cost(원)와 비교
     (Number(cost.value.totalCost) || 0),
 );
 
 const budgetUsageRate = computed(() => {
-  const budget = Number(detail.value?.totalBudget) || 0;
+  const budget = (Number(detail.value?.totalBudget) || 0) * 10000; // 만원 → 원 (cost와 단위 통일)
   if (!budget) return 0;
   return Math.min(
     100,
@@ -113,7 +113,7 @@ const budgetUsageRate = computed(() => {
 });
 
 const budgetStatus = computed(() => {
-  const budget = Number(detail.value?.totalBudget) || 0;
+  const budget = (Number(detail.value?.totalBudget) || 0) * 10000; // 만원 → 원 (cost와 단위 통일)
   if (!budget) return { label: '예산 비교', rate: 0 };
   const rate = Math.round((Math.abs(budgetDifference.value) / budget) * 100);
   return {
@@ -283,7 +283,7 @@ onBeforeUnmount(() => {
               <dl>
                 <div>
                   <dt>내가 입력한 예산</dt>
-                  <dd>{{ formatWon(detail.totalBudget) }}</dd>
+                  <dd>{{ formatWon(detail.totalBudget * 10000) }}</dd>
                 </div>
                 <div>
                   <dt>예상 여행 경비</dt>

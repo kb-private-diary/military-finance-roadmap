@@ -46,7 +46,6 @@ const loading = ref(true);
 const loadError = ref('');
 const submitError = ref('');
 const submitting = ref(false);
-const filterLoading = ref(false);
 
 const selectedYear = ref(CURRENT_YEAR - DEFAULT_AGE_YEARS);
 const selectedMileageKm = ref(DEFAULT_AGE_YEARS * ANNUAL_MILEAGE_KM);
@@ -116,13 +115,10 @@ watch([selectedYear, selectedMileageKm], () => {
 
   clearTimeout(filterDebounceTimer);
   filterDebounceTimer = setTimeout(async () => {
-    filterLoading.value = true;
     try {
       await fetchRecommendations();
     } catch (error) {
       submitError.value = readErrorMessage(error, '연식/키로수 필터를 적용하지 못했습니다.');
-    } finally {
-      filterLoading.value = false;
     }
   }, 300);
 });
@@ -248,7 +244,6 @@ const handlePrev = () => {
           :display-value="formatKm(selectedMileageKm)"
           :ticks="['0km', formatKm(MAX_MILEAGE_KM)]"
         />
-        <p v-if="filterLoading" class="filter-panel__status text-caption">가격 재계산 중...</p>
       </div>
     </div>
 
