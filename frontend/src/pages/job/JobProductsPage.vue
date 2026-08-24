@@ -1,17 +1,19 @@
 <script setup>
 // SCR-JOB-04 · step4) 진로 금융상품 추천  (담당: 지원)
 // step4 - 청년 지원 정책·KB 예적금 추천 → 저장
+// 자취 step4와 동일한 구조로 통일: 정책/KB 탭 + 상품 카드 + 저장 완료 모달.
+// (자취의 감당도·조언·저장안내는 자취 전용이라 진로엔 넣지 않는다.)
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import jobApi from '@/api/jobApi';
-import BaseCard from '@/components/common/BaseCard.vue';
 import BaseTag from '@/components/common/BaseTag.vue';
+import BaseModal from '@/components/common/BaseModal.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.vue';
 import PageHeader from '@/components/common/PageHeader.vue';
-import roadmapRabbit from '@/assets/images/roadmap/rabbit.png';
-import BaseModal from '@/components/common/BaseModal.vue';
+import policyTabIcon from '@/assets/images/rent-policy-product.png';
+import kbTabIcon from '@/assets/images/rent-kb-product.png';
 import { useToast } from '@/composables/useToast';
 
 const route = useRoute();
@@ -26,12 +28,23 @@ const isCompleteModalOpen = ref(false);
 const policies = ref([]);
 const financialProducts = ref([]);
 
+// 탭: 정책상품(정부·지역 정책) / KB상품(예적금 등)
+const activeTab = ref('POLICY'); // 'POLICY' | 'KB'
+
 const isValidGoalId = computed(
   () => Number.isInteger(goalId.value) && goalId.value > 0,
 );
 
-const hasPolicies = computed(() => policies.value.length > 0);
-const hasFinancialProducts = computed(() => financialProducts.value.length > 0);
+// 현재 탭에 노출할 상품 목록
+const currentProducts = computed(() =>
+  activeTab.value === 'POLICY' ? policies.value : financialProducts.value,
+);
+
+const emptyMessage = computed(() =>
+  activeTab.value === 'POLICY'
+    ? '추천된 정책이 없어요'
+    : '추천된 금융상품이 없어요',
+);
 
 const loadRecommendedProducts = async () => {
   if (!isValidGoalId.value) {
@@ -54,35 +67,16 @@ const loadRecommendedProducts = async () => {
   }
 };
 
-const getBadgeText = (product) => {
-  return (product?.badgeCode ?? '').replace(' 가능', '');
-};
+// 뱃지: '복무 중 가능' → '복무 중', 색은 시점별
+const getBadgeText = (product) => (product?.badgeCode ?? '').replace(' 가능', '');
 
 const getBadgeVariant = (product) => {
   const badgeText = product?.badgeCode ?? '';
 
-  if (badgeText.includes('복무 중')) {
-    return 'yellow';
-  }
-
-  if (badgeText.includes('전역 후')) {
-    return 'green';
-  }
-
-  if (badgeText.includes('편입 후')) {
-    return 'gray';
-  }
+  if (badgeText.includes('복무 중')) return 'yellow';
+  if (badgeText.includes('전역 후')) return 'green';
 
   return 'gray';
-};
-
-const openProductLink = (linkUrl) => {
-  if (!linkUrl) {
-    show('등록된 상세 페이지가 없습니다.', 'info');
-    return;
-  }
-
-  window.open(linkUrl, '_blank', 'noopener,noreferrer');
 };
 
 const goPrevious = () => {
@@ -123,145 +117,81 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="job-products">
+  <div class="products">
     <RoadmapCharacterSlider :step="4" label="진로 로드맵" />
+    <PageHeader title="이 금융상품 어떠십니까?" />
 
-    <PageHeader title="금융상품 추천" />
-
-    <div v-if="loading" class="job-products__loading job-products__body">
-      추천 정보를 불러오는 중입니다.
-    </div>
+    <p v-if="loading" class="loading">불러오는 중...</p>
 
     <template v-else>
-      <section class="job-products__section">
-        <h3 class="job-products__section-title text-label">관련 정책</h3>
-
-        <div v-if="hasPolicies" class="job-products__list">
-          <BaseCard
-            v-for="policy in policies"
-            :key="`${policy.productType}-${policy.productId}`"
-            padding="16px"
-            class="product-card"
-          >
-            <div class="product-card__header">
-              <div class="product-card__content">
-                <BaseTag
-                  v-if="policy.badgeCode"
-                  class="product-card__tag"
-                  :label="getBadgeText(policy)"
-                  :variant="getBadgeVariant(policy)"
-                />
-
-                <strong class="product-card__name text-label">
-                  {{ policy.productName }}
-                </strong>
-
-                <p class="product-card__description job-products__body">
-                  {{ policy.productDesc }}
-                </p>
-              </div>
-
-              <button
-                v-if="policy.linkUrl"
-                type="button"
-                class="product-card__link"
-                :aria-label="`${policy.productName} 상세 페이지 열기`"
-                @click="openProductLink(policy.linkUrl)"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                  class="external-link-icon"
-                >
-                  <path
-                    d="M14 5h5v5M19 5l-8 8M19 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"
-                  />
-                </svg>
-              </button>
-            </div>
-          </BaseCard>
-        </div>
-
-        <div v-else class="job-products__empty job-products__body">
-          추천된 정책이 없습니다.
-        </div>
-      </section>
-
-      <section class="job-products__section">
-        <h3 class="job-products__section-title text-label">관련 금융상품</h3>
-
-        <div v-if="hasFinancialProducts" class="job-products__list">
-          <BaseCard
-            v-for="product in financialProducts"
-            :key="`${product.productType}-${product.productId}`"
-            padding="16px"
-            class="product-card"
-          >
-            <div class="product-card__header">
-              <div class="product-card__content">
-                <BaseTag
-                  v-if="product.badgeCode"
-                  class="product-card__tag"
-                  :label="getBadgeText(product)"
-                  :variant="getBadgeVariant(product)"
-                />
-
-                <strong class="product-card__name text-label">
-                  {{ product.productName }}
-                </strong>
-
-                <p class="product-card__description job-products__body">
-                  {{ product.productDesc }}
-                </p>
-              </div>
-
-              <button
-                v-if="product.linkUrl"
-                type="button"
-                class="product-card__link"
-                :aria-label="`${product.productName} 상세 페이지 열기`"
-                @click="openProductLink(product.linkUrl)"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                  class="external-link-icon"
-                >
-                  <path
-                    d="M14 5h5v5M19 5l-8 8M19 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"
-                  />
-                </svg>
-              </button>
-            </div>
-          </BaseCard>
-        </div>
-
-        <div v-else class="job-products__empty">
-          추천된 금융상품이 없습니다.
-        </div>
-      </section>
-
-      <div class="job-products__guide">
-        <div class="job-products__guide-content">
-          <p class="job-products__guide-title text-label">
-            지금까지 진로 로드맵이었습니다.
-          </p>
-          <p class="job-products__guide-description job-products__body">
-            마음에 든다면 저장해주세요.
-          </p>
-        </div>
-
-        <img
-          :src="roadmapRabbit"
-          alt="로드맵 토끼"
-          class="job-products__guide-image"
-        />
+      <!-- 탭 -->
+      <div class="tab-row">
+        <button
+          type="button"
+          class="tab-item"
+          :class="{ 'is-active': activeTab === 'POLICY' }"
+          @click="activeTab = 'POLICY'"
+        >
+          정책상품 <img :src="policyTabIcon" class="tab-icon" alt="" />
+        </button>
+        <button
+          type="button"
+          class="tab-item"
+          :class="{ 'is-active': activeTab === 'KB' }"
+          @click="activeTab = 'KB'"
+        >
+          KB상품 <img :src="kbTabIcon" class="tab-icon" alt="" />
+        </button>
       </div>
+
+      <p class="pick-hint">
+        목표에 맞는 추천 상품이에요. 카드를 눌러 상세 정보를 확인하세요
+      </p>
+
+      <!-- 상품 카드 -->
+      <section class="group">
+        <template v-if="currentProducts.length">
+          <div
+            v-for="product in currentProducts"
+            :key="`${product.productType}-${product.productId}`"
+            class="prod"
+          >
+            <span class="prod__body">
+              <BaseTag
+                v-if="product.badgeCode"
+                class="prod__tag"
+                :label="getBadgeText(product)"
+                :variant="getBadgeVariant(product)"
+              />
+              <span class="prod__name">{{ product.productName }}</span>
+              <span class="prod__desc">{{ product.productDesc }}</span>
+            </span>
+
+            <a
+              v-if="product.linkUrl"
+              :href="product.linkUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="prod__link"
+              :aria-label="`${product.productName} 상세 페이지 열기`"
+              @click.stop
+            >↗</a>
+            <span
+              v-else
+              class="prod__link prod__link--off"
+              aria-hidden="true"
+            >↗</span>
+          </div>
+        </template>
+        <p v-else class="empty">{{ emptyMessage }}</p>
+      </section>
+
+      <p class="foot-note">추천 상품을 확인하고 로드맵을 저장하세요</p>
     </template>
 
     <BottomButtonBar
       secondary-label="이전"
-      primary-label="저장"
+      :primary-label="saving ? '저장 중...' : '저장'"
       :primary-disabled="loading || saving"
       @secondary-click="goPrevious"
       @primary-click="handleSave"
@@ -272,156 +202,142 @@ onMounted(() => {
       title="알림"
       confirm-text="확인"
       @confirm="goJobGoalDetail"
+      @cancel="goJobGoalDetail"
     >
-      <p class="job-products__modal-message">
-        선택한 진로 목표가 저장되었습니다.
-      </p>
+      <p class="complete-modal__message">진로 로드맵이 저장되었습니다.</p>
     </BaseModal>
   </div>
 </template>
 
 <style scoped>
-/*
- * TODO:
- * 공통 본문 Typography(text-body)가 추가되면
- * job-products__body를 제거하고 공통 클래스로 교체
- */
-.job-products__body {
-  font-family: 'Escoredream', sans-serif;
-  font-size: 14px;
-  font-weight: 400;
-  color: var(--text-body);
-  line-height: 1.5;
-}
-
-.job-products {
-  padding: 0 20px 96px;
-}
-
-.job-products__loading,
-.job-products__empty {
-  padding: 32px 0;
-  text-align: center;
-}
-
-.job-products__section + .job-products__section {
-  margin-top: 16px;
-}
-
-.job-products__section-title {
-  margin: 0 0 12px;
-  color: var(--kb-dark-gray);
-}
-
-.job-products__list {
+.products {
+  padding: 20px 20px 96px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-}
-
-.product-card__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
   gap: 12px;
 }
-
-.product-card__content {
-  display: flex;
-  flex: 1;
-  min-width: 0;
-  flex-direction: column;
-  align-items: flex-start;
+.loading {
+  padding: 60px 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-hint);
 }
 
-:deep(.product-card__tag.base-tag) {
-  margin: 0 0 12px;
+/* ── 탭 ───────────────────────────────────────────────── */
+.tab-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+.tab-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 0;
+  border: 1px solid transparent;
+  border-radius: 14px 14px 4px 4px;
+  background: var(--kb-gray-pale);
+  color: var(--text-hint);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.tab-item.is-active {
+  background: #fff;
+  border-color: var(--line-strong);
+  color: var(--text-strong);
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+.tab-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+/* ── 상품 그룹 ────────────────────────────────────────── */
+.pick-hint {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ── 상품 카드 ────────────────────────────────────────── */
+.prod {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+.prod__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+:deep(.prod__tag.base-tag) {
+  margin-bottom: 4px;
   padding: 2px 8px;
   font-size: 10px;
   line-height: 1.2;
 }
-
-.product-card__link {
-  display: inline-flex;
-  width: 28px;
-  height: 28px;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--text-body);
-  cursor: pointer;
+.prod__name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-strong);
 }
-
-.product-card__link:hover {
-  background: var(--gray-pale-bg);
-}
-
-.external-link-icon {
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.product-card__name {
-  display: block;
-  margin: 0;
-  line-height: 1.4;
-}
-
-.product-card__description {
-  display: -webkit-box;
-  margin: 6px 0 0;
-  overflow: hidden;
+.prod__desc {
+  font-size: 11px;
   color: var(--text-muted);
-  font-size: 12px;
-  line-height: 1.5;
-  word-break: keep-all;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-.job-products__guide {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 32px;
-}
-
-.job-products__guide-content {
-  flex: 1;
-}
-
-.job-products__guide-title {
-  display: block;
   line-height: 1.4;
+  word-break: keep-all;
+}
+/* 외부링크 - 회색 원 없이 화살표만 */
+.prod__link {
+  flex: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+  padding: 4px;
+}
+.prod__link--off {
+  color: var(--text-hint);
+  opacity: 0.6;
+}
+.empty {
+  padding: 18px 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-hint);
+  border: 1px dashed var(--line);
+  border-radius: 12px;
 }
 
-.job-products__guide-description {
-  margin: 2px 0 0;
+.foot-note {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.6;
 }
 
-.job-products__guide-image {
-  width: 54px;
-  height: auto;
-  flex-shrink: 0;
-}
-
-/*
- * TODO: 공통 본문 Typography(text-body)가 추가되면
- * 공통 클래스로 교체
- */
-.job-products__modal-message {
+.complete-modal__message {
   margin: 0;
-  font-family: 'Escoredream', sans-serif;
   font-size: 14px;
   font-weight: 400;
   line-height: 1.6;
