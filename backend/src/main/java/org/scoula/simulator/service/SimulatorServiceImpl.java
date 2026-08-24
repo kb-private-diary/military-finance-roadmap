@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 import org.scoula.common.exception.BusinessException;
 import org.scoula.common.util.MilitarySavingsCalculator;
@@ -24,6 +25,7 @@ import org.scoula.simulator.dto.SimulatorCalculateResponseDTO;
 import org.scoula.simulator.dto.SimulatorConstantCalcRequestDTO;
 import org.scoula.simulator.dto.SimulatorVariableCalcRequestDTO;
 import org.scoula.simulator.dto.SimulatorSavingAccountDTO;
+import org.scoula.simulator.dto.SimulatorSavingBankDTO;
 import org.scoula.simulator.dto.SimulatorSavingDetailsResponseDTO;
 import org.scoula.simulator.dto.SimulatorSavingHistoryDTO;
 import org.scoula.simulator.dto.SimulatorSavingLossResponseDTO;
@@ -49,6 +51,25 @@ public class SimulatorServiceImpl implements SimulatorService {
     // 전역일이 없을 때(연동 전 등) 쓰는 폴백 복무기간(개월).
     private static final int DEFAULT_SERVICE_MONTHS = 24;
 
+    // 금융결제원 표준 은행코드 → 은행명. military_saving_product에 실제 존재하는 코드 기준.
+    // 매핑에 없는 코드가 오면 코드값을 그대로 이름 대신 보여준다(방어).
+    private static final Map<String, String> BANK_NAMES = Map.ofEntries(
+            Map.entry("003", "IBK기업은행"),
+            Map.entry("004", "KB국민은행"),
+            Map.entry("007", "수협은행"),
+            Map.entry("011", "NH농협은행"),
+            Map.entry("020", "우리은행"),
+            Map.entry("031", "대구은행"),
+            Map.entry("032", "부산은행"),
+            Map.entry("034", "광주은행"),
+            Map.entry("035", "제주은행"),
+            Map.entry("037", "전북은행"),
+            Map.entry("039", "경남은행"),
+            Map.entry("071", "우체국"),
+            Map.entry("081", "하나은행"),
+            Map.entry("088", "신한은행")
+    );
+
     @Transactional(readOnly = true)
     @Override
     public SimulatorSavingDetailsResponseDTO findSavingDetails(Long userId) {
@@ -71,10 +92,18 @@ public class SimulatorServiceImpl implements SimulatorService {
         double expectedInterestTotal = 0.0;
         long expectedMatchingFundTotal = 0L;
 
+        List<SimulatorSavingBankDTO> banks = new ArrayList<>();
+
         // 계좌마다 은행(bankCode)이 다를 수 있어 계좌별로 따로 계산한 뒤 아래 total 변수들에 합산한다.
         for (SimulatorSavingAccountDTO account : accounts) {
             long monthlySave = account.getMonthlySave() != null ? account.getMonthlySave() : 0L;
             monthlySaveTotal += monthlySave;
+
+            String bankCode = account.getBankCode();
+            String bankName = bankCode != null
+                    ? BANK_NAMES.getOrDefault(bankCode, bankCode)
+                    : "은행 정보 없음";
+            banks.add(new SimulatorSavingBankDTO(bankName, monthlySave));
 
             List<SimulatorSavingHistoryDTO> histories =
                     this.mapper.findHistoryListByAccountId(account.getAccountId());
@@ -111,6 +140,7 @@ public class SimulatorServiceImpl implements SimulatorService {
                 .maturityDate(maturityDate)
                 .monthlySaveTotal(monthlySaveTotal)
                 .joinableMonths(joinableMonths)
+                .banks(banks)
                 .currentPaidAmount(currentPaidAmountTotal)
                 .currentPaidMonths(currentPaidMonths)
                 .currentPaidInterest(currentPaidInterestTotal)
