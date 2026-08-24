@@ -100,8 +100,8 @@ public class OpenBankingServiceImpl implements OpenBankingService {
             throw BusinessException.badRequest("연동할 계좌를 1개 이상 선택해주세요.", "OPBANK_007");
         }
 
-        // 1. 인증코드 → 토큰 발급
-        TokenResponse token = client.getToken(request.getCode());
+        // 1. 토큰 발급 (Mock은 userId 기반 - getLinkableAccounts와 동일. 실연동 시 request.getCode()로 교체)
+        TokenResponse token = client.getToken(String.valueOf(userId));
         if (token == null || token.getAccessToken() == null) {
             throw BusinessException.badRequest("오픈뱅킹 인증에 실패했습니다.", "OPBANK_001");
         }
