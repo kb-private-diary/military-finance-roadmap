@@ -1,12 +1,13 @@
 <script setup>
 // 공통 컴포넌트: 군적금 여정 타임라인 (담당: 수연)
 // 가입 → 오늘(중도해지 갈림길) → 만기 → 만기수령. 실제 현재 시점 기준으로 보여주기만 함.
-// 계산식은 details/savingLoss에서 파생(적금 단리 가정). 실제 공식이 있으면 interestAt만 교체하면 됨.
+// 현재 이자·중도해지 수령액·손실액은 전부 details/loss(API 응답)에 있는 값을 그대로 쓴다 (프론트 재계산 금지).
+import { computed } from 'vue';
 import BaseCard from '@/components/common/BaseCard.vue';
 import soldierIcon from '@/assets/images/soldier.png';
 
 const props = defineProps({
-  // { monthlySaveTotal, joinableMonths, currentPaidMonths, currentPaidAmount,
+  // { monthlySaveTotal, joinableMonths, currentPaidMonths, currentPaidAmount, currentPaidInterest,
   //   expectedPrincipal, expectedMatchingFund, expectedInterest, totalReceiptAmount } (원 단위)
   details: { type: Object, required: true },
   // { withdrawalAmount, lossAmount } — 없으면 갈림길/손실 카드 숨김
@@ -37,29 +38,26 @@ const fullPrincipal = d.expectedPrincipal ?? monthly * totalMonths;
 const matching = d.expectedMatchingFund ?? 0;
 const maturityTotal = d.totalReceiptAmount ?? 0;
 
-// 적금 단리: 이자 = 월납입 × (m(m+1)/2) × 연이율/12  → 이율을 실제값에서 역산
-const triangular = (m) => (m * (m + 1)) / 2;
-const rate =
-  monthly && totalMonths
-    ? (fullInterest * 12) / (monthly * triangular(totalMonths))
-    : 0;
-// 중도해지 이율: 실제 현재의 중도해지 수령액에서 역산
-const cancelRate = (() => {
-  if (!props.loss || !monthly || !realMonth) return 0;
-  const cancelInt = (props.loss.withdrawalAmount ?? 0) - monthly * realMonth;
-  return Math.max(0, (cancelInt * 12) / (monthly * triangular(realMonth)));
-})();
-const interestAt = (m, r) => monthly * triangular(m) * (r / 12);
-
 // ── 현재 시점(실제 납입 개월차 고정) ──
 const curMonth = realMonth;
 const paid = monthly * curMonth;
-const curInterest = interestAt(curMonth, rate);
+// 아래 세 값 모두 API가 이미 계산해서 주는 실제 값(회차별 실제 납입일·날짜 기반)을 그대로 쓴다 — 프론트에서 다시 추정하지 않는다.
+const curInterest = d.currentPaidInterest ?? 0;
 const remainMonths = Math.max(0, totalMonths - curMonth);
 const remainAmount = monthly * remainMonths;
-const cancelInterest = interestAt(curMonth, cancelRate);
-const cancelReceive = paid + cancelInterest;
-const lostInterest = Math.max(0, fullInterest - cancelInterest);
+// loss는 details와 별도의 API 호출로 채워지고 details보다 늦게 도착할 수 있어(부모의 병렬 fetch),
+// 마운트 시점에 고정되는 일반 const 대신 computed로 둬서 나중에 도착해도 반영되게 한다.
+const cancelReceive = computed(() => props.loss?.withdrawalAmount ?? 0);
+
+// 중도해지로 실제 깎이는 이자(withdrawalAmount에서 이미 낸 원금을 뺀 몫) — 전부 API 필드 조합.
+const withdrawalInterest = computed(() =>
+  props.loss ? cancelReceive.value - (d.currentPaidAmount ?? 0) : 0,
+);
+// "진짜 손실액" = 못 받는 정부매칭지원금 + (만기이자 - 중도해지이자).
+// 백엔드 loss.lossAmount는 여기에 "미래에 안 내도 되는 원금"까지 포함돼있어 손실치고 과대평가되므로 그대로 안 쓴다.
+const lossTotal = computed(() =>
+  props.loss ? matching + (fullInterest - withdrawalInterest.value) : 0,
+);
 const fillPct = totalMonths
   ? Math.min(100, Math.round((curMonth / totalMonths) * 100))
   : 0;
@@ -82,7 +80,9 @@ const maturityLabel = ymLabel(-realMonth + totalMonths);
         <b>내 적금 여정</b>
         <span
           >{{ productName
-          }}<template v-if="banks.length > 1"> · {{ banks.length }}건</template></span
+          }}<template v-if="banks.length > 1">
+            · {{ banks.length }}건</template
+          ></span
         >
       </div>
       <div v-if="banks.length" class="saving-tl__banks">
@@ -138,8 +138,8 @@ const maturityLabel = ymLabel(-realMonth + totalMonths);
               <span>중도해지 수령액</span><b>{{ man1(cancelReceive) }}</b>
             </div>
             <div class="saving-tl__branch-row">
-              <span>손해보는 이자</span
-              ><b class="saving-tl__branch-loss">-{{ man1(lostInterest) }}</b>
+              <span>손실액</span
+              ><b class="saving-tl__branch-loss">-{{ man1(lossTotal) }}</b>
             </div>
           </div>
         </div>
@@ -155,11 +155,14 @@ const maturityLabel = ymLabel(-realMonth + totalMonths);
           <div class="saving-tl__mat-break">
             <span><em>납입</em>{{ man(fullPrincipal) }}</span>
             <span><em>이자</em>{{ man1(fullInterest) }}</span>
-            <span class="saving-tl__mat-gov"><em>정부지원</em>{{ man(matching) }}</span>
+            <span class="saving-tl__mat-gov"
+              ><em>정부지원</em>{{ man(matching) }}</span
+            >
           </div>
           <div class="saving-tl__desc">
             지금 시점 기준 남은
-            <b>{{ remainMonths }}회차 · {{ man(remainAmount) }}</b> 납입해야 해요.
+            <b>{{ remainMonths }}회차 · {{ man(remainAmount) }}</b> 납입해야
+            해요.
           </div>
         </div>
       </div>
