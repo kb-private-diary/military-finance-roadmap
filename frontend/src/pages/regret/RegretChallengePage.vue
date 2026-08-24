@@ -7,6 +7,7 @@ import { useRouter } from 'vue-router';
 import regretApi from '@/api/regretApi';
 import { formatWon, formatManwon } from '@/util/format';
 import BaseCard from '@/components/common/BaseCard.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 import ProgressBar from '@/components/common/ProgressBar.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import { useToast } from '@/composables/useToast';
@@ -18,6 +19,11 @@ const goBack = () => router.push({ name: 'RegretDashboard' });
 const now = new Date();
 const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
 const monthLabel = `${now.getMonth() + 1}월`;
+
+// ⚠️ TODO(백엔드): 절감 목표 CRUD API 미구현으로 현재는 localStorage 임시 저장.
+//   서버 API(절감 목표 저장/조회) 나오면 아래 STORAGE_KEY 로직을 regretApi 호출로 교체할 것.
+//   (localStorage는 기기/계정 간 유지 안 됨 - 시연·단일 기기 한정)
+const STORAGE_KEY = 'regret_saving_goal';
 
 // 이번달 후회 소비(실데이터). 목표·아낀 금액은 저장 API 미구현 → 0
 const currentRegret = ref(0);
@@ -33,6 +39,11 @@ const load = async () => {
   try {
     const d = await regretApi.getMonthlyStats(yearMonth);
     currentRegret.value = d?.regretAmount ?? 0;
+    // TODO(백엔드): 서버 조회로 교체. 지금은 localStorage에서 이번달 목표 임시 복원
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+      if (saved && saved.yearMonth === yearMonth) goal.value = saved.goal;
+    } catch { /* 파싱 실패 무시 */ }
   } catch {
     currentRegret.value = 0;
     showToast('후회 소비를 불러오지 못했어요', 'error');
@@ -59,15 +70,19 @@ const adjustGoal = (delta) => {
   if (next < 0 || next >= currentRegret.value) return;
   goal.value = next;
 };
+
+// 목표 저장 (localStorage 임시). TODO(백엔드): 절감 목표 저장 API 나오면 교체
+const saveGoal = () => {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ yearMonth, goal: goal.value }));
+  showToast('절감 목표를 저장했어요', 'success');
+  goBack();
+};
 </script>
 
 <template>
   <div class="challenge">
-    <header class="head">
-      <p class="cap">절감 챌린지</p>
-      <h2 class="title">{{ monthLabel }} 후회 소비 줄이기</h2>
-      <p class="dev-note">⚠️ 준비 중인 기능이에요</p>
-    </header>
+    <PageHeader breadcrumb="절감 챌린지" :title="`${monthLabel} 후회 소비 줄이기`" size="lg" />
+    <p class="dev-note">⚠️ 준비 중인 기능이에요</p>
 
     <!-- 절감 목표 카드 -->
     <BaseCard padding="18px 16px">
@@ -144,7 +159,7 @@ const adjustGoal = (delta) => {
       </span>
     </div>
 
-    <BottomButtonBar primary-label="확인" @primary-click="goBack" />
+    <BottomButtonBar primary-label="목표 저장" @primary-click="saveGoal" />
   </div>
 </template>
 
