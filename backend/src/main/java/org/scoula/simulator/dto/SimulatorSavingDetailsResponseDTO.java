@@ -1,6 +1,7 @@
 package org.scoula.simulator.dto;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 
@@ -22,6 +23,7 @@ public class SimulatorSavingDetailsResponseDTO {
 
     private Long monthlySaveTotal;       // 계좌 2개를 합친 월 납입액
     private Integer joinableMonths;      // 가입개월수 (대표 계좌 기준)
+    private List<SimulatorSavingBankDTO> banks; // 가입 계좌별 은행명 + 월 납입액
 
     private Long currentPaidAmount;      // 현재납입액 (전 계좌 합산)
     private Integer currentPaidMonths;   // 현재 납입개월수 (대표 계좌 기준)
