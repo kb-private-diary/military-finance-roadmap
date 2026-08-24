@@ -6,7 +6,7 @@ import BaseCard from '@/components/common/BaseCard.vue';
 import soldierIcon from '@/assets/images/soldier.png';
 
 const props = defineProps({
-  // { monthlySaveTotal, joinableMonths, currentPaidMonths, currentPaidAmount,
+  // { monthlySaveTotal, joinableMonths, currentPaidMonths, currentPaidAmount, currentPaidInterest,
   //   expectedPrincipal, expectedMatchingFund, expectedInterest, totalReceiptAmount } (원 단위)
   details: { type: Object, required: true },
   // { withdrawalAmount, lossAmount } — 없으면 갈림길/손실 카드 숨김
@@ -37,12 +37,8 @@ const fullPrincipal = d.expectedPrincipal ?? monthly * totalMonths;
 const matching = d.expectedMatchingFund ?? 0;
 const maturityTotal = d.totalReceiptAmount ?? 0;
 
-// 적금 단리: 이자 = 월납입 × (m(m+1)/2) × 연이율/12  → 이율을 실제값에서 역산
+// 적금 단리: 이자 = 월납입 × (m(m+1)/2) × 연이율/12
 const triangular = (m) => (m * (m + 1)) / 2;
-const rate =
-  monthly && totalMonths
-    ? (fullInterest * 12) / (monthly * triangular(totalMonths))
-    : 0;
 // 중도해지 이율: 실제 현재의 중도해지 수령액에서 역산
 const cancelRate = (() => {
   if (!props.loss || !monthly || !realMonth) return 0;
@@ -54,7 +50,8 @@ const interestAt = (m, r) => monthly * triangular(m) * (r / 12);
 // ── 현재 시점(실제 납입 개월차 고정) ──
 const curMonth = realMonth;
 const paid = monthly * curMonth;
-const curInterest = interestAt(curMonth, rate);
+// API가 이미 계산해서 주는 실제 값(회차별 실제 납입일·날짜 기반)을 그대로 쓴다 — 여기서 다시 추정하지 않는다.
+const curInterest = d.currentPaidInterest ?? 0;
 const remainMonths = Math.max(0, totalMonths - curMonth);
 const remainAmount = monthly * remainMonths;
 const cancelInterest = interestAt(curMonth, cancelRate);
@@ -82,7 +79,9 @@ const maturityLabel = ymLabel(-realMonth + totalMonths);
         <b>내 적금 여정</b>
         <span
           >{{ productName
-          }}<template v-if="banks.length > 1"> · {{ banks.length }}건</template></span
+          }}<template v-if="banks.length > 1">
+            · {{ banks.length }}건</template
+          ></span
         >
       </div>
       <div v-if="banks.length" class="saving-tl__banks">
@@ -155,11 +154,14 @@ const maturityLabel = ymLabel(-realMonth + totalMonths);
           <div class="saving-tl__mat-break">
             <span><em>납입</em>{{ man(fullPrincipal) }}</span>
             <span><em>이자</em>{{ man1(fullInterest) }}</span>
-            <span class="saving-tl__mat-gov"><em>정부지원</em>{{ man(matching) }}</span>
+            <span class="saving-tl__mat-gov"
+              ><em>정부지원</em>{{ man(matching) }}</span
+            >
           </div>
           <div class="saving-tl__desc">
             지금 시점 기준 남은
-            <b>{{ remainMonths }}회차 · {{ man(remainAmount) }}</b> 납입해야 해요.
+            <b>{{ remainMonths }}회차 · {{ man(remainAmount) }}</b> 납입해야
+            해요.
           </div>
         </div>
       </div>
