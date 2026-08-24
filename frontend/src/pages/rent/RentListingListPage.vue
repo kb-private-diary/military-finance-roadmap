@@ -111,7 +111,7 @@ const priceLine = (l) =>
   `보증 ${formatManwon(l.deposit)} / 월 ${formatManwon(l.monthlyRent)} / 관리 ${formatManwon(l.maintenanceFee)}`;
 
 // ── 정렬 ──────────────────────────────────────────────────────
-// 추천순 = 응답 순서(백엔드 실질월부담 오름차순) / 저렴한 순 = effectiveMonthly↑ / 가까운 순 = 교통 분↑
+// 추천순 = 감당도 우선(딱 맞아요→빠듯→초과) 후 저렴순 / 저렴한 순 = effectiveMonthly↑ / 가까운 순 = 교통 분↑
 const parseMinutes = (l) => {
   const t = trafficText(l);
   if (!t) return Infinity;
@@ -130,7 +130,13 @@ const sortedListings = computed(() => {
   if (sortMode.value === 'near') {
     return arr.sort((a, b) => parseMinutes(a) - parseMinutes(b));
   }
-  return arr; // recommend: 응답 순서 유지
+  // recommend(추천순): 감당도 우선(딱 맞아요 ENOUGH > 빠듯 TIGHT > 초과 OVER) → 동순위는 저렴한 순
+  //   군적금 만기금으로 감당 가능한 매물을 위로 올려, 저렴한순과 차별화한다.
+  const affordRank = { ENOUGH: 0, TIGHT: 1, OVER: 2 };
+  return arr.sort((a, b) => {
+    const d = (affordRank[a.affordLevel] ?? 3) - (affordRank[b.affordLevel] ?? 3);
+    return d !== 0 ? d : (a.effectiveMonthly ?? Infinity) - (b.effectiveMonthly ?? Infinity);
+  });
 });
 
 // ── 카드 클릭 = 선택만(상세 이동 X). priceLevel 도 store 에 저장해 step3 시세뱃지에서 사용 ──
