@@ -11,7 +11,7 @@
     <select id="findAccountListByUserId" resultType="org.scoula.simulator.dto.SimulatorSavingAccountDTO">
         SELECT account_id, bank_code, monthly_save, open_date
         FROM saving_account
-        WHERE user_id = #{userId} AND del_yn = 'N'
+        WHERE user_id = #{userId} AND product_type = 'MILITARY' AND del_yn = 'N'
     </select>
 
     <select id="findHistoryListByAccountId" resultType="org.scoula.simulator.dto.SimulatorSavingHistoryDTO">
