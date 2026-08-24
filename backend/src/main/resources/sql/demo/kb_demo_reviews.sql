@@ -12,13 +12,13 @@ INSERT INTO `user`
 VALUES
 -- 현역 · 육군 상병 (2025-09-01 입대, 오늘 기준 약 11개월차 → 상병 구간)
 ('cpl@kbthink.com', '$2a$10$HbpaEJl9AV82dWtFjtftUOBEkwHjoXScs2bDTbpP7QgKitPYHyKM.',
- '테스트상병', '010-5555-0001', 1, 3, '제1보병사단', 'AD01',
+ '김호국', '010-5555-0001', 1, 3, '수도방위사령부', 'AD01',
  '2025-09-01', '2027-02-28', 'local', 'ACTIVE', NULL,
  NOW(), 'hobin', NULL, NULL, 'N'),
 
 -- 전역자 · 육군 병장 (2025-11-30 전역 완료, 이미 전역 후 상태)
 ('vet@kbthink.com', '$2a$10$HbpaEJl9AV82dWtFjtftUOBEkwHjoXScs2bDTbpP7QgKitPYHyKM.',
- '테스트전역자', '010-5555-0002', 1, 4, '제9보병사단', 'AD09',
+ '최전역', '010-5555-0002', 1, 4, '제9보병사단', 'AD09',
  '2024-06-01', '2025-11-30', 'local', 'ACTIVE', NULL,
  NOW(), 'hobin', NULL, NULL, 'N');
 
