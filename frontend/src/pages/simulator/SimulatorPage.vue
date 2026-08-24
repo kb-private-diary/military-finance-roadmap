@@ -23,6 +23,14 @@ const hasNoAccount = ref(false);
 
 const savingLoss = ref(null);
 
+// SavingTimeline이 기대하는 { name, monthly } 모양으로 변환 (API 필드명은 bankName/monthlySave).
+const banks = computed(() =>
+  (details.value?.banks ?? []).map((bank) => ({
+    name: bank.bankName,
+    monthly: bank.monthlySave,
+  })),
+);
+
 // 'real' = 실제 계좌 기준 상세내역 / 'simulated' = 모의 계산 결과로 대체된 상세내역
 const viewMode = ref('real');
 const simulatedResult = ref(null);
@@ -311,9 +319,15 @@ const previewProducts = computed(() => {
         : `${it.saveTrm}개월 · 최대 연 ${it.maxRate}%`,
   });
   return [
-    ...savingProducts.value.slice(0, 2).map((it) => toCard(it, 'savings', '적금')),
-    ...depositProducts.value.slice(0, 1).map((it) => toCard(it, 'deposits', '예금')),
-    ...policyProducts.value.slice(0, 1).map((it) => toCard(it, 'policy', '정책')),
+    ...savingProducts.value
+      .slice(0, 2)
+      .map((it) => toCard(it, 'savings', '적금')),
+    ...depositProducts.value
+      .slice(0, 1)
+      .map((it) => toCard(it, 'deposits', '예금')),
+    ...policyProducts.value
+      .slice(0, 1)
+      .map((it) => toCard(it, 'policy', '정책')),
   ];
 });
 
@@ -420,6 +434,7 @@ onUnmounted(() => {
       ref="timelineRef"
       :details="details"
       :loss="savingLoss"
+      :banks="banks"
     />
 
     <button type="button" class="calc-banner" @click="openCalcSheet">
@@ -447,17 +462,28 @@ onUnmounted(() => {
         </button>
       </div>
       <p class="sim-result__label">
-        {{ Math.round(simulatedResult.monthlySaveTotal / 10000).toLocaleString('ko-KR') }}만원으로
-        {{ simulatedResult.joinableMonths }}개월 넣으면, 예상 만기 수령액
+        {{
+          Math.round(simulatedResult.monthlySaveTotal / 10000).toLocaleString(
+            'ko-KR',
+          )
+        }}만원으로 {{ simulatedResult.joinableMonths }}개월 넣으면, 예상 만기
+        수령액
       </p>
       <b class="sim-result__value">{{
         formatManwon(simulatedResult.totalReceiptAmount)
       }}</b>
       <div class="sim-result__break">
-        <span><em>원금</em>{{ formatManwon(simulatedResult.expectedPrincipal) }}</span>
-        <span><em>이자</em>{{ formatManwon(simulatedResult.expectedInterest) }}</span>
+        <span
+          ><em>원금</em
+          >{{ formatManwon(simulatedResult.expectedPrincipal) }}</span
+        >
+        <span
+          ><em>이자</em
+          >{{ formatManwon(simulatedResult.expectedInterest) }}</span
+        >
         <span class="sim-result__gov"
-          ><em>정부지원</em>{{ formatManwon(simulatedResult.expectedMatchingFund) }}</span
+          ><em>정부지원</em
+          >{{ formatManwon(simulatedResult.expectedMatchingFund) }}</span
         >
       </div>
     </div>
