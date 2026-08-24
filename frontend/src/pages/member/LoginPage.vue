@@ -3,6 +3,7 @@ import { computed, reactive, ref } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { useRouter, useRoute } from 'vue-router';
 import BaseInput from '@/components/common/BaseInput.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 
 const route = useRoute();
@@ -37,7 +38,7 @@ const login = async () => {
 
 <template>
   <div class="login-page">
-    <h1 class="text-title mt-4 mb-4">로그인</h1>
+    <PageHeader title="로그인" />
 
     <form class="login-form" @submit.prevent="login" @keydown.enter.prevent="login">
       <BaseInput

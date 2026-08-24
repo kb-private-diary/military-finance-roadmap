@@ -7,6 +7,7 @@ import { useRouter } from 'vue-router';
 import memberApi from '@/api/memberApi';
 import { useSignupStore } from '@/stores/signup';
 import BaseInput from '@/components/common/BaseInput.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 
 const router = useRouter();
@@ -117,8 +118,7 @@ onMounted(() => {
 
 <template>
   <div class="signup-military-page">
-    <p class="text-overline mt-4">회원가입 3/3</p>
-    <h1 class="text-title mb-4">군 정보 입력</h1>
+    <PageHeader eyebrow="회원가입 3/3" title="군 정보 입력" />
 
     <div class="signup-form">
       <BaseInput

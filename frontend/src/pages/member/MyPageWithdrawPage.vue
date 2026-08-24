@@ -7,6 +7,7 @@ import memberApi from '@/api/memberApi';
 import { useAuthStore } from '@/stores/auth';
 import { useToast } from '@/composables/useToast';
 import BaseInput from '@/components/common/BaseInput.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 
 const router = useRouter();
@@ -51,7 +52,7 @@ const submit = async () => {
 
 <template>
   <div class="mypage-withdraw-page">
-    <h1 class="text-title mt-4 mb-4">회원 탈퇴</h1>
+    <PageHeader title="회원 탈퇴" />
     <p class="text-caption mypage-withdraw-page__notice">
       탈퇴 시 저축 목표, 시뮬레이션 등 모든 데이터에 더 이상 접근할 수 없습니다.
     </p>

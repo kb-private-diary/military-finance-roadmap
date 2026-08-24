@@ -6,6 +6,7 @@ import { useRoute, useRouter } from 'vue-router';
 import regretApi from '@/api/regretApi';
 import { formatWon, formatDate } from '@/util/format';
 import BaseCard from '@/components/common/BaseCard.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import { useToast } from '@/composables/useToast';
@@ -81,12 +82,7 @@ const goBack = () => router.push({ name: 'RegretDashboard' });
 
 <template>
   <div class="daily">
-    <header class="head">
-      <div class="htx">
-        <p class="cap">일자별 지출</p>
-        <h2 class="title">{{ formatDate(dateParam) }}</h2>
-      </div>
-    </header>
+    <PageHeader breadcrumb="일자별 지출" :title="formatDate(dateParam)" size="lg" />
 
     <p v-if="loading" class="loading">불러오는 중...</p>
 

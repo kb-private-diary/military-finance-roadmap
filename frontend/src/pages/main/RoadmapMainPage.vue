@@ -7,6 +7,7 @@ import { useRouter } from 'vue-router';
 import { useToast } from '@/composables/useToast';
 
 import BaseCard from '@/components/common/BaseCard.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 import CategoryFilter from '@/components/common/CategoryFilter.vue';
 import LikeButton from '@/components/common/LikeButton.vue';
 import BaseModal from '@/components/common/BaseModal.vue';
@@ -305,11 +306,11 @@ onMounted(async () => {
 <template>
   <div class="roadmap-main">
     <section class="roadmap-main__intro">
-      <div class="roadmap-main__heading">
-        <p class="text-overline roadmap-main__eyebrow">군월급·군적금, 어디에 쓸까?</p>
-
-        <h2 class="text-title roadmap-main__title">전역 로드맵 작전</h2>
-      </div>
+      <PageHeader
+        eyebrow="군월급·군적금, 어디에 쓸까?"
+        title="전역 로드맵 작전"
+        size="lg"
+      />
     </section>
 
     <section

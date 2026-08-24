@@ -6,6 +6,7 @@ import { useRouter } from 'vue-router';
 import termsApi from '@/api/termsApi';
 import { useSignupStore } from '@/stores/signup';
 import TermsAccordion from '@/components/common/TermsAccordion.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 
 const router = useRouter();
@@ -50,8 +51,7 @@ onMounted(fetchTerms);
 
 <template>
   <div class="container py-4" style="max-width: 640px">
-    <p class="text-overline mt-2">회원가입 1/3</p>
-    <h2 class="mb-2">약관 안내</h2>
+    <PageHeader eyebrow="회원가입 1/3" title="약관 안내" />
 
     <div v-if="loading" class="text-center text-muted py-5">불러오는 중...</div>
     <div v-else-if="errorMessage" class="alert alert-danger">{{ errorMessage }}</div>

@@ -7,6 +7,7 @@ import { useRouter } from 'vue-router';
 import memberApi from '@/api/memberApi';
 import { useSignupStore } from '@/stores/signup';
 import BaseInput from '@/components/common/BaseInput.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 
 const router = useRouter();
@@ -130,8 +131,7 @@ onMounted(() => {
 
 <template>
   <div class="signup-info-page">
-    <p class="text-overline mt-4">회원가입 2/3</p>
-    <h1 class="text-title mb-4">기본정보 입력</h1>
+    <PageHeader eyebrow="회원가입 2/3" title="기본정보 입력" />
 
     <form class="signup-form" @submit.prevent="goNext">
       <div class="signup-form__field">

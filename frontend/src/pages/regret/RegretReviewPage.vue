@@ -6,6 +6,7 @@ import { useRouter } from 'vue-router';
 import regretApi from '@/api/regretApi';
 import { formatWon, formatDate } from '@/util/format';
 import BaseCard from '@/components/common/BaseCard.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import { useToast } from '@/composables/useToast';
 
@@ -111,10 +112,7 @@ const finish = () => {
 <template>
   <div class="review">
     <header class="head">
-      <div>
-        <p class="cap">소비 점호</p>
-        <h2 class="title">이 소비, 만족했나요?</h2>
-      </div>
+      <PageHeader breadcrumb="소비 점호" title="이 소비, 만족했나요?" size="lg" />
       <span class="left">{{ done }} / {{ total }}</span>
     </header>
     <div v-if="total" class="roll-bar"><i :style="{ width: progress + '%' }" /></div>

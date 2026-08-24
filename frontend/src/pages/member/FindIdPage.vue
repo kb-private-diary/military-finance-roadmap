@@ -5,6 +5,7 @@ import { computed, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import memberApi from '@/api/memberApi';
 import BaseInput from '@/components/common/BaseInput.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 
 const router = useRouter();
@@ -37,7 +38,7 @@ const find = async () => {
 
 <template>
   <div class="find-id-page">
-    <h1 class="text-title mt-4 mb-4">아이디 찾기</h1>
+    <PageHeader title="아이디 찾기" />
 
     <template v-if="!maskedUserId">
       <form class="find-id-form" @submit.prevent="find">

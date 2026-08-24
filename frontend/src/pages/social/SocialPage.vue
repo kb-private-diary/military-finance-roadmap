@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue';
 import socialApi from '@/api/socialApi';
 import BaseCard from '@/components/common/BaseCard.vue';
 import BaseModal from '@/components/common/BaseModal.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 import CategoryButton from '@/components/common/CategoryButton.vue';
 import DonutChart from '@/components/common/DonutChart.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
@@ -283,14 +284,11 @@ onMounted(retry);
 
 <template>
   <main class="social-page">
-    <header class="page-header">
-      <p class="text-overline">
-        {{ isVeteran ? '복무 중 쌓은 저축 기록' : '함께 만드는 저축 습관' }}
-      </p>
-      <h1 class="text-title">
-        {{ isVeteran ? '복무 저축 리포트' : '저축 비교' }}
-      </h1>
-    </header>
+    <PageHeader
+      :eyebrow="isVeteran ? '복무 중 쌓은 저축 기록' : '함께 만드는 저축 습관'"
+      :title="isVeteran ? '복무 저축 리포트' : '저축 비교'"
+      size="lg"
+    />
 
     <div v-if="loading && !stats" class="status text-caption" role="status">
       저축 비교 정보를 불러오고 있습니다.

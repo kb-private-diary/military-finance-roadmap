@@ -7,6 +7,7 @@ import { useRoute, useRouter } from 'vue-router';
 import regretApi from '@/api/regretApi';
 import { formatWon } from '@/util/format';
 import BaseCard from '@/components/common/BaseCard.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import { useToast } from '@/composables/useToast';
@@ -100,12 +101,7 @@ watch(label, () => window.scrollTo({ top: 0 }));
 
 <template>
   <div class="label-list">
-    <header class="head">
-      <div class="htx">
-        <p class="cap">모아보기</p>
-        <h2 class="title">{{ labelMeta.name }}한 소비</h2>
-      </div>
-    </header>
+    <PageHeader breadcrumb="모아보기" :title="`${labelMeta.name}한 소비`" size="lg" />
 
     <!-- 라벨 전환 세그먼트 -->
     <div class="segment">

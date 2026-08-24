@@ -6,6 +6,7 @@ import { useRouter } from 'vue-router';
 import memberApi from '@/api/memberApi';
 import { useToast } from '@/composables/useToast';
 import BaseInput from '@/components/common/BaseInput.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 
 const router = useRouter();
@@ -74,7 +75,7 @@ onMounted(load);
 
 <template>
   <div class="mypage-edit-page">
-    <h1 class="text-title mt-4 mb-4">회원정보 수정</h1>
+    <PageHeader title="회원정보 수정" />
 
     <p v-if="loading" class="text-caption">불러오는 중...</p>
 
