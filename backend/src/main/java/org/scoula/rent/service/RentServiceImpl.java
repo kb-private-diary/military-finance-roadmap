@@ -194,6 +194,12 @@ public class RentServiceImpl implements RentService {
         }
         ListingSummaryDTO listingSummary = ListingSummaryDTO.of(listing);
         listingSummary.setMaintenanceFee(mgmtFee);
+        // 시세 뱃지: 저장 후 상세도 step3와 동일하게 동네 평균 대비 시세 등급을 계산해 내려준다
+        //   (findGoal 은 그동안 priceLevel 을 안 채워 저장 후 상세에서 시세 뱃지가 사라졌던 문제 수정)
+        listingSummary.setPriceLevel(computePriceLevel(listing));
+        // 지번주소 완성: umd_name/jibun 에는 시·구가 없어(예 "효제동 126-2") sigungu_code 로
+        //   "시도(축약) 시군구" 를 앞에 붙여 "서울 종로구 효제동 126-2" 로 만든다 (저장 후 상세는 정확 주소 공개)
+        listingSummary.setJibunAddress(buildJibunAddress(listing));
 
         return RentGoalDetailResponseDTO.of(goal).toBuilder()
                 .listing(listingSummary)
@@ -586,18 +592,50 @@ public class RentServiceImpl implements RentService {
                     vo.getRegionCode(), vo.getAreaSqm().doubleValue());
         }
 
-        // 시세 등급(priceLevel): 같은 동네(법정동, 없으면 읍면동)+같은 종류 평균 월세 대비 판정 (표본 없으면 null)
-        //   면적 필터 없이 넓게 동네 평균으로 비교 → 상세 시세뱃지가 항상 뜨도록 백엔드에서 직접 계산해 내려준다.
-        Double avgRent = this.listingMapper.selectAvgRentForPriceLevel(
-                listingId, vo.getEstateType(), vo.getRegionCode(), vo.getUmdName());
-        // 법정동에 비교 표본이 없으면 시군구(구 단위)로 넓혀 재판정 → 시세뱃지가 '있다 없다' 하지 않게 안정화
-        if (avgRent == null && vo.getSigunguCode() != null) {
-            avgRent = this.listingMapper.selectAvgRentBySigungu(
-                    listingId, vo.getEstateType(), vo.getSigunguCode());
-        }
-        String priceLevel = judgePriceLevel(vo.getMonthlyRent(), avgRent);
+        // 시세 등급(priceLevel): 상세/저장후 상세 공통 계산 (findGoal 과 동일 규칙 유지)
+        String priceLevel = computePriceLevel(vo);
 
         return RentListingDetailResponseDTO.of(vo, maintenanceFee, priceLevel);
+    }
+
+    /**
+     * 시세 등급 계산 (step3 상세·저장후 상세 공통):
+     *   같은 동네(법정동, 없으면 읍면동)+같은 종류 평균 월세 대비 판정. 표본 없으면 시군구(구 단위)로 넓혀 재판정.
+     *   면적 필터 없이 넓게 동네 평균으로 비교 → 시세뱃지가 '있다 없다' 하지 않게 안정화. 표본 아예 없으면 null.
+     */
+    private String computePriceLevel(RentListingVO vo) {
+        Double avgRent = this.listingMapper.selectAvgRentForPriceLevel(
+                vo.getListingId(), vo.getEstateType(), vo.getRegionCode(), vo.getUmdName());
+        if (avgRent == null && vo.getSigunguCode() != null) {
+            avgRent = this.listingMapper.selectAvgRentBySigungu(
+                    vo.getListingId(), vo.getEstateType(), vo.getSigunguCode());
+        }
+        return judgePriceLevel(vo.getMonthlyRent(), avgRent);
+    }
+
+    /**
+     * 저장 후 상세용 전체 지번주소 조합: "시도(축약) 시군구 읍면동 지번" (예: 서울 종로구 효제동 126-2)
+     *   umd_name/jibun 에는 시·구가 없어 sigungu_code 로 시도·시군구를 앞에 붙인다. 시군구 조회 실패 시 동+지번만.
+     */
+    private String buildJibunAddress(RentListingVO listing) {
+        StringBuilder addr = new StringBuilder();
+        if (listing.getSigunguCode() != null) {
+            RegionCodeVO region = this.mapper.findRegionNameBySigungu(listing.getSigunguCode());
+            if (region != null) {
+                addr.append(shortSido(region.getSidoName()));
+                if (region.getSigunguName() != null) addr.append(" ").append(region.getSigunguName());
+            }
+        }
+        if (listing.getUmdName() != null) addr.append(" ").append(listing.getUmdName());
+        if (listing.getJibun() != null) addr.append(" ").append(listing.getJibun());
+        return addr.toString().trim().replaceAll(" +", " ");
+    }
+
+    /** 시도 광역명 축약 (서울특별시→서울, 부산광역시→부산). 도 단위는 그대로 유지(경기도 등). */
+    private String shortSido(String sido) {
+        if (sido == null) return "";
+        return sido.replace("특별자치시", "").replace("특별자치도", "")
+                   .replace("특별시", "").replace("광역시", "").trim();
     }
 
     /**

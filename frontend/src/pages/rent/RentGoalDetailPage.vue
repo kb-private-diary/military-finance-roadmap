@@ -150,15 +150,6 @@ const estateTypeLabel = computed(() => ESTATE_TYPE[listing.value?.estateType] ||
 const pyeong = computed(() =>
   listing.value?.areaSqm ? (listing.value.areaSqm / 3.3058).toFixed(1) : null,
 );
-const listingMeta = computed(() => {
-  const l = listing.value;
-  if (!l) return '';
-  const parts = [];
-  if (l.dongName) parts.push(l.dongName);
-  if (pyeong.value) parts.push(`${pyeong.value}평`);
-  if (l.floor != null) parts.push(`${l.floor}층`);
-  return parts.join(' · ');
-});
 const priceBadge = computed(() => PRICE_BADGE[listing.value?.priceLevel] || null);
 
 // 신선도: 확정 매물의 실거래일(dealDate)로 "N개월 전 실거래" 파생 (하드코딩 아님)
@@ -248,7 +239,19 @@ const drawCircle = (pos) => {
   }, 150);
 };
 
-// 지도 초기화: 좌표 있으면 그 좌표로, 없으면 동 주소를 지오코딩해 대략 위치로 Circle 표시.
+// 정확한 위치 마커(핀): 로드맵 저장이 끝난 확정 매물이라, step3와 달리 실제 좌표를 그대로 노출한다.
+const drawMarker = (pos) => {
+  const { kakao } = window;
+  const map = new kakao.maps.Map(mapEl.value, { center: pos, level: 3 });
+  const marker = new kakao.maps.Marker({ position: pos });
+  marker.setMap(map);
+  setTimeout(() => {
+    map.relayout();
+    map.setCenter(pos);
+  }, 150);
+};
+
+// 지도 초기화: 좌표 있으면 정확 위치 마커, 없으면 동 주소를 지오코딩해 대략 위치로 Circle 표시.
 const initMap = (retry = 0) => {
   if (!mapEl.value) {
     // 지도 컨테이너가 아직 렌더 전이면 다음 프레임에 재시도 (최대 10회, 렌더 타이밍 경쟁 방어)
@@ -256,9 +259,9 @@ const initMap = (retry = 0) => {
     return;
   }
   const { kakao } = window;
-  // (1) 좌표 있으면 기존 경로 그대로
+  // (1) 좌표 있으면 정확 위치 마커로 표시 (저장 완료 후이므로 공개)
   if (hasCoords.value) {
-    drawCircle(
+    drawMarker(
       new kakao.maps.LatLng(
         Number(listing.value.latitude),
         Number(listing.value.longitude),
@@ -506,7 +509,7 @@ const goConfirm = () => router.push({ name: 'RoadmapMain' });
         <span class="type-chip">{{ estateTypeLabel }}</span>
         <span class="lc-name">{{ listing.buildingName }}</span>
       </div>
-      <p v-if="listingMeta" class="lc-meta">{{ listingMeta }}</p>
+      <p v-if="listing.jibunAddress" class="lc-meta">{{ listing.jibunAddress }}</p>
 
       <!-- 시세 뱃지 + 신선도 뱃지 -->
       <div v-if="priceBadge || freshLabel" class="pbadges">
@@ -524,10 +527,10 @@ const goConfirm = () => router.push({ name: 'RoadmapMain' });
         />
       </div>
 
-      <!-- 카카오맵 대략 위치 원(Circle) + 잠금 캡션 -->
+      <!-- 카카오맵: 확정 매물은 정확 위치 마커(주소는 상단에 노출), 좌표 없으면 대략 위치 원(Circle) -->
       <div v-if="showMap" class="map-wrap">
         <div ref="mapEl" class="map map--live"></div>
-        <p class="lockbar">🔒 정확한 위치는 대략 범위로만 표시돼요</p>
+        <p v-if="!hasCoords" class="lockbar">🔒 정확한 위치는 대략 범위로만 표시돼요</p>
       </div>
       <div v-else class="map">
         <template v-if="hasCoords">

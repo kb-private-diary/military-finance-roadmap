@@ -15,6 +15,13 @@ public interface RentListingMapper {
     // 매물 저장 (배치/초기 적재)
     void insertListing(RentListingVO listing);
 
+    /**
+     * 재적재 멱등화: 같은 시군구·종류의 기존 매물을 삭제한다 (삭제 후 재삽입으로 중복 누적 방지).
+     * 저장된 로드맵이 참조하는 확정 매물(rent_goal.confirmed_listing_id)은 상세가 깨지지 않도록 보존한다.
+     */
+    int deleteByScope(@Param("estateType") String estateType,
+                      @Param("sigunguCode") String sigunguCode);
+
     // REGION 모드 후보: 희망 지역(법정동코드)에 속하고 월세가 예산(느슨한 상한) 이하인 매물 (월세 오름차순)
     //   실질월부담(월세+관리비+보증금환산) 필터·정렬·상위 30개 컷은 RentServiceImpl.findListings 에서 처리
     List<RentListingVO> findListingsByRegions(@Param("regionCodes") List<String> regionCodes,

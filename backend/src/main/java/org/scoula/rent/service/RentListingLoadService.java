@@ -82,6 +82,9 @@ public class RentListingLoadService {
                              String sigunguCode, String dealYm, boolean withGeocoding) {
         int saved = 0;
         try {
+            // 멱등화: 같은 시군구·종류 기존 매물을 먼저 지우고 재삽입 → 재적재해도 중복이 누적되지 않는다.
+            //   (확정 매물은 매퍼에서 제외해 보존. base_date 가 실행일이라 예전엔 재적재분이 통째로 중복 적재됐음)
+            listingMapper.deleteByScope(estateType, sigunguCode);
             // 매물 많은 시군구는 100건을 넘으므로 totalCount를 볼 때까지 페이지를 순회 (안전장치 MAX_PAGES)
             for (int pageNo = 1; pageNo <= MAX_PAGES; pageNo++) {
                 URI uri = UriComponentsBuilder.fromHttpUrl(url)

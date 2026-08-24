@@ -20,6 +20,17 @@
         )
     </insert>
 
+    <!-- 재적재 멱등화: 같은 시군구·종류 기존 매물 삭제 (재삽입 전 호출 → 중복 누적 방지).
+         저장된 로드맵이 참조하는 확정 매물(confirmed_listing_id)은 상세 유지를 위해 제외(보존)한다. -->
+    <delete id="deleteByScope">
+        DELETE t FROM rent_listing t
+        LEFT JOIN rent_goal g
+               ON g.confirmed_listing_id = t.listing_id AND g.del_yn = 'N'
+         WHERE t.estate_type = #{estateType}
+           AND t.sigungu_code = #{sigunguCode}
+           AND g.confirmed_listing_id IS NULL
+    </delete>
+
     <!-- 조회 공통 컬럼 (JOIN 대비 l. 별칭) -->
     <sql id="listingColumns">
         l.listing_id, l.estate_type, l.sigungu_code, l.region_code, l.umd_name, l.jibun,
