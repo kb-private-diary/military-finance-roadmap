@@ -15,6 +15,8 @@ import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.v
 import jobApi from '@/api/jobApi';
 import { formatWon } from '@/util/format';
 import regretApi from '@/api/regretApi';
+import jobSpendingAvgIcon from '@/assets/images/job-spending-avg.png';
+import jobCostIcon from '@/assets/images/job-cost.png';
 
 const route = useRoute();
 const router = useRouter();
@@ -69,6 +71,13 @@ const subCategoryName = computed(
 // 큰 분류 이름 (IT·개발 / 소방 등)
 const bigCategoryName = computed(() => parentCategory.value?.categoryName || '');
 
+// 훈련 지역 — 선택한 훈련과정 주소의 시도 (step2에서 고른 지역)
+const trainingRegion = computed(() => {
+  const address = trainings.value[0]?.address;
+
+  return address ? address.split(' ')[0] : '미정';
+});
+
 // 목표 시기 "2027-03" → "2027년 3월"
 const formattedExpectedDate = computed(() => {
   const raw = expectedDate.value;
@@ -79,19 +88,13 @@ const formattedExpectedDate = computed(() => {
   return month ? `${year}년 ${Number(month)}월` : String(year);
 });
 
-// 제목: 취업=큰분류 > 세부직무 / 공무원=세부 직렬명 / 편입=학과
+// 제목: 취업·공무원=세부 직무/직렬명 / 편입=학과
 const goalName = computed(() => {
   if (goalType.value === 'J03') {
     return majorName.value || '학과 미정';
   }
 
-  if (goalType.value === 'J01') {
-    return bigCategoryName.value && subCategoryName.value
-      ? `${bigCategoryName.value} > ${subCategoryName.value}`
-      : subCategoryName.value || '진로 목표';
-  }
-
-  // 공무원: 선택한 세부 직렬명 (예: 구조 경채)
+  // 취업·공무원: 선택한 세부 직무/직렬명 (예: AI·빅데이터 / 구조 경채)
   return subCategoryName.value || '진로 목표';
 });
 
@@ -189,12 +192,14 @@ const summarySpecs = computed(() => {
     ];
   }
 
-  // 취업 (J01) — 훈련과정 포함
+  // 취업 (J01) — 세부 직무 제목 + 희망 직무(큰 분류)·훈련 지역
   return [
     { label: '취업 시기', value: formattedExpectedDate.value },
-    { label: '훈련과정', value: `${trainings.value.length}개` },
-    qualSpec,
-    courseSpec,
+    { label: '희망 직무', value: bigCategoryName.value || subCategoryName.value || '미정' },
+    { label: '훈련 지역', value: trainingRegion.value },
+    { label: '훈련 과정', value: `${trainings.value.length}개` },
+    { label: '자격증', value: `${qualifications.value.length}개` },
+    { label: '인강', value: `${courses.value.length}개` },
   ];
 });
 
@@ -205,8 +210,16 @@ const summaryCompare = computed(() => {
     hasSpending && totalAmount.value <= averageMonthlySpending.value;
 
   return {
-    left: { label: '3개월 월평균 지출', value: formatWon(averageMonthlySpending.value) },
-    right: { label: '예상 준비비용', value: formatWon(totalAmount.value) },
+    left: {
+      label: '3개월 월평균 지출',
+      value: formatWon(averageMonthlySpending.value),
+      icon: jobSpendingAvgIcon,
+    },
+    right: {
+      label: '예상 준비비용',
+      value: formatWon(totalAmount.value),
+      icon: jobCostIcon,
+    },
     badge: hasSpending
       ? { text: `지출의 ${spendingRate.value}%`, tone: withinSpending ? 'good' : 'bad' }
       : null,
