@@ -97,10 +97,7 @@ const deleteVacation = async () => {
 
 const submit = async () => {
   if (isBelowUsedDays.value) {
-    show(
-      `이미 ${usedDays.value}일 사용해서 그보다 적게는 설정할 수 없어요.`,
-      'error',
-    );
+    show(`${usedDays.value}일 이상만 가능합니다.`, 'error');
     return;
   }
   if (!isFormValid.value) {
@@ -199,9 +196,7 @@ onMounted(fetchDetail);
           class="vacation-edit__hint"
           :class="{ 'vacation-edit__hint--error': isBelowUsedDays }"
         >
-          이미 {{ usedDays }}일 사용했어요{{
-            isBelowUsedDays ? ' — 그보다 적게는 설정할 수 없어요.' : '.'
-          }}
+          {{ usedDays }}일 이상만 가능합니다.
         </p>
       </div>
     </template>
@@ -260,7 +255,6 @@ onMounted(fetchDetail);
 .vacation-edit__days :deep(input[type='number']) {
   -moz-appearance: textfield;
 }
-
 
 .vacation-edit__delete-btn {
   display: inline-flex;
