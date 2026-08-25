@@ -50,7 +50,11 @@
         SELECT
         jg.goal_id AS goalId,
         2 AS categoryId,
-        jc.category_name AS title,
+        CASE
+        WHEN jg.goal_type IN ('J01', 'J02') THEN jc.category_name
+        WHEN jg.goal_type = 'J03' THEN jmc.major_name
+        ELSE NULL
+        END AS title,
         (
         COALESCE((
         SELECT SUM(jgq.selected_cost)
@@ -76,7 +80,7 @@
         CASE
         WHEN jg.goal_type = 'J01' THEN CONCAT('취업 ', jc1.category_name)
         WHEN jg.goal_type = 'J02' THEN CONCAT('공무원 ', jc1.category_name)
-        WHEN jg.goal_type = 'J03' THEN '편입'
+        WHEN jg.goal_type = 'J03' THEN CONCAT('편입 ', ju.univ_name)
         ELSE NULL
         END AS detail,
         ub.created_date AS bookmarkedDate
@@ -91,6 +95,17 @@
         LEFT JOIN job_category jc1
         ON jc.parent_id = jc1.category_id
         AND jc1.del_yn = 'N'
+        LEFT JOIN job_transfer_university ju
+        ON jg.univ_id = ju.univ_id
+        AND ju.del_yn = 'N'
+
+        LEFT JOIN job_transfer_major jm
+        ON jg.major_id = jm.major_id
+        AND jm.del_yn = 'N'
+
+        LEFT JOIN job_transfer_major_category jmc
+        ON jm.major_code = jmc.major_code
+        AND jmc.del_yn = 'N'
         WHERE ub.user_id = #{userId}
         AND ub.del_yn = 'N'
         AND jg.status = 'CONFIRMED'

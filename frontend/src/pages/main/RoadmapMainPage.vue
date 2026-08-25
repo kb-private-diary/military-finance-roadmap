@@ -176,7 +176,11 @@ const fetchRoadmaps = async (category = 'ALL') => {
   try {
     const result = await roadmapApi.findRoadmapList(category.toLowerCase());
 
-    roadmaps.value = result.map(mapRoadmapItem).filter(Boolean);
+    roadmaps.value = result
+      .map(mapRoadmapItem)
+      .filter(Boolean)
+      .sort((a, b) => Number(b.liked) - Number(a.liked));
+      
     visibleCount.value = 4;
   } catch (e) {
     console.error(e);
@@ -332,17 +336,41 @@ onMounted(async () => {
           @click="selectCategory(category)"
         >
           <!-- 전술 코너 마크 (HUD/조준경 프레임) -->
-          <span class="roadmap-main__corner roadmap-main__corner--tl" aria-hidden="true"></span>
-          <span class="roadmap-main__corner roadmap-main__corner--tr" aria-hidden="true"></span>
-          <span class="roadmap-main__corner roadmap-main__corner--bl" aria-hidden="true"></span>
-          <span class="roadmap-main__corner roadmap-main__corner--br" aria-hidden="true"></span>
+          <span
+            class="roadmap-main__corner roadmap-main__corner--tl"
+            aria-hidden="true"
+          ></span>
+          <span
+            class="roadmap-main__corner roadmap-main__corner--tr"
+            aria-hidden="true"
+          ></span>
+          <span
+            class="roadmap-main__corner roadmap-main__corner--bl"
+            aria-hidden="true"
+          ></span>
+          <span
+            class="roadmap-main__corner roadmap-main__corner--br"
+            aria-hidden="true"
+          ></span>
 
           <!-- 아이콘 조준경 링 (타겟 조준) -->
           <div class="roadmap-main__scope">
-            <span class="roadmap-main__scope-tick roadmap-main__scope-tick--t" aria-hidden="true"></span>
-            <span class="roadmap-main__scope-tick roadmap-main__scope-tick--b" aria-hidden="true"></span>
-            <span class="roadmap-main__scope-tick roadmap-main__scope-tick--l" aria-hidden="true"></span>
-            <span class="roadmap-main__scope-tick roadmap-main__scope-tick--r" aria-hidden="true"></span>
+            <span
+              class="roadmap-main__scope-tick roadmap-main__scope-tick--t"
+              aria-hidden="true"
+            ></span>
+            <span
+              class="roadmap-main__scope-tick roadmap-main__scope-tick--b"
+              aria-hidden="true"
+            ></span>
+            <span
+              class="roadmap-main__scope-tick roadmap-main__scope-tick--l"
+              aria-hidden="true"
+            ></span>
+            <span
+              class="roadmap-main__scope-tick roadmap-main__scope-tick--r"
+              aria-hidden="true"
+            ></span>
             <img
               :src="category.image"
               :alt="category.title"
@@ -363,7 +391,9 @@ onMounted(async () => {
 
     <section class="roadmap-main__saved">
       <div class="roadmap-main__saved-heading">
-        <p class="text-overline roadmap-main__saved-eyebrow">어떤 작전 세웠지?</p>
+        <p class="text-overline roadmap-main__saved-eyebrow">
+          어떤 작전 세웠지?
+        </p>
         <h2 class="text-title roadmap-main__saved-title">나의 로드맵 작전</h2>
       </div>
 
@@ -426,7 +456,11 @@ onMounted(async () => {
                   v-if="roadmap.description || roadmap.detail"
                   class="saved-card__description"
                 >
-                  {{ [roadmap.description, roadmap.detail].filter(Boolean).join(' · ') }}
+                  {{
+                    [roadmap.description, roadmap.detail]
+                      .filter(Boolean)
+                      .join(' · ')
+                  }}
                 </p>
               </div>
 

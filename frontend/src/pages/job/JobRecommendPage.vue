@@ -713,30 +713,6 @@ const handlePrev = () => {
             @click="toggleCourse(course.courseId)"
           >
             <div class="standalone-course-card__header">
-              <button
-                type="button"
-                class="selection-button"
-                :class="{
-                  'selection-button--selected': isCourseSelected(
-                    course.courseId,
-                  ),
-                }"
-                :aria-label="`${course.courseName} 선택`"
-                @click.stop="toggleCourse(course.courseId)"
-              >
-                <svg
-                  v-if="isCourseSelected(course.courseId)"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path d="m6 12 4 4 8-8" />
-                </svg>
-
-                <svg v-else viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M12 5v14M5 12h14" />
-                </svg>
-              </button>
-
               <div class="standalone-course-card__content">
                 <h3 class="standalone-course-card__title">
                   {{ course.courseName }}
