@@ -5,7 +5,7 @@
 // PolicyProductDetailPage와 SimulatorProductListPage(예적금 상품 계산기)에서 동일하게 쓰는 공통 컴포넌트.
 // product.hasCalculator가 false면 아무것도 그리지 않으므로 호출부에서 별도 v-if가 필요 없다.
 import { computed, ref, watch } from 'vue';
-import { formatManwon, formatManwon1 } from '@/util/format';
+import { formatManwon, formatWon } from '@/util/format';
 import BaseInput from '@/components/common/BaseInput.vue';
 import BaseRadioGroup from '@/components/common/BaseRadioGroup.vue';
 
@@ -118,9 +118,7 @@ const totalReceipt = computed(
           v-model="inputAmount"
           type="amount"
           variant="underline"
-          :placeholder="
-            maxLimitMan != null ? `최대 ${maxLimitMan}만원` : '0'
-          "
+          :placeholder="maxLimitMan != null ? `최대 ${maxLimitMan}만원` : '0'"
           :error="amountError"
         />
         <span class="policy-calculator__unit">만원 납입시</span>
@@ -142,25 +140,25 @@ const totalReceipt = computed(
     <div class="policy-calculator__result">
       <div class="policy-calculator__row">
         <span class="policy-calculator__label">원금</span>
-        <span class="policy-calculator__value">{{ formatManwon1(principal) }}</span>
+        <span class="policy-calculator__value">{{ formatWon(principal) }}</span>
       </div>
       <div class="policy-calculator__row">
         <span class="policy-calculator__label"
           >예상 이자({{ product.minRate }}% 세전)</span
         >
-        <span class="policy-calculator__value">{{ formatManwon1(interest) }}</span>
+        <span class="policy-calculator__value">{{ formatWon(interest) }}</span>
       </div>
       <div class="policy-calculator__row">
         <span class="policy-calculator__label">정부 매칭지원금</span>
         <span class="policy-calculator__value">{{
-          formatManwon1(matchingFund)
+          formatWon(matchingFund)
         }}</span>
       </div>
       <div class="policy-calculator__row policy-calculator__row--total">
         <span class="policy-calculator__label">총 수령금</span>
         <span
           class="policy-calculator__value policy-calculator__value--total"
-          >{{ formatManwon1(totalReceipt) }}</span
+          >{{ formatWon(totalReceipt) }}</span
         >
       </div>
     </div>
