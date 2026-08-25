@@ -671,6 +671,11 @@ onMounted(retry);
   color: var(--text-muted);
 }
 
+/* 제목을 메인 PageHeader lg와 통일 */
+.section-heading h2 {
+  font-size: 19px;
+}
+
 .status,
 .empty-caption,
 .refreshing,
@@ -973,6 +978,8 @@ onMounted(retry);
   align-items: flex-end;
   justify-content: space-between;
   gap: 12px;
+  /* 위: 로드맵(40px)에 맞춤 (social-page gap 22 + 18). 아래: 제목→내용 18px 통일 (section gap 14 + 4) */
+  margin: 18px 0 4px;
 }
 
 .rank-summary {

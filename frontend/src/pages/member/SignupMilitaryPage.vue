@@ -7,6 +7,7 @@ import { useRouter } from 'vue-router';
 import memberApi from '@/api/memberApi';
 import { useSignupStore } from '@/stores/signup';
 import BaseInput from '@/components/common/BaseInput.vue';
+import DatePicker from '@/components/common/DatePicker.vue';
 import SignupStepHeader from '@/components/common/SignupStepHeader.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 
@@ -137,10 +138,18 @@ onMounted(() => {
         :options="unitOptions"
       />
 
-      <BaseInput v-model="form.enlistDate" type="date" label="입대일" />
+      <DatePicker
+        v-model="form.enlistDate"
+        label="입대일"
+        placeholder="입대일을 선택해주세요"
+      />
       <div class="signup-form__field">
-        <BaseInput v-model="form.dischargeDate" type="date" label="전역예정일" />
-        <p class="text-caption signup-form__hint">군종·입대일을 입력하면 자동으로 계산돼요. 필요하면 직접 수정할 수 있어요.</p>
+        <DatePicker
+          v-model="form.dischargeDate"
+          label="전역예정일"
+          placeholder="전역예정일을 선택해주세요"
+        />
+        <p class="text-caption signup-form__hint">군종·입대일 입력 시 자동 계산돼요 (직접 수정 가능)</p>
       </div>
 
       <p v-if="errorMessage" class="signup-form__error text-caption">{{ errorMessage }}</p>

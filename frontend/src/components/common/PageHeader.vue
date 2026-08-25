@@ -43,8 +43,13 @@ defineProps({
   display: flex;
   flex-direction: column;
   gap: 4px;
-  /* 제목 아래 전용 여백 (컨테이너 gap에 더해 제목을 시각적으로 분리) */
-  margin-bottom: var(--space-2);
+  /* 회원 하위페이지(md): 넉넉한 아래 여백 */
+  margin-bottom: 28px;
+}
+
+/* nav 메인화면(lg): 컨테이너 자체 gap이 있어 아래 여백은 작게 (제목↔내용 과다여백 방지) */
+.page-header--lg {
+  margin-bottom: 8px;
 }
 
 /* 제일 상단 위치표시 (어떤 페이지·섹션인지) - 아주 작게, 연한 회색 */
@@ -73,9 +78,9 @@ defineProps({
   line-height: 1.3;
 }
 
-/* lg = 네비게이션 메인 화면 (20px) */
+/* lg = 네비게이션 메인 화면 (19px, 살짝 줄임) */
 .page-header--lg .page-header__title {
-  font-size: 20px;
+  font-size: 19px;
 }
 
 /* 보조 설명 - 연한 회색 */

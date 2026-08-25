@@ -8,7 +8,11 @@
 html,
 body {
   margin: 0;
-  overflow-x: hidden;
+  height: 100%;
+  /* 스크롤은 app-content 내부에서만 일어나게 body 스크롤을 차단.
+     body(viewport)에 스크롤 여지가 있으면 중앙 정렬된 프레임(margin:auto)이
+     좌우로 밀리거나 스크롤 시 떨리는 원인이 된다. */
+  overflow: hidden;
 }
 
 #app {
@@ -54,8 +58,15 @@ main.app-content > * {
   padding-right: 0 !important;
   padding-top: 20px !important;
 }
-/* 챗봇은 자체 sticky 헤더로 시작하므로 상단 통일 여백에서 제외 */
+/* 챗봇은 자체 sticky 헤더로 시작하므로 상단 통일 여백에서 제외.
+   좌우도 chat-page가 자체 gutter(24px)를 쓰므로 공통 0 강제에서 되살린다. */
 main.app-content > .chat-page {
+  padding-top: 0 !important;
+  padding-left: 24px !important;
+  padding-right: 24px !important;
+}
+/* 웰컴(진입) 페이지도 자체 최소 헤더가 상단에 붙어야 하므로 통일 여백에서 제외 */
+main.app-content > .welcome {
   padding-top: 0 !important;
 }
 .app-content > .container,

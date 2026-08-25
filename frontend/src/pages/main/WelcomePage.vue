@@ -4,19 +4,17 @@
 // 로그인 전 단계라 공통 헤더(서비스 3아이콘 메뉴)는 hideHeader로 끄고
 // 진입 전용 최소 헤더(나가기 + 앱명)만 노출함
 import { useRouter } from 'vue-router';
-import { useAuthStore } from '@/stores/auth';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import welcomeImg from '@/assets/images/welcome-kbfriends.png';
 
 const router = useRouter();
-const auth = useAuthStore();
 
 const goExit = () => {
-  // TODO: KB Star Banking 네이티브 브릿지(KBBridge.exit())로 교체 예정, 지금은 웹 시뮬레이션임
-  if (window.history.length > 1) router.back();
+  // 웰컴은 첫 진입 화면이라 뒤로 갈 곳이 없어 아무 동작도 하지 않는다.
+  // TODO: KB Star Banking 네이티브 브릿지(KBBridge.exit()) 연동 시 실제 앱 나가기로 교체 예정.
 };
-// 로그인 상태면 바로 홈, 아니면 로그인 화면으로
-const goStart = () => router.push({ name: auth.isLogin ? 'Home' : 'Login' });
+// 진입 화면에서는 항상 로그인 페이지로 보낸다 (로그인 여부와 무관)
+const goStart = () => router.push({ name: 'Login' });
 
 // 진입 화면에서 홍보할 핵심 기능 (하단 네비게이터 메뉴 기반)
 const features = [
@@ -99,8 +97,8 @@ const features = [
 .welcome {
   display: flex;
   flex-direction: column;
-  /* app-content 좌우 패딩(20px)을 상쇄해 헤더/홍보 영역을 프레임 폭 전체로 */
-  margin: 0 -20px;
+  /* app-content 좌우 패딩(24px)을 상쇄해 헤더/홍보 영역을 프레임 폭 전체로 */
+  margin: 0 -24px;
   min-height: 100%;
 }
 .top {
@@ -108,7 +106,7 @@ const features = [
   align-items: center;
   gap: 10px;
   height: 56px;
-  padding: 0 20px;
+  padding: 0 24px;
   flex-shrink: 0;
 }
 .top__back {
@@ -130,6 +128,7 @@ const features = [
 .top__title {
   font-size: 15px;
   font-weight: 600;
+  line-height: 1;
   color: var(--text-strong);
 }
 .promo {

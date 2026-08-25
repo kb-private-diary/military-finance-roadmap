@@ -123,8 +123,10 @@ const submit = async () => {
       </form>
 
       <BottomButtonBar
+        secondary-label="이전"
         primary-label="비밀번호 변경"
         :primary-disabled="!canSubmit"
+        @secondary-click="router.push({ name: 'MyPage' })"
         @primary-click="submit"
       />
     </template>
