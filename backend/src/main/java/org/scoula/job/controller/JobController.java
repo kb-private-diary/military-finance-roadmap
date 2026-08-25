@@ -111,14 +111,23 @@ public class JobController {
 
     // GET /api/job/goals/{goalId}/prep-items  → 준비항목 추천 조회
     @GetMapping("/goals/{goalId}/prep-items")
-    public ResponseEntity<ApiResponse<PrepItemRecommendResponseDTO>> findPrepItemRecommend(@PathVariable Long goalId) {
-        return ResponseEntity.ok(ApiResponse.success(this.jobService.findPrepItemRecommend(goalId)));
+    public ResponseEntity<ApiResponse<PrepItemRecommendResponseDTO>> findPrepItemRecommend(
+            @AuthenticationPrincipal CustomUser customUser,
+            @PathVariable Long goalId) {
+
+        Long userId = customUser.getMember().getId();
+
+        PrepItemRecommendResponseDTO responseDTO =
+                this.jobService.findPrepItemRecommend(goalId, userId);
+
+        return ResponseEntity.ok(ApiResponse.success(responseDTO));
     }
 
     // GET /api/job/goals/{goalId}/trainings?regionCode=11
     // 선택한 직무와 지역을 기준으로 고용24 훈련과정 추천 조회
     @GetMapping("/goals/{goalId}/trainings")
     public ResponseEntity<ApiResponse<List<JobTrainingDTO>>> findTrainingRecommend(
+            @AuthenticationPrincipal CustomUser customUser,
             @PathVariable Long goalId,
             @RequestParam String regionCode) {
 
@@ -126,6 +135,7 @@ public class JobController {
                 ApiResponse.success(
                         this.jobService.findTrainingRecommend(
                                 goalId,
+                                customUser.getMember().getId(),
                                 regionCode
                         )
                 )
@@ -150,8 +160,12 @@ public class JobController {
     // GET /api/job/goals/{goalId}/services → 정책·서비스 추천 조회
     @GetMapping("/goals/{goalId}/services")
     public ResponseEntity<ApiResponse<ServiceRecommendResponseDTO>> findServiceRecommend(
+            @AuthenticationPrincipal CustomUser customUser,
             @PathVariable Long goalId) {
-        return ResponseEntity.ok(ApiResponse.success(this.jobService.findServiceRecommend(goalId)));
+        return ResponseEntity.ok(ApiResponse.success(this.jobService.findServiceRecommend(
+                goalId,
+                customUser.getMember().getId()
+        )));
     }
 
     // GET /api/job/goals/{goalId} → 목표 상세 조회

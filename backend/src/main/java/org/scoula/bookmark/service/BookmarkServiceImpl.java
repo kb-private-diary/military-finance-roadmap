@@ -47,13 +47,6 @@ public class BookmarkServiceImpl implements BookmarkService {
             );
         }
 
-        if (existingBookmark != null) {
-            throw BusinessException.conflict(
-                    "해당 카테고리에 이미 관심 등록한 로드맵이 있습니다",
-                    "BOOK_001"
-            );
-        }
-
         BookmarkVO bookmarkVO = new BookmarkVO();
         bookmarkVO.setUserId(createDTO.getUserId());
         bookmarkVO.setCategoryId(createDTO.getCategoryId());

@@ -8,6 +8,7 @@ import lombok.extern.log4j.Log4j2;
 import org.scoula.car.dto.CarGoalResponseDTO;
 import org.scoula.car.dto.CarUsedPriceResponseDTO;
 import org.scoula.car.service.CarService;
+import org.scoula.common.exception.BusinessException;
 import org.scoula.dashboard.dto.DashboardBasicResponseDTO;
 import org.scoula.dashboard.dto.DashboardSavingsResponseDTO;
 import org.scoula.dashboard.service.DashboardService;
@@ -27,7 +28,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Log4j2
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class MainServiceImpl implements MainService {
 
     // 관심 로드맵 카테고리 코드 (job_category 등 다른 도메인 코드와 무관한 main 자체 분류)
@@ -48,8 +48,16 @@ public class MainServiceImpl implements MainService {
                 this.dashboardService.findBasicInfo(userId);
 
         // 현재 적금 납입액 및 예상 만기 수령액 조회
-        DashboardSavingsResponseDTO savings =
-                this.dashboardService.findSavingsStatus(userId);
+        DashboardSavingsResponseDTO savings = null;
+
+        try {
+            savings = this.dashboardService.findSavingsStatus(userId);
+        } catch (BusinessException e) {
+            // 군적금 미가입은 메인 전체 조회 실패로 처리하지 않고 빈 상태로 반환
+            if (!"DASH_002".equals(e.getCode())) {
+                throw e;
+            }
+        }
 
         // 사용자가 관심 등록한 카테고리별 로드맵 조회
         List<MainFavoriteRoadmapDTO> favoriteRoadmaps =

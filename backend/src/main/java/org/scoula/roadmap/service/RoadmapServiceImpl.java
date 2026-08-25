@@ -36,7 +36,7 @@ public class RoadmapServiceImpl implements RoadmapService{
         if (!VALID_CATEGORIES.contains(normalizedCategory)) {
             throw BusinessException.badRequest(
                     "올바르지 않은 카테고리입니다.",
-                    "ROADMAP_001"
+                    "ROAD_001"
             );
         }
 
@@ -56,7 +56,7 @@ public class RoadmapServiceImpl implements RoadmapService{
         if (categoryId == null || !VALID_CATEGORY_IDS.contains(categoryId)) {
             throw BusinessException.badRequest(
                     "올바르지 않은 로드맵 카테고리입니다.",
-                    "ROADMAP_002"
+                    "ROAD_002"
             );
         }
 
@@ -72,7 +72,7 @@ public class RoadmapServiceImpl implements RoadmapService{
         if (updatedCount == 0) {
             throw BusinessException.notFound(
                     "삭제할 로드맵을 찾을 수 없습니다.",
-                    "ROADMAP_003"
+                    "ROAD_003"
             );
         }
 
