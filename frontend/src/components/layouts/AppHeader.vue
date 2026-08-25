@@ -9,12 +9,16 @@
 import { onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useNotificationBadge } from '@/composables/useNotificationBadge';
+import { useAuthStore } from '@/stores/auth';
 
 // 앱 타이틀 고정값
 const APP_NAME = '텅장일병구하기';
 
 const router = useRouter();
 const route = useRoute();
+
+// 로그인 후에만 오른쪽 기능 아이콘(알림·챗봇·마이페이지) 노출
+const auth = useAuthStore();
 
 // 읽지 않은 알림 존재 여부 (true면 종 아이콘 우측 상단에 빨간 점 표시)
 // 알림함(WebPushPage)을 열람하면 사라짐 — useNotificationBadge.js 참고
@@ -27,8 +31,8 @@ watch(() => route.path, refreshUnreadStatus);
 
 const goExit = () => {
   // TODO: 실제 KB Star Banking 앱 연동 시 네이티브 브릿지(예: KBBridge.exit())로 교체 예정.
-  // 현재는 독립 웹앱 시뮬레이션이라 시작 화면(Welcome)으로 이동시킴.
-  router.push({ path: '/' });
+  // 현재는 독립 웹앱 시뮬레이션이라 항상 시작 화면(Welcome)으로 이동시킴.
+  router.push({ name: 'Welcome' });
 };
 
 // 알림 화면 이동 — 이미 알림함이면 토글처럼 이전 화면으로 되돌아간다.
@@ -74,7 +78,10 @@ const goMyPage = () => {
       <h1 class="app-header__title">{{ APP_NAME }}</h1>
     </div>
 
-    <div class="app-header__right">
+    <div
+      v-if="auth.isLogin && route.name !== 'Onboarding' && route.name !== 'Chat'"
+      class="app-header__right"
+    >
       <button
         class="app-header__icon-btn"
         type="button"
@@ -178,7 +185,8 @@ const goMyPage = () => {
   align-items: center;
   justify-content: space-between;
   height: 56px;
-  padding: 0 20px;
+  /* 본문 gutter(24px)와 통일 - 페이지 전환 시 제목 위치가 튀지 않도록 */
+  padding: 0 24px;
   background-color: var(--surface-default);
   flex-shrink: 0;
 }

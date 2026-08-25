@@ -720,13 +720,17 @@ onMounted(async () => {
 }
 
 .roadmap-main__saved-title {
-  margin: 8px 0 0;
+  /* eyebrow→제목 간격을 PageHeader(4px)와 통일 */
+  margin: 4px 0 0;
+  /* 메인 PageHeader lg와 통일 */
+  font-size: 19px;
 }
 
 /* CategoryFilter 컴포넌트가 자체 grid(5등분)를 가지므로 래퍼는 폭·여백만 담당 */
 .roadmap-main__filters {
   width: 100%;
-  margin-top: 14px;
+  /* 제목→내용 여백 18px 통일 */
+  margin-top: 18px;
 }
 
 .roadmap-main__saved-card {

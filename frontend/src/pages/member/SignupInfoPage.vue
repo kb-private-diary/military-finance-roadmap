@@ -3,7 +3,7 @@
 // 회원가입 2단계 - 이메일(아이디) 중복확인 + 비밀번호(확인) + 이름 + 전화번호
 // 약관동의는 이 플로우의 1단계(TermsPage, /terms)에서 이미 받는다.
 // 중복확인은 별도 버튼 없이 '다음'을 누를 때 자동으로 수행한다.
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import memberApi from '@/api/memberApi';
 import { useSignupStore } from '@/stores/signup';
@@ -14,30 +14,34 @@ import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 const router = useRouter();
 const signupStore = useSignupStore();
 
-const EMAIL_DOMAINS = [
-  { label: '네이버 (naver.com)', value: 'naver.com' },
-  { label: '구글 (gmail.com)', value: 'gmail.com' },
-  { label: '다음 (daum.net)', value: 'daum.net' },
-  { label: '카카오 (kakao.com)', value: 'kakao.com' },
-  { label: '네이트 (nate.com)', value: 'nate.com' },
-  { label: '직접입력', value: 'custom' },
-];
+const DOMAIN_OPTIONS = ['naver.com', 'gmail.com', 'daum.net', 'kakao.com', 'nate.com'];
 const EMAIL_PATTERN = /^[\w.+-]+@[\w-]+\.[a-zA-Z]{2,}$/;
 const PASSWORD_MIN_LENGTH = 8;
 
 const form = reactive({
   localPart: '',
-  domain: 'naver.com',
-  customDomain: '',
+  domainText: '',
   password: '',
   passwordConfirm: '',
   name: '',
   phone: '',
 });
 
-const email = computed(() =>
-  form.domain === 'custom' ? `${form.localPart}@${form.customDomain}` : `${form.localPart}@${form.domain}`,
-);
+const email = computed(() => `${form.localPart}@${form.domainText}`);
+
+// 도메인 콤보박스 (직접 타이핑 + ▾ 목록 선택을 한 칸에)
+const domainOpen = ref(false);
+const domainComboRef = ref(null);
+const pickDomain = (d) => {
+  form.domainText = d;
+  domainOpen.value = false;
+  resetIdCheck();
+};
+const onDomainOutside = (e) => {
+  if (domainComboRef.value && !domainComboRef.value.contains(e.target)) {
+    domainOpen.value = false;
+  }
+};
 const isValidEmailFormat = computed(() => EMAIL_PATTERN.test(email.value));
 
 const idCheck = ref(null); // null: 미확인, true: 사용가능, false: 사용불가/중복
@@ -80,7 +84,7 @@ const resetIdCheck = () => {
 
 // 이메일(아이디) 중복확인
 const checkUserId = async () => {
-  if (!form.localPart || (form.domain === 'custom' && !form.customDomain)) {
+  if (!form.localPart || !form.domainText) {
     idCheck.value = false;
     idCheckMessage.value = '아이디를 입력하세요.';
     return;
@@ -129,6 +133,11 @@ onMounted(() => {
   if (!signupStore.agreedTermsIds) {
     router.replace({ name: 'Terms' });
   }
+  document.addEventListener('click', onDomainOutside);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', onDomainOutside);
 });
 </script>
 
@@ -146,20 +155,43 @@ onMounted(() => {
             @input="resetIdCheck"
           />
           <span class="signup-form__at">@</span>
-          <BaseInput
-            v-if="form.domain === 'custom'"
-            v-model="form.customDomain"
-            placeholder="도메인 직접입력"
-            @input="resetIdCheck"
-          />
-          <BaseInput
-            v-else
-            type="select"
-            v-model="form.domain"
-            placeholder="선택"
-            :options="EMAIL_DOMAINS"
-            @update:modelValue="resetIdCheck"
-          />
+          <div ref="domainComboRef" class="signup-form__domain-combo">
+            <input
+              class="signup-form__domain-field"
+              v-model="form.domainText"
+              placeholder="직접 입력"
+              @input="resetIdCheck"
+              @focus="domainOpen = true"
+            />
+            <button
+              type="button"
+              class="signup-form__domain-caret"
+              :class="{ 'is-open': domainOpen }"
+              aria-label="도메인 목록 열기"
+              @click.stop="domainOpen = !domainOpen"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                <path
+                  d="M7 10l5 5 5-5"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+            <ul v-if="domainOpen" class="signup-form__domain-menu">
+              <li
+                v-for="d in DOMAIN_OPTIONS"
+                :key="d"
+                class="signup-form__domain-option"
+                @click="pickDomain(d)"
+              >
+                {{ d }}
+              </li>
+            </ul>
+          </div>
         </div>
         <button
           type="button"
@@ -169,9 +201,6 @@ onMounted(() => {
         >
           {{ checkingId ? '확인 중...' : '중복확인' }}
         </button>
-        <p class="signup-form__hint">
-          이메일은 로그인 아이디로 사용되어 추후 변경이 어렵습니다.
-        </p>
         <p
           v-if="idCheckMessage"
           class="signup-form__message"
@@ -243,7 +272,7 @@ onMounted(() => {
 .signup-form {
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 20px;
 }
 
 .signup-form__field {
@@ -254,19 +283,101 @@ onMounted(() => {
 
 .signup-form__label {
   font-size: 14px;
-  font-weight: 700;
-  color: var(--text-strong);
+  font-weight: 600;
+  color: var(--text-body);
 }
 
 .signup-form__email-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .signup-form__email-row .base-input {
   flex: 1;
   min-width: 0;
+}
+
+/* 도메인 콤보박스: 타이핑 + ▾ 목록 선택을 한 칸에 */
+.signup-form__email-row .signup-form__domain-combo {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.signup-form__domain-field {
+  width: 100%;
+  padding: 10px 34px 10px 12px;
+  border: 1.5px solid var(--input-border, #d1d5db);
+  border-radius: 10px;
+  background-color: #f8f9fb;
+  font-size: 14px;
+  color: var(--text-body);
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.signup-form__domain-field::placeholder {
+  color: var(--placeholder);
+}
+
+.signup-form__domain-field:focus {
+  border-color: var(--kb-yellow-deep, #ffbc00);
+  background-color: #fff;
+}
+
+.signup-form__domain-caret {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.signup-form__domain-caret svg {
+  transition: transform 0.2s ease;
+}
+
+.signup-form__domain-caret.is-open svg {
+  transform: rotate(180deg);
+}
+
+.signup-form__domain-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: #fff;
+  border: 1px solid var(--line, #e5e7ea);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  max-height: 210px;
+  overflow-y: auto;
+}
+
+.signup-form__domain-option {
+  padding: 9px 10px;
+  font-size: 13px;
+  color: var(--text-body);
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.signup-form__domain-option:hover {
+  background: var(--line, #f0f1f3);
 }
 
 .signup-form__at {
@@ -300,15 +411,15 @@ onMounted(() => {
 }
 
 .signup-form__check-btn {
-  align-self: flex-end;
-  height: 34px;
+  width: 100%;
+  height: 44px;
   padding: 0 14px;
   border: 1.5px solid var(--kb-yellow-deep, #ffbc00);
-  border-radius: 8px;
+  border-radius: 10px;
   background-color: #fff;
   color: var(--text-body);
-  font-weight: 600;
-  font-size: 13px;
+  font-weight: 700;
+  font-size: 14px;
   white-space: nowrap;
   cursor: pointer;
 }

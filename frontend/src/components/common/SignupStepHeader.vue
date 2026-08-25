@@ -18,11 +18,11 @@ defineProps({
 
 <style scoped>
 .signup-step-header {
-  margin: 12px 0 28px;
+  margin: 6px 0 28px;
 }
 
 .signup-step-header__eyebrow {
-  margin: 0 0 18px;
+  margin: 0 0 36px;
   font-size: 13px;
   font-weight: 600;
   color: var(--text-muted);

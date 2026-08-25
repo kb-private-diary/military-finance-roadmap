@@ -5,6 +5,7 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import openbankingApi from '@/api/openbankingApi';
 import dashboardApi from '@/api/dashboardApi';
+import PageHeader from '@/components/common/PageHeader.vue';
 import { useToast } from '@/composables/useToast';
 
 const router = useRouter();
@@ -86,7 +87,7 @@ onMounted(load);
 
 <template>
   <div class="oblink">
-    <h2 class="oblink__title">오픈뱅킹 연동 관리</h2>
+    <PageHeader title="오픈뱅킹 연동 관리" />
     <p v-if="loading" class="oblink__sub">불러오는 중…</p>
 
     <!-- 연동된 경우: 계좌 목록 + 해제 -->
@@ -121,12 +122,6 @@ onMounted(load);
 <style scoped>
 .oblink {
   padding: 16px;
-}
-.oblink__title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-strong);
-  margin-bottom: 16px;
 }
 .oblink__sub,
 .oblink__status {
