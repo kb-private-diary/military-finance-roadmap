@@ -76,6 +76,14 @@ public class JobServiceImpl implements JobService {
     @Override
     @Transactional(readOnly = true)
     public List<JobCategoryDTO> findCategoryList(String goalType) {
+        // 취업(J01), 공무원(J02)만 카테고리 조회 가능
+        if (!"J01".equals(goalType) && !"J02".equals(goalType)) {
+            throw BusinessException.badRequest(
+                    "올바르지 않은 목표유형입니다",
+                    "JOB_004"
+            );
+        }
+
         return this.jobMapper.findCategoryListByGoalType(goalType)
                 .stream()
                 .map(JobCategoryDTO::of)
@@ -107,6 +115,17 @@ public class JobServiceImpl implements JobService {
             Long userId,
             String username,
             JobGoalCreateRequestDTO requestDTO) {
+        // 작성 중인 목표가 있으면 새 목표 생성 차단
+        Long currentGoalId =
+                this.jobMapper.findCurrentJobGoalIdByUserId(userId);
+
+        if (currentGoalId != null) {
+            throw BusinessException.conflict(
+                    "작성 중인 진로 목표가 있습니다.",
+                    "JOB_017"
+            );
+        }
+
         // 목표 유형별 필수 입력값 검증
         if (GOAL_TYPE_EMPLOYMENT.equals(requestDTO.getGoalType())
                 || GOAL_TYPE_PUBLIC_SERVICE.equals(requestDTO.getGoalType())) {
@@ -228,8 +247,9 @@ public class JobServiceImpl implements JobService {
     // 준비항목 추천 조회
     @Override
     @Transactional(readOnly = true)
-    public PrepItemRecommendResponseDTO findPrepItemRecommend(Long goalId) {
-        JobGoalVO jobGoalVO = this.findJobGoalOrThrow(goalId);
+    public PrepItemRecommendResponseDTO findPrepItemRecommend(Long goalId, Long userId) {
+        // 목표 존재 여부 + 로그인한 사용자의 목표인지 확인
+        JobGoalVO jobGoalVO = this.findOwnedJobGoalOrThrow(userId, goalId);
 
         List<JobQualificationVO> qualificationVOList;
         List<JobCourseVO> courseVOList = List.of();
@@ -428,8 +448,10 @@ public class JobServiceImpl implements JobService {
     // 정책·금융상품 추천 조회
     @Override
     @Transactional(readOnly = true)
-    public ServiceRecommendResponseDTO findServiceRecommend(Long goalId) {
-        JobGoalVO jobGoalVO = this.findJobGoalOrThrow(goalId);
+    public ServiceRecommendResponseDTO findServiceRecommend(Long goalId, Long userId) {
+        // 목표 존재 여부 + 로그인한 사용자의 목표인지 확인
+        JobGoalVO jobGoalVO =
+                this.findOwnedJobGoalOrThrow(userId, goalId);
 
         List<JobRecommendServiceVO> serviceVOList =
                 this.jobMapper.findRecommendServiceListByGoalType(jobGoalVO.getGoalType());
@@ -459,6 +481,9 @@ public class JobServiceImpl implements JobService {
     @Override
     @Transactional(readOnly = true)
     public JobGoalDetailResponseDTO findJobGoalDetail(Long goalId, Long userId) {
+
+        // 목표 존재 여부 + 로그인한 사용자의 목표인지 확인
+        this.findOwnedJobGoalOrThrow(userId, goalId);
 
         // 목표 기본정보 + 직무·직렬명 + 대학명 + 학과계열명 조회
         JobGoalDetailResponseDTO detail =
@@ -494,7 +519,7 @@ public class JobServiceImpl implements JobService {
 
         // 목표유형에 맞는 정책·KB 서비스 추천 조회
         ServiceRecommendResponseDTO services =
-                this.findServiceRecommend(goalId);
+                this.findServiceRecommend(goalId, userId);
 
         detail.setQualifications(qualifications);
         detail.setCourses(courses);
@@ -517,8 +542,17 @@ public class JobServiceImpl implements JobService {
             Long goalId,
             Long userId,
             String username) {
-        // 로그인한 사용자의 목표인지 확인
-        this.findOwnedJobGoalOrThrow(userId, goalId);
+        // 목표 존재 여부 + 로그인한 사용자의 목표인지 확인
+        JobGoalVO jobGoalVO =
+                this.findOwnedJobGoalOrThrow(userId, goalId);
+
+        // 작성 중인 DRAFT 목표만 저장 확정 가능
+        if (!"DRAFT".equals(jobGoalVO.getStatus())) {
+            throw BusinessException.conflict(
+                    "작성 중인 진로 목표만 저장할 수 있습니다.",
+                    "JOB_018"
+            );
+        }
 
         this.jobMapper.updateJobGoalStatus(
                 goalId,
@@ -572,7 +606,11 @@ public class JobServiceImpl implements JobService {
     @Override
     public List<JobTrainingDTO> findTrainingRecommend(
             Long goalId,
+            Long userId,
             String regionCode) {
+
+        // 목표 존재 여부 + 로그인한 사용자의 목표인지 확인
+        this.findOwnedJobGoalOrThrow(userId, goalId);
 
         // 목표에 연결된 직무 카테고리 조회
         JobCategoryVO category =

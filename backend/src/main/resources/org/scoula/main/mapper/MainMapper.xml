@@ -149,7 +149,8 @@
             id="findUpcomingScheduleList"
             parameterType="long"
             resultType="org.scoula.main.dto.MainUpcomingScheduleDTO">
-
+        SELECT *
+        FROM (
         SELECT
         category,
         title,
@@ -220,6 +221,8 @@
         ORDER BY nearest.exam_date ASC
         LIMIT 1
         ) AS t2
+        ) AS upcoming
+        ORDER BY scheduleDate ASC
 
     </select>
 

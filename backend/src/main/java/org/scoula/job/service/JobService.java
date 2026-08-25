@@ -40,7 +40,7 @@ public interface JobService {
     );
 
     // 목표 기준 자격증·어학·인강 추천 조회
-    PrepItemRecommendResponseDTO findPrepItemRecommend(Long goalId);
+    PrepItemRecommendResponseDTO findPrepItemRecommend(Long goalId, Long userId);
 
     // 선택한 자격증·인강·훈련과정 저장
     JobPlanCreateResponseDTO createJobPlans(
@@ -51,7 +51,7 @@ public interface JobService {
     );
 
     // 목표 기준 정책·KB 서비스 추천 조회
-    ServiceRecommendResponseDTO findServiceRecommend(Long goalId);
+    ServiceRecommendResponseDTO findServiceRecommend(Long goalId, Long userId);
 
     // 진로 목표 상세 조회 (최근 3개월 월평균 후회소비 포함)
     JobGoalDetailResponseDTO findJobGoalDetail(Long goalId, Long userId);
@@ -69,6 +69,7 @@ public interface JobService {
     // 선택한 직무와 지역을 기준으로 고용24 훈련과정 추천 조회
     List<JobTrainingDTO> findTrainingRecommend(
             Long goalId,
+            Long userId,
             String regionCode
     );
 
