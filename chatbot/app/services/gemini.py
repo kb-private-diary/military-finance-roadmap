@@ -360,6 +360,34 @@ def _generate_node(state: ChatState) -> ChatState:
     return result
 
 
+# generate 노드가 만든 답변을, 그 답변이 실제로 근거로 삼은 [근거 자료]와 다시 한번 대조해서
+# 자료에 없는 내용(추측·과장·환각)이 섞이지 않았는지 확인하는 2차 검수 단계(2026-08-25 추가).
+# irrelevant/counsel 경로는 generate 자체를 안 거치므로 검수 대상이 아니다.
+_VERIFY_SYSTEM_INSTRUCTION = (
+    "너는 답변 검수자다. 아래 [근거 자료]와 [검수할 답변]을 비교한다. "
+    "답변에 근거 자료로 뒷받침되지 않는 내용(추측·과장·자료에 없는 수치나 조건)이 있으면 "
+    "그 부분만 삭제하거나 '모른다'는 취지로 고쳐서, 근거 자료 범위를 벗어나지 않는 최종 답변을 다시 쓴다. "
+    "문제가 없으면 원래 답변을 그대로 반환한다. 말투·문장 스타일은 원래 답변 그대로 유지한다. "
+    "검수했다는 설명 없이, 최종 답변 본문만 출력한다."
+)
+
+
+def _verify_node(state: ChatState) -> ChatState:
+    context = state.get("context")
+    answer = state.get("answer")
+    if not context or not answer:
+        return {}
+    prompt = f"[근거 자료]\n{context}\n\n[검수할 답변]\n{answer}"
+    try:
+        verified = gemini_client.generate_content(prompt, system_instruction=_VERIFY_SYSTEM_INSTRUCTION)
+    except Exception:
+        # 검수 호출 자체가 실패해도(할당량 등) generate가 만든 답변은 이미 있으니 그대로 내보낸다 -
+        # 검증 실패가 전체 응답 실패로 번지면 안 된다.
+        return {}
+    verified = verified.strip()
+    return {"answer": verified} if verified else {}
+
+
 def _irrelevant_node(state: ChatState) -> ChatState:
     return {
         "answer": IRRELEVANT_REPLY,
@@ -397,6 +425,7 @@ _graph.add_node("classify_intent", _classify_intent_node)
 _graph.add_node("classify_category", _classify_category_node)
 _graph.add_node("build_context", _build_context_node)
 _graph.add_node("generate", _generate_node)
+_graph.add_node("verify", _verify_node)
 _graph.add_node("irrelevant", _irrelevant_node)
 _graph.add_node("counsel", _counsel_node)
 
@@ -408,7 +437,8 @@ _graph.add_conditional_edges(
 )
 _graph.add_edge("classify_category", "build_context")
 _graph.add_edge("build_context", "generate")
-_graph.add_edge("generate", END)
+_graph.add_edge("generate", "verify")
+_graph.add_edge("verify", END)
 _graph.add_edge("irrelevant", END)
 _graph.add_edge("counsel", END)
 
@@ -422,7 +452,8 @@ def generate_reply(
     product_context: Optional[str] = None,
 ) -> Tuple[str, str, Optional[str], bool, str, Optional[str], Optional[str]]:
     """반환값: (답변, source 라벨, source_detail 캡션, is_ai_generated, intent, source_url, langfuse_trace_id).
-    LangGraph로 의도분류 → (분기) → 컨텍스트 구성 → 답변 생성을 수행한다.
+    LangGraph로 의도분류 → (분기) → 컨텍스트 구성 → 답변 생성 → 근거 대조 검수를 수행한다.
+    (irrelevant/counsel 경로는 generate/verify를 거치지 않고 고정 문구를 바로 반환한다.)
 
     langfuse_trace_id: Langfuse가 이 답변 생성을 기록한 trace의 id (Langfuse 비활성화 상태면 None).
     나중에 사용자가 이 답변에 피드백을 남기면, 저장해둔 이 id로 같은 trace에 점수를 연결한다(2026-08-10).
