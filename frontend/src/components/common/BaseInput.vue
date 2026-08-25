@@ -471,6 +471,17 @@ const handleAmountInput = (event) => {
   background-color: var(--surface-default); /* 포커스하면 흰 배경 */
   box-shadow: 0 0 0 3px var(--focus-ring-yellow);
 }
+/* 크롬 자동완성(autofill) 연파랑 배경 제거 → 우리 흰 배경/글자색 유지 */
+.base-input__field:-webkit-autofill,
+.base-input__field:-webkit-autofill:hover,
+.base-input__field:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text-body);
+  -webkit-box-shadow: 0 0 0 1000px var(--surface-default) inset;
+  caret-color: var(--text-body);
+  /* 자동완성 배경이 다시 파랗게 칠해지는 애니메이션 지연으로 사실상 무효화 */
+  transition: background-color 9999s ease-in-out 0s;
+}
+
 .base-input__field.is-error {
   border-color: var(--danger);
 }

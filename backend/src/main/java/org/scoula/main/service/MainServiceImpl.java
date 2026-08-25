@@ -119,11 +119,13 @@ public class MainServiceImpl implements MainService {
                     .getAcquisitionTaxAmount();
 
             long baseAmount = roadmap.getAmount() == null ? 0L : roadmap.getAmount();
-            roadmap.setAmount(baseAmount + acquisitionTax);
+            // 취득세액은 만원 단위라 원으로 환산해 더한다 (baseAmount는 SQL 에서 base_price*10000 = 원)
+            roadmap.setAmount(baseAmount + acquisitionTax * 10000);
         } else {
             // 중고차 - 연식·키로수로 재산정한 가격이라 SQL 값과 무관하게 통째로 교체한다.
             CarUsedPriceResponseDTO used = this.carService.calculateUsedPrice(roadmap.getGoalId(), userId);
-            roadmap.setAmount(used.getTotalPrice());
+            // totalPrice(시세+취득세)는 만원 단위 → 원으로 환산
+            roadmap.setAmount(used.getTotalPrice() * 10000);
         }
     }
 

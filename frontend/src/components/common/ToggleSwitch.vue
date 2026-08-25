@@ -108,8 +108,8 @@ const toggle = () => {
 .toggle-track {
   position: relative;
   display: inline-block;
-  width: 48px;
-  height: 26px;
+  width: 36px;
+  height: 20px;
   border-radius: 999px;
   background-color: var(--gray-track);
   transition: background-color 0.25s ease;
@@ -141,18 +141,19 @@ const toggle = () => {
 /* ── 썸(원형) ── */
 .toggle-thumb {
   position: absolute;
-  top: 3px;
+  top: 50%;
   left: 3px;
-  width: 20px;
-  height: 20px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background-color: var(--surface-default);
   box-shadow: 0 1px 4px var(--shadow-thumb);
+  transform: translateY(-50%);
   transition: all 0.25s ease;
 }
 
 .toggle-thumb--on {
-  transform: translateX(22px);
+  transform: translate(14px, -50%);
 }
 
 /* ── 썸 (Inner Label 사용 시) ── */

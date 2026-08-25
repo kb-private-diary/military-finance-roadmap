@@ -167,18 +167,28 @@ defineProps({
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1px;
+  gap: 0;
   width: 100%;
+  min-height: 0;
+  padding: 0 2px;
+  overflow: hidden;
   font-style: normal;
+  line-height: 1;
 }
 .ecost__tk i b {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
+  line-height: 1.15;
 }
 .ecost__tk i span {
-  font-size: 9px;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 8px;
   font-weight: 700;
+  line-height: 1.15;
   opacity: 0.78;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ecost__ilist {
   flex: 1;

@@ -5,6 +5,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import carApi from '@/api/carApi';
 import dashboardApi from '@/api/dashboardApi';
+import regretApi from '@/api/regretApi';
 import BaseCard from '@/components/common/BaseCard.vue';
 import BaseTag from '@/components/common/BaseTag.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
@@ -12,6 +13,7 @@ import PageHeader from '@/components/common/PageHeader.vue';
 import TabBar from '@/components/common/TabBar.vue';
 import GoalSummaryCard from '@/components/common/GoalSummaryCard.vue';
 import EstimatedCostCard from '@/components/common/EstimatedCostCard.vue';
+import BudgetGauge from '@/components/common/BudgetGauge.vue';
 import carBudgetIcon from '@/assets/images/car-budget.png';
 import carPriceIcon from '@/assets/images/car-price.png';
 import { formatManwonUnit } from '@/util/format';
@@ -62,15 +64,70 @@ const savingsRate = computed(() => {
   return Math.min(100, Math.round((currentManwon / budgetStatus.value.effectiveBudget) * 100));
 });
 
-// 후회소비 인사이트: 오픈뱅킹 미연동이거나 후회소비가 없으면 백엔드가 필드를 안 채워서 자동으로 숨겨진다.
-const showRegretInsight = computed(() => !!budgetStatus.value?.avgRegretSpending);
-const regretCoveragePercent = computed(() => {
-  if (!budgetStatus.value?.remainingAmount) return 100;
-  return Math.min(
-    100,
-    Math.round((budgetStatus.value.regretSavingsAmount / budgetStatus.value.remainingAmount) * 100),
-  );
-});
+// 최근 1개월 후회소비 기반 비용 활용 분석 (진로 상세와 동일 패턴)
+const formatAmount = (amount) => `${Number(amount ?? 0).toLocaleString()}원`;
+const regretAnalysis = ref(null);
+
+const loadRegretAnalysis = async () => {
+  try {
+    const spendings = await regretApi.findSpendings();
+
+    const today = new Date();
+    const oneMonthAgo = new Date(today);
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+
+    // 최근 1개월 내 후회소비(REGRET)만 합산
+    const regretAmount = spendings
+      .filter((spending) => {
+        const spentAt = new Date(spending.spentAt);
+        return (
+          spentAt >= oneMonthAgo &&
+          spentAt <= today &&
+          spending.reviewType === 'REGRET'
+        );
+      })
+      .reduce((total, spending) => total + Number(spending.amount ?? 0), 0);
+
+    // 후회소비 금액으로 마련 가능한 자동차 유지비 항목 (만원 단위 → 원으로 환산)
+    const prepItems = [
+      { itemName: '한 달 자동차세', amount: monthlyTax.value * 10000, priority: 1 },
+      { itemName: '한 달 정비비', amount: monthlyRepair.value * 10000, priority: 2 },
+      { itemName: '한 달 보험료', amount: monthlyInsurance.value * 10000, priority: 3 },
+      { itemName: '한 달 연료비', amount: monthlyFuel.value * 10000, priority: 4 },
+    ].filter((item) => item.amount > 0);
+
+    const affordableItems = prepItems
+      .filter((item) => item.amount <= regretAmount)
+      .sort((a, b) =>
+        a.priority !== b.priority ? a.priority - b.priority : a.amount - b.amount,
+      );
+
+    let recommendationMessage = '';
+    let targetItemName = null;
+    let targetItemAmount = 0;
+
+    if (regretAmount === 0) {
+      recommendationMessage =
+        '지금의 소비 습관을 유지하면서 자동차 자금을 모아보세요.';
+    } else if (affordableItems.length > 0) {
+      targetItemName = affordableItems[0].itemName;
+      targetItemAmount = affordableItems[0].amount;
+    } else {
+      recommendationMessage =
+        '작은 금액도 모이면 유지비에 보탬이 돼요.\n다음 달 유지비를 위해 조금씩 모아보는 건 어떨까요?';
+    }
+
+    regretAnalysis.value = {
+      regretAmount,
+      recommendationMessage,
+      targetItemName,
+      targetItemAmount,
+    };
+  } catch (error) {
+    console.error('후회소비 자동차비용 활용 분석 실패:', error);
+    regretAnalysis.value = null;
+  }
+};
 
 // ── step3(CarCostPage) 비용 계산·요약 카드 이식 ──
 const purchaseTotal = computed(
@@ -246,7 +303,11 @@ const loadDetail = async () => {
   }
 };
 
-onMounted(loadDetail);
+onMounted(async () => {
+  await loadDetail();
+  // 상세 로드 후 후회소비 분석 (보조 정보라 실패해도 화면엔 영향 없음)
+  loadRegretAnalysis();
+});
 
 const goToList = () => {
   router.push({ name: 'CarRecommend', params: { goalId: goalId.value } });
@@ -291,39 +352,30 @@ const goToRoadmap = () => {
           :tabs="TABS.map((t) => ({ label: t.label, value: t.key }))"
         />
 
-        <!-- 탭: 저축진행률 -->
+        <!-- 탭: 저축진행률 (여행과 동일한 반원 게이지) -->
         <div v-if="activeTab === 'savings'" class="tab-panel">
-          <BaseCard v-if="savings" padding="18px" class="savings-card">
+          <BaseCard v-if="savings" padding="18px 18px 14px" class="savings-card">
             <div class="savings-card__head">
               <span class="section-title">저축 진행률</span>
               <strong class="savings-card__rate">{{ savingsRate }}%</strong>
             </div>
-            <div class="savings-progress">
-              <div class="savings-progress__bar" :style="{ width: `${savingsRate}%` }"></div>
+            <div class="savings-card__gauge">
+              <BudgetGauge
+                :amount="Math.round(savings.currentTotalSavings / 10000)"
+                :budget="budgetStatus?.effectiveBudget ?? 0"
+                :center-value="savingsRate"
+                center-unit="%"
+                :show-pct="false"
+                unit="만원"
+              />
             </div>
             <p class="savings-card__desc">
-              {{ formatManwonUnit(Math.round(savings.currentTotalSavings / 10000)) }} /
-              {{ formatManwonUnit(budgetStatus?.effectiveBudget) }} 달성
-              (군적금 만기예상액 {{ formatManwonUnit(Math.round(savings.expectedMaturityTotal / 10000)) }})
+              군적금 만기예상액
+              {{ formatManwonUnit(Math.round(savings.expectedMaturityTotal / 10000)) }} 기준
             </p>
           </BaseCard>
 
-          <div v-if="showRegretInsight" class="insight">
-            <p class="insight__tag">⭐ 후회소비 인사이트</p>
-            <p class="insight__text">
-              최근 {{ budgetStatus.regretSavingsMonths }}개월간 월평균 후회소비가
-              <strong>{{ formatManwonUnit(budgetStatus.avgRegretSpending) }}</strong>이에요.
-              이걸 {{ budgetStatus.regretSavingsMonths }}개월만 모으면
-              <strong>{{ formatManwonUnit(budgetStatus.regretSavingsAmount) }}</strong>
-              — 목표까지 남은 {{ formatManwonUnit(budgetStatus.remainingAmount) }}의
-              <strong class="insight__hl">{{ regretCoveragePercent }}%</strong>를 채울 수 있어요.
-            </p>
-          </div>
-
-          <p
-            v-if="!savings && !showRegretInsight"
-            class="car-detail__empty text-caption"
-          >
+          <p v-else class="car-detail__empty text-caption">
             아직 저축 진행률 정보가 없어요. 오픈뱅킹으로 군적금을 연동해보세요.
           </p>
         </div>
@@ -339,6 +391,54 @@ const goToRoadmap = () => {
             :dividers="false"
             note=""
           />
+
+          <!-- 비용 활용 분석 (최근 1개월 후회소비 연결, 진로 상세와 동일 톤) -->
+          <BaseCard padding="18px" class="cost-analysis-card">
+            <div class="cost-analysis-card__header">
+              <div class="cost-analysis-card__icon" aria-hidden="true">💡</div>
+              <div>
+                <h2 class="cost-analysis-card__title">유지비 활용 분석</h2>
+                <p>소비 습관을 자동차 자금과 연결해봤어요.</p>
+              </div>
+            </div>
+
+            <template v-if="regretAnalysis">
+              <div class="cost-analysis-card__amount">
+                <p v-if="regretAnalysis.regretAmount > 0">
+                  최근 1개월간
+                  <strong>{{ formatAmount(regretAnalysis.regretAmount) }}</strong>
+                  을 후회소비로 사용했어요.
+                </p>
+                <p v-else>최근 1개월간 후회소비로 기록된 지출이 없어요.</p>
+              </div>
+
+              <div class="cost-analysis-card__result">
+                <template v-if="regretAnalysis.targetItemName">
+                  <p class="cost-analysis-card__result-label">
+                    다음에는 후회소비 대신
+                  </p>
+                  <div class="cost-analysis-card__target">
+                    <strong class="cost-analysis-card__target-name">
+                      {{ regretAnalysis.targetItemName }}
+                    </strong>
+                    <strong class="cost-analysis-card__target-amount">
+                      {{ formatAmount(regretAnalysis.targetItemAmount) }}
+                    </strong>
+                  </div>
+                  <p class="cost-analysis-card__result-message">
+                    을 마련해보는 건 어떨까요?
+                  </p>
+                </template>
+                <p v-else class="cost-analysis-card__result-message">
+                  {{ regretAnalysis.recommendationMessage }}
+                </p>
+              </div>
+            </template>
+
+            <div v-else class="cost-analysis-card__empty">
+              후회소비 데이터를 불러오지 못했어요.
+            </div>
+          </BaseCard>
         </div>
 
         <!-- 탭: 금융상품 -->
@@ -458,54 +558,101 @@ const goToRoadmap = () => {
   color: var(--kb-yellow-deep);
 }
 
-.savings-progress {
-  width: 100%;
-  height: 10px;
-  margin-top: 14px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: var(--surface-muted);
-}
-
-.savings-progress__bar {
-  height: 100%;
-  border-radius: inherit;
-  background: var(--kb-yellow);
-  transition: width 0.3s ease;
+.savings-card__gauge {
+  margin-top: 8px;
 }
 
 .savings-card__desc {
-  margin: 10px 0 0;
+  margin: 6px 0 0;
   color: var(--text-muted);
   font-size: 12px;
+  text-align: center;
 }
 
-.insight {
-  padding: 16px;
-  border-radius: 14px;
-  background: #fff9e0;
-  border: 1px solid #ffe9a8;
+/* ── 유지비 활용 분석 (후회소비 연결, 진로 상세와 동일 톤) ── */
+.cost-analysis-card__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
 }
-
-.insight__tag {
-  font-size: 11px;
-  font-weight: 700;
-  color: #a9762a;
-  margin-bottom: 6px;
+.cost-analysis-card__icon {
+  display: flex;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-cream);
+  border-radius: 8px;
 }
-
-.insight__text {
-  font-size: 13px;
-  line-height: 1.65;
-  color: var(--text-body);
-}
-
-.insight__text strong {
+.cost-analysis-card__title {
+  margin: 0;
   color: var(--text-strong);
+  font-size: 15px;
+  font-weight: 700;
 }
-
-.insight__hl {
-  color: #2e9e5b;
+.cost-analysis-card__header p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+.cost-analysis-card__amount {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.cost-analysis-card__amount p {
+  margin: 0;
+  color: var(--text-body);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.cost-analysis-card__amount strong {
+  color: var(--text-strong);
+  font-size: 16px;
+  font-weight: 700;
+}
+.cost-analysis-card__result {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--surface-cream);
+  border-radius: 10px;
+}
+.cost-analysis-card__result-label,
+.cost-analysis-card__result-message {
+  margin: 0;
+  color: var(--text-body);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+.cost-analysis-card__target {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0;
+}
+.cost-analysis-card__target-name {
+  color: var(--text-strong);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.cost-analysis-card__target-amount {
+  flex-shrink: 0;
+  color: var(--brand-gold);
+  font-size: 17px;
+  font-weight: 700;
+}
+.cost-analysis-card__empty {
+  margin-top: 16px;
+  padding: 14px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.6;
+  text-align: center;
 }
 
 .tab-panel {
@@ -595,9 +742,9 @@ const goToRoadmap = () => {
 }
 
 .car-detail__back {
-  margin: 4px 0 0;
+  margin: 4px 2px 0;
   color: var(--text-muted);
-  text-align: center;
+  text-align: right;
   text-decoration: underline;
   cursor: pointer;
 }

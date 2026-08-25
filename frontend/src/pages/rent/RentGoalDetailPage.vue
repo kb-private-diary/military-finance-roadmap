@@ -8,6 +8,7 @@
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import rentApi from '@/api/rentApi';
+import regretApi from '@/api/regretApi';
 import { useRentStore } from '@/stores/rent';
 import { formatWon, formatManwon, formatDate } from '@/util/format';
 import { useToast } from '@/composables/useToast';
@@ -141,7 +142,11 @@ const load = async () => {
     loading.value = false;
   }
 };
-onMounted(load);
+onMounted(async () => {
+  await load();
+  // 상세 로드 후 후회소비 분석 (보조 정보라 실패해도 화면엔 영향 없음)
+  loadRegretAnalysis();
+});
 
 // ── 파생값 ──────────────────────────────────────────────
 const listingId = computed(() => listing.value?.listingId || goal.value?.confirmedListingId || null);
@@ -481,8 +486,77 @@ const VERDICT = {
 };
 const verdictMeta = computed(() => VERDICT[market.value?.verdict] || VERDICT.NORMAL);
 
+// ── 최근 1개월 후회소비 기반 자취 비용 활용 분석 (진로 상세와 동일 패턴) ──
+const formatAmount = (amount) => `${Number(amount ?? 0).toLocaleString()}원`;
+const regretAnalysis = ref(null);
+
+const loadRegretAnalysis = async () => {
+  try {
+    const spendings = await regretApi.findSpendings();
+
+    const today = new Date();
+    const oneMonthAgo = new Date(today);
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+
+    // 최근 1개월 내 후회소비(REGRET)만 합산
+    const regretAmount = spendings
+      .filter((spending) => {
+        const spentAt = new Date(spending.spentAt);
+        return (
+          spentAt >= oneMonthAgo &&
+          spentAt <= today &&
+          spending.reviewType === 'REGRET'
+        );
+      })
+      .reduce((total, spending) => total + Number(spending.amount ?? 0), 0);
+
+    // 후회소비 금액으로 마련 가능한 자취 비용 항목 (월세 → 관리비 → 공과금 → 중개비 순)
+    const l = listing.value ?? {};
+    const prepItems = [
+      { itemName: '한 달 월세', amount: Number(l.monthlyRent ?? 0), priority: 1 },
+      { itemName: '한 달 관리비', amount: Number(l.maintenanceFee ?? 0), priority: 2 },
+      { itemName: '한 달 공과금', amount: Number(utilityFee.value ?? 0), priority: 3 },
+      { itemName: '중개비', amount: Number(brokerageFee.value ?? 0), priority: 4 },
+    ].filter((item) => item.amount > 0);
+
+    const affordableItems = prepItems
+      .filter((item) => item.amount <= regretAmount)
+      .sort((a, b) =>
+        a.priority !== b.priority ? a.priority - b.priority : a.amount - b.amount,
+      );
+
+    let recommendationMessage = '';
+    let targetItemName = null;
+    let targetItemAmount = 0;
+
+    if (regretAmount === 0) {
+      recommendationMessage =
+        '지금의 소비 습관을 유지하면서 자취 자금을 모아보세요.';
+    } else if (affordableItems.length > 0) {
+      targetItemName = affordableItems[0].itemName;
+      targetItemAmount = affordableItems[0].amount;
+    } else {
+      recommendationMessage =
+        '작은 금액도 모이면 자취 비용에 보탬이 돼요.\n다음 달 고정비를 위해 조금씩 모아보는 건 어떨까요?';
+    }
+
+    regretAnalysis.value = {
+      regretAmount,
+      recommendationMessage,
+      targetItemName,
+      targetItemAmount,
+    };
+  } catch (error) {
+    console.error('후회소비 자취비용 활용 분석 실패:', error);
+    regretAnalysis.value = null;
+  }
+};
+
 // ── 액션 ────────────────────────────────────────────────
 const goConfirm = () => router.push({ name: 'RoadmapMain' });
+
+const goToRecommend = () =>
+  router.push({ name: 'RentListingList', params: { goalId } });
 </script>
 
 <template>
@@ -614,16 +688,6 @@ const goConfirm = () => router.push({ name: 'RoadmapMain' });
         </div>
         <p v-else class="empty">주변 편의시설 정보가 없어요.</p>
       </BaseCard>
-
-      <!-- 후회소비 인사이트 (킬러) -->
-      <div v-if="showRegretInsight" class="insight">
-        <p class="insight__tag">⭐ 후회소비 인사이트</p>
-        <p class="insight__text">
-          지금 후회소비가 월 <strong>{{ formatManwon(sim.userSpending.avgRegretSpending) }}</strong>이에요.
-          이걸 줄이면 자취 가능 기간이
-          <strong class="insight__hl">{{ round1(sim.possibleMonths) }}개월 → {{ round1(sim.reducedPossibleMonths) }}개월</strong>로 늘어나요.
-        </p>
-      </div>
     </section>
 
     <!-- 탭 2: 비용 계산 -->
@@ -684,6 +748,54 @@ const goConfirm = () => router.push({ name: 'RoadmapMain' });
           <p class="brokerage-note">월 고정비와 별개로 계약 시 1회 발생하는 비용이에요.</p>
         </BaseCard>
 
+        <!-- 자취 비용 활용 분석 (최근 1개월 후회소비 연결, 진로 상세와 동일 톤) -->
+        <BaseCard padding="18px" class="cost-analysis-card">
+          <div class="cost-analysis-card__header">
+            <div class="cost-analysis-card__icon" aria-hidden="true">💡</div>
+            <div>
+              <h2 class="cost-analysis-card__title">자취 비용 활용 분석</h2>
+              <p>소비 습관을 자취 자금과 연결해봤어요.</p>
+            </div>
+          </div>
+
+          <template v-if="regretAnalysis">
+            <div class="cost-analysis-card__amount">
+              <p v-if="regretAnalysis.regretAmount > 0">
+                최근 1개월간
+                <strong>{{ formatAmount(regretAnalysis.regretAmount) }}</strong>
+                을 후회소비로 사용했어요.
+              </p>
+              <p v-else>최근 1개월간 후회소비로 기록된 지출이 없어요.</p>
+            </div>
+
+            <div class="cost-analysis-card__result">
+              <template v-if="regretAnalysis.targetItemName">
+                <p class="cost-analysis-card__result-label">
+                  다음에는 후회소비 대신
+                </p>
+                <div class="cost-analysis-card__target">
+                  <strong class="cost-analysis-card__target-name">
+                    {{ regretAnalysis.targetItemName }}
+                  </strong>
+                  <strong class="cost-analysis-card__target-amount">
+                    {{ formatAmount(regretAnalysis.targetItemAmount) }}
+                  </strong>
+                </div>
+                <p class="cost-analysis-card__result-message">
+                  을 마련해보는 건 어떨까요?
+                </p>
+              </template>
+              <p v-else class="cost-analysis-card__result-message">
+                {{ regretAnalysis.recommendationMessage }}
+              </p>
+            </div>
+          </template>
+
+          <div v-else class="cost-analysis-card__empty">
+            후회소비 데이터를 불러오지 못했어요.
+          </div>
+        </BaseCard>
+
         <p class="note">계산 결과는 예상 금액이며 실제와 다를 수 있습니다.</p>
       </template>
       <BaseCard v-else padding="20px">
@@ -715,6 +827,10 @@ const goConfirm = () => router.push({ name: 'RoadmapMain' });
       </BaseCard>
       <p class="veteran-note">군 복무 기간만큼 청년 지원 나이 요건이 연장돼요</p>
     </section>
+
+    <p class="detail__back text-caption" @click="goToRecommend">
+      추천 목록 다시 보기
+    </p>
 
     <BottomButtonBar
       primary-label="확인"
@@ -798,6 +914,101 @@ const goConfirm = () => router.push({ name: 'RoadmapMain' });
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+/* 추천 목록 다시 보기 (오른쪽 정렬) */
+.detail__back {
+  margin: 4px 2px 0;
+  color: var(--text-muted);
+  text-align: right;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ── 자취 비용 활용 분석 (후회소비 연결, 진로 상세와 동일 톤) ── */
+.cost-analysis-card__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.cost-analysis-card__icon {
+  display: flex;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-cream);
+  border-radius: 8px;
+}
+.cost-analysis-card__title {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 15px;
+  font-weight: 700;
+}
+.cost-analysis-card__header p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+.cost-analysis-card__amount {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.cost-analysis-card__amount p {
+  margin: 0;
+  color: var(--text-body);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.cost-analysis-card__amount strong {
+  color: var(--text-strong);
+  font-size: 16px;
+  font-weight: 700;
+}
+.cost-analysis-card__result {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--surface-cream);
+  border-radius: 10px;
+}
+.cost-analysis-card__result-label,
+.cost-analysis-card__result-message {
+  margin: 0;
+  color: var(--text-body);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+.cost-analysis-card__target {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0;
+}
+.cost-analysis-card__target-name {
+  color: var(--text-strong);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.cost-analysis-card__target-amount {
+  flex-shrink: 0;
+  color: var(--brand-gold);
+  font-size: 17px;
+  font-weight: 700;
+}
+.cost-analysis-card__empty {
+  margin-top: 16px;
+  padding: 14px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.6;
+  text-align: center;
 }
 
 /* 1) 헤더 */

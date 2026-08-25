@@ -16,7 +16,8 @@
         1 AS categoryId,
         tg.title AS title,
         DATE_FORMAT(tg.start_date, '%Y.%m.%d') AS targetDate,
-        NULL AS detail,
+        DATE_FORMAT(tg.created_date, '%Y.%m.%d') AS createdDate,
+        tg.destination AS detail,
         CASE
         WHEN ub.bookmark_id IS NOT NULL THEN TRUE
         ELSE FALSE
@@ -59,12 +60,14 @@
 
         REPLACE(jg.expected_date, '-', '.') AS targetDate,
 
+        DATE_FORMAT(jg.created_date, '%Y.%m.%d') AS createdDate,
+
         CASE
         WHEN jg.goal_type = 'J01'
-        THEN '취업'
+        THEN CONCAT('취업 ', jc1.category_name)
 
         WHEN jg.goal_type = 'J02'
-        THEN jc1.category_name
+        THEN CONCAT('공무원 ', jc1.category_name)
 
         WHEN jg.goal_type = 'J03'
         THEN '편입'
@@ -132,7 +135,13 @@
         ) AS title,
 
         DATE_FORMAT(cg.target_date, '%Y.%m.%d') AS targetDate,
-        NULL AS detail,
+        DATE_FORMAT(cg.created_date, '%Y.%m.%d') AS createdDate,
+        CASE cg.car_type_code
+        WHEN 1 THEN '경차'
+        WHEN 2 THEN '준중형'
+        WHEN 3 THEN 'SUV'
+        ELSE NULL
+        END AS detail,
 
         CASE
         WHEN ub.bookmark_id IS NOT NULL THEN TRUE
@@ -164,9 +173,15 @@
         rg.goal_id AS goalId,
         ub.bookmark_id AS bookmarkId,
         4 AS categoryId,
-        COALESCE(rg.title, '자취 목표') AS title,
+        COALESCE(
+        NULLIF(rl.building_name, ''),
+        NULLIF(CONCAT_WS(' ', rc.umd_name, rl.estate_type), ''),
+        rg.title,
+        '자취 목표'
+        ) AS title,
         NULL AS targetDate,
-        CONCAT(rg.residence_months, '개월 거주') AS detail,
+        DATE_FORMAT(rg.created_date, '%Y.%m.%d') AS createdDate,
+        CONCAT_WS(' ', rc.sido_name, rc.sigungu_name, rc.umd_name) AS detail,
 
         CASE
         WHEN ub.bookmark_id IS NOT NULL THEN TRUE
@@ -174,6 +189,14 @@
         END AS bookmarked
 
         FROM rent_goal rg
+
+        LEFT JOIN rent_listing rl
+        ON rl.listing_id = rg.confirmed_listing_id
+        AND rl.del_yn = 'N'
+
+        LEFT JOIN region_code rc
+        ON rc.region_code = rl.region_code
+        AND rc.del_yn = 'N'
 
         LEFT JOIN user_bookmark ub
         ON ub.user_id = rg.user_id
@@ -187,7 +210,7 @@
         AND rg.del_yn = 'N'
         AND (#{category} = 'all' OR #{category} = 'rent')
 
-        ORDER BY targetDate DESC
+        ORDER BY createdDate DESC
 
     </select>
 

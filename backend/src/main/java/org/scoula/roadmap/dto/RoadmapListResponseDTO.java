@@ -15,6 +15,7 @@ public class RoadmapListResponseDTO {
     private Integer categoryId;
     private String title;
     private String targetDate;
+    private String createdDate;
     private String detail;
     private Boolean bookmarked;
 

@@ -83,7 +83,12 @@ const accentColor = computed(() => props.accent || `var(--theme-${props.theme})`
     </div>
 
     <div v-if="specs.length" class="goal-summary__specs">
-      <div v-for="(s, i) in specs" :key="i" class="goal-summary__spec">
+      <div
+        v-for="(s, i) in specs"
+        :key="i"
+        class="goal-summary__spec"
+        :class="{ 'goal-summary__spec--full': s.full }"
+      >
         <span class="goal-summary__spec-label">{{ s.label }}</span>
         <span class="goal-summary__spec-value">{{ s.value }}</span>
       </div>
@@ -171,7 +176,7 @@ const accentColor = computed(() => props.accent || `var(--theme-${props.theme})`
 }
 .goal-summary__title {
   min-width: 0;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--text-strong);
 }
@@ -291,11 +296,11 @@ const accentColor = computed(() => props.accent || `var(--theme-${props.theme})`
   margin-bottom: 4px;
 }
 .goal-summary__cmp-label {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-hint);
 }
 .goal-summary__cmp-value {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--text-strong);
 }
@@ -346,12 +351,15 @@ const accentColor = computed(() => props.accent || `var(--theme-${props.theme})`
   flex-direction: column;
   gap: 3px;
 }
+.goal-summary__spec--full {
+  grid-column: 1 / -1;
+}
 .goal-summary__spec-label {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-hint);
 }
 .goal-summary__spec-value {
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text-strong);
 }

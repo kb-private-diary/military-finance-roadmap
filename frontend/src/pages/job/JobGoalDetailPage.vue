@@ -741,6 +741,9 @@ const handleConfirm = async () => {
   });
 };
 
+const goToRecommend = () =>
+  router.push({ name: 'JobRecommend', params: { goalId: goalId.value } });
+
 onMounted(async () => {
   // 진로 목표 상세 조회
   await loadDetail();
@@ -1374,6 +1377,10 @@ onMounted(async () => {
           추천된 정책 및 금융상품이 없습니다.
         </div>
       </section>
+
+      <p class="job-detail__back text-caption" @click="goToRecommend">
+        추천 목록 다시 보기
+      </p>
     </template>
 
     <!-- 하단 버튼 (자취 상세와 동일하게 확인만) -->
@@ -1396,6 +1403,15 @@ onMounted(async () => {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+}
+
+/* 추천 목록 다시 보기 (오른쪽 정렬) */
+.job-detail__back {
+  margin: 4px 2px 0;
+  color: var(--text-muted);
+  text-align: right;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .job-detail__state {
