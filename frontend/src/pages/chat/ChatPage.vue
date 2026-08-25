@@ -31,10 +31,7 @@ const goTo = (target) => {
   router.push(target);
 };
 
-// 챗봇 화면은 공통 헤더(AppHeader) 대신 자체 헤더를 쓰기로 팀 협의됨 (다른 은행 챗봇 UX 참고)
-const goBack = () => {
-  router.back();
-};
+// 나가기 버튼 → 홈으로
 const goHome = () => {
   router.push({ name: 'Home' });
 };
