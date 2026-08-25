@@ -37,7 +37,7 @@ const loadError = ref('');
 // 탭 - 기존 구조 고정
 // ─────────────────────────────────────────────
 const TABS = [
-  { key: 'goal', label: '선택한 목표' },
+  { key: 'goal', label: '준비 항목' },
   { key: 'cost', label: '비용 계산' },
   { key: 'products', label: '금융상품' },
 ];
@@ -126,42 +126,6 @@ const trainingRate = computed(() => {
   return Math.round((trainingCost.value / totalCost.value) * 100);
 });
 
-// 가장 비중이 큰 준비 비용 안내
-const largestCostMessage = computed(() => {
-  if (totalCost.value <= 0) {
-    return '';
-  }
-
-  const items = [
-    {
-      label: '자격증·어학 준비 비용',
-      amount: qualificationCost.value,
-    },
-    {
-      label: '인터넷 강의 비용',
-      amount: courseCost.value,
-    },
-  ];
-
-  // 취업 목표일 때만 훈련과정 포함
-  if (isEmployment.value) {
-    items.push({
-      label: '훈련과정 비용',
-      amount: trainingCost.value,
-    });
-  }
-
-  const maxAmount = Math.max(...items.map((item) => item.amount));
-
-  const largestItems = items.filter((item) => item.amount === maxAmount);
-
-  if (largestItems.length > 1) {
-    return '준비 항목의 비용 비중이 같아요';
-  }
-
-  return `${largestItems[0].label}의 비중이 가장 커요`;
-});
-
 // ─────────────────────────────────────────────
 // 목표 정보
 // ─────────────────────────────────────────────
@@ -224,8 +188,14 @@ const trainingRegion = computed(() => {
 // 상단 요약 카드 스펙 (step3 요약 카드와 동일: 취업 6개 / 공무원·편입 4개)
 const heroSpecs = computed(() => {
   const type = detail.value?.goalType;
-  const qualSpec = { label: '자격증·어학', value: `${qualifications.value.length}개` };
-  const courseSpec = { label: '인터넷 강의', value: `${courses.value.length}개` };
+  const qualSpec = {
+    label: '자격증·어학',
+    value: `${qualifications.value.length}개`,
+  };
+  const courseSpec = {
+    label: '인터넷 강의',
+    value: `${courses.value.length}개`,
+  };
 
   if (type === 'J03') {
     return [
@@ -239,7 +209,10 @@ const heroSpecs = computed(() => {
   if (type === 'J02') {
     return [
       { label: '합격 시기', value: formattedExpectedDate.value || '-' },
-      { label: '희망 직렬', value: bigCategoryName.value || goalTitle.value || '미정' },
+      {
+        label: '희망 직렬',
+        value: bigCategoryName.value || goalTitle.value || '미정',
+      },
       qualSpec,
       courseSpec,
     ];
@@ -248,7 +221,10 @@ const heroSpecs = computed(() => {
   // 취업 J01 — 6개
   return [
     { label: '취업 시기', value: formattedExpectedDate.value || '-' },
-    { label: '희망 직무', value: bigCategoryName.value || goalTitle.value || '미정' },
+    {
+      label: '희망 직무',
+      value: bigCategoryName.value || goalTitle.value || '미정',
+    },
     { label: '훈련 지역', value: trainingRegion.value },
     { label: '훈련 과정', value: `${trainings.value.length}개` },
     { label: '자격증', value: `${qualifications.value.length}개` },
@@ -293,7 +269,10 @@ const summaryCompare = computed(() => {
       icon: jobCostIcon,
     },
     badge: hasSpending
-      ? { text: `지출의 ${spendingRate.value}%`, tone: withinSpending ? 'good' : 'bad' }
+      ? {
+          text: `지출의 ${spendingRate.value}%`,
+          tone: withinSpending ? 'good' : 'bad',
+        }
       : null,
   };
 });
@@ -306,11 +285,23 @@ const COST_STYLES = [
 ];
 const costCardItems = computed(() => {
   const base = [
-    { label: '자격증·어학', amount: qualificationCost.value, percent: qualificationRate.value },
-    { label: '인터넷 강의', amount: courseCost.value, percent: courseRate.value },
+    {
+      label: '자격증·어학',
+      amount: qualificationCost.value,
+      percent: qualificationRate.value,
+    },
+    {
+      label: '인터넷 강의',
+      amount: courseCost.value,
+      percent: courseRate.value,
+    },
   ];
   if (isEmployment.value) {
-    base.push({ label: '훈련과정', amount: trainingCost.value, percent: trainingRate.value });
+    base.push({
+      label: '훈련과정',
+      amount: trainingCost.value,
+      percent: trainingRate.value,
+    });
   }
   return base.map((it, i) => ({
     label: it.label,
@@ -326,8 +317,6 @@ const costState = computed(() => ({
   amount: totalCost.value,
   unit: '원',
   items: costCardItems.value,
-  hint: largestCostMessage.value,
-  hintTone: 'g',
 }));
 
 // 상세 내역 그룹 (선택 항목)
@@ -336,19 +325,28 @@ const detailGroups = computed(() => {
   if (qualifications.value.length) {
     groups.push({
       title: '자격증·어학',
-      items: qualifications.value.map((q) => ({ name: q.qualName, amount: Number(q.selectedCost ?? 0) })),
+      items: qualifications.value.map((q) => ({
+        name: q.qualName,
+        amount: Number(q.selectedCost ?? 0),
+      })),
     });
   }
   if (courses.value.length) {
     groups.push({
       title: '인터넷 강의',
-      items: courses.value.map((c) => ({ name: c.courseName, amount: Number(c.selectedCost ?? 0) })),
+      items: courses.value.map((c) => ({
+        name: c.courseName,
+        amount: Number(c.selectedCost ?? 0),
+      })),
     });
   }
   if (isEmployment.value && trainings.value.length) {
     groups.push({
       title: '훈련과정',
-      items: trainings.value.map((t) => ({ name: t.trainingName, amount: Number(t.selfPayment ?? 0) })),
+      items: trainings.value.map((t) => ({
+        name: t.trainingName,
+        amount: Number(t.selfPayment ?? 0),
+      })),
     });
   }
   return groups;
@@ -581,18 +579,18 @@ const loadRegretAnalysis = async () => {
     const spendings = await regretApi.findSpendings();
 
     const today = new Date();
-    const threeMonthsAgo = new Date(today);
+    const oneMonthsAgo = new Date(today);
 
-    // 오늘 기준 3개월 전 날짜 계산
-    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    // 오늘 기준 1개월 전 날짜 계산
+    oneMonthsAgo.setMonth(oneMonthsAgo.getMonth() - 1);
 
-    // 최근 3개월 내 후회소비(REGRET)만 합산
+    // 최근 1개월 내 후회소비(REGRET)만 합산
     const regretAmount = spendings
       .filter((spending) => {
         const spentAt = new Date(spending.spentAt);
 
         return (
-          spentAt >= threeMonthsAgo &&
+          spentAt >= oneMonthsAgo &&
           spentAt <= today &&
           spending.reviewType === 'REGRET'
         );
@@ -791,7 +789,7 @@ onMounted(async () => {
       />
 
       <!-- ==================================================
-           1. 선택한 목표
+           1. 준비 항목
       ================================================== -->
       <section v-if="activeTab === 'goal'" class="job-detail__tab-content">
         <!-- 자격증·어학 -->
@@ -996,10 +994,6 @@ onMounted(async () => {
                 <strong class="prep-item-card__fallback">
                   온라인 수강 가능
                 </strong>
-
-                <span v-if="course.providerName" class="prep-item-card__date">
-                  {{ course.providerName }}
-                </span>
               </div>
             </button>
 
@@ -1197,16 +1191,22 @@ onMounted(async () => {
                   class="cost-detail-foot__arrow"
                   :class="{ 'is-open': isCostDetailExpanded }"
                   aria-hidden="true"
-                >⌄</span>
+                  >⌄</span
+                >
               </button>
 
-              <div v-if="isCostDetailExpanded" class="cost-detail-foot__content">
+              <div
+                v-if="isCostDetailExpanded"
+                class="cost-detail-foot__content"
+              >
                 <div
                   v-for="group in detailGroups"
                   :key="group.title"
                   class="cost-detail-group"
                 >
-                  <strong class="cost-detail-group__title">{{ group.title }}</strong>
+                  <strong class="cost-detail-group__title">{{
+                    group.title
+                  }}</strong>
                   <div
                     v-for="(item, index) in group.items"
                     :key="index"
@@ -1221,7 +1221,7 @@ onMounted(async () => {
           </template>
         </EstimatedCostCard>
 
-        <!-- 준비비용 활용 분석 (최근 3개월 후회소비 연결) -->
+        <!-- 준비비용 활용 분석 (최근 1개월 후회소비 연결) -->
         <BaseCard padding="18px" class="cost-analysis-card">
           <div class="cost-analysis-card__header">
             <div class="cost-analysis-card__icon" aria-hidden="true">💡</div>
@@ -1234,11 +1234,11 @@ onMounted(async () => {
           <template v-if="regretAnalysis">
             <div class="cost-analysis-card__amount">
               <p v-if="regretAnalysis.regretAmount > 0">
-                최근 3개월간
+                최근 1개월간
                 <strong>{{ formatAmount(regretAnalysis.regretAmount) }}</strong>
                 을 후회소비로 사용했어요.
               </p>
-              <p v-else>최근 3개월간 후회소비로 기록된 지출이 없어요.</p>
+              <p v-else>최근 1개월간 후회소비로 기록된 지출이 없어요.</p>
             </div>
 
             <div class="cost-analysis-card__result">
@@ -1486,8 +1486,6 @@ onMounted(async () => {
   color: var(--text-strong);
   font-size: 14px;
   font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .prep-item-card__arrow {
