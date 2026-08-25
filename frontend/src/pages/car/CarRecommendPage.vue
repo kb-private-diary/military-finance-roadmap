@@ -407,11 +407,6 @@ const handlePrev = () => {
   font-size: 18px;
 }
 
-.filter-panel__status {
-  margin: 0;
-  color: var(--text-hint);
-}
-
 .car-recommend__status {
   color: var(--text-muted);
 }

@@ -280,7 +280,7 @@ const goDay = (c) => {
 
 <template>
   <div v-if="stats" class="dash">
-    <PageHeader breadcrumb="후회소비 리포트" :title="`${monthLabel} 후회한 소비`" size="lg" />
+    <PageHeader eyebrow="후회소비 리포트" :title="`${monthLabel} 후회한 소비`" size="lg" />
 
     <button class="review-invite" @click="goReview">
       <span class="ri-ico">📮</span>
@@ -462,33 +462,16 @@ const goDay = (c) => {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  /* 히트맵 농담 (지출 적음 → 많음) */
+  /* 히트맵 농담 (지출 적음 → 많음) - 자동차 비용계산 갈색 팔레트 기준 (은행 브랜드상 빨강 지양) */
   --h0: #ebedf0;
-  --h1: #ffe9a8;
-  --h2: #ffcf5c;
-  --h3: #ff9f43;
-  --h4: #e8544d;
+  --h1: #ffecbe;
+  --h2: #dac183;
+  --h3: #b39d89;
+  --h4: #6e6053;
   /* 만족/애매/후회 파스텔톤 (colors.css pastel 재사용) - 도넛·미니·월별 공통 */
   --success: #9cd495; /* 만족 파스텔 그린 */
   --soso: #fbd55b;    /* 애매 파스텔 옐로 */
-  --danger: #f8a5a5;  /* 후회 파스텔 핑크 */
-}
-.head {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.cap {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-.title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-strong);
+  --danger: #fbc9c9;  /* 후회 파스텔 핑크 (연하게 - 붉은끼 완화) */
 }
 .mb-empty {
   padding: 8px 0 2px;
@@ -539,18 +522,6 @@ const goDay = (c) => {
   font-size: 11px;
   color: var(--text-muted);
 }
-/* 범례를 버튼으로 (라벨별 모아보기 이동) */
-button.lg {
-  border: 0;
-  background: transparent;
-  padding: 0;
-  font-family: inherit;
-  cursor: pointer;
-}
-.lg-go {
-  color: var(--text-hint);
-  font-size: 13px;
-}
 .dot {
   width: 8px;
   height: 8px;
@@ -594,9 +565,9 @@ button.lg {
   color: var(--text-body);
 }
 .sec {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-body);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-strong);
   margin-bottom: 10px;
 }
 /* ── 캘린더 월 이동 헤더 ── */
@@ -790,7 +761,7 @@ button.lg {
 }
 .save-head .sec {
   margin-bottom: 0;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--text-strong);
 }
@@ -917,5 +888,12 @@ button.lg {
   text-align: center;
   font-size: 13px;
   color: var(--text-hint);
+}
+</style>
+
+<style>
+/* 후회소비 화면 배경 - D-Day·목돈작전과 같은 은은한 세이지 그린 */
+.app-content:has(.dash) {
+  background-color: rgba(120, 152, 130, 0.06);
 }
 </style>

@@ -208,15 +208,6 @@ const finish = () => {
   align-items: flex-end;
   justify-content: space-between;
 }
-.cap {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-.title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-strong);
-}
 .left {
   font-size: 12px;
   font-weight: 700;

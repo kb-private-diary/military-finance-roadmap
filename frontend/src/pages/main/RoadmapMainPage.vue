@@ -11,6 +11,7 @@ import PageHeader from '@/components/common/PageHeader.vue';
 import CategoryFilter from '@/components/common/CategoryFilter.vue';
 import LikeButton from '@/components/common/LikeButton.vue';
 import BaseModal from '@/components/common/BaseModal.vue';
+import BaseTag from '@/components/common/BaseTag.vue';
 
 import travelImage from '@/assets/images/roadmap/travel-1.png';
 import carImage from '@/assets/images/roadmap/car-2.png';
@@ -163,7 +164,7 @@ const mapRoadmapItem = (item) => {
     categoryCode: category.code,
     categoryLabel: category.label,
     title: item.title,
-    description: item.targetDate,
+    description: item.createdDate,
     detail: item.detail,
     liked: item.bookmarked,
   };
@@ -246,6 +247,10 @@ const handleDeleteRoadmap = async () => {
 const showMoreRoadmaps = () => {
   visibleCount.value += 4;
 };
+
+// 카테고리 → 도메인 칩 색상 (여행/진로/자동차/자취)
+const CHIP_VARIANT = { TRAVEL: 'travel', JOB: 'job', CAR: 'car', RENT: 'rent' };
+const chipVariant = (roadmap) => CHIP_VARIANT[roadmap.categoryCode] || 'gray';
 
 const goRoadmapDetail = (roadmap) => {
   switch (roadmap.categoryCode) {
@@ -397,9 +402,11 @@ onMounted(async () => {
           >
             <div class="saved-card">
               <div class="saved-card__content">
-                <span class="saved-card__category">
-                  {{ roadmap.categoryLabel }}
-                </span>
+                <BaseTag
+                  class="saved-card__chip"
+                  :label="roadmap.categoryLabel"
+                  :variant="chipVariant(roadmap)"
+                />
 
                 <div class="saved-card__title-row">
                   <strong class="saved-card__title">
@@ -415,12 +422,11 @@ onMounted(async () => {
                   </div>
                 </div>
 
-                <p v-if="roadmap.description" class="saved-card__description">
-                  {{ roadmap.description }}
-                </p>
-
-                <p v-if="roadmap.detail" class="saved-card__description">
-                  {{ roadmap.detail }}
+                <p
+                  v-if="roadmap.description || roadmap.detail"
+                  class="saved-card__description"
+                >
+                  {{ [roadmap.description, roadmap.detail].filter(Boolean).join(' · ') }}
                 </p>
               </div>
 
@@ -506,19 +512,6 @@ onMounted(async () => {
   justify-content: space-between;
 }
 
-.roadmap-main__heading {
-  padding-top: 8px;
-}
-
-.roadmap-main__eyebrow,
-.roadmap-main__title {
-  margin: 0;
-}
-
-.roadmap-main__title {
-  margin-top: 8px;
-}
-
 /* 타이밍 그룹 (복무 중에 시작 / 전역 후를 준비) */
 .roadmap-main__category-group {
   margin-top: 26px;
@@ -599,7 +592,7 @@ onMounted(async () => {
   position: absolute;
   width: 14px;
   height: 14px;
-  border: 2.5px solid var(--military-green);
+  border: 2.5px solid #8b9a80;
   z-index: 1;
   pointer-events: none;
 }
@@ -642,13 +635,13 @@ onMounted(async () => {
   content: '';
   position: absolute;
   inset: 0;
-  border: 2px solid var(--military-green);
+  border: 2px solid #8b9a80;
   border-radius: 50%;
   pointer-events: none;
 }
 .roadmap-main__scope-tick {
   position: absolute;
-  background: var(--military-green);
+  background: #8b9a80;
   pointer-events: none;
 }
 .roadmap-main__scope-tick--t {
@@ -686,6 +679,10 @@ onMounted(async () => {
 
 .roadmap-main__saved-eyebrow {
   margin: 0;
+  /* 소제목(eyebrow) 목돈작전 PageHeader 기준(13px/600/muted)으로 통일 */
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
 }
 
 .roadmap-main__saved-title {
@@ -727,9 +724,14 @@ onMounted(async () => {
   align-items: flex-start;
 }
 
-.saved-card__category {
+/* 표시용 태그(cat-tag): 도메인색 + 흰 글자, 사진처럼 둥근 pill, 작고 버튼형 */
+.saved-card .saved-card__chip {
+  align-self: flex-start;
+  margin-bottom: 2px;
+  padding: 3px 18px;
   font-size: 11px;
-  line-height: 1.2;
+  font-weight: 700;
+  border-radius: 999px;
 }
 
 .saved-card__title-row {
@@ -737,7 +739,7 @@ onMounted(async () => {
   min-width: 0;
   align-items: center;
   gap: 6px;
-  margin-top: 6px;
+  margin-top: 0;
 }
 
 .saved-card__title {
@@ -787,25 +789,24 @@ onMounted(async () => {
 
 .roadmap-main__more-button {
   width: 100%;
-  margin-top: 12px;
+  margin-top: 6px;
   padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: #fff;
-  color: var(--text-body);
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
 }
 
 .roadmap-main__more-button:hover {
-  background: var(--background);
+  color: var(--text-body);
 }
 </style>
 
 <style>
 /* 로드맵 메인 화면 전체 배경 - D-Day·목돈작전과 같은 은은한 세이지 그린(연 카키) */
 .app-content:has(.roadmap-main) {
-  background-color: rgba(120, 152, 130, 0.08);
+  background-color: rgba(120, 152, 130, 0.06);
 }
 </style>

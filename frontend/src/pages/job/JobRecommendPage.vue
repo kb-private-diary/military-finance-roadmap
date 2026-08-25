@@ -234,14 +234,6 @@ const toggleTraining = (training) => {
 };
 
 // ── 금액 ──
-const getQualificationFee = (qualification) => {
-  if (qualification.militaryFee != null) {
-    return qualification.militaryFee;
-  }
-
-  return (qualification.writtenFee ?? 0) + (qualification.practicalFee ?? 0);
-};
-
 const getCoursePrice = (course) =>
   course.militaryPrice ?? course.discountPrice ?? course.originalPrice ?? 0;
 

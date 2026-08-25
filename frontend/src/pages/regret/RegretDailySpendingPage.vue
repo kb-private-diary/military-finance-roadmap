@@ -152,41 +152,6 @@ const goBack = () => router.push({ name: 'RegretDashboard' });
   --reg-bg: #fdeeee;
   --reg-text: #d97676;
 }
-.head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.back {
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: #fff;
-  color: var(--text-body);
-  font-size: 17px;
-  line-height: 1;
-  cursor: pointer;
-  font-family: inherit;
-  flex-shrink: 0;
-}
-.htx {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.cap {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-.title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-strong);
-}
 /* ── 총지출 요약 ── */
 .sum-cap {
   font-size: 12px;

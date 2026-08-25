@@ -482,16 +482,6 @@ const VERDICT = {
 const verdictMeta = computed(() => VERDICT[market.value?.verdict] || VERDICT.NORMAL);
 
 // ── 액션 ────────────────────────────────────────────────
-const handleDelete = async () => {
-  if (!window.confirm('저장한 자취 목표를 삭제할까요?')) return;
-  try {
-    if (typeof rentApi.deleteGoal === 'function') await rentApi.deleteGoal(goalId);
-  } catch {
-    // 백엔드 미구현 시 삭제 실패 무시하고 목록으로 이동
-  } finally {
-    router.push({ name: 'RoadmapMain' });
-  }
-};
 const goConfirm = () => router.push({ name: 'RoadmapMain' });
 </script>
 
@@ -499,7 +489,7 @@ const goConfirm = () => router.push({ name: 'RoadmapMain' });
   <div v-if="!loading && goal" class="detail">
     <!-- 1) 헤더 -->
     <header class="head">
-      <PageHeader breadcrumb="저장한 로드맵" title="내가 그린 전역 작전" />
+      <PageHeader breadcrumb="저장한 로드맵" title="나의 자취 작전" />
       <BaseTag label="자취" variant="rent" />
     </header>
 
@@ -944,9 +934,9 @@ const goConfirm = () => router.push({ name: 'RoadmapMain' });
   gap: 12px;
 }
 .cap {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-body);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-strong);
   margin-bottom: 10px;
 }
 .cap--m0 {

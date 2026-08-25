@@ -30,21 +30,6 @@ const savingStyle = ref(false);
 let scrollContainer = null;
 
 // ── 요약 카드용 파생값 ──────────────────────────────
-const fmtMD = (iso) => {
-  if (!iso) return '';
-  const [, m, d] = iso.split('-');
-  return `${Number(m)}월 ${Number(d)}일`;
-};
-const tripDateRange = computed(() =>
-  goal.value ? `${fmtMD(goal.value.startDate)} ~ ${fmtMD(goal.value.endDate)}` : '',
-);
-const tripNights = computed(() => {
-  if (!goal.value?.startDate || !goal.value?.endDate) return '';
-  const nights = Math.round(
-    (new Date(goal.value.endDate) - new Date(goal.value.startDate)) / 86400000,
-  );
-  return `${nights}박 ${nights + 1}일`;
-});
 const tripDday = computed(() => {
   if (!goal.value?.startDate) return '';
   const today = new Date();
@@ -66,6 +51,18 @@ const tripScopeLabel = computed(() =>
       : '해외여행'
     : '',
 );
+// 일정+기간 한 줄: "27년 9월 20일 ~ 27년 9월 23일 (3박 4일)"
+const tripSchedule = computed(() => {
+  const s = goal.value?.startDate;
+  const e = goal.value?.endDate;
+  if (!s || !e) return '';
+  const start = new Date(s);
+  const end = new Date(e);
+  const nights = Math.round((end - start) / 86400000);
+  const fmt = (d) =>
+    `${String(d.getFullYear()).slice(2)}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
+  return `${fmt(start)} ~ ${fmt(end)} (${nights}박 ${nights + 1}일)`;
+});
 
 const STYLE_OPTIONS = [
   {
@@ -260,8 +257,7 @@ const goNext = async () => {
         to: { label: '도착지', value: goal.destination, icon: landingIcon },
       }"
       :specs="[
-        { label: '일정', value: tripDateRange },
-        { label: '기간', value: tripNights },
+        { label: '일정', value: tripSchedule, full: true },
         { label: '남은 기간', value: tripDday },
         { label: '예산', value: `${tripBudget}원` },
       ]"
@@ -373,7 +369,7 @@ const goNext = async () => {
 .travel-cost__cost-title {
   margin: 0;
   padding: 15px 16px 0;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--text-strong);
 }

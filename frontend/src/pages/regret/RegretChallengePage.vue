@@ -174,23 +174,6 @@ const saveGoal = () => {
   --soso: #fbd55b;    /* 애매 파스텔 옐로 */
   --danger: #f8a5a5;  /* 후회 파스텔 핑크 */
 }
-.head {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.cap {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-.title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-strong);
-}
 .dev-note {
   margin-top: 2px;
   font-size: 11px;
@@ -303,17 +286,6 @@ const saveGoal = () => {
   font-size: 12px;
   color: var(--text-hint);
   text-align: center;
-}
-.sv-ico {
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 11px;
-  background: var(--kb-yellow-pale);
-  font-size: 20px;
 }
 .sv-tx {
   flex: 1;

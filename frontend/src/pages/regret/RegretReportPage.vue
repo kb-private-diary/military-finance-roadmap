@@ -257,13 +257,6 @@ const goBack = () => router.push({ name: 'RegretDashboard' });
   flex-direction: column;
   gap: 6px;
 }
-.cap {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
 .month-nav {
   display: flex;
   align-items: center;
@@ -372,9 +365,9 @@ const goBack = () => router.push({ name: 'RegretDashboard' });
 }
 /* ── 카테고리 막대 ── */
 .sec {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-body);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-strong);
   margin-bottom: 12px;
 }
 .crow {

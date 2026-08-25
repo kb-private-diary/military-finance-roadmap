@@ -10,18 +10,22 @@ import BaseTag from '@/components/common/BaseTag.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import PageHeader from '@/components/common/PageHeader.vue';
 import TabBar from '@/components/common/TabBar.vue';
-import { formatDate, formatManwonUnit } from '@/util/format';
+import GoalSummaryCard from '@/components/common/GoalSummaryCard.vue';
+import EstimatedCostCard from '@/components/common/EstimatedCostCard.vue';
+import carBudgetIcon from '@/assets/images/car-budget.png';
+import carPriceIcon from '@/assets/images/car-price.png';
+import { formatManwonUnit } from '@/util/format';
 
 const route = useRoute();
 const router = useRouter();
 const goalId = computed(() => Number(route.params.goalId));
 
 const TABS = [
-  { key: 'goal', label: '선택한 목표' },
-  { key: 'cost', label: '비용 계산' },
+  { key: 'savings', label: '저축진행률' },
+  { key: 'cost', label: '비용계산' },
   { key: 'products', label: '금융상품' },
 ];
-const activeTab = ref('goal');
+const activeTab = ref('savings');
 
 const goal = ref(null);
 const purchase = ref(null); // { price, tax, total }
@@ -66,6 +70,134 @@ const regretCoveragePercent = computed(() => {
     100,
     Math.round((budgetStatus.value.regretSavingsAmount / budgetStatus.value.remainingAmount) * 100),
   );
+});
+
+// ── step3(CarCostPage) 비용 계산·요약 카드 이식 ──
+const purchaseTotal = computed(
+  () => (purchase.value?.price ?? 0) + (purchase.value?.tax ?? 0),
+);
+const MAINTENANCE_MONTHS = 36;
+const CAT_COLORS = {
+  tax: '#FFECBE',
+  repair: '#DAC183',
+  insurance: '#B39D89',
+  fuel: '#6E6053',
+};
+const INK_DARK = '#5b4b2e';
+const INK_LIGHT = '#ffffff';
+const CAR_TYPE_LABEL = { 1: '경차', 2: '준중형', 3: 'SUV' };
+
+const mc = () => maintenanceCost.value || {};
+const insuranceMidAnnual = computed(() => {
+  const min = mc().insurancePremiumMin ?? 0;
+  const max = mc().insurancePremiumMax ?? 0;
+  return (min + max) / 2;
+});
+const monthlyOf = (annual) => Math.round((annual ?? 0) / 12);
+const monthlyFuel = computed(() => monthlyOf(mc().estimatedFuelCostAnnual));
+const monthlyInsurance = computed(() => monthlyOf(insuranceMidAnnual.value));
+const monthlyRepair = computed(() => monthlyOf(mc().estimatedRepairCostAnnual));
+const monthlyTax = computed(() => monthlyOf(mc().annualVehicleTaxAfterDiscount));
+const monthlyTotal = computed(
+  () => monthlyFuel.value + monthlyInsurance.value + monthlyRepair.value + monthlyTax.value,
+);
+const maint3yTotal = computed(() => monthlyTotal.value * MAINTENANCE_MONTHS);
+
+// 탭① 한 달 기준
+const monthlyData = computed(() => {
+  if (!maintenanceCost.value) return null;
+  const g = goal.value || {};
+  const carType = CAR_TYPE_LABEL[g.carTypeCode] || '';
+  const total = monthlyTotal.value || 1;
+  const pct = (m) => Math.round((m / total) * 100);
+  const items = [
+    { label: '자동차세', sub: `${carType} 기준`, monthly: monthlyTax.value, color: CAT_COLORS.tax, ink: INK_DARK },
+    { label: '정비', sub: '소모품·정기점검', monthly: monthlyRepair.value, color: CAT_COLORS.repair, ink: INK_DARK },
+    { label: '보험료', sub: `경력 ${g.experienceYears ?? 0}년 · ${g.region ?? ''}`, monthly: monthlyInsurance.value, color: CAT_COLORS.insurance, ink: INK_LIGHT },
+    { label: '연료비', sub: mc().fuelType ? `${mc().fuelType} 기준` : '', monthly: monthlyFuel.value, color: CAT_COLORS.fuel, ink: INK_LIGHT, showName: true },
+  ].map((it) => ({
+    ...it,
+    percent: pct(it.monthly),
+    amountText: formatManwonUnit(it.monthly),
+    showName: it.showName || false,
+  }));
+  return {
+    headLabel: '월 예상 유지비',
+    amount: monthlyTotal.value,
+    unit: '만원',
+    subNote: `${carType} · 운전경력 ${g.experienceYears ?? 0}년 기준`,
+    items,
+  };
+});
+
+// 탭② 3년 기준
+const yearlyData = computed(() => {
+  if (!maintenanceCost.value || !purchase.value) return null;
+  const buy = purchaseTotal.value;
+  const keep = maint3yTotal.value;
+  const total = buy + keep || 1;
+  const pct = (v) => Math.round((v / total) * 100);
+  const monthlyMin = monthlyFuel.value + monthlyOf(mc().insurancePremiumMin) + monthlyRepair.value + monthlyTax.value;
+  const monthlyMax = monthlyFuel.value + monthlyOf(mc().insurancePremiumMax) + monthlyRepair.value + monthlyTax.value;
+  return {
+    headLabel: '3년 총 예상 비용',
+    amount: Math.round(total),
+    unit: '만원',
+    range: `${formatManwonUnit(buy + monthlyMin * MAINTENANCE_MONTHS)} ~ ${formatManwonUnit(buy + monthlyMax * MAINTENANCE_MONTHS)}`,
+    items: [
+      { label: '유지비', sub: `월 ${monthlyTotal.value}만원 × ${MAINTENANCE_MONTHS}개월`, percent: pct(keep), color: 'var(--kb-yellow)', ink: 'var(--kb-dark-gray)', showName: true, amountText: formatManwonUnit(keep) },
+      { label: '구매 비용', sub: '살 때 딱 한 번', percent: pct(buy), color: CAT_COLORS.fuel, ink: INK_LIGHT, showName: true, amountText: formatManwonUnit(buy) },
+    ],
+    nested: [
+      { label: '시세', value: formatManwonUnit(purchase.value.price) },
+      { label: '취득세', value: formatManwonUnit(purchase.value.tax) },
+    ],
+  };
+});
+
+const COST_TABS = [
+  { label: '한 달 기준', value: 'monthly' },
+  { label: '3년 기준', value: 'yearly' },
+];
+const costTab = ref('monthly');
+const activeCostState = computed(() =>
+  costTab.value === 'monthly' ? monthlyData.value : yearlyData.value,
+);
+
+// 요약 카드 (step3와 동일)
+const summaryChip = computed(() =>
+  goal.value ? (goal.value.isNew ? '신차' : '중고') : '',
+);
+const summarySpecs = computed(() => {
+  const g = goal.value;
+  const p = purchase.value;
+  if (!g || !p) return [];
+  const specs = [];
+  if (g.carTypeCode) specs.push({ label: '차종', value: CAR_TYPE_LABEL[g.carTypeCode] });
+  if (!g.isNew && g.selectedYear) specs.push({ label: '연식', value: `${g.selectedYear}년식` });
+  if (!g.isNew && g.selectedMileageKm) {
+    specs.push({ label: '주행거리', value: `${g.selectedMileageKm.toLocaleString()}km` });
+  }
+  specs.push({ label: '시세', value: formatManwonUnit(p.price) });
+  specs.push({ label: '취득세', value: formatManwonUnit(p.tax) });
+  specs.push({ label: '공채매입', value: g.carTypeCode === 1 ? '면제 대상' : formatManwonUnit(p.bond ?? 0) });
+  return specs;
+});
+const summaryCompare = computed(() => {
+  const g = goal.value;
+  const hasManual = !!g?.budget;
+  const budget = hasManual ? g.budget : budgetStatus.value?.effectiveBudget;
+  if (!g || !budget) return null;
+  const price = Math.round(purchaseTotal.value);
+  const diff = budget - price;
+  return {
+    left: { label: hasManual ? '내 예산' : '예상 만기금', value: `${budget.toLocaleString()}만`, icon: carBudgetIcon },
+    right: { label: '실제 차값', value: `${price.toLocaleString()}만`, icon: carPriceIcon },
+    badge:
+      diff >= 0
+        ? { text: `${diff.toLocaleString()}만 여유`, tone: 'good' }
+        : { text: `${(-diff).toLocaleString()}만 필요`, tone: 'bad' },
+  };
 });
 
 const loadDetail = async () => {
@@ -129,7 +261,7 @@ const goToRoadmap = () => {
   <div class="car-detail">
     <!-- 헤더: 자취 상세와 동일하게 PageHeader + 도메인 태그 한 줄 -->
     <header class="car-detail__head">
-      <PageHeader breadcrumb="저장한 로드맵" title="내가 그린 전역 작전" />
+      <PageHeader breadcrumb="저장한 로드맵" title="나의 자동차 작전" />
       <BaseTag label="자동차" variant="car" />
     </header>
 
@@ -139,123 +271,74 @@ const goToRoadmap = () => {
     </p>
 
     <template v-else>
-      <BaseCard padding="16px 18px" class="car-detail__header">
-        <h2 class="car-detail__name">{{ goal.selectedModelName || '자동차 목표' }}</h2>
-        <p class="car-detail__date">{{ formatDate(goal.targetDate) }}</p>
-        <p class="car-detail__route">
-          {{ goal.region }} · {{ goal.isNew ? '신차' : '중고' }}
-        </p>
-      </BaseCard>
+      <!-- 상단 요약 카드 (자동차 step3와 동일: 칩+모델+스펙+예산 vs 차값) -->
+      <GoalSummaryCard
+        v-if="goal"
+        theme="car"
+        :chip="summaryChip"
+        :title="goal.selectedModelName || '자동차 목표'"
+        :specs="summarySpecs"
+        :compare="summaryCompare"
+      />
 
       <p v-if="!hasSelectedModel" class="car-detail__empty text-caption">
         아직 선택한 차량이 없어요. 추천 목록에서 먼저 차량을 골라주세요.
       </p>
 
       <template v-else>
-        <!-- 저축 진행률 -->
-        <BaseCard v-if="savings" padding="18px" class="savings-card">
-          <div class="savings-card__head">
-            <span class="section-title">저축 진행률</span>
-            <strong class="savings-card__rate">{{ savingsRate }}%</strong>
-          </div>
-          <div class="savings-progress">
-            <div class="savings-progress__bar" :style="{ width: `${savingsRate}%` }"></div>
-          </div>
-          <p class="savings-card__desc">
-            {{ formatManwonUnit(Math.round(savings.currentTotalSavings / 10000)) }} /
-            {{ formatManwonUnit(budgetStatus?.effectiveBudget) }} 달성
-            (군적금 만기예상액 {{ formatManwonUnit(Math.round(savings.expectedMaturityTotal / 10000)) }})
-          </p>
-        </BaseCard>
-
-        <!-- 후회소비 인사이트 -->
-        <div v-if="showRegretInsight" class="insight">
-          <p class="insight__tag">⭐ 후회소비 인사이트</p>
-          <p class="insight__text">
-            최근 {{ budgetStatus.regretSavingsMonths }}개월간 월평균 후회소비가
-            <strong>{{ formatManwonUnit(budgetStatus.avgRegretSpending) }}</strong>이에요.
-            이걸 {{ budgetStatus.regretSavingsMonths }}개월만 모으면
-            <strong>{{ formatManwonUnit(budgetStatus.regretSavingsAmount) }}</strong>
-            — 목표까지 남은 {{ formatManwonUnit(budgetStatus.remainingAmount) }}의
-            <strong class="insight__hl">{{ regretCoveragePercent }}%</strong>를 채울 수 있어요.
-          </p>
-        </div>
-
         <TabBar
           v-model="activeTab"
           :tabs="TABS.map((t) => ({ label: t.label, value: t.key }))"
         />
 
-        <!-- 탭: 선택한 목표 -->
-        <div v-if="activeTab === 'goal'" class="tab-panel">
-          <BaseCard padding="18px" class="applied-card">
-            <div class="applied-card__check" aria-hidden="true">&#10003;</div>
-            <div class="applied-card__content">
-              <strong class="applied-card__name">
-                {{ goal.selectedModelName }} · {{ goal.isNew ? '신차' : '중고' }}
-                <template v-if="!goal.isNew && goal.selectedYear">({{ goal.selectedYear }}년식)</template>
-              </strong>
-              <p class="applied-card__desc">목표 구매 시기 {{ goal.targetDate }}</p>
-              <p class="applied-card__amount">
-                {{ formatManwonUnit(purchase?.price) }} + 취득세 {{ formatManwonUnit(purchase?.tax) }}
-              </p>
+        <!-- 탭: 저축진행률 -->
+        <div v-if="activeTab === 'savings'" class="tab-panel">
+          <BaseCard v-if="savings" padding="18px" class="savings-card">
+            <div class="savings-card__head">
+              <span class="section-title">저축 진행률</span>
+              <strong class="savings-card__rate">{{ savingsRate }}%</strong>
             </div>
+            <div class="savings-progress">
+              <div class="savings-progress__bar" :style="{ width: `${savingsRate}%` }"></div>
+            </div>
+            <p class="savings-card__desc">
+              {{ formatManwonUnit(Math.round(savings.currentTotalSavings / 10000)) }} /
+              {{ formatManwonUnit(budgetStatus?.effectiveBudget) }} 달성
+              (군적금 만기예상액 {{ formatManwonUnit(Math.round(savings.expectedMaturityTotal / 10000)) }})
+            </p>
           </BaseCard>
 
-          <dl class="info-list">
-            <div class="info-list__row">
-              <dt>기준 예산</dt>
-              <dd>{{ formatManwonUnit(budgetStatus?.effectiveBudget) }}</dd>
-            </div>
-            <div class="info-list__row">
-              <dt>운전 경력</dt>
-              <dd>{{ goal.experienceYears }}년</dd>
-            </div>
-            <div class="info-list__row">
-              <dt>거주 지역</dt>
-              <dd>{{ goal.region }}</dd>
-            </div>
-          </dl>
+          <div v-if="showRegretInsight" class="insight">
+            <p class="insight__tag">⭐ 후회소비 인사이트</p>
+            <p class="insight__text">
+              최근 {{ budgetStatus.regretSavingsMonths }}개월간 월평균 후회소비가
+              <strong>{{ formatManwonUnit(budgetStatus.avgRegretSpending) }}</strong>이에요.
+              이걸 {{ budgetStatus.regretSavingsMonths }}개월만 모으면
+              <strong>{{ formatManwonUnit(budgetStatus.regretSavingsAmount) }}</strong>
+              — 목표까지 남은 {{ formatManwonUnit(budgetStatus.remainingAmount) }}의
+              <strong class="insight__hl">{{ regretCoveragePercent }}%</strong>를 채울 수 있어요.
+            </p>
+          </div>
+
+          <p
+            v-if="!savings && !showRegretInsight"
+            class="car-detail__empty text-caption"
+          >
+            아직 저축 진행률 정보가 없어요. 오픈뱅킹으로 군적금을 연동해보세요.
+          </p>
         </div>
 
-        <!-- 탭: 비용 계산 -->
+        <!-- 탭: 비용계산 (한 달 / 3년 물통, step3와 동일) -->
         <div v-else-if="activeTab === 'cost'" class="tab-panel">
-          <section class="purchase-summary">
-            <div class="purchase-summary__icon" aria-hidden="true">&#128176;</div>
-            <div class="purchase-summary__content">
-              <p class="purchase-summary__label">구매 비용</p>
-              <strong class="purchase-summary__amount">
-                {{ formatManwonUnit((purchase?.price ?? 0) + (purchase?.tax ?? 0)) }}
-              </strong>
-            </div>
-          </section>
-
-          <BaseCard v-if="maintenanceCost" padding="16px">
-            <h3 class="section-title">연간 유지비 구성</h3>
-            <ul class="cost-list">
-              <li class="cost-row">
-                <span class="cost-row__name">연료비</span>
-                <strong>{{ formatManwonUnit(maintenanceCost.estimatedFuelCostAnnual) }}</strong>
-              </li>
-              <li class="cost-row">
-                <span class="cost-row__name">자동차세</span>
-                <strong>{{ formatManwonUnit(maintenanceCost.annualVehicleTaxAfterDiscount) }}</strong>
-              </li>
-              <li class="cost-row">
-                <span class="cost-row__name">보험료</span>
-                <strong>
-                  {{ formatManwonUnit(maintenanceCost.insurancePremiumMin) }}~{{
-                    formatManwonUnit(maintenanceCost.insurancePremiumMax)
-                  }}
-                </strong>
-              </li>
-            </ul>
-            <div class="cost-list__total">
-              연간 합계 {{ formatManwonUnit(maintenanceCost.totalMaintenanceCostMin) }}~{{
-                formatManwonUnit(maintenanceCost.totalMaintenanceCostMax)
-              }}
-            </div>
-          </BaseCard>
+          <div class="car-detail__cost-tabs">
+            <TabBar variant="segment" v-model="costTab" :tabs="COST_TABS" />
+          </div>
+          <EstimatedCostCard
+            v-if="activeCostState"
+            :state="activeCostState"
+            :dividers="false"
+            note=""
+          />
         </div>
 
         <!-- 탭: 금융상품 -->
@@ -338,6 +421,11 @@ const goToRoadmap = () => {
   color: var(--text-strong);
 }
 
+/* 비용계산 탭 안 한 달/3년 세그먼트 */
+.car-detail__cost-tabs {
+  margin-bottom: 14px;
+}
+
 /* 헤더: PageHeader + 도메인 태그 한 줄 (자취 상세와 동일) */
 .car-detail__head {
   display: flex;
@@ -356,32 +444,6 @@ const goToRoadmap = () => {
 .form-error {
   margin: 0;
   color: var(--danger);
-}
-
-.car-detail__header {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-.car-detail__name {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-strong);
-}
-
-.car-detail__date {
-  margin: 8px 0 0;
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
-.car-detail__route {
-  margin: 4px 0 0;
-  color: var(--text-body);
-  font-size: 14px;
-  font-weight: 600;
 }
 
 .savings-card__head {
@@ -452,137 +514,12 @@ const goToRoadmap = () => {
   gap: 14px;
 }
 
-.applied-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.applied-card__check {
-  display: flex;
-  width: 26px;
-  height: 26px;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: var(--military-green);
-  color: var(--surface-default);
-  font-size: 13px;
-}
-
-.applied-card__name {
-  display: block;
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.applied-card__desc {
-  margin: 4px 0 0;
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
-.applied-card__amount {
-  margin: 8px 0 0;
-  font-size: 15px;
-  font-weight: 800;
-}
-
-.info-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin: 0;
-}
-
-.info-list__row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.info-list__row dt {
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
-.info-list__row dd {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.purchase-summary {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 16px;
-  border-radius: 16px;
-  background: var(--kb-yellow-pale);
-}
-
-.purchase-summary__icon {
-  display: flex;
-  width: 48px;
-  height: 48px;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  border-radius: 14px;
-  background: var(--kb-yellow);
-  font-size: 22px;
-}
-
-.purchase-summary__label {
-  margin: 0;
-  color: var(--brand-gold);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.purchase-summary__amount {
-  display: block;
-  margin-top: 4px;
-  font-size: 20px;
-  font-weight: 800;
-}
-
 .section-title {
   margin: 0 0 12px;
   font-size: 14px;
   font-weight: 700;
   color: var(--text-body);
   display: block;
-}
-
-.cost-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.cost-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 13px;
-}
-
-.cost-row__name {
-  color: var(--text-muted);
-}
-
-.cost-list__total {
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
-  color: var(--text-hint);
-  font-size: 12px;
-  text-align: center;
 }
 
 .car-detail__section + .car-detail__section {
