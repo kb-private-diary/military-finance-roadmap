@@ -1025,7 +1025,8 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: flex-end;
   gap: 7px;
-  margin: 0;
+  /* 소제목 위 여백을 로드맵 섹션(40px)에 맞춤: home-page flex gap(18px) + 22px = 40px */
+  margin: 22px 0 0;
 }
 
 .fund-section-heading__text {
@@ -1044,6 +1045,8 @@ onBeforeUnmount(() => {
 
 .fund-section-heading h2 {
   margin: 0;
+  /* 메인 PageHeader lg와 통일 */
+  font-size: 19px;
 }
 
 /* 정보 아이콘 */

@@ -12,6 +12,11 @@ const props = defineProps({
     type: Array, // 동의한 termsId 목록
     default: () => [],
   },
+  // '전체 동의합니다' 상단 박스 노출 여부 (약관이 1개면 숨기는 등)
+  showSelectAll: {
+    type: Boolean,
+    default: true,
+  },
 });
 
 const emit = defineEmits(['update:modelValue']);
@@ -59,8 +64,8 @@ defineExpose({ requiredIds });
 
 <template>
   <div class="terms-accordion">
-    <!-- 전체 동의 (맨 위 유지) -->
-    <label class="terms-accordion__all">
+    <!-- 전체 동의 (맨 위 유지, showSelectAll=false면 숨김) -->
+    <label v-if="showSelectAll" class="terms-accordion__all">
       <input
         type="checkbox"
         class="terms-accordion__checkbox"
@@ -213,11 +218,11 @@ defineExpose({ requiredIds });
   padding: 21px 4px 21px 17px;
 }
 
-/* 밑줄: 왼쪽 끝을 체크 위치(17px)에 맞춰 시작, 오른쪽 끝까지 */
+/* 밑줄: 양쪽 끝까지 full-width (좌우 균형) */
 .terms-accordion__header::after {
   content: '';
   position: absolute;
-  left: 17px;
+  left: 0;
   right: 0;
   bottom: 0;
   height: 2px;

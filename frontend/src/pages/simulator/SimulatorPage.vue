@@ -1036,7 +1036,8 @@ onUnmounted(() => {
 .product-section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  /* 제목(헤더그룹)→내용 여백 18px 통일 */
+  gap: 18px;
   /* 위 배너와 간격 넓히기 */
   margin-top: 14px;
 }
