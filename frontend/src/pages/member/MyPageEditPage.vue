@@ -6,6 +6,7 @@ import { useRouter } from 'vue-router';
 import memberApi from '@/api/memberApi';
 import { useToast } from '@/composables/useToast';
 import BaseInput from '@/components/common/BaseInput.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 
 const router = useRouter();
@@ -74,7 +75,7 @@ onMounted(load);
 
 <template>
   <div class="mypage-edit-page">
-    <h1 class="text-title mt-4 mb-4">회원정보 수정</h1>
+    <PageHeader title="회원정보 수정" />
 
     <p v-if="loading" class="text-caption">불러오는 중...</p>
 
@@ -93,7 +94,24 @@ onMounted(load);
         <p v-if="errorMessage" class="mypage-edit-form__error text-caption">{{ errorMessage }}</p>
       </form>
 
-      <BottomButtonBar primary-label="수정 완료" :primary-disabled="!canSubmit" @primary-click="submit" />
+      <button
+        type="button"
+        class="mypage-edit-password-link"
+        @click="router.push({ name: 'MyPagePassword' })"
+      >
+        <span>비밀번호 변경</span>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M9 6L15 12L9 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
+
+      <BottomButtonBar
+        secondary-label="이전"
+        primary-label="수정 완료"
+        :primary-disabled="!canSubmit"
+        @secondary-click="router.push({ name: 'MyPage' })"
+        @primary-click="submit"
+      />
     </template>
   </div>
 </template>
@@ -112,5 +130,21 @@ onMounted(load);
 .mypage-edit-form__error {
   color: var(--danger);
   margin: 0;
+}
+
+.mypage-edit-password-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: 24px;
+  padding: 15px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background-color: var(--surface-subtle);
+  color: var(--text-strong);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
 }
 </style>

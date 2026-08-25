@@ -2491,7 +2491,8 @@ onActivated(() => {
 
 .chat-page__messages {
   flex: 1;
-  padding-bottom: 8px;
+  /* 하단 고정 입력창(composer, 약 68px) 높이만큼 여백 - 마지막 메시지가 입력창에 가리지 않도록 */
+  padding-bottom: 72px;
 }
 
 .bubble-row {
@@ -3147,12 +3148,12 @@ onActivated(() => {
   position: fixed;
   bottom: 0;
   left: 50%;
-  /* .chat-page__panel과 동일한 이유로 스크롤바(15px) 자리를 남겨둠(2026-08-11 피드백) */
-  transform: translateX(calc(-50% - 11.5px));
+  /* 앱 프레임 폭(--app-max-width)에 맞춰 하단 고정 - BottomButtonBar 등 다른 하단 바와 정렬 통일 */
+  transform: translateX(-50%);
   display: flex;
   gap: 8px;
   width: 100%;
-  max-width: 370px;
+  max-width: var(--app-max-width);
   padding: 12px 16px;
   padding-bottom: calc(12px + env(safe-area-inset-bottom));
   background: var(--surface-cream);

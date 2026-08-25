@@ -22,6 +22,13 @@ const requiredIds = computed(() =>
   props.terms.filter((term) => term.required).map((term) => term.termsId),
 );
 
+// 필수 약관 먼저, 선택 약관 뒤로 묶어서 그룹 사이 간격을 준다
+const requiredTerms = computed(() => props.terms.filter((term) => term.required));
+const optionalTerms = computed(() => props.terms.filter((term) => !term.required));
+const orderedTerms = computed(() => [...requiredTerms.value, ...optionalTerms.value]);
+// 선택 그룹 첫 항목 - 위쪽에 간격을 주기 위한 표식
+const firstOptionalId = computed(() => optionalTerms.value[0]?.termsId ?? null);
+
 const isAgreed = (termsId) => props.modelValue.includes(termsId);
 
 const isAllAgreed = computed(
@@ -52,6 +59,7 @@ defineExpose({ requiredIds });
 
 <template>
   <div class="terms-accordion">
+    <!-- 전체 동의 (맨 위 유지) -->
     <label class="terms-accordion__all">
       <input
         type="checkbox"
@@ -62,8 +70,13 @@ defineExpose({ requiredIds });
       <span class="terms-accordion__all-label">전체 동의합니다</span>
     </label>
 
-    <ul class="terms-accordion__list list-unstyled mb-0">
-      <li v-for="term in terms" :key="term.termsId" class="terms-accordion__item">
+    <ul class="terms-accordion__list">
+      <li
+        v-for="term in orderedTerms"
+        :key="term.termsId"
+        class="terms-accordion__item"
+        :class="{ 'terms-accordion__item--group-start': term.termsId === firstOptionalId }"
+      >
         <div class="terms-accordion__header">
           <label class="terms-accordion__row">
             <input
@@ -75,8 +88,8 @@ defineExpose({ requiredIds });
             <span class="terms-accordion__row-label">
               {{ term.name }}
               <span
-                class="badge rounded-pill ms-1"
-                :class="term.required ? 'text-bg-warning' : 'text-bg-secondary'"
+                class="terms-accordion__tag"
+                :class="term.required ? 'is-required' : 'is-optional'"
               >
                 {{ term.required ? '필수' : '선택' }}
               </span>
@@ -89,9 +102,23 @@ defineExpose({ requiredIds });
             :aria-label="`${term.name} 본문 ${isOpen(term.termsId) ? '접기' : '펼치기'}`"
             @click="toggleOpen(term.termsId)"
           >
-            <span class="terms-accordion__chevron" :class="{ 'is-open': isOpen(term.termsId) }">
-              ▾
-            </span>
+            <svg
+              class="terms-accordion__chevron"
+              :class="{ 'is-open': isOpen(term.termsId) }"
+              viewBox="0 0 24 24"
+              width="18"
+              height="18"
+              aria-hidden="true"
+            >
+              <path
+                d="M7 10l5 5 5-5"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
           </button>
         </div>
         <div v-show="isOpen(term.termsId)" class="terms-accordion__content">
@@ -103,14 +130,20 @@ defineExpose({ requiredIds });
 </template>
 
 <style scoped>
-/* 체크박스: 브라우저 기본 렌더링을 끄고 크기·정렬을 직접 통일한다 (항목마다 다르게 보이던 문제 수정) */
+.terms-accordion__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* 체크 표시: 동그란 원 + 체크. 미동의=회색 체크, 동의=노란 원+흰 체크 */
 .terms-accordion__checkbox {
   flex-shrink: 0;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   margin: 0;
-  border: 1.5px solid var(--line-strong, #d0d0d0);
-  border-radius: 5px;
+  border: 1.5px solid #cdd1d6;
+  border-radius: 50%;
   appearance: none;
   -webkit-appearance: none;
   background-color: #fff;
@@ -119,21 +152,27 @@ defineExpose({ requiredIds });
   transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
+/* 항상 체크(✓)를 보여주되, 미동의일 땐 옅은 회색 */
+.terms-accordion__checkbox::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 9px;
+  border: solid #9aa0a7;
+  border-width: 0 2px 2px 0;
+  transform: translate(-50%, -55%) rotate(45deg);
+  transition: border-color 0.15s ease;
+}
+
 .terms-accordion__checkbox:checked {
   background-color: var(--kb-yellow-deep, #ffbc00);
   border-color: var(--kb-yellow-deep, #ffbc00);
 }
 
 .terms-accordion__checkbox:checked::after {
-  content: '';
-  position: absolute;
-  left: 6px;
-  top: 2px;
-  width: 5px;
-  height: 10px;
-  border: solid #fff;
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
+  border-color: #fff;
 }
 
 .terms-accordion__checkbox:focus-visible {
@@ -141,56 +180,93 @@ defineExpose({ requiredIds });
   outline-offset: 2px;
 }
 
+/* 전체 동의 - 맨 위 강조 행 (노란 테두리 + 흰 배경) */
 .terms-accordion__all {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.75rem 1rem;
-  margin-bottom: 0.75rem;
-  border: 1px solid var(--bs-border-color);
-  border-radius: 0.5rem;
-  background-color: #fff8e6;
+  gap: 12px;
+  padding: 14px 16px;
+  margin-bottom: 6px;
+  border: 1.5px solid var(--kb-yellow-deep, #ffbc00);
+  border-radius: 12px;
+  background-color: #fff;
   cursor: pointer;
 }
 
 .terms-accordion__all-label {
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-strong);
 }
 
-.terms-accordion__item {
-  border: 1px solid var(--bs-border-color);
-  border-radius: 0.5rem;
-  margin-bottom: 0.5rem;
-  overflow: hidden;
+/* 개별 항목: 헤더 밑에 full-width 구분선 */
+.terms-accordion__item--group-start {
+  margin-top: 36px;
 }
 
 .terms-accordion__header {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
+  gap: 10px;
+  /* 왼쪽 여백을 전체동의 박스(테두리1.5+패딩16) 체크 위치와 맞춤 */
+  padding: 21px 4px 21px 17px;
+}
+
+/* 밑줄: 왼쪽 끝을 체크 위치(17px)에 맞춰 시작, 오른쪽 끝까지 */
+.terms-accordion__header::after {
+  content: '';
+  position: absolute;
+  left: 17px;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background-color: var(--kb-gold, #85714d);
 }
 
 .terms-accordion__row {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 12px;
   cursor: pointer;
   flex-grow: 1;
   margin-bottom: 0;
 }
 
+.terms-accordion__row-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+/* 필수/선택 - 알약 배지 대신 옅은 텍스트 */
+.terms-accordion__tag {
+  margin-left: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.terms-accordion__tag.is-required {
+  color: var(--kb-yellow-deep, #ffbc00);
+}
+
+.terms-accordion__tag.is-optional {
+  color: var(--text-muted, #9a9ea4);
+}
+
 .terms-accordion__toggle {
+  flex-shrink: 0;
   border: none;
   background: transparent;
-  padding: 0.25rem;
-  line-height: 1;
-  color: var(--bs-secondary-color);
+  padding: 4px;
+  line-height: 0;
+  color: var(--text-muted);
+  cursor: pointer;
 }
 
 .terms-accordion__chevron {
-  display: inline-block;
-  transition: transform 0.15s ease;
+  display: block;
+  transition: transform 0.2s ease;
 }
 
 .terms-accordion__chevron.is-open {
@@ -198,9 +274,10 @@ defineExpose({ requiredIds });
 }
 
 .terms-accordion__content {
-  padding: 0 1rem 1rem 2.5rem;
-  color: var(--bs-secondary-color);
-  font-size: 0.9rem;
+  padding: 12px 4px 14px 46px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.6;
   white-space: pre-line;
 }
 </style>

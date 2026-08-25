@@ -3,14 +3,20 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import travelApi from '@/api/travelApi';
-import calculatorImage from '@/assets/images/calculator.png';
+import regretApi from '@/api/regretApi';
 import BaseCard from '@/components/common/BaseCard.vue';
 import BaseTag from '@/components/common/BaseTag.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import PageHeader from '@/components/common/PageHeader.vue';
 import TabBar from '@/components/common/TabBar.vue';
-import { formatDate, formatWon } from '@/util/format';
+import EstimatedCostCard from '@/components/common/EstimatedCostCard.vue';
+import GoalSummaryCard from '@/components/common/GoalSummaryCard.vue';
+import BudgetGauge from '@/components/common/BudgetGauge.vue';
+import takeoffIcon from '@/assets/images/takeoff.png';
+import landingIcon from '@/assets/images/landing.png';
+import { findDomesticRegion } from './domesticRegions';
+import { formatManwon } from '@/util/format';
 
 const route = useRoute();
 const router = useRouter();
@@ -38,13 +44,6 @@ const readErrorMessage = (error, fallback) =>
 
 const cost = computed(() => detail.value?.cost ?? {});
 const products = computed(() => detail.value?.products ?? {});
-const budgetPlan = computed(() => detail.value?.budgetPlan ?? null);
-
-const dateRange = computed(() => {
-  if (!detail.value) return '';
-  return `${formatDate(detail.value.startDate)}~${formatDate(detail.value.endDate)}`;
-});
-
 const selectedItems = computed(() => {
   const places = (detail.value?.places ?? []).map((place, index) => ({
     key: `${place.type}:${place.name}:${index}`,
@@ -69,57 +68,74 @@ const selectedItems = computed(() => {
   return places;
 });
 
-const costItems = computed(() => {
-  const items = [
-    {
-      key: 'hotel',
-      label: '숙박비',
-      value: Number(cost.value.hotelCost) || 0,
-      color: 'var(--chart-1)',
-    },
-    {
-      key: 'transport',
-      label: '교통비',
-      value: Number(cost.value.flightCost) || 0,
-      color: 'var(--chart-2)',
-    },
-    {
-      key: 'living',
-      label: '관광비',
-      value: Number(cost.value.livingCost) || 0,
-      color: 'var(--chart-3)',
-    },
+// 여행 step3와 동일한 물통 + 예산 게이지 (저장된 스타일 금액 기준)
+const toAmount = (value) => Math.max(Number(value) || 0, 0);
+const displayedCost = computed(() => cost.value || null);
+
+const travelState = computed(() => {
+  if (!displayedCost.value) return null;
+  const base = [
+    { label: '교통비', amount: toAmount(displayedCost.value.flightCost), color: '#DAC183', ink: '#5b4b2e' },
+    { label: '관광비', amount: toAmount(displayedCost.value.livingCost), color: '#B39D89', ink: '#ffffff' },
+    { label: '숙소비', amount: toAmount(displayedCost.value.hotelCost), color: '#6E6053', ink: '#ffffff' },
   ];
-  const total = items.reduce((sum, item) => sum + item.value, 0);
-  return items.map((item) => ({
-    ...item,
-    percentage: total ? Math.round((item.value / total) * 100) : 0,
-  }));
+  const sum = base.reduce((s, it) => s + it.amount, 0) || 1;
+  const items = [...base]
+    .sort((a, b) => a.amount - b.amount)
+    .map((it, idx, arr) => ({
+      label: it.label,
+      amountText: formatManwon(it.amount),
+      percent: Math.round((it.amount / sum) * 100),
+      color: it.color,
+      ink: it.ink,
+      showName: idx === arr.length - 1,
+    }));
+  return {
+    headLabel: '총 예상 여행 경비',
+    amount: Math.round(toAmount(displayedCost.value.totalCost) / 10000),
+    unit: '만원',
+    items,
+  };
 });
 
-const budgetDifference = computed(
-  () =>
-    (Number(detail.value?.totalBudget) || 0) * 10000 - // totalBudget은 만원 단위 → 원으로 변환해 cost(원)와 비교
-    (Number(cost.value.totalCost) || 0),
+const gaugeBudget = computed(() =>
+  detail.value?.totalBudget
+    ? detail.value.totalBudget
+    : Math.round(toAmount(displayedCost.value?.totalCost) / 10000),
 );
 
-const budgetUsageRate = computed(() => {
-  const budget = (Number(detail.value?.totalBudget) || 0) * 10000; // 만원 → 원 (cost와 단위 통일)
-  if (!budget) return 0;
-  return Math.min(
-    100,
-    Math.round(((Number(cost.value.totalCost) || 0) / budget) * 100),
-  );
+// 상단 요약 카드(GoalSummaryCard) — 여행 step3와 동일 구성
+const tripDday = computed(() => {
+  if (!detail.value?.startDate) return '';
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = Math.ceil((new Date(detail.value.startDate) - today) / 86400000);
+  if (days > 0) return `D-${days}`;
+  return days === 0 ? 'D-DAY' : `D+${-days}`;
 });
-
-const budgetStatus = computed(() => {
-  const budget = (Number(detail.value?.totalBudget) || 0) * 10000; // 만원 → 원 (cost와 단위 통일)
-  if (!budget) return { label: '예산 비교', rate: 0 };
-  const rate = Math.round((Math.abs(budgetDifference.value) / budget) * 100);
-  return {
-    label: budgetDifference.value >= 0 ? '예산 여유' : '예산 초과',
-    rate,
-  };
+const tripBudget = computed(() =>
+  detail.value?.totalBudget
+    ? `${detail.value.totalBudget.toLocaleString()}만`
+    : '-',
+);
+const tripScopeLabel = computed(() =>
+  detail.value
+    ? findDomesticRegion(detail.value.destination)
+      ? '국내여행'
+      : '해외여행'
+    : '',
+);
+// 일정+기간 한 줄: "27년 9월 20일 ~ 27년 9월 23일 (3박 4일)"
+const tripSchedule = computed(() => {
+  const s = detail.value?.startDate;
+  const e = detail.value?.endDate;
+  if (!s || !e) return '-';
+  const start = new Date(s);
+  const end = new Date(e);
+  const nights = Math.round((end - start) / 86400000);
+  const fmt = (d) =>
+    `${String(d.getFullYear()).slice(2)}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
+  return `${fmt(start)} ~ ${fmt(end)} (${nights}박 ${nights + 1}일)`;
 });
 
 const productGroups = computed(() => [
@@ -144,12 +160,90 @@ const hasProducts = computed(() =>
   productGroups.value.some(({ items }) => items.length > 0),
 );
 
+const formatAmount = (amount) => `${Number(amount ?? 0).toLocaleString()}원`;
+
+// ─────────────────────────────────────────────
+// 최근 1개월 후회소비 기반 여행 경비 활용 분석 (진로 상세와 동일 패턴)
+// ─────────────────────────────────────────────
+const regretAnalysis = ref(null);
+
+const loadRegretAnalysis = async () => {
+  try {
+    // 로그인 사용자의 전체 지출 내역 조회
+    const spendings = await regretApi.findSpendings();
+
+    const today = new Date();
+    const oneMonthAgo = new Date(today);
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+
+    // 최근 1개월 내 후회소비(REGRET)만 합산
+    const regretAmount = spendings
+      .filter((spending) => {
+        const spentAt = new Date(spending.spentAt);
+        return (
+          spentAt >= oneMonthAgo &&
+          spentAt <= today &&
+          spending.reviewType === 'REGRET'
+        );
+      })
+      .reduce((total, spending) => total + Number(spending.amount ?? 0), 0);
+
+    // 후회소비 금액으로 마련 가능한 여행 경비 항목 구성 (교통 → 숙소 → 관광 순)
+    const c = displayedCost.value ?? {};
+    const prepItems = [
+      { itemName: '교통비', amount: toAmount(c.flightCost), priority: 1 },
+      { itemName: '숙소비', amount: toAmount(c.hotelCost), priority: 2 },
+      { itemName: '관광비', amount: toAmount(c.livingCost), priority: 3 },
+    ].filter((item) => item.amount > 0);
+
+    // 후회소비 금액으로 전액 마련 가능한 항목만, 우선순위·금액순 정렬
+    const affordableItems = prepItems
+      .filter((item) => item.amount <= regretAmount)
+      .sort((a, b) =>
+        a.priority !== b.priority ? a.priority - b.priority : a.amount - b.amount,
+      );
+
+    let recommendationMessage = '';
+    let targetItemName = null;
+    let targetItemAmount = 0;
+
+    // ① 최근 3개월 후회소비가 없는 경우
+    if (regretAmount === 0) {
+      recommendationMessage =
+        '지금의 소비 습관을 유지하면서 여행 자금을 모아보세요.';
+    }
+    // ② 후회소비 금액으로 여행 경비 항목 하나 이상 마련 가능한 경우
+    else if (affordableItems.length > 0) {
+      const targetItem = affordableItems[0];
+      targetItemName = targetItem.itemName;
+      targetItemAmount = targetItem.amount;
+    }
+    // ③ 후회소비는 있지만 경비 항목 금액보다 적은 경우
+    else {
+      recommendationMessage =
+        '작은 금액도 모이면 여행 경비에 보탬이 돼요.\n다음 여행을 위해 조금씩 모아보는 건 어떨까요?';
+    }
+
+    regretAnalysis.value = {
+      regretAmount,
+      recommendationMessage,
+      targetItemName,
+      targetItemAmount,
+    };
+  } catch (error) {
+    console.error('후회소비 여행경비 활용 분석 실패:', error);
+    regretAnalysis.value = null;
+  }
+};
+
 const loadDetail = async () => {
   loading.value = true;
   loadError.value = '';
   try {
     const response = await travelApi.getGoalDetail(goalId);
     detail.value = unwrap(response);
+    // 상세(비용) 로드 후 후회소비 분석 (보조 정보라 실패해도 화면엔 영향 없음)
+    loadRegretAnalysis();
   } catch (error) {
     loadError.value = readErrorMessage(
       error,
@@ -161,6 +255,9 @@ const loadDetail = async () => {
 };
 
 const goToRoadmap = () => router.push({ name: 'RoadmapMain' });
+
+const goToRecommend = () =>
+  router.push({ name: 'TravelPlaces', params: { goalId } });
 
 onMounted(() => {
   scrollContainer = document.querySelector('.app-content');
@@ -177,7 +274,7 @@ onBeforeUnmount(() => {
   <div class="travel-detail">
     <!-- 헤더: 자취 상세와 동일하게 PageHeader + 도메인 태그 한 줄 -->
     <header class="travel-detail__head">
-      <PageHeader breadcrumb="저장한 로드맵" title="내가 그린 전역 작전" />
+      <PageHeader breadcrumb="저장한 로드맵" title="나의 여행 작전" />
       <BaseTag label="여행" variant="travel" />
     </header>
 
@@ -195,25 +292,22 @@ onBeforeUnmount(() => {
     </div>
 
     <template v-else-if="detail">
-      <BaseCard padding="18px" class="detail-header">
-        <h1 class="detail-header__title text-title">{{ detail.title }}</h1>
-        <p class="detail-header__date">{{ dateRange }}</p>
-        <p class="detail-header__route">
-          {{ detail.departure }} → {{ detail.destination }}
-        </p>
-      </BaseCard>
+      <!-- 상단 요약 카드 (여행 step3와 동일: 칩 + route + 일정/기간/남은기간/예산) -->
+      <GoalSummaryCard
+        theme="travel"
+        :chip="tripScopeLabel"
+        :title="detail.title"
+        :route="{
+          from: { label: '출발지', value: detail.departure, icon: takeoffIcon },
+          to: { label: '도착지', value: detail.destination, icon: landingIcon },
+        }"
+        :specs="[
+          { label: '일정', value: tripSchedule, full: true },
+          { label: '남은 기간', value: tripDday },
+          { label: '예산', value: tripBudget },
+        ]"
+      />
 
-      <BaseCard padding="18px" class="total-card">
-        <div class="total-card__icon">
-          <img :src="calculatorImage" alt="" />
-        </div>
-        <div>
-          <p class="total-card__label">총 예상 준비 비용</p>
-          <strong class="total-card__amount">
-            {{ formatWon(cost.totalCost) }}
-          </strong>
-        </div>
-      </BaseCard>
 
       <section class="detail-content">
         <TabBar
@@ -252,149 +346,70 @@ onBeforeUnmount(() => {
         </div>
 
         <div v-else-if="activeTab === 'cost'" class="tab-panel">
-          <BaseCard padding="18px" class="cost-card">
-            <h2 class="section-title text-label">예상 경비</h2>
-            <div class="cost-bar" aria-label="예상 경비 비율">
-              <span
-                v-for="item in costItems"
-                :key="item.key"
-                :style="{
-                  width: `${item.percentage}%`,
-                  background: item.color,
-                }"
-              />
-            </div>
-            <ul class="cost-list">
-              <li v-for="item in costItems" :key="item.key">
-                <span
-                  class="cost-list__dot"
-                  :style="{ background: item.color }"
+          <EstimatedCostCard
+            v-if="travelState"
+            :state="travelState"
+            :dividers="false"
+            note=""
+          >
+            <template #head>
+              <p class="travel-cost__cost-title">세부 비용 내역</p>
+              <div class="travel-cost__gauge">
+                <BudgetGauge
+                  :amount="travelState.amount"
+                  :budget="gaugeBudget"
+                  unit="만원"
                 />
-                <span class="cost-list__label">{{ item.label }}</span>
-                <strong>{{ formatWon(item.value) }}</strong>
-                <span class="cost-list__rate">{{ item.percentage }}%</span>
-              </li>
-            </ul>
-          </BaseCard>
+              </div>
+              <div class="travel-cost__mid"></div>
+            </template>
+          </EstimatedCostCard>
 
-          <BaseCard padding="18px" class="budget-card">
-            <h2 class="section-title text-label">내 예산과 비교</h2>
-            <div class="budget-card__summary">
-              <dl>
-                <div>
-                  <dt>내가 입력한 예산</dt>
-                  <dd>{{ formatWon(detail.totalBudget * 10000) }}</dd>
-                </div>
-                <div>
-                  <dt>예상 여행 경비</dt>
-                  <dd>{{ formatWon(cost.totalCost) }}</dd>
-                </div>
-              </dl>
-              <div
-                class="budget-card__status"
-                :class="{ 'is-over': budgetDifference < 0 }"
-              >
-                <span>{{ budgetStatus.label }}</span>
-                <strong>{{ budgetStatus.rate }}%</strong>
+          <!-- 여행 경비 활용 분석 (최근 3개월 후회소비 연결) -->
+          <BaseCard padding="18px" class="cost-analysis-card">
+            <div class="cost-analysis-card__header">
+              <div class="cost-analysis-card__icon" aria-hidden="true">💡</div>
+              <div>
+                <h2 class="cost-analysis-card__title">여행 경비 활용 분석</h2>
+                <p>소비 습관을 여행 자금과 연결해봤어요.</p>
               </div>
             </div>
-            <div class="budget-progress" aria-label="예산 사용률">
-              <span :style="{ width: `${budgetUsageRate}%` }" />
-            </div>
-            <section
-              v-if="budgetDifference < 0 && budgetPlan"
-              class="budget-plan"
-              aria-label="여행 자금 준비 안내"
-            >
-              <template v-if="budgetPlan.planType === 'IN_SERVICE'">
-                <strong class="budget-plan__title">
-                  복무 중 여행 자금 준비
-                </strong>
-                <p class="budget-plan__description">
-                  현재 월급에서 납입 중인 군적금을 제외한 금액을 기준으로
-                  계산했어요.
-                </p>
-                <dl class="budget-plan__details">
-                  <div>
-                    <dt>현재 월급</dt>
-                    <dd>{{ formatWon(budgetPlan.monthlySalary) }}</dd>
-                  </div>
-                  <div>
-                    <dt>월 군적금 납입액</dt>
-                    <dd>{{ formatWon(budgetPlan.monthlySaving) }}</dd>
-                  </div>
-                  <div>
-                    <dt>매달 준비 가능 금액</dt>
-                    <dd>
-                      {{ formatWon(budgetPlan.monthlyAvailableAmount) }}
-                    </dd>
-                  </div>
-                </dl>
-                <p
-                  v-if="budgetPlan.requiredMonths"
-                  class="budget-plan__result"
-                >
-                  부족한 {{ formatWon(budgetPlan.shortfall) }}을 마련하려면
-                  약 <strong>{{ budgetPlan.requiredMonths }}개월</strong>이
-                  필요해요.
-                </p>
-                <p v-else class="budget-plan__notice">
-                  현재 월급과 군적금 납입액만으로는 추가 준비 기간을
-                  계산하기 어려워요.
-                </p>
-              </template>
 
-              <template v-else-if="budgetPlan.planType === 'AFTER_DISCHARGE'">
-                <strong class="budget-plan__title">
-                  전역 후 여행 자금 확인
-                </strong>
-                <p class="budget-plan__description">
-                  전역 후 받을 군적금 만기 예상금까지 더해 여행 자금을
-                  확인했어요.
+            <template v-if="regretAnalysis">
+              <div class="cost-analysis-card__amount">
+                <p v-if="regretAnalysis.regretAmount > 0">
+                  최근 1개월간
+                  <strong>{{ formatAmount(regretAnalysis.regretAmount) }}</strong>
+                  을 후회소비로 사용했어요.
                 </p>
-                <template v-if="budgetPlan.expectedMaturityAmount != null">
-                  <dl class="budget-plan__details">
-                    <div>
-                      <dt>군적금 만기 예상금</dt>
-                      <dd>
-                        {{ formatWon(budgetPlan.expectedMaturityAmount) }}
-                      </dd>
-                    </div>
-                  </dl>
-                  <p
-                    class="budget-plan__result"
-                    :class="{
-                      'is-short': budgetPlan.remainingAfterTravel < 0,
-                    }"
-                  >
-                    <template v-if="budgetPlan.remainingAfterTravel >= 0">
-                      여행 경비를 마련하고도
-                      <strong>
-                        {{ formatWon(budgetPlan.remainingAfterTravel) }}
-                      </strong>
-                      의 여유가 있어요.
-                    </template>
-                    <template v-else>
-                      만기 예상금을 더해도
-                      <strong>
-                        {{
-                          formatWon(
-                            Math.abs(budgetPlan.remainingAfterTravel),
-                          )
-                        }}
-                      </strong>
-                      이 더 필요해요.
-                    </template>
+                <p v-else>최근 1개월간 후회소비로 기록된 지출이 없어요.</p>
+              </div>
+
+              <div class="cost-analysis-card__result">
+                <template v-if="regretAnalysis.targetItemName">
+                  <p class="cost-analysis-card__result-label">
+                    다음에는 후회소비 대신
+                  </p>
+                  <div class="cost-analysis-card__target">
+                    <strong class="cost-analysis-card__target-name">
+                      {{ regretAnalysis.targetItemName }}
+                    </strong>
+                    <strong class="cost-analysis-card__target-amount">
+                      {{ formatAmount(regretAnalysis.targetItemAmount) }}
+                    </strong>
+                  </div>
+                  <p class="cost-analysis-card__result-message">
+                    을 마련해보는 건 어떨까요?
                   </p>
                 </template>
-                <p v-else class="budget-plan__notice">
-                  군적금 가입 정보가 없어 만기 예상금을 계산할 수 없어요.
+                <p v-else class="cost-analysis-card__result-message">
+                  {{ regretAnalysis.recommendationMessage }}
                 </p>
-              </template>
-            </section>
-            <div class="budget-card__guide">
-              <strong>안내</strong>
-              <p>· 계산 결과는 예상 금액이며 실제 비용과 다를 수 있습니다.</p>
+              </div>
+            </template>
+
+            <div v-else class="cost-analysis-card__empty">
+              후회소비 데이터를 불러오지 못했어요.
             </div>
           </BaseCard>
         </div>
@@ -451,6 +466,9 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
+      <p class="travel-detail__back text-caption" @click="goToRecommend">
+        추천 목록 다시 보기
+      </p>
     </template>
 
     <BottomButtonBar
@@ -501,67 +519,6 @@ onBeforeUnmount(() => {
   color: var(--surface-default);
 }
 
-.detail-header {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-.detail-header__title {
-  margin: 0;
-}
-
-.detail-header__date,
-.detail-header__route {
-  margin: 12px 0 0;
-  color: var(--text-body);
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.detail-header__route {
-  margin-top: 8px;
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.total-card {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  background: var(--kb-yellow-pale);
-}
-
-.total-card__icon {
-  display: grid;
-  width: 54px;
-  height: 54px;
-  flex: 0 0 54px;
-  border-radius: 14px;
-  background: var(--kb-yellow);
-  place-items: center;
-}
-
-.total-card__icon img {
-  width: 34px;
-  height: 34px;
-  object-fit: contain;
-}
-
-.total-card__label {
-  margin: 0;
-  color: var(--brand-gold);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.total-card__amount {
-  display: block;
-  margin-top: 4px;
-  color: var(--kb-gray);
-  font-size: 24px;
-}
-
 .detail-content {
   display: flex;
   flex-direction: column;
@@ -575,7 +532,6 @@ onBeforeUnmount(() => {
 }
 
 .selected-list,
-.cost-list,
 .product-list {
   display: grid;
   gap: 12px;
@@ -642,186 +598,6 @@ onBeforeUnmount(() => {
   -webkit-line-clamp: 2;
 }
 
-.section-title {
-  margin: 0;
-}
-
-.cost-bar {
-  display: flex;
-  height: 28px;
-  margin-top: 28px;
-  overflow: hidden;
-  border-radius: 10px;
-  background: var(--surface-muted);
-}
-
-.cost-bar span {
-  height: 100%;
-}
-
-.cost-list {
-  margin-top: 28px;
-  gap: 12px;
-}
-
-.cost-list li {
-  display: grid;
-  grid-template-columns: 12px 1fr auto 38px;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-}
-
-.cost-list__dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-}
-
-.cost-list__rate {
-  color: var(--brand-gold);
-  font-weight: 700;
-  text-align: right;
-}
-
-.budget-card__summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-top: 18px;
-}
-
-.budget-card__summary dl {
-  display: grid;
-  gap: 12px;
-  margin: 0;
-}
-
-.budget-card__summary dt {
-  color: var(--text-muted);
-  font-size: 11px;
-}
-
-.budget-card__summary dd {
-  margin: 4px 0 0;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.budget-card__status {
-  display: grid;
-  width: 92px;
-  height: 92px;
-  flex: 0 0 92px;
-  border-radius: 14px;
-  background: var(--kb-yellow-pale);
-  color: var(--brand-gold);
-  font-size: 12px;
-  place-content: center;
-  text-align: center;
-}
-
-.budget-card__status strong {
-  margin-top: 4px;
-  color: var(--kb-yellow-deep);
-  font-size: 23px;
-  font-weight: 500;
-}
-
-.budget-card__status.is-over,
-.budget-card__status.is-over strong {
-  color: var(--danger);
-}
-
-.budget-progress {
-  height: 12px;
-  margin-top: 24px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: var(--surface-muted);
-}
-
-.budget-progress span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--kb-yellow);
-}
-
-.budget-plan {
-  margin-top: 22px;
-  padding: 16px;
-  border-radius: 12px;
-  background: var(--surface-subtle);
-}
-
-.budget-plan__title {
-  display: block;
-  font-size: 13px;
-}
-
-.budget-plan__description,
-.budget-plan__notice {
-  margin: 8px 0 0;
-  color: var(--text-muted);
-  font-size: 11px;
-  line-height: 1.6;
-}
-
-.budget-plan__details {
-  display: grid;
-  gap: 8px;
-  margin: 14px 0 0;
-}
-
-.budget-plan__details div {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.budget-plan__details dt {
-  color: var(--text-muted);
-  font-size: 11px;
-}
-
-.budget-plan__details dd {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.budget-plan__result {
-  margin: 14px 0 0;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
-  color: var(--travel-primary-dark);
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.budget-plan__result strong {
-  color: var(--travel-primary);
-}
-
-.budget-plan__result.is-short,
-.budget-plan__result.is-short strong {
-  color: var(--danger);
-}
-
-.budget-card__guide {
-  margin-top: 26px;
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
-.budget-card__guide p {
-  margin: 10px 0 0;
-  line-height: 1.6;
-}
-
 .product-groups {
   display: grid;
   gap: 26px;
@@ -885,6 +661,134 @@ onBeforeUnmount(() => {
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 2;
+}
+
+/* 여행 step3와 동일: 물통 head의 세부 비용 내역 제목 + 예산 게이지 */
+.travel-cost__cost-title {
+  margin: 0;
+  padding: 15px 16px 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+.travel-cost__gauge {
+  padding: 16px 16px 14px;
+}
+.travel-cost__mid {
+  height: 1px;
+  margin: 0 16px;
+  background: #e7e9ec;
+}
+
+/* 추천 목록 다시 보기 (오른쪽 정렬) */
+.travel-detail__back {
+  margin: 4px 2px 0;
+  color: var(--text-muted);
+  text-align: right;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ── 여행 경비 활용 분석 (후회소비 연결, 진로 상세와 동일 톤) ── */
+.cost-analysis-card {
+  margin-bottom: 14px;
+}
+
+.cost-analysis-card__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.cost-analysis-card__icon {
+  display: flex;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-cream);
+  border-radius: 8px;
+}
+
+.cost-analysis-card__title {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.cost-analysis-card__header p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.cost-analysis-card__amount {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.cost-analysis-card__amount p {
+  margin: 0;
+  color: var(--text-body);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.cost-analysis-card__amount strong {
+  color: var(--text-strong);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.cost-analysis-card__result {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--surface-cream);
+  border-radius: 10px;
+}
+
+.cost-analysis-card__result-label,
+.cost-analysis-card__result-message {
+  margin: 0;
+  color: var(--text-body);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+.cost-analysis-card__target {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0;
+}
+
+.cost-analysis-card__target-name {
+  color: var(--text-strong);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.cost-analysis-card__target-amount {
+  flex-shrink: 0;
+  color: var(--brand-gold);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.cost-analysis-card__empty {
+  margin-top: 16px;
+  padding: 14px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.6;
+  text-align: center;
 }
 
 :global(.app-content.travel-scrollbar-hidden) {

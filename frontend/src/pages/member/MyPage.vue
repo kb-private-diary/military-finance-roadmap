@@ -6,7 +6,7 @@ import memberApi from '@/api/memberApi';
 import { formatDate } from '@/util/format';
 import { usePush } from '@/composables/usePush';
 import ToggleSwitch from '@/components/common/ToggleSwitch.vue';
-import bearSalute from '@/assets/images/bear-salute.png';
+import charAgeo from '@/assets/images/char-ageo.png';
 
 const router = useRouter();
 const {
@@ -75,18 +75,12 @@ onMounted(() => {
     <template v-else-if="member">
       <section class="mypage__hero">
         <div v-if="daysSinceEnlist !== null" class="mypage__badge">
-          <svg class="mypage__badge-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M4 13C4 9.13401 7.13401 6 11 6H13C16.866 6 20 9.13401 20 13V14H4V13Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
-            <path d="M2 14H22" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-            <path d="M12 6V4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-            <circle cx="12" cy="2.6" r="1" fill="currentColor" />
-          </svg>
           <span>입대한 지 {{ daysSinceEnlist }}일 째</span>
         </div>
 
         <p class="mypage__name">{{ member.name }} {{ rankName(member.rankId) }}님</p>
 
-        <img :src="bearSalute" alt="경례하는 곰돌이 캐릭터" class="mypage__mascot" />
+        <img :src="charAgeo" alt="아거 캐릭터" class="mypage__mascot" />
       </section>
 
       <section class="mypage__info">
@@ -116,6 +110,8 @@ onMounted(() => {
         </div>
       </section>
 
+      <div class="mypage__divider"></div>
+
       <section class="mypage__settings">
         <ToggleSwitch
           :model-value="pushSubscribed"
@@ -135,12 +131,8 @@ onMounted(() => {
         정보 수정
       </button>
 
-      <button type="button" class="mypage__password-btn" @click="router.push({ name: 'MyPagePassword' })">
-        비밀번호 변경
-      </button>
-
-      <button type="button" class="mypage__withdraw-link" @click="router.push({ name: 'MyPageWithdraw' })">
-        KB 텅장일병일기 서비스 탈퇴
+<button type="button" class="mypage__withdraw-link" @click="router.push({ name: 'MyPageWithdraw' })">
+        서비스 탈퇴
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M9 6L15 12L9 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
         </svg>
@@ -173,29 +165,25 @@ onMounted(() => {
   gap: 4px;
   padding: 5px 12px;
   border-radius: 999px;
-  background-color: var(--kb-yellow-deep);
-  color: var(--text-strong);
+  border: 1.5px solid var(--military-green);
+  background-color: #fff;
+  color: var(--military-green);
   font-size: 12px;
   font-weight: 700;
 }
 
-.mypage__badge-icon {
-  width: 14px;
-  height: 14px;
-}
-
 .mypage__name {
   margin: 12px 0 0;
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 700;
   color: var(--text-strong);
 }
 
 .mypage__mascot {
   position: absolute;
-  right: 8px;
-  bottom: 0;
-  width: 84px;
+  right: 12px;
+  bottom: 10px;
+  width: 58px;
   height: auto;
   pointer-events: none;
 }
@@ -209,7 +197,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 4px;
+  padding: 12px 4px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -218,20 +206,29 @@ onMounted(() => {
 }
 
 .mypage__label {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-muted);
 }
 
 .mypage__value {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-strong);
 }
 
+.mypage__divider {
+  height: 6px;
+  margin: 20px -24px;
+  background-color: var(--divider-thin);
+}
+
 .mypage__settings {
-  margin-top: 20px;
-  padding: 14px 4px;
-  border-top: 1px solid var(--line);
+  padding: 4px;
+}
+
+/* 토글 라벨(16px)을 오픈뱅킹 버튼(14px)과 동일하게 맞춘다 */
+.mypage__settings :deep(.toggle-label) {
+  font-size: 14px;
 }
 
 .mypage__ob-btn {
@@ -254,26 +251,12 @@ onMounted(() => {
   display: block;
   width: 100%;
   margin-top: 20px;
-  padding: 14px;
+  padding: 12px;
   border: none;
-  border-radius: 999px;
-  background-color: var(--kb-yellow-deep);
+  border-radius: 10px;
+  background-color: var(--kb-yellow);
   color: var(--text-strong);
-  font-size: 15px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.mypage__password-btn {
-  display: block;
-  width: 100%;
-  margin-top: 10px;
-  padding: 14px;
-  border: 1.5px solid var(--kb-yellow-deep);
-  border-radius: 999px;
-  background-color: #ffffff;
-  color: var(--text-strong);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -281,15 +264,15 @@ onMounted(() => {
 .mypage__withdraw-link {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   gap: 2px;
   width: 100%;
-  margin-top: 20px;
-  padding: 8px;
+  margin-top: 56px;
+  padding: 4px 2px;
   border: none;
   background: none;
   color: var(--text-hint);
-  font-size: 13px;
+  font-size: 12px;
   cursor: pointer;
 }
 </style>

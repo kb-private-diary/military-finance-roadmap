@@ -21,7 +21,8 @@
         favorite.goalId,
         favorite.categoryId,
         favorite.title,
-        favorite.amount
+        favorite.amount,
+        favorite.detail
         FROM (
         <!-- 여행: 계산된 총 예상 경비 -->
         SELECT
@@ -29,6 +30,7 @@
         1 AS categoryId,
         tg.title AS title,
         COALESCE(tc.total_cost, 0) AS amount,
+        tg.destination AS detail,
         ub.created_date AS bookmarkedDate
         FROM user_bookmark ub
         INNER JOIN travel_goal tg
@@ -71,6 +73,12 @@
         AND jgt.del_yn = 'N'
         ), 0)
         ) AS amount,
+        CASE
+        WHEN jg.goal_type = 'J01' THEN CONCAT('취업 ', jc1.category_name)
+        WHEN jg.goal_type = 'J02' THEN CONCAT('공무원 ', jc1.category_name)
+        WHEN jg.goal_type = 'J03' THEN '편입'
+        ELSE NULL
+        END AS detail,
         ub.created_date AS bookmarkedDate
         FROM user_bookmark ub
         INNER JOIN job_goal jg
@@ -80,6 +88,9 @@
         LEFT JOIN job_category jc
         ON jg.category_id = jc.category_id
         AND jc.del_yn = 'N'
+        LEFT JOIN job_category jc1
+        ON jc.parent_id = jc1.category_id
+        AND jc1.del_yn = 'N'
         WHERE ub.user_id = #{userId}
         AND ub.del_yn = 'N'
         AND jg.status = 'CONFIRMED'
@@ -102,6 +113,12 @@
         END
         ) AS title,
         COALESCE(cm.base_price * 10000, 0) AS amount,
+        CASE cg.car_type_code
+        WHEN 1 THEN '경차'
+        WHEN 2 THEN '준중형'
+        WHEN 3 THEN 'SUV'
+        ELSE NULL
+        END AS detail,
         ub.created_date AS bookmarkedDate
         FROM user_bookmark ub
         INNER JOIN car_goal cg
@@ -123,14 +140,26 @@
         SELECT
         rg.goal_id AS goalId,
         4 AS categoryId,
-        COALESCE(rg.title, '자취 목표') AS title,
+        COALESCE(
+        NULLIF(rl.building_name, ''),
+        NULLIF(CONCAT_WS(' ', rc.umd_name, rl.estate_type), ''),
+        rg.title,
+        '자취 목표'
+        ) AS title,
         NULL AS amount,
+        CONCAT_WS(' ', rc.sido_name, rc.sigungu_name, rc.umd_name) AS detail,
         ub.created_date AS bookmarkedDate
         FROM user_bookmark ub
         INNER JOIN rent_goal rg
         ON ub.goal_id = rg.goal_id
         AND ub.category_id = 4
         AND rg.del_yn = 'N'
+        LEFT JOIN rent_listing rl
+        ON rl.listing_id = rg.confirmed_listing_id
+        AND rl.del_yn = 'N'
+        LEFT JOIN region_code rc
+        ON rc.region_code = rl.region_code
+        AND rc.del_yn = 'N'
         WHERE ub.user_id = #{userId}
         AND ub.del_yn = 'N'
         AND rg.status = 'CONFIRMED'

@@ -21,4 +21,7 @@ public class MainFavoriteRoadmapDTO {
     // 목표별 예상 비용
     // 홈 프론트에서 관심 목표의 전체 사용 예정 금액 계산에 사용
     private Long amount;
+
+    // 로드맵별 요약 정보 (여행=도착지, 진로=유형+대분류, 자동차=차종, 자취=시구동)
+    private String detail;
 }

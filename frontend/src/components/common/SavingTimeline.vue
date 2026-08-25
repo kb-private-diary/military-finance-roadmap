@@ -2,8 +2,9 @@
 // 공통 컴포넌트: 군적금 여정 타임라인 (담당: 수연)
 // 가입 → 오늘(중도해지 갈림길) → 만기 → 만기수령. 실제 현재 시점 기준으로 보여주기만 함.
 // 현재 이자·중도해지 수령액·손실액은 전부 details/loss(API 응답)에 있는 값을 그대로 쓴다 (프론트 재계산 금지).
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import BaseCard from '@/components/common/BaseCard.vue';
+import ToggleSwitch from '@/components/common/ToggleSwitch.vue';
 import soldierIcon from '@/assets/images/soldier.png';
 
 const props = defineProps({
@@ -28,6 +29,13 @@ const props = defineProps({
 const man = (won) => `${Math.round((won ?? 0) / 10000).toLocaleString()}만원`;
 const man1 = (won) =>
   `${(Math.round((won ?? 0) / 1000) / 10).toLocaleString()}만원`; // 소수 1자리
+
+// 금액 단위 토글: off = 만원(기본), on = 원 단위 전체
+const showWon = ref(false);
+const won = (v) => `${Math.round(v ?? 0).toLocaleString()}원`;
+// 토글 대상 값들(현재이자·중도해지·손실·만기총액·이자)만 이 함수로 감싼다
+const amt = (v) => (showWon.value ? won(v) : man(v)); // 정수 만원 or 원
+const amtD = (v) => (showWon.value ? won(v) : man1(v)); // 소수 만원 or 원
 
 const d = props.details;
 const monthly = d.monthlySaveTotal ?? 0;
@@ -78,12 +86,15 @@ const maturityLabel = ymLabel(-realMonth + totalMonths);
     <BaseCard padding="18px 16px">
       <div class="saving-tl__head">
         <b>내 적금 여정</b>
-        <span
-          >{{ productName
-          }}<template v-if="banks.length > 1">
-            · {{ banks.length }}건</template
-          ></span
-        >
+        <ToggleSwitch
+          v-model="showWon"
+          label="원 단위"
+          class="saving-tl__unit-toggle"
+        />
+      </div>
+      <div class="saving-tl__product">
+        {{ productName
+        }}<template v-if="banks.length > 1"> · {{ banks.length }}건</template>
       </div>
       <div v-if="banks.length" class="saving-tl__banks">
         <span v-for="b in banks" :key="b.name" class="saving-tl__bank">
@@ -125,7 +136,7 @@ const maturityLabel = ymLabel(-realMonth + totalMonths);
             </div>
             <div>
               <span class="saving-tl__g-label">현재 이자</span>
-              <span class="saving-tl__g-value">{{ man1(curInterest) }}</span>
+              <span class="saving-tl__g-value">{{ amtD(curInterest) }}</span>
             </div>
             <div>
               <span class="saving-tl__g-label">만기까지</span>
@@ -135,11 +146,11 @@ const maturityLabel = ymLabel(-realMonth + totalMonths);
           <div v-if="loss" class="saving-tl__branch">
             <div class="saving-tl__branch-label">⚠️ 이 시점에 해지하면</div>
             <div class="saving-tl__branch-row">
-              <span>중도해지 수령액</span><b>{{ man1(cancelReceive) }}</b>
+              <span>중도해지 수령액</span><b>{{ amtD(cancelReceive) }}</b>
             </div>
             <div class="saving-tl__branch-row">
               <span>손실액</span
-              ><b class="saving-tl__branch-loss">-{{ man1(lossTotal) }}</b>
+              ><b class="saving-tl__branch-loss">-{{ amtD(lossTotal) }}</b>
             </div>
           </div>
         </div>
@@ -150,11 +161,13 @@ const maturityLabel = ymLabel(-realMonth + totalMonths);
           <div class="saving-tl__date">만기 · {{ maturityLabel }}</div>
           <div class="saving-tl__mat-label">만기 총액</div>
           <div class="saving-tl__title saving-tl__title--goal">
-            {{ man(maturityTotal) }}
+            {{ amt(maturityTotal) }}
           </div>
           <div class="saving-tl__mat-break">
             <span><em>납입</em>{{ man(fullPrincipal) }}</span>
-            <span><em>이자</em>{{ man1(fullInterest) }}</span>
+            <span><em>이자</em>{{ amtD(fullInterest) }}</span>
+          </div>
+          <div class="saving-tl__mat-gov-line">
             <span class="saving-tl__mat-gov"
               ><em>정부지원</em>{{ man(matching) }}</span
             >
@@ -173,9 +186,10 @@ const maturityLabel = ymLabel(-realMonth + totalMonths);
 <style scoped>
 .saving-tl__head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  gap: 10px;
+  margin-bottom: 6px;
 }
 /* 가입 은행별 적금 (장병적금 최대 2건) */
 .saving-tl__banks {
@@ -209,10 +223,38 @@ const maturityLabel = ymLabel(-realMonth + totalMonths);
   font-weight: 700;
   color: var(--text-strong);
 }
-.saving-tl__head span {
+/* 상품명 (제목 아래 왼쪽 줄) */
+.saving-tl__product {
+  margin: 0 0 12px;
   font-size: 11px;
   font-weight: 700;
   color: var(--text-muted);
+}
+
+/* 공용 토글 wrapper가 width:100% + space-between이라 라벨↔토글이 벌어짐 → 내용폭·작은 간격으로 */
+.saving-tl__unit-toggle {
+  width: auto;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.saving-tl__unit-toggle :deep(.toggle-label) {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* 정부지원 (납입 밑으로 내리고 살짝 크게) */
+.saving-tl__mat-gov-line {
+  margin-top: 7px;
+}
+.saving-tl__mat-gov-line .saving-tl__mat-gov {
+  font-size: 13px;
+  font-weight: 700;
+}
+.saving-tl__mat-gov-line em {
+  margin-right: 4px;
+  font-style: normal;
+  font-weight: 600;
 }
 /* 타임라인 */
 .saving-tl__line {

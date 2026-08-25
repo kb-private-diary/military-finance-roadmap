@@ -5,11 +5,11 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import regretApi from '@/api/regretApi';
 import roadmapApi from '@/api/roadmapApi';
-import rentApi from '@/api/rentApi';
 import { formatManwon, formatWon } from '@/util/format';
 import BaseCard from '@/components/common/BaseCard.vue';
 import DonutChart from '@/components/common/DonutChart.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 import { useToast } from '@/composables/useToast';
 
 const router = useRouter();
@@ -125,7 +125,7 @@ onMounted(() => {
   load();
   loadMonths();
   loadDaily();
-  loadRentCost();
+  loadBookmarks();
 });
 
 const donutItems = computed(() => {
@@ -140,6 +140,20 @@ const donutItems = computed(() => {
 
 const ratioText = computed(() =>
   stats.value?.regretRatio != null ? `${stats.value.regretRatio}%` : null,
+);
+
+// 절감 챌린지 목표 (localStorage 임시). ⚠️ TODO(백엔드): 절감 목표 조회 API 나오면 서버 조회로 교체
+//   RegretChallengePage 와 동일 저장키('regret_saving_goal') 사용, 이번달 목표만 표시
+const savingGoal = ref(null);
+try {
+  const s = JSON.parse(localStorage.getItem('regret_saving_goal') || 'null');
+  if (s && s.yearMonth === yearMonth) savingGoal.value = s.goal;
+} catch { /* 파싱 실패 무시 */ }
+// 목표 달성까지 줄여야 할 후회소비 (현재 후회 - 목표치, 음수면 0)
+const goalCut = computed(() =>
+  savingGoal.value != null
+    ? Math.max((stats.value?.regretAmount ?? 0) - savingGoal.value, 0)
+    : 0,
 );
 
 // 이번달 달력 셀 (앞쪽 빈칸 + 1~말일, 각 날짜에 지출 레벨)
@@ -196,55 +210,58 @@ const saveMonthly = computed(() => stats.value?.regretAmount ?? 0);
 const saveYear = computed(() => saveMonthly.value * 12);
 
 // 저장된 자취 로드맵의 월 주거비 (하드코딩 대신 실데이터). 로드맵 없으면 null → 등록 유도 멘트
-const rentMonthlyCost = ref(null);
-const loadRentCost = async () => {
-  try {
-    const list = await roadmapApi.findRoadmapList('rent');
-    if (list?.length) {
-      const goal = await rentApi.findGoal(list[0].goalId);
-      rentMonthlyCost.value =
-        goal?.precisionSimulation?.monthlyHousingCost?.housingTotal ?? null;
+// 관심 등록(북마크)된 로드맵 여부 - 4개 도메인 각각.
+//   findRoadmapList 는 로드맵 전체를 주고 bookmarked 플래그로 북마크 여부를 표시(LEFT JOIN)하므로,
+//   'bookmarked === true' 인 로드맵이 하나라도 있으면 관심 등록된 것으로 본다. (목록은 targetDate DESC = 최근순)
+// TODO(백엔드): 북마크한 로드맵 목표 잔여액 API 나오면 saveYear(가정치) 대신 실제 목표 금액으로 표시
+const hasBookmark = ref({ rent: false, job: false, car: false, travel: false });
+const loadBookmarks = async () => {
+  for (const d of ['rent', 'job', 'car', 'travel']) {
+    try {
+      const list = await roadmapApi.findRoadmapList(d);
+      hasBookmark.value[d] = (list || []).some((r) => r.bookmarked);
+    } catch {
+      hasBookmark.value[d] = false;
     }
-  } catch {
-    rentMonthlyCost.value = null;
   }
 };
-// 저장된 자취 로드맵 있으면 실 주거비로 "N개월 더" 환산, 없으면 null (유도 멘트로 분기)
-const extraRentMonths = computed(() => {
-  if (!rentMonthlyCost.value) return null;
-  return Math.max(Math.floor(saveYear.value / rentMonthlyCost.value), 1);
-});
+const UNREG_DESC = '관심 등록하면 여기서 볼 수 있어요';
 
 const roadmapCards = computed(() => [
   {
     key: 'rent',
     icon: '🏠',
     name: '자취',
-    desc:
-      extraRentMonths.value != null
-        ? `1년 모으면 자취 ${extraRentMonths.value}개월 더`
-        : '자취 로드맵 등록하고 분석 받아보기',
+    desc: hasBookmark.value.rent
+      ? `1년이면 +${formatManwon(saveYear.value)}`
+      : UNREG_DESC,
     route: 'RentGoalCreate',
   },
   {
     key: 'job',
     icon: '🎓',
     name: '진로',
-    desc: `학원비·응시료에 ${formatManwon(saveYear.value)} 보태기`,
+    desc: hasBookmark.value.job
+      ? `1년이면 +${formatManwon(saveYear.value)}`
+      : UNREG_DESC,
     route: 'JobGoalCreate',
   },
   {
     key: 'car',
     icon: '🚗',
     name: '자동차',
-    desc: `차량 구입 자금 +${formatManwon(saveYear.value)}`,
+    desc: hasBookmark.value.car
+      ? `1년이면 +${formatManwon(saveYear.value)}`
+      : UNREG_DESC,
     route: 'CarGoalCreate',
   },
   {
     key: 'travel',
     icon: '✈️',
     name: '여행',
-    desc: `여행 경비 +${formatManwon(saveYear.value)}`,
+    desc: hasBookmark.value.travel
+      ? `1년이면 +${formatManwon(saveYear.value)}`
+      : UNREG_DESC,
     route: 'TravelGoalCreate',
   },
 ]);
@@ -263,10 +280,7 @@ const goDay = (c) => {
 
 <template>
   <div v-if="stats" class="dash">
-    <header class="head">
-      <p class="cap">후회소비 리포트</p>
-      <h2 class="title">{{ monthLabel }} 후회한 소비</h2>
-    </header>
+    <PageHeader eyebrow="후회소비 리포트" :title="`${monthLabel} 후회한 소비`" size="lg" />
 
     <button class="review-invite" @click="goReview">
       <span class="ri-ico">📮</span>
@@ -284,6 +298,11 @@ const goDay = (c) => {
           <p class="hero-cap">이번달 후회한 소비 총액</p>
           <p class="hero-amt">{{ formatWon(stats.regretAmount) }}</p>
           <p v-if="ratioText" class="hero-sub">이번달 수입의 {{ ratioText }}</p>
+          <p v-if="savingGoal != null" class="hero-goal">
+            🎯 절감 목표 {{ formatWon(savingGoal) }}
+            <template v-if="goalCut > 0"> · {{ formatWon(goalCut) }} 줄이면 달성</template>
+            <template v-else> · 목표 달성!</template>
+          </p>
         </div>
         <DonutChart
           :items="donutItems"
@@ -443,33 +462,16 @@ const goDay = (c) => {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  /* 히트맵 농담 (지출 적음 → 많음) */
+  /* 히트맵 농담 (지출 적음 → 많음) - 자동차 비용계산 갈색 팔레트 기준 (은행 브랜드상 빨강 지양) */
   --h0: #ebedf0;
-  --h1: #ffe9a8;
-  --h2: #ffcf5c;
-  --h3: #ff9f43;
-  --h4: #e8544d;
+  --h1: #ffecbe;
+  --h2: #dac183;
+  --h3: #b39d89;
+  --h4: #6e6053;
   /* 만족/애매/후회 파스텔톤 (colors.css pastel 재사용) - 도넛·미니·월별 공통 */
   --success: #9cd495; /* 만족 파스텔 그린 */
   --soso: #fbd55b;    /* 애매 파스텔 옐로 */
-  --danger: #f8a5a5;  /* 후회 파스텔 핑크 */
-}
-.head {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.cap {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-.title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-strong);
+  --danger: #fbc9c9;  /* 후회 파스텔 핑크 (연하게 - 붉은끼 완화) */
 }
 .mb-empty {
   padding: 8px 0 2px;
@@ -498,6 +500,13 @@ const goDay = (c) => {
   font-size: 12px;
   color: var(--text-muted);
 }
+/* 절감 챌린지 목표 (localStorage 임시) */
+.hero-goal {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--kb-yellow-deep, #d9a300);
+}
 .legend {
   display: flex;
   flex-wrap: wrap;
@@ -512,18 +521,6 @@ const goDay = (c) => {
   gap: 5px;
   font-size: 11px;
   color: var(--text-muted);
-}
-/* 범례를 버튼으로 (라벨별 모아보기 이동) */
-button.lg {
-  border: 0;
-  background: transparent;
-  padding: 0;
-  font-family: inherit;
-  cursor: pointer;
-}
-.lg-go {
-  color: var(--text-hint);
-  font-size: 13px;
 }
 .dot {
   width: 8px;
@@ -568,9 +565,9 @@ button.lg {
   color: var(--text-body);
 }
 .sec {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-body);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-strong);
   margin-bottom: 10px;
 }
 /* ── 캘린더 월 이동 헤더 ── */
@@ -764,7 +761,7 @@ button.lg {
 }
 .save-head .sec {
   margin-bottom: 0;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--text-strong);
 }
@@ -891,5 +888,12 @@ button.lg {
   text-align: center;
   font-size: 13px;
   color: var(--text-hint);
+}
+</style>
+
+<style>
+/* 후회소비 화면 배경 - D-Day·목돈작전과 같은 은은한 세이지 그린 */
+.app-content:has(.dash) {
+  background-color: rgba(120, 152, 130, 0.06);
 }
 </style>

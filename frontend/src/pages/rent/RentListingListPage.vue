@@ -120,15 +120,34 @@ const parseMinutes = (l) => {
   return m ? Number(m[1]) : Infinity;
 };
 
+// 예산 초과(OVER) = 군적금 만기금으로 목돈(보증금+6개월비) 감당 불가.
+//   저렴한순/가까운순이어도 감당 안 되는 매물을 위에 두면 "저렴한데 예산초과" 모순이 생기므로 맨 뒤로 보낸다.
+const isOver = (l) => l.affordLevel === 'OVER';
+
+// 가까운 순 이동수단 우선순위: 도보(0) > 버스(1) > 정보없음(2).
+//   버스 5분보다 도보 9분을 위에 두기 위해, 분(分) 비교 전에 이동수단으로 먼저 가른다.
+const nearRank = (l) => {
+  const t = trafficText(l);
+  if (!t) return 2;
+  if (t.includes('버스')) return 1;
+  return 0; // 도보(역까지 도보 포함)
+};
+
 const sortedListings = computed(() => {
   const arr = [...listings.value];
   if (sortMode.value === 'cheap') {
-    return arr.sort(
-      (a, b) => (a.effectiveMonthly ?? Infinity) - (b.effectiveMonthly ?? Infinity),
-    );
+    return arr.sort((a, b) => {
+      const d = (isOver(a) ? 1 : 0) - (isOver(b) ? 1 : 0); // OVER는 맨 뒤
+      return d !== 0 ? d : (a.effectiveMonthly ?? Infinity) - (b.effectiveMonthly ?? Infinity);
+    });
   }
   if (sortMode.value === 'near') {
-    return arr.sort((a, b) => parseMinutes(a) - parseMinutes(b));
+    return arr.sort((a, b) => {
+      const d = (isOver(a) ? 1 : 0) - (isOver(b) ? 1 : 0); // OVER는 맨 뒤
+      if (d !== 0) return d;
+      const r = nearRank(a) - nearRank(b); // 도보 > 버스 > 정보없음
+      return r !== 0 ? r : parseMinutes(a) - parseMinutes(b); // 같은 수단끼리 분(分) 오름차순
+    });
   }
   // recommend(추천순): 감당도 우선(딱 맞아요 ENOUGH > 빠듯 TIGHT > 초과 OVER) → 동순위는 저렴한 순
   //   군적금 만기금으로 감당 가능한 매물을 위로 올려, 저렴한순과 차별화한다.

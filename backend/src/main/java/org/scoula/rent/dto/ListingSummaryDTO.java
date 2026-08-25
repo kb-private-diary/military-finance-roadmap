@@ -27,6 +27,7 @@ public class ListingSummaryDTO {
     private Long deposit;         // 보증금(원)
     private Long monthlyRent;     // 월세(원)
     private Long maintenanceFee;  // 월 관리비(원) - step5 비용계산 표시용 (calcManagementFee 계산값, 서비스에서 세팅)
+    private String priceLevel;    // 시세 상대평가 CHEAP/AVERAGE/EXPENSIVE (동네 평균 대비, 표본 없으면 null) - 서비스에서 세팅
 
     public static ListingSummaryDTO of(RentListingVO vo) {
         String umd = vo.getUmdName() == null ? "" : vo.getUmdName();

@@ -9,6 +9,13 @@ const props = defineProps({
   amount: { type: Number, required: true }, // 예상 금액 (만원)
   budget: { type: Number, required: true }, // 내 예산 (만원)
   unit: { type: String, default: '만원' },
+  // 중앙 큰 숫자·단위를 직접 지정 (null이면 amount·unit 사용). 예: 저축진행률(33 / %)
+  centerValue: { type: [Number, String], default: null },
+  centerUnit: { type: String, default: null },
+  // 남음/필요 줄 표시 여부
+  showDiff: { type: Boolean, default: true },
+  // '예산의 X%' 줄 표시 여부
+  showPct: { type: Boolean, default: true },
 });
 
 const ARC_LEN = Math.PI * 100; // 반원 호 길이 (r=100)
@@ -52,9 +59,14 @@ const diffText = computed(() =>
       </svg>
       <div class="gauge__center">
         <div class="gauge__amt">
-          {{ amount.toLocaleString() }}<span>{{ unit }}</span>
+          {{ centerValue != null ? centerValue : amount.toLocaleString()
+          }}<span>{{ centerUnit != null ? centerUnit : unit }}</span>
         </div>
-        <div class="gauge__sub" :class="{ 'gauge__sub--over': isOver }">
+        <div
+          v-if="showDiff"
+          class="gauge__sub"
+          :class="{ 'gauge__sub--over': isOver }"
+        >
           <img
             class="gauge__sub-icon"
             :src="isOver ? moneyNeedIcon : moneyLeftIcon"
@@ -62,7 +74,7 @@ const diffText = computed(() =>
           />
           <span>{{ diffText }}</span>
         </div>
-        <div class="gauge__pct">예산의 {{ diffPct }}%</div>
+        <div v-if="showPct" class="gauge__pct">예산의 {{ diffPct }}%</div>
       </div>
     </div>
 

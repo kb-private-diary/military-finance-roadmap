@@ -18,15 +18,8 @@ body {
 a,
 .green {
   text-decoration: none;
-  color: hsla(160, 100%, 37%, 1);
-  transition: 0.4s;
-  padding: 3px;
-}
-
-@media (hover: hover) {
-  a:hover {
-    background-color: hsla(160, 100%, 37%, 0.2);
-  }
+  color: inherit;
+  transition: color 0.15s ease;
 }
 
 .avatar {
@@ -51,12 +44,19 @@ a,
    페이지 좌우 여백 통일 (우리 처음 맞춘 레이아웃 기준)
    - 좌우 gutter는 오직 .app-content(24px) 한 곳에서만 담당한다.
    - 각 페이지 루트가 넣던 좌우 패딩/Bootstrap container 여백을 제거해
-     모든 화면의 콘텐츠 폭을 통일한다. (세로 패딩은 페이지별 유지)
+     모든 화면의 콘텐츠 폭을 통일한다.
+   - 상단 여백도 20px로 통일(탭 전환 시 콘텐츠 시작 위치가 튀는 문제 방지). 하단은 페이지별 유지.
    - 음수 margin breakout(예: margin: 0 -24px 풀블리드)은 margin이라 충돌 안 함.
    ────────────────────────────────────────────────────────── */
-.app-content > * {
+/* main 태그까지 붙여 특이성을 높인다 - 부트스트랩 .py-4(!important) 상단값을 이겨 20px 로 통일 */
+main.app-content > * {
   padding-left: 0 !important;
   padding-right: 0 !important;
+  padding-top: 20px !important;
+}
+/* 챗봇은 자체 sticky 헤더로 시작하므로 상단 통일 여백에서 제외 */
+main.app-content > .chat-page {
+  padding-top: 0 !important;
 }
 .app-content > .container,
 .app-content > .container-fluid {

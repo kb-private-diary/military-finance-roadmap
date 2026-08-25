@@ -408,7 +408,7 @@ const goPrev = () => {
       <!-- (d) 카카오맵: 앱키(.env)+좌표 있으면 대략 위치 원(Circle), 아니면 폴백 -->
       <div v-if="showMap" class="map-wrap">
         <div ref="mapEl" class="map map--live"></div>
-        <p class="lockbar">🔒 정확한 위치는 대략 범위로만 표시돼요</p>
+        <p class="lockbar">🔒 정확한 주소는 저장 후 보여드려요</p>
       </div>
       <div v-else class="map">
         <template v-if="hasCoords">

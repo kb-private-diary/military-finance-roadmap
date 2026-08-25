@@ -3,7 +3,8 @@ import { computed, onMounted, ref } from 'vue';
 import socialApi from '@/api/socialApi';
 import BaseCard from '@/components/common/BaseCard.vue';
 import BaseModal from '@/components/common/BaseModal.vue';
-import CategoryButton from '@/components/common/CategoryButton.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
+import TabBar from '@/components/common/TabBar.vue';
 import DonutChart from '@/components/common/DonutChart.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import ProgressBar from '@/components/common/ProgressBar.vue';
@@ -20,6 +21,7 @@ import ranking1Image from '@/assets/badge/ranking_1.png';
 import ranking2Image from '@/assets/badge/ranking_2.png';
 import ranking3Image from '@/assets/badge/ranking_3.png';
 import savingMasterImage from '@/assets/badge/saving_master.png';
+import lockIcon from '@/assets/badge/lock.png';
 
 const SCOPE_OPTIONS = [
   { value: 'ALL', label: '전체' },
@@ -133,6 +135,19 @@ const chartItems = computed(() =>
 
 const hasInterestData = computed(() => chartItems.value.length > 0);
 const isVeteran = computed(() => stats.value?.veteran === true);
+
+// 현역 저축률 비교: 나 - 비교그룹 평균 차이를 한 줄 요약 문구로
+const savingsSummary = computed(() => {
+  const me = stats.value?.savingsRate;
+  const peer = stats.value?.averageSavingsRate;
+  if (me == null || peer == null) return '';
+  const diff = me - peer;
+  const abs = Math.abs(diff).toFixed(1);
+  if (diff >= 0.05) return `평균보다 ${abs}%p 앞서고 있어요`;
+  if (diff <= -0.05) return `평균보다 ${abs}%p 뒤처져 있어요`;
+  return '평균과 비슷해요';
+});
+
 const profileName = computed(() => {
   if (!stats.value) return '';
   if (isVeteran.value || !stats.value.rankName) return `${stats.value.name}님`;
@@ -195,22 +210,19 @@ const scopeDescription = computed(() => {
   return `전체 ${peerLabel}과 비교`;
 });
 
-// 로드맵 관심도 섹션 문구. 비교 범위에 따라 집계 대상을 그대로 읽어주도록 바꾼다.
-// 군종 미등록 회원은 typeName 이 없으므로 군종명만 빼고 기본 문구로 되돌린다.
-const interestOverline = computed(() => {
-  if (activeScope.value === 'TYPE' && stats.value?.typeName) {
-    return `${stats.value.typeName} ${isVeteran.value ? '전역자' : '장병'}들이 저장한 목표`;
-  }
-  if (activeScope.value === 'UNIT') {
-    return isVeteran.value
-      ? '같은 부대 전역자들이 저장한 목표'
-      : '부대원들이 저장한 목표';
-  }
-  return `${isVeteran.value ? '전역자' : '장병'}들이 저장한 목표`;
-});
-
 const rankingMetricValue = (item) =>
   item.metricValue ?? item.savingsRate ?? 0;
+
+// 시상대(포디움) 배치: 2위(좌) · 1위(중앙, 가장 높음) · 3위(우)
+const podiumOrder = computed(() => {
+  const list = ranking.value?.rankings ?? [];
+  const byRank = (n) => list.find((x) => x.rank === n);
+  return [byRank(2), byRank(1), byRank(3)].filter(Boolean);
+});
+
+// 시상대 막대 높이: 순위 기반 계단형(1위 최고). 인라인으로 줘서 항상 1>2>3 보장.
+const PODIUM_HEIGHTS = { 1: 116, 2: 92, 3: 72 };
+const podiumBarHeight = (item) => PODIUM_HEIGHTS[item.rank] ?? 72;
 
 // 뱃지는 이 화면의 보조 정보라, 실패해도 비교 통계는 계속 보여준다.
 const loadBadges = async () => {
@@ -283,14 +295,11 @@ onMounted(retry);
 
 <template>
   <main class="social-page">
-    <header class="page-header">
-      <p class="text-overline">
-        {{ isVeteran ? '복무 중 쌓은 저축 기록' : '함께 만드는 저축 습관' }}
-      </p>
-      <h1 class="text-title">
-        {{ isVeteran ? '복무 저축 리포트' : '저축 비교' }}
-      </h1>
-    </header>
+    <PageHeader
+      :eyebrow="isVeteran ? '복무 중 쌓은 저축 전과' : '전우들 따라잡자! 1등은 나의 것'"
+      :title="isVeteran ? '나의 복무 저축 작전' : '내 저축 전황 보고'"
+      size="lg"
+    />
 
     <div v-if="loading && !stats" class="status text-caption" role="status">
       저축 비교 정보를 불러오고 있습니다.
@@ -355,7 +364,7 @@ onMounted(retry);
           >
             <div class="profile-badge__image-wrap">
               <img :src="badge.image" :alt="badge.name" />
-              <span v-if="!badge.achieved" aria-hidden="true">잠금</span>
+              <span v-if="!badge.achieved" aria-hidden="true"><img :src="lockIcon" alt="" /></span>
             </div>
             <p>{{ badge.name }}</p>
           </div>
@@ -370,35 +379,37 @@ onMounted(retry);
         </p>
       </BaseCard>
 
-      <nav class="scope-tabs" aria-label="저축 비교 범위">
-        <CategoryButton
-          v-for="option in SCOPE_OPTIONS"
-          :key="option.value"
-          variant="oval-green"
-          :label="option.label"
-          :active="activeScope === option.value"
-          @click="selectScope(option.value)"
-        />
-      </nav>
-
-      <p class="scope-description text-caption">{{ scopeDescription }}</p>
-
       <section class="comparison-section" aria-labelledby="comparison-title">
         <div class="section-heading">
           <div>
             <p class="text-overline">
-              {{ isVeteran ? '복무 기간 동안의 결과' : '나와 평균의 차이' }}
+              {{ isVeteran ? '복무 기간 전과 분석' : '전우들과 전력 비교' }}
             </p>
             <h2 id="comparison-title" class="text-title">
-              {{ isVeteran ? '복무 저축 성과' : '저축률 비교' }}
+              {{ isVeteran ? '나의 저축 전황' : '저축 전황 비교' }}
             </h2>
           </div>
-          <p v-if="savingsPercentileLabel" class="rank-summary">
-            <strong>{{ savingsPercentileLabel }}</strong>
-          </p>
         </div>
 
-        <BaseCard class="comparison-card" padding="18px">
+        <TabBar
+          class="scope-tabs"
+          variant="segment"
+          aria-label="저축 비교 범위"
+          :model-value="activeScope"
+          :tabs="SCOPE_OPTIONS"
+          @update:model-value="selectScope"
+        />
+
+        <p class="scope-description text-caption">{{ scopeDescription }}</p>
+
+        <div class="comparison-card">
+          <div class="comparison-card__head">
+            <p class="comparison-card__title">저축률 비교</p>
+            <p v-if="savingsPercentileLabel" class="comparison-card__rank">
+              <strong>{{ savingsPercentileLabel }}</strong>
+            </p>
+          </div>
+
           <template v-if="isVeteran">
             <div class="veteran-comparison-row">
               <p>누적 납입액</p>
@@ -461,46 +472,45 @@ onMounted(retry);
           </template>
 
           <template v-else>
-            <div class="comparison-row">
-              <div class="comparison-row__label">
-                <span>나</span>
-                <strong>{{ stats.savingsRate.toFixed(1) }}%</strong>
+            <div class="cmp-bars">
+              <div class="cmp-row">
+                <span class="cmp-row__name">
+                  나<em v-if="stats.rankName"> {{ stats.rankName }}</em>
+                </span>
+                <div class="cmp-track">
+                  <div
+                    class="cmp-fill cmp-fill--me"
+                    :style="{ width: `${Math.min(stats.savingsRate, 100)}%` }"
+                  >
+                    <span class="cmp-fill__val">{{ stats.savingsRate.toFixed(1) }}%</span>
+                  </div>
+                </div>
               </div>
-              <ProgressBar
-                :value="stats.savingsRate"
-                :total="100"
-                color="var(--military-green)"
-                :height="12"
-              />
-            </div>
-            <div class="comparison-row">
-              <div class="comparison-row__label">
-                <span>비교 그룹 평균</span>
-                <strong>{{ stats.averageSavingsRate.toFixed(1) }}%</strong>
+              <div class="cmp-row">
+                <span class="cmp-row__name">비교 그룹<em> 평균</em></span>
+                <div class="cmp-track">
+                  <div
+                    class="cmp-fill cmp-fill--peer"
+                    :style="{ width: `${Math.min(stats.averageSavingsRate, 100)}%` }"
+                  >
+                    <span class="cmp-fill__val cmp-fill__val--dark">
+                      {{ stats.averageSavingsRate.toFixed(1) }}%
+                    </span>
+                  </div>
+                </div>
               </div>
-              <ProgressBar
-                :value="stats.averageSavingsRate"
-                :total="100"
-                color="var(--chart-3)"
-                :height="12"
-              />
             </div>
+            <p v-if="savingsSummary" class="cmp-summary">{{ savingsSummary }}</p>
             <p class="comparison-card__caption text-caption">
               현재 월 적금 납입액을 계급 월급으로 나눈 비율입니다.
             </p>
           </template>
-        </BaseCard>
+        </div>
       </section>
 
       <section class="interest-section" aria-labelledby="interest-title">
-        <div class="section-heading">
-          <div>
-            <p class="text-overline">{{ interestOverline }}</p>
-            <h2 id="interest-title" class="text-title">로드맵 관심도</h2>
-          </div>
-        </div>
-
         <BaseCard v-if="hasInterestData" class="interest-card" padding="18px">
+          <p id="interest-title" class="interest-label">로드맵 관심도</p>
           <DonutChart
             :items="chartItems"
             :size="164"
@@ -528,7 +538,7 @@ onMounted(retry);
       <section class="ranking-section" aria-labelledby="ranking-title">
         <div class="section-heading">
           <div>
-            <p class="text-overline">함께 모으는 사람들</p>
+            <p class="text-overline">정예 부대는 어디?</p>
             <h2 id="ranking-title" class="text-title">
               {{ ranking?.title }}
             </h2>
@@ -539,28 +549,40 @@ onMounted(retry);
           </p>
         </div>
 
-        <ol v-if="ranking?.rankings?.length" class="ranking-list">
-          <li
-            v-for="item in ranking.rankings"
-            :key="`${item.rank}-${item.label}`"
-          >
-            <BaseCard
-              class="ranking-card"
-              :class="{ 'is-me': item.me }"
-              padding="12px 14px"
+        <BaseCard
+          v-if="ranking?.rankings?.length"
+          class="podium-card"
+          padding="20px 14px 0"
+        >
+          <div class="podium">
+            <div
+              v-for="item in podiumOrder"
+              :key="item.rank"
+              class="podium__col"
+              :class="[`podium__col--${item.rank}`, { 'is-me': item.me }]"
             >
               <img
                 :src="RANKING_IMAGES[item.rank - 1]"
                 :alt="`${item.rank}위`"
+                class="podium__medal"
               />
-              <div class="ranking-card__content">
-                <strong>{{ item.label }}</strong>
-                <span v-if="item.me">내가 속한 그룹</span>
+              <p class="podium__name" :class="{ 'is-me': item.me }">
+                <span v-if="item.me" class="podium__my">MY</span>
+                {{ item.label }}
+              </p>
+              <p class="podium__value">
+                {{ rankingMetricValue(item).toFixed(1) }}%
+              </p>
+              <div
+                class="podium__bar"
+                :class="`podium__bar--${item.rank}`"
+                :style="{ height: `${podiumBarHeight(item)}px` }"
+              >
+                <span>{{ item.rank }}</span>
               </div>
-              <p>{{ rankingMetricValue(item).toFixed(1) }}%</p>
-            </BaseCard>
-          </li>
-        </ol>
+            </div>
+          </div>
+        </BaseCard>
         <BaseCard v-else padding="22px">
           <p
             class="empty-caption text-caption"
@@ -642,6 +664,13 @@ onMounted(retry);
   margin-top: 4px;
 }
 
+/* 소제목(eyebrow)을 목돈작전 PageHeader 기준(13px/600/muted)으로 통일 */
+.section-heading .text-overline {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
 .status,
 .empty-caption,
 .refreshing,
@@ -669,8 +698,12 @@ onMounted(retry);
 }
 
 .profile-card {
-  background: var(--military-green);
-  color: var(--surface-default);
+  /* A안: 흰 배경 + 왼쪽 군 초록 액센트 바 */
+  background: var(--surface-default);
+  color: var(--text-strong);
+  border-left: 5px solid var(--military-green);
+  border-radius: 0 12px 12px 0;
+  box-shadow: 0 2px 12px rgb(0 0 0 / 6%);
 }
 
 .profile-card__headline {
@@ -693,10 +726,10 @@ onMounted(retry);
   width: 24px;
   height: 24px;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.75);
+  border: 1px solid var(--line);
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.14);
-  color: var(--surface-default);
+  background: var(--kb-gray-pale);
+  color: var(--text-muted);
   font: inherit;
   font-size: 13px;
   font-weight: 700;
@@ -717,7 +750,7 @@ onMounted(retry);
 
 .profile-card__unit {
   margin: 5px 0 0;
-  color: var(--military-green-light);
+  color: var(--text-muted);
 }
 
 .profile-card__saving {
@@ -728,7 +761,7 @@ onMounted(retry);
 }
 
 .profile-card__saving span {
-  color: var(--military-green-light);
+  color: var(--text-muted);
   font-size: 11px;
 }
 
@@ -740,7 +773,7 @@ onMounted(retry);
 /* 뱃지 조회만 실패한 경우의 안내. 비교 통계는 정상이므로 카드 안에서만 알린다. */
 .profile-card__badge-error {
   margin: 12px 0 0;
-  color: var(--military-green-light);
+  color: var(--text-muted);
   font-size: 11px;
   text-align: center;
 }
@@ -790,10 +823,13 @@ onMounted(retry);
   position: absolute;
   inset: 0;
   display: grid;
-  color: var(--surface-default);
-  font-size: 10px;
-  font-weight: 700;
   place-items: center;
+}
+/* 잠금 자물쇠 아이콘 - 뱃지 이미지(100%) 규칙에 안 잡히게 크기 고정 */
+.profile-badge__image-wrap span img {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
 }
 
 .badge-guide {
@@ -884,7 +920,7 @@ onMounted(retry);
 }
 
 .scope-description {
-  margin: -14px 0 0;
+  margin: -6px 0 0;
   text-align: center;
 }
 
@@ -893,7 +929,43 @@ onMounted(retry);
 .ranking-section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
+}
+
+/* 로드맵 관심도는 저축 비교와 같은 섹션2로 묶이도록 간격을 좁힌다 */
+.interest-section {
+  margin-top: -8px;
+  gap: 10px;
+}
+
+.interest-label {
+  grid-column: 1 / -1;
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+/* 상위 N% - 첫번째 카드 안, 중앙에 크게 (직관적 강조) */
+.comparison-card__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.comparison-card__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.comparison-card__rank {
+  margin: 0;
+  color: var(--military-green);
+  font-size: 17px;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .section-heading {
@@ -904,7 +976,7 @@ onMounted(retry);
 }
 
 .rank-summary {
-  margin: 0;
+  margin: 0 16px 0 0;
   color: var(--text-hint);
   font-size: 12px;
   text-align: right;
@@ -919,13 +991,18 @@ onMounted(retry);
 .comparison-card {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 22px;
+  padding: 18px;
+  background: #ffffff;
+  border: 1px solid #ececec;
+  border-radius: 16px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
 }
 
 .comparison-row {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 10px;
 }
 
 .comparison-row__label {
@@ -941,6 +1018,83 @@ onMounted(retry);
 
 .comparison-card__caption {
   margin: -2px 0 0;
+}
+
+/* 저축률 비교 가로 막대 (나=국방색+흰글자 / 비교=회색) */
+.cmp-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cmp-row {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.cmp-row__name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.cmp-row__name em {
+  margin-left: 2px;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.cmp-track {
+  display: flex;
+  width: 100%;
+  height: 26px;
+  border-radius: 999px;
+  background: #f1f3f4;
+  overflow: hidden;
+}
+
+.cmp-fill {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 3.8em;
+  height: 100%;
+  padding: 0 12px;
+  border-radius: 999px;
+  transition: width 0.5s ease;
+}
+
+.cmp-fill--me {
+  background: var(--military-green);
+}
+
+.cmp-fill--peer {
+  background: #d3d7db;
+}
+
+.cmp-fill__val {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.cmp-fill__val--dark {
+  color: var(--text-body);
+}
+
+.cmp-summary {
+  margin: 4px 0 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(83, 99, 73, 0.09);
+  color: var(--military-green);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
 }
 
 .veteran-comparison-row {
@@ -1035,56 +1189,81 @@ onMounted(retry);
   color: var(--text-strong);
 }
 
-.ranking-list {
+/* 시상대(포디움) - 바깥 카드 1개 안에 금은동 3막대 */
+.podium-card {
+  background: var(--surface-default);
+}
+.podium {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  align-items: end;
+  gap: 16px;
+}
+.podium__col {
   display: flex;
   flex-direction: column;
-  gap: 9px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.ranking-card {
-  display: grid;
-  grid-template-columns: 44px 1fr auto;
   align-items: center;
-  gap: 11px;
+  justify-content: flex-end;
+  text-align: center;
 }
-
-.ranking-card.is-me {
-  border-color: var(--military-green);
-  background: var(--military-green-light);
-}
-
-.ranking-card img {
-  width: 44px;
-  height: 44px;
+.podium__medal {
+  width: 38px;
+  height: 38px;
   object-fit: contain;
 }
-
-.ranking-card__content {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
+.podium__name {
+  margin: 6px 0 2px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-hint);
+  line-height: 1.25;
+  word-break: keep-all;
 }
-
-.ranking-card__content strong {
-  overflow: hidden;
-  font-size: 14px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ranking-card__content span {
-  margin-top: 2px;
-  color: var(--military-green);
-  font-size: 10px;
-}
-
-.ranking-card > p {
-  margin: 0;
-  font-size: 15px;
+/* 내 부대: 부대명 굵은 검정, % 국방색 (다른 부대는 얇고 연하게) */
+.podium__col.is-me .podium__name {
+  color: var(--text-strong);
   font-weight: 700;
+}
+.podium__col.is-me .podium__value {
+  color: var(--military-green);
+  font-weight: 800;
+}
+.podium__my {
+  display: inline-block;
+  margin-bottom: 3px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--military-green);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+.podium__value {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-hint);
+}
+.podium__bar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: 100%;
+  padding-top: 14px;
+  border-radius: 12px 12px 0 0;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 800;
+}
+/* 높이는 값 기반 인라인 스타일(podiumBarHeight)이 담당, 여기선 색만 */
+.podium__bar--1 {
+  background: linear-gradient(180deg, #f8d87c 0%, #efc659 100%);
+}
+.podium__bar--2 {
+  background: linear-gradient(180deg, #d8dbe1 0%, #c7ccd4 100%);
+}
+.podium__bar--3 {
+  background: linear-gradient(180deg, #e2ba93 0%, #d3a67c 100%);
 }
 
 @media (max-width: 380px) {
@@ -1108,7 +1287,9 @@ onMounted(retry);
 </style>
 
 <style>
+/* 전우들 화면 배경 - D-Day·목돈작전과 같은 은은한 세이지 그린 */
 .app-content:has(.social-page) {
+  background-color: rgba(120, 152, 130, 0.06);
   scrollbar-width: none;
   -ms-overflow-style: none;
 }

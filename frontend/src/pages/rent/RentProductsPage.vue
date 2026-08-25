@@ -73,15 +73,6 @@ const pct = computed(() => {
   return req > 0 ? Math.round(((af.value.maturityAmount ?? 0) / req) * 100) : 0;
 });
 const isEnough = computed(() => pct.value >= 100);
-// 감당도 3단계 라벨(백엔드 affordabilityLabel: 딱 맞아요/빠듯해요/예산 초과)
-const affordLabel = computed(
-  () => af.value.affordabilityLabel || (isEnough.value ? '딱 맞아요' : '예산 초과'),
-);
-const afToneClass = computed(() => {
-  if (affordLabel.value === '빠듯해요') return 'is-tight';
-  if (affordLabel.value === '예산 초과') return 'is-over';
-  return 'is-ok';
-});
 const coverMan = computed(() => toMan(Math.min(af.value.maturityAmount ?? 0, af.value.totalRequired ?? 0)));
 const surplusMan = computed(() => toMan(af.value.surplus));
 const shortfallMan = computed(() => toMan(af.value.shortfall));

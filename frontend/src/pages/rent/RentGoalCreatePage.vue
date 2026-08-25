@@ -15,8 +15,6 @@ import RoadmapCharacterSlider from '@/components/common/RoadmapCharacterSlider.v
 import PageHeader from '@/components/common/PageHeader.vue';
 import TabBar from '@/components/common/TabBar.vue';
 import RangeSlider from '@/components/common/RangeSlider.vue';
-import rentSchoolIcon from '@/assets/images/rent-school.png';
-import rentMapIcon from '@/assets/images/rent-map.png';
 
 const router = useRouter();
 const rentStore = useRentStore();
@@ -326,9 +324,6 @@ const goNext = async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-}
-.search {
-  position: relative;
 }
 .picked-name {
   font-size: 14px;

@@ -6,6 +6,7 @@ import { useRoute, useRouter } from 'vue-router';
 import regretApi from '@/api/regretApi';
 import { formatWon, formatDate } from '@/util/format';
 import BaseCard from '@/components/common/BaseCard.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import { useToast } from '@/composables/useToast';
@@ -81,12 +82,7 @@ const goBack = () => router.push({ name: 'RegretDashboard' });
 
 <template>
   <div class="daily">
-    <header class="head">
-      <div class="htx">
-        <p class="cap">일자별 지출</p>
-        <h2 class="title">{{ formatDate(dateParam) }}</h2>
-      </div>
-    </header>
+    <PageHeader breadcrumb="일자별 지출" :title="formatDate(dateParam)" size="lg" />
 
     <p v-if="loading" class="loading">불러오는 중...</p>
 
@@ -155,41 +151,6 @@ const goBack = () => router.push({ name: 'RegretDashboard' });
   --soso-text: #c99a1f;
   --reg-bg: #fdeeee;
   --reg-text: #d97676;
-}
-.head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.back {
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: #fff;
-  color: var(--text-body);
-  font-size: 17px;
-  line-height: 1;
-  cursor: pointer;
-  font-family: inherit;
-  flex-shrink: 0;
-}
-.htx {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.cap {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-.title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-strong);
 }
 /* ── 총지출 요약 ── */
 .sum-cap {

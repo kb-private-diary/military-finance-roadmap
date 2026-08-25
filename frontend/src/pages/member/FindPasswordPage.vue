@@ -5,6 +5,7 @@ import { computed, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import memberApi from '@/api/memberApi';
 import BaseInput from '@/components/common/BaseInput.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 
 const router = useRouter();
@@ -65,7 +66,7 @@ const submit = async () => {
 
 <template>
   <div class="find-password-page">
-    <h1 class="text-title mt-4 mb-4">비밀번호 찾기</h1>
+    <PageHeader title="비밀번호 찾기" />
 
     <template v-if="!done">
       <form class="find-password-form" @submit.prevent="submit">

@@ -6,6 +6,7 @@ import { useRouter } from 'vue-router';
 import regretApi from '@/api/regretApi';
 import { formatManwon, formatWon } from '@/util/format';
 import BaseCard from '@/components/common/BaseCard.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 import DonutChart from '@/components/common/DonutChart.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
@@ -148,7 +149,7 @@ const goBack = () => router.push({ name: 'RegretDashboard' });
 <template>
   <div class="report">
     <header class="head">
-      <p class="cap">후회소비 리포트</p>
+      <PageHeader breadcrumb="후회소비 리포트" size="lg" />
       <div class="month-nav">
         <button class="nav-btn" aria-label="이전 달" @click="move(-1)">‹</button>
         <h2 class="title">{{ monthLabel }} 리포트</h2>
@@ -255,13 +256,6 @@ const goBack = () => router.push({ name: 'RegretDashboard' });
   display: flex;
   flex-direction: column;
   gap: 6px;
-}
-.cap {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 12px;
-  color: var(--text-muted);
 }
 .month-nav {
   display: flex;
@@ -371,9 +365,9 @@ const goBack = () => router.push({ name: 'RegretDashboard' });
 }
 /* ── 카테고리 막대 ── */
 .sec {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-body);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-strong);
   margin-bottom: 12px;
 }
 .crow {

@@ -7,6 +7,7 @@ import { useRoute, useRouter } from 'vue-router';
 import regretApi from '@/api/regretApi';
 import { formatWon } from '@/util/format';
 import BaseCard from '@/components/common/BaseCard.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import BottomButtonBar from '@/components/common/BottomButtonBar.vue';
 import { useToast } from '@/composables/useToast';
@@ -100,12 +101,7 @@ watch(label, () => window.scrollTo({ top: 0 }));
 
 <template>
   <div class="label-list">
-    <header class="head">
-      <div class="htx">
-        <p class="cap">모아보기</p>
-        <h2 class="title">{{ labelMeta.name }}한 소비</h2>
-      </div>
-    </header>
+    <PageHeader breadcrumb="모아보기" :title="`${labelMeta.name}한 소비`" size="lg" />
 
     <!-- 라벨 전환 세그먼트 -->
     <div class="segment">
@@ -180,41 +176,6 @@ watch(label, () => window.scrollTo({ top: 0 }));
   --reg: #f8a5a5;
   --reg-bg: #fdeeee;
   --reg-text: #d97676;
-}
-.head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.back {
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: #fff;
-  color: var(--text-body);
-  font-size: 17px;
-  line-height: 1;
-  cursor: pointer;
-  font-family: inherit;
-  flex-shrink: 0;
-}
-.htx {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.cap {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-.title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-strong);
 }
 /* ── 세그먼트 ── */
 .segment {
