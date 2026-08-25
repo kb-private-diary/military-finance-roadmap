@@ -104,6 +104,12 @@ const gaugeBudget = computed(() =>
     : Math.round(toAmount(displayedCost.value?.totalCost) / 10000),
 );
 
+// 복무 중 / 전역 후 여행 자금 준비 계획 (백엔드 제공) + 예산 초과 여부
+const budgetPlan = computed(() => detail.value?.budgetPlan ?? null);
+const isOverBudget = computed(
+  () => !!travelState.value && travelState.value.amount > gaugeBudget.value,
+);
+
 // 상단 요약 카드(GoalSummaryCard) — 여행 step3와 동일 구성
 const tripDday = computed(() => {
   if (!detail.value?.startDate) return '';
@@ -364,6 +370,83 @@ onBeforeUnmount(() => {
               <div class="travel-cost__mid"></div>
             </template>
           </EstimatedCostCard>
+
+          <!-- 복무 중 / 전역 후 여행 자금 준비 (예산 초과 시) -->
+          <section
+            v-if="isOverBudget && budgetPlan"
+            class="budget-plan"
+            aria-label="여행 자금 준비 안내"
+          >
+            <template v-if="budgetPlan.planType === 'IN_SERVICE'">
+              <strong class="budget-plan__title">복무 중 여행 자금 준비</strong>
+              <p class="budget-plan__description">
+                현재 월급에서 납입 중인 군적금을 제외한 금액을 기준으로
+                계산했어요.
+              </p>
+              <dl class="budget-plan__details">
+                <div>
+                  <dt>현재 월급</dt>
+                  <dd>{{ formatAmount(budgetPlan.monthlySalary) }}</dd>
+                </div>
+                <div>
+                  <dt>월 군적금 납입액</dt>
+                  <dd>{{ formatAmount(budgetPlan.monthlySaving) }}</dd>
+                </div>
+                <div>
+                  <dt>매달 준비 가능 금액</dt>
+                  <dd>{{ formatAmount(budgetPlan.monthlyAvailableAmount) }}</dd>
+                </div>
+              </dl>
+              <p v-if="budgetPlan.requiredMonths" class="budget-plan__result">
+                부족한 {{ formatAmount(budgetPlan.shortfall) }}을 마련하려면 약
+                <strong>{{ budgetPlan.requiredMonths }}개월</strong>이 필요해요.
+              </p>
+              <p v-else class="budget-plan__notice">
+                현재 월급과 군적금 납입액만으로는 추가 준비 기간을 계산하기
+                어려워요.
+              </p>
+            </template>
+
+            <template v-else-if="budgetPlan.planType === 'AFTER_DISCHARGE'">
+              <strong class="budget-plan__title">전역 후 여행 자금 확인</strong>
+              <p class="budget-plan__description">
+                전역 후 받을 군적금 만기 예상금까지 더해 여행 자금을
+                확인했어요.
+              </p>
+              <template v-if="budgetPlan.expectedMaturityAmount != null">
+                <dl class="budget-plan__details">
+                  <div>
+                    <dt>군적금 만기 예상금</dt>
+                    <dd>
+                      {{ formatAmount(budgetPlan.expectedMaturityAmount) }}
+                    </dd>
+                  </div>
+                </dl>
+                <p
+                  class="budget-plan__result"
+                  :class="{ 'is-short': budgetPlan.remainingAfterTravel < 0 }"
+                >
+                  <template v-if="budgetPlan.remainingAfterTravel >= 0">
+                    여행 경비를 마련하고도
+                    <strong>
+                      {{ formatAmount(budgetPlan.remainingAfterTravel) }}
+                    </strong>
+                    의 여유가 있어요.
+                  </template>
+                  <template v-else>
+                    만기 예상금을 더해도
+                    <strong>
+                      {{ formatAmount(Math.abs(budgetPlan.remainingAfterTravel)) }}
+                    </strong>
+                    이 더 필요해요.
+                  </template>
+                </p>
+              </template>
+              <p v-else class="budget-plan__notice">
+                군적금 가입 정보가 없어 만기 예상금을 계산할 수 없어요.
+              </p>
+            </template>
+          </section>
 
           <!-- 여행 경비 활용 분석 (최근 3개월 후회소비 연결) -->
           <BaseCard padding="18px" class="cost-analysis-card">
@@ -678,6 +761,69 @@ onBeforeUnmount(() => {
   height: 1px;
   margin: 0 16px;
   background: #e7e9ec;
+}
+
+/* ── 복무 중 / 전역 후 여행 자금 준비 (예산 초과 시) ── */
+.budget-plan {
+  margin-top: 14px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--surface-subtle);
+}
+
+.budget-plan__title {
+  display: block;
+  font-size: 13px;
+}
+
+.budget-plan__description,
+.budget-plan__notice {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.budget-plan__details {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 0;
+}
+
+.budget-plan__details div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.budget-plan__details dt {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.budget-plan__details dd {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.budget-plan__result {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--travel-primary-dark);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.budget-plan__result strong {
+  color: var(--travel-primary);
+}
+
+.budget-plan__result.is-short,
+.budget-plan__result.is-short strong {
+  color: var(--danger);
 }
 
 /* 추천 목록 다시 보기 (오른쪽 정렬) */

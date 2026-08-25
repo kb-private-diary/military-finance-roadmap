@@ -27,10 +27,13 @@ export const useAuthStore = defineStore('auth', () => {
     const { data } = await axios.post('/api/users/login', { username, password });
     state.value = { ...data };
     localStorage.setItem('auth', JSON.stringify(state.value));
+    // 이전 계정의 오픈뱅킹 연동 캐시를 지워, 새 로그인마다 연동 상태를 다시 조회하도록 한다.
+    sessionStorage.removeItem('ob_linked');
   };
 
   const logout = () => {
     localStorage.removeItem('auth');
+    sessionStorage.removeItem('ob_linked');
     state.value = { ...initState };
   };
 

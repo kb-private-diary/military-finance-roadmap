@@ -7,6 +7,7 @@ import chatApi from '@/api/chatApi';
 import { useAuthStore } from '@/stores/auth';
 import { formatDate } from '@/util/format';
 import mascotImg from '@/assets/chat-mascot.png';
+import exitIcon from '@/assets/images/exit.png';
 import moodLikeImg from '@/assets/chat-mood-like.png';
 import moodNeutralImg from '@/assets/chat-mood-neutral.png';
 import moodDislikeImg from '@/assets/chat-mood-dislike.png';
@@ -2056,20 +2057,8 @@ onActivated(() => {
     </div>
 
     <template v-else>
-      <div class="chat-header">
-        <button type="button" class="chat-header__icon-btn" aria-label="뒤로가기" @click="goBack">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path
-              d="M15 18L9 12L15 6"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </button>
-        <div class="chat-header__title">텅장일병구하기</div>
-        <div class="chat-header__spacer" />
+      <!-- 헤더는 공통 AppHeader가 담당. 여기는 이전기록/나가기 액션 줄만 (헤더 아래) -->
+      <div class="chat-actions-bar">
         <button type="button" class="history-btn" aria-label="이전 대화" @click="openHistory">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path
@@ -2083,10 +2072,8 @@ onActivated(() => {
           </svg>
           이전 기록
         </button>
-        <button type="button" class="chat-header__icon-btn" aria-label="홈으로" @click="goHome">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M6 6L18 18M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-          </svg>
+        <button type="button" class="chat-actions-bar__exit" aria-label="나가기" @click="goHome">
+          <img :src="exitIcon" alt="나가기" class="chat-header__exit-icon" />
         </button>
       </div>
 
@@ -2388,9 +2375,22 @@ onActivated(() => {
   display: flex;
   flex-direction: column;
   min-height: 100%;
-  margin: 0 -20px -20px;
-  padding: 0 20px 20px;
+  /* app-content 좌우 gutter(24px)를 상쇄해 배경을 프레임 끝까지, 안쪽은 24px 여백 */
+  margin: 0 -24px -20px;
+  padding: 0 24px 20px;
   background: var(--surface-cream);
+}
+
+/* 챗봇 화면에서는 app-content 세로 스크롤바를 숨겨, 하단 고정 입력창·패널이
+   스크롤바 자리 보정 없이 프레임 폭에 딱 맞게 중앙 정렬되도록 한다 (여행 상세와 동일 방식). */
+:global(.app-content:has(.chat-page)) {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+:global(.app-content:has(.chat-page)::-webkit-scrollbar) {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .status-box {
@@ -2418,21 +2418,21 @@ onActivated(() => {
   object-fit: contain;
 }
 
-/* 챗봇 전용 자체 헤더 - 공통 AppHeader 대신 사용 (팀 협의된 예외, AppLayout.vue 주석 참고) */
-.chat-header {
+/* 이전기록·나가기 액션 줄 - 공통 AppHeader 아래(헤더 밑)에 붙는 챗봇 전용 줄 */
+.chat-actions-bar {
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 5;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
-  margin: 0 -20px;
-  padding: 12px 20px;
-  background: #ffffff;
-  border-bottom: 1px solid var(--line);
+  margin: 0 -24px;
+  padding: 10px 24px;
+  background: rgba(255, 255, 255, 0.72);
 }
 
-.chat-header__icon-btn {
+.chat-actions-bar__exit {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2441,24 +2441,14 @@ onActivated(() => {
   padding: 0;
   background: none;
   border: none;
-  color: var(--text-muted);
   cursor: pointer;
   flex-shrink: 0;
 }
 
-.chat-header__icon-btn svg {
-  width: 20px;
-  height: 20px;
-}
-
-.chat-header__title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-strong);
-}
-
-.chat-header__spacer {
-  flex: 1;
+.chat-header__exit-icon {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
 }
 
 .history-btn {
@@ -2972,15 +2962,14 @@ onActivated(() => {
 
 .chat-page__panel {
   position: fixed;
-  bottom: 68px;
+  /* 입력창(composer) 높이에 딱 맞춰, 사이 틈으로 뒤 메시지가 비치지 않게 함 */
+  bottom: 59px;
   left: 50%;
-  /* max-width를 프레임 폭(393px)보다 살짝 줄여 .app-content의 세로 스크롤바(15px)를 안 덮게 함 -
-     그대로 393px면 이 fixed 패널이 스크롤바 자리까지 배경으로 덮어버려서, 채팅이 다 안 보이는
-     시점에도 스크롤바가 안 보이거나 클릭이 안 먹혔다(2026-08-11 피드백) */
-  transform: translateX(calc(-50% - 11.5px));
+  transform: translateX(-50%);
   width: 100%;
-  max-width: 370px;
-  padding: 10px 16px;
+  /* composer와 동일하게 프레임 폭(480px) + 좌우 24px gutter로 정렬 */
+  max-width: var(--app-max-width);
+  padding: 10px 24px;
   background: var(--surface-cream);
   box-sizing: border-box;
 }
@@ -3148,14 +3137,14 @@ onActivated(() => {
   position: fixed;
   bottom: 0;
   left: 50%;
-  /* 앱 프레임 폭(--app-max-width)에 맞춰 하단 고정 - BottomButtonBar 등 다른 하단 바와 정렬 통일 */
   transform: translateX(-50%);
   display: flex;
   gap: 8px;
   width: 100%;
+  /* 프레임 폭(480px)에 맞추고 좌우 24px gutter로 본문·헤더와 정렬 */
   max-width: var(--app-max-width);
-  padding: 12px 16px;
-  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  padding: 10px 24px;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom));
   background: var(--surface-cream);
   box-sizing: border-box;
 }
@@ -3163,8 +3152,8 @@ onActivated(() => {
 .composer-input {
   flex: 1;
   background: #ffffff;
-  border: 1px solid var(--line);
-  border-radius: 20px;
+  border: 1px solid var(--divider-thin);
+  border-radius: 12px;
   padding: 10px 14px;
   color: var(--text-body);
   font-size: 14px;
