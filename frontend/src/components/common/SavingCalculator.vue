@@ -3,7 +3,7 @@
 // SavingProductDetailPage와 SimulatorProductListPage(예적금 상품 계산기)에서 동일하게 쓰는 공통 컴포넌트.
 // 계산 로직이 여기 한 곳에만 있어야 두 화면의 결과가 어긋나지 않는다.
 import { computed, ref, watch } from 'vue';
-import { formatManwon, formatManwon1 } from '@/util/format';
+import { formatManwon, formatWon } from '@/util/format';
 import BaseInput from '@/components/common/BaseInput.vue';
 
 // 일반과세 이자소득세율(14% + 지방소득세 1.4%). 비과세 상품은 isTaxExempt로 0 처리.
@@ -150,23 +150,23 @@ const totalReceipt = computed(
     <div class="saving-calculator__result">
       <div class="saving-calculator__row">
         <span class="saving-calculator__label">원금</span>
-        <span class="saving-calculator__value">{{ formatManwon1(principal) }}</span>
+        <span class="saving-calculator__value">{{ formatWon(principal) }}</span>
       </div>
       <div class="saving-calculator__row">
         <span class="saving-calculator__label"
           >예상 이자({{ selectedRate }}% 세전)</span
         >
-        <span class="saving-calculator__value">{{ formatManwon1(interest) }}</span>
+        <span class="saving-calculator__value">{{ formatWon(interest) }}</span>
       </div>
       <div class="saving-calculator__row">
         <span class="saving-calculator__label">세금</span>
-        <span class="saving-calculator__value">{{ formatManwon1(tax) }}</span>
+        <span class="saving-calculator__value">{{ formatWon(tax) }}</span>
       </div>
       <div class="saving-calculator__row saving-calculator__row--total">
         <span class="saving-calculator__label">총 수령금</span>
         <span
           class="saving-calculator__value saving-calculator__value--total"
-          >{{ formatManwon1(totalReceipt) }}</span
+          >{{ formatWon(totalReceipt) }}</span
         >
       </div>
     </div>
