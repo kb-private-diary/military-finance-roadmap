@@ -983,8 +983,6 @@ const handlePrev = () => {
   overflow: hidden;
   color: var(--text-strong);
   font-size: 14px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .course-item__provider {

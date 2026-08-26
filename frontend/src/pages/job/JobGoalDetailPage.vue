@@ -602,37 +602,13 @@ const loadRegretAnalysis = async () => {
 
     // 자격증·어학
     qualifications.value.forEach((item) => {
-      const writtenFee = Number(item.writtenFee ?? 0);
-      const practicalFee = Number(item.practicalFee ?? 0);
       const selectedCost = Number(item.selectedCost ?? 0);
 
-      // 1순위: 필기 응시료
-      if (writtenFee > 0) {
-        prepItems.push({
-          itemId: `qualification-written-${item.qualId}`,
-          itemName: `${item.qualName} 필기 응시료`,
-          amount: writtenFee,
-          priority: 1,
-        });
-      }
-
-      // 2순위: 실기 응시료
-      if (practicalFee > 0) {
-        prepItems.push({
-          itemId: `qualification-practical-${item.qualId}`,
-          itemName: `${item.qualName} 실기 응시료`,
-          amount: practicalFee,
-          priority: 2,
-        });
-      }
-
-      // 필기·실기 금액이 따로 없는 경우 선택한 전체 비용 사용
-      if (writtenFee === 0 && practicalFee === 0 && selectedCost > 0) {
+      if (selectedCost > 0) {
         prepItems.push({
           itemId: `qualification-${item.qualId}`,
-          itemName: `${item.qualName} 준비비용`,
+          itemName: `${item.qualName} 응시비용`,
           amount: selectedCost,
-          priority: 3,
         });
       }
     });
@@ -644,24 +620,17 @@ const loadRegretAnalysis = async () => {
       if (selectedCost > 0) {
         prepItems.push({
           itemId: `course-${item.courseId}`,
-          itemName: `${item.courseName} 수강료`,
+          itemName: '인터넷 강의 수강료',
           amount: selectedCost,
-          priority: 4,
         });
       }
     });
 
-    // 후회소비 금액으로 전액 마련 가능한 항목만 조회
-    // 필기 → 실기 → 자격증 전체비용 → 인강 순으로 우선 추천
+    // 후회소비 금액으로 전액 마련 가능한 항목 중
+    // 금액이 가장 큰 준비 항목 우선 추천
     const affordableItems = prepItems
       .filter((item) => item.amount <= regretAmount)
-      .sort((a, b) => {
-        if (a.priority !== b.priority) {
-          return a.priority - b.priority;
-        }
-
-        return a.amount - b.amount;
-      });
+      .sort((a, b) => b.amount - a.amount);
 
     let recommendationMessage = '';
     let targetItemName = null;
@@ -1742,8 +1711,6 @@ onMounted(async () => {
   overflow: hidden;
   color: var(--text-body);
   font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .cost-detail-row strong {
