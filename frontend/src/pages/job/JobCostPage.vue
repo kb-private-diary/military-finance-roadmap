@@ -71,7 +71,9 @@ const subCategoryName = computed(
   () => leafCategory.value?.categoryName || categoryName.value || '',
 );
 // 큰 분류 이름 (IT·개발 / 소방 등)
-const bigCategoryName = computed(() => parentCategory.value?.categoryName || '');
+const bigCategoryName = computed(
+  () => parentCategory.value?.categoryName || '',
+);
 
 // 훈련 지역 — 선택한 훈련과정 주소의 시도 (step2에서 고른 지역)
 const trainingRegion = computed(() => {
@@ -130,38 +132,11 @@ const totalAmount = computed(
 
 // 비용 비율
 const rateOf = (amount) =>
-  totalAmount.value === 0
-    ? 0
-    : Math.round((amount / totalAmount.value) * 100);
+  totalAmount.value === 0 ? 0 : Math.round((amount / totalAmount.value) * 100);
 
 const qualificationRate = computed(() => rateOf(qualificationTotal.value));
 const courseRate = computed(() => rateOf(courseTotal.value));
 const trainingRate = computed(() => rateOf(trainingTotal.value));
-
-// 가장 비용 비중이 큰 항목 문구 (EstimatedCostCard 힌트)
-const largestCostMessage = computed(() => {
-  if (totalAmount.value === 0) {
-    return '선택한 준비 항목의 비용 정보가 없어요.';
-  }
-
-  const costItems = [
-    { label: '자격증·어학', amount: qualificationTotal.value },
-    { label: '인터넷 강의', amount: courseTotal.value },
-  ];
-
-  if (isEmployment.value) {
-    costItems.push({ label: '훈련과정', amount: trainingTotal.value });
-  }
-
-  const maxAmount = Math.max(...costItems.map((item) => item.amount));
-  const largestItems = costItems.filter((item) => item.amount === maxAmount);
-
-  if (largestItems.length > 1) {
-    return '준비 항목의 비용 비중이 비슷해요.';
-  }
-
-  return `${largestItems[0].label} 비용의 비중이 가장 커요.`;
-});
 
 // 최근 3개월 월평균 지출 대비 예상 준비비용 비율
 const spendingRate = computed(() => {
@@ -173,8 +148,14 @@ const spendingRate = computed(() => {
 // ── GoalSummaryCard 데이터 ────────────────────────────────────
 // 스펙: 유형별로 시기·희망 직렬/대학·준비 항목 개수 (취업만 훈련과정 포함)
 const summarySpecs = computed(() => {
-  const qualSpec = { label: '자격증·어학', value: `${qualifications.value.length}개` };
-  const courseSpec = { label: '인터넷 강의', value: `${courses.value.length}개` };
+  const qualSpec = {
+    label: '자격증·어학',
+    value: `${qualifications.value.length}개`,
+  };
+  const courseSpec = {
+    label: '인터넷 강의',
+    value: `${courses.value.length}개`,
+  };
 
   if (goalType.value === 'J03') {
     return [
@@ -188,7 +169,10 @@ const summarySpecs = computed(() => {
   if (goalType.value === 'J02') {
     return [
       { label: '합격 시기', value: formattedExpectedDate.value },
-      { label: '희망 직렬', value: bigCategoryName.value || subCategoryName.value || '미정' },
+      {
+        label: '희망 직렬',
+        value: bigCategoryName.value || subCategoryName.value || '미정',
+      },
       qualSpec,
       courseSpec,
     ];
@@ -197,7 +181,10 @@ const summarySpecs = computed(() => {
   // 취업 (J01) — 세부 직무 제목 + 희망 직무(큰 분류)·훈련 지역
   return [
     { label: '취업 시기', value: formattedExpectedDate.value },
-    { label: '희망 직무', value: bigCategoryName.value || subCategoryName.value || '미정' },
+    {
+      label: '희망 직무',
+      value: bigCategoryName.value || subCategoryName.value || '미정',
+    },
     { label: '훈련 지역', value: trainingRegion.value },
     { label: '훈련 과정', value: `${trainings.value.length}개` },
     { label: '자격증', value: `${qualifications.value.length}개` },
@@ -223,7 +210,10 @@ const summaryCompare = computed(() => {
       icon: jobCostIcon,
     },
     badge: hasSpending
-      ? { text: `지출의 ${spendingRate.value}%`, tone: withinSpending ? 'good' : 'bad' }
+      ? {
+          text: `지출의 ${spendingRate.value}%`,
+          tone: withinSpending ? 'good' : 'bad',
+        }
       : null,
   };
 });
@@ -238,8 +228,16 @@ const COST_STYLES = [
 
 const costCardItems = computed(() => {
   const base = [
-    { label: '자격증·어학', amount: qualificationTotal.value, percent: qualificationRate.value },
-    { label: '인터넷 강의', amount: courseTotal.value, percent: courseRate.value },
+    {
+      label: '자격증·어학',
+      amount: qualificationTotal.value,
+      percent: qualificationRate.value,
+    },
+    {
+      label: '인터넷 강의',
+      amount: courseTotal.value,
+      percent: courseRate.value,
+    },
   ];
 
   if (isEmployment.value) {
@@ -256,7 +254,7 @@ const costCardItems = computed(() => {
     percent: it.percent,
     color: COST_STYLES[i].color,
     ink: COST_STYLES[i].ink,
-    showName: it.percent >= 10,
+    showName: it.percent >= 25,
   }));
 });
 
@@ -265,8 +263,6 @@ const costState = computed(() => ({
   amount: totalAmount.value,
   unit: '원',
   items: costCardItems.value,
-  hint: largestCostMessage.value,
-  hintTone: 'g',
 }));
 
 // ── 비용 탭 (알약형 세그먼트): 준비 예상 비용 / 상세 내역 ──────
@@ -443,7 +439,9 @@ onMounted(async () => {
               class="cost-detail__row"
             >
               <span class="cost-detail__name">{{ item.name }}</span>
-              <strong class="cost-detail__amount">{{ formatWon(item.amount) }}</strong>
+              <strong class="cost-detail__amount">{{
+                formatWon(item.amount)
+              }}</strong>
             </div>
           </div>
         </template>
@@ -515,8 +513,6 @@ onMounted(async () => {
   overflow: hidden;
   color: var(--text-body);
   font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .cost-detail__amount {
